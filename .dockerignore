@@ -1,0 +1,9 @@
+src/target/
+view/
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+.claude/
+.docs/
