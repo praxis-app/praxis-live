@@ -4,6 +4,5 @@ view/
 .gitignore
 .env
 .env.*
-!.env.example
 .claude/
 .docs/
