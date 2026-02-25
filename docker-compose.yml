@@ -9,7 +9,7 @@ services:
       DB_SCHEMA: ${DB_SCHEMA}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
-      LIVEKIT_URL: ${LIVEKIT_URL}
+      LIVEKIT_URL: ws://${LIVEKIT_HOST}:${LIVEKIT_PORT}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
     depends_on:
