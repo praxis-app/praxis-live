@@ -19,6 +19,6 @@ WORKDIR /app
 
 COPY --from=builder /app/target/release/praxis-live .
 
-EXPOSE 8080
+EXPOSE ${PORT}
 
 CMD ["./praxis-live"]
