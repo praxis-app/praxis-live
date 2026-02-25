@@ -1,0 +1,46 @@
+services:
+  web:
+    build: .
+    ports:
+      - "${PORT}:${PORT}"
+    environment:
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: ${DB_SCHEMA}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      LIVEKIT_URL: ws://${LIVEKIT_HOST}:${LIVEKIT_PORT}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+    depends_on:
+      database:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+
+  database:
+    image: postgres:16
+    ports:
+      - "${DB_PORT}:${DB_PORT}"
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_SCHEMA}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  livekit:
+    image: livekit/livekit-server:latest
+    ports:
+      - "${LIVEKIT_PORT}:${LIVEKIT_PORT}"
+      - "${LIVEKIT_RTC_TCP_PORT}:${LIVEKIT_RTC_TCP_PORT}"
+      - "${LIVEKIT_RTC_UDP_PORT}:${LIVEKIT_RTC_UDP_PORT}/udp"
+    command: --dev --bind 0.0.0.0
+
+volumes:
+  postgres_data:
