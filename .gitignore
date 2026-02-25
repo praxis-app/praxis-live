@@ -1,0 +1,15 @@
+/target
+
+# Project
+.claude
+.docs
+
+# Docker workspace (persisted agent data)
+/workspace/*
+!/workspace/.gitkeep
+
+# Environment variables
+.env
+
+# Mac OS
+.DS_Store
