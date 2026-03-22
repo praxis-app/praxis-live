@@ -3,8 +3,8 @@ FROM rust:1.93-slim-bookworm AS builder
 
 WORKDIR /app
 
-COPY src/Cargo.toml src/Cargo.lock ./
-COPY src/src ./src
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 
 RUN cargo build --release
 
