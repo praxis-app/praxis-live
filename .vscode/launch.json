@@ -5,7 +5,7 @@
       "name": "Debug Client",
       "type": "node",
       "request": "launch",
-      "cwd": "${workspaceFolder}/view",
+      "cwd": "${workspaceFolder}",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "outputCapture": "std",
