@@ -1,9 +1,17 @@
-use axum::{routing::get, Json, Router};
-use serde_json::{json, Value};
-use std::{env, net::SocketAddr};
+mod auth;
 
-async fn health() -> Json<Value> {
-    Json(json!({"status": "ok"}))
+use axum::{routing::get, Json, Router};
+use serde::Serialize;
+use std::{env, net::SocketAddr};
+use tower_http::trace::TraceLayer;
+
+#[derive(Debug, Serialize)]
+struct HealthResponse {
+    status: &'static str,
+}
+
+async fn health() -> Json<HealthResponse> {
+    Json(HealthResponse { status: "ok" })
 }
 
 #[tokio::main]
@@ -17,8 +25,13 @@ async fn main() {
         )
         .init();
 
-    let api = Router::new().route("/health", get(health));
-    let app = Router::new().nest("/api", api);
+    let api = Router::new()
+        .route("/health", get(health))
+        .merge(auth::router());
+
+    let app = Router::new()
+        .nest("/api", api)
+        .layer(TraceLayer::new_for_http());
 
     let server_port = env::var("SERVER_PORT")
         .ok()
@@ -26,6 +39,7 @@ async fn main() {
         .unwrap_or(3100);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], server_port));
+    tracing::warn!("{}", auth::STORAGE_WARNING);
     tracing::info!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
