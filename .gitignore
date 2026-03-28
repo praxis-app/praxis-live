@@ -18,6 +18,7 @@ dist-ssr/
 .scripts
 .idea
 .vscode/*
+!.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 

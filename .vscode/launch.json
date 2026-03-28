@@ -17,6 +17,7 @@
       "name": "Debug Server",
       "type": "lldb",
       "request": "launch",
+      "preLaunchTask": "Build Server",
       "cargo": {
         "args": ["build", "--bin", "praxis-live"],
         "filter": {
