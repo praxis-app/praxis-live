@@ -6,13 +6,21 @@ import tailwindcss from "@tailwindcss/vite";
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "");
-  const clientPort = Number.parseInt(env.CLIENT_PORT || "5173", 10);
+  const clientPort = Number.parseInt(env.CLIENT_PORT || "3000", 10);
+  const serverPort = Number.parseInt(env.SERVER_PORT || "3100", 10);
+  const host = env.HOST || "localhost";
 
   return {
     envDir: __dirname,
     root: path.resolve(__dirname, "view"),
     server: {
       port: clientPort,
+      proxy: {
+        "/api": {
+          target: `http://${host}:${serverPort}`,
+          changeOrigin: true,
+        },
+      },
     },
     plugins: [react(), tailwindcss()],
     resolve: {

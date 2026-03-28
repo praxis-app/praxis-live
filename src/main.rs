@@ -17,7 +17,8 @@ async fn main() {
         )
         .init();
 
-    let app = Router::new().route("/health", get(health));
+    let api = Router::new().route("/health", get(health));
+    let app = Router::new().nest("/api", api);
 
     let server_port = env::var("SERVER_PORT")
         .ok()
