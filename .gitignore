@@ -15,6 +15,7 @@ dist-ssr/
 # Project
 .claude
 .docs
+.scripts
 .idea
 .vscode/*
 !.vscode/launch.json
