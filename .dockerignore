@@ -1,4 +1,4 @@
-src/target/
+target/
 view/
 .git/
 .gitignore

@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Client",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "runtimeVersion": "24.14.0",
+      "outputCapture": "std",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true
+    },
+    {
+      "name": "Debug Server",
+      "type": "lldb",
+      "request": "launch",
+      "preLaunchTask": "Build Server",
+      "cargo": {
+        "args": ["build", "--bin", "praxis-live"],
+        "filter": {
+          "name": "praxis-live",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "terminal": "console"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug App",
+      "configurations": ["Debug Server", "Debug Client"],
+      "stopAll": true
+    }
+  ]
+}
