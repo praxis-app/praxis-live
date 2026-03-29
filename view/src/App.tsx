@@ -336,8 +336,8 @@ function App() {
                     you signed in until you log out or the server restarts.
                   </p>
                   <p>
-                    This first pass stores users and sessions in memory. It proves
-                    the auth flow without introducing database schema work yet.
+                    User accounts are now persisted in Postgres, so restarting the
+                    server will not erase them even though the current session ends.
                   </p>
                 </div>
 

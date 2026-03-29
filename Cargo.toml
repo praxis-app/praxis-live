@@ -7,6 +7,7 @@ edition = "2021"
 axum = "0.8"
 axum-login = "0.18"
 password-auth = "1"
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "derive"] }
 tower-sessions = { version = "0.14", features = ["memory-store"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
