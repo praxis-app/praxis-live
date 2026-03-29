@@ -1,11 +1,14 @@
 mod auth;
+mod config;
 mod user;
 
 use axum::{routing::get, Json, Router};
 use serde::Serialize;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use std::{env, error::Error, net::SocketAddr};
+use std::{env, error::Error, io, net::SocketAddr};
 use tower_http::trace::TraceLayer;
+
+use crate::config::required_env;
 
 #[derive(Debug, Serialize)]
 struct HealthResponse {
@@ -54,14 +57,16 @@ async fn connect_database() -> Result<sqlx::PgPool, Box<dyn Error + Send + Sync>
     let options = if let Ok(database_url) = env::var("DATABASE_URL") {
         database_url.parse::<PgConnectOptions>()?
     } else {
-        let host = env::var("DB_HOST").unwrap_or_else(|_| "localhost".to_owned());
-        let port = env::var("DB_PORT")
-            .ok()
-            .and_then(|value| value.parse::<u16>().ok())
-            .unwrap_or(5432);
-        let username = env::var("DB_USERNAME").unwrap_or_else(|_| "postgres".to_owned());
-        let password = env::var("DB_PASSWORD").unwrap_or_else(|_| "postgres".to_owned());
-        let database = env::var("DB_SCHEMA").unwrap_or_else(|_| "postgres".to_owned());
+        let host = required_env("DB_HOST")?;
+        let port = required_env("DB_PORT")?.parse::<u16>().map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("DB_PORT must be a valid u16: {error}"),
+            )
+        })?;
+        let username = required_env("DB_USERNAME")?;
+        let password = required_env("DB_PASSWORD")?;
+        let database = required_env("DB_SCHEMA")?;
 
         PgConnectOptions::new()
             .host(&host)

@@ -9,17 +9,17 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::{
-    env,
+    error::Error,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use crate::config::required_env;
 use crate::user::{self, CreateUserError, PublicUser, UserRecord};
 
 type AppResult<T> = Result<T, ApiError>;
 
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 90);
-const DEFAULT_AUTH_TOKEN_SECRET: &str = "dev-only-change-me";
 const MIN_PASSWORD_LENGTH: usize = 8;
 
 #[derive(Clone, Debug)]
@@ -86,15 +86,10 @@ struct Claims {
     exp: u64,
 }
 
-pub async fn router(pool: PgPool) -> Result<Router, sqlx::Error> {
+pub async fn router(pool: PgPool) -> Result<Router, Box<dyn Error + Send + Sync>> {
     user::ensure_table(&pool).await?;
 
-    let jwt_secret = env::var("AUTH_TOKEN_SECRET").unwrap_or_else(|_| {
-        tracing::warn!(
-            "AUTH_TOKEN_SECRET is not set; using the built-in development secret. Set AUTH_TOKEN_SECRET for any shared or production environment."
-        );
-        DEFAULT_AUTH_TOKEN_SECRET.to_owned()
-    });
+    let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
 
     let auth_state = AuthState {
         pool,
