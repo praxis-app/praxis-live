@@ -18,6 +18,7 @@ type User = {
 
 type SessionResponse = {
   user: User | null;
+  accessToken?: string | null;
 };
 
 type ApiError = {
@@ -43,15 +44,30 @@ type Notice =
   | null;
 
 const sessionQueryKey = ["auth", "session"] as const;
+const accessTokenStorageKey = "praxis-live-access-token";
+
+function getAccessToken() {
+  return window.localStorage.getItem(accessTokenStorageKey);
+}
+
+function setAccessToken(token: string | null) {
+  if (token) {
+    window.localStorage.setItem(accessTokenStorageKey, token);
+    return;
+  }
+
+  window.localStorage.removeItem(accessTokenStorageKey);
+}
 
 async function requestJson<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
+  const accessToken = getAccessToken();
   const response = await fetch(path, {
-    credentials: "same-origin",
     headers: {
       Accept: "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
@@ -129,6 +145,7 @@ function App() {
         body: JSON.stringify(payload),
       }),
     onSuccess: (data) => {
+      setAccessToken(data.accessToken ?? null);
       queryClient.setQueryData(sessionQueryKey, data);
       setLoginForm((current) => ({ ...current, password: "" }));
       setNotice({
@@ -152,6 +169,7 @@ function App() {
         body: JSON.stringify(payload),
       }),
     onSuccess: (data) => {
+      setAccessToken(data.accessToken ?? null);
       queryClient.setQueryData(sessionQueryKey, data);
       setSignupForm({ email: "", name: "", password: "" });
       setNotice({
@@ -174,6 +192,7 @@ function App() {
         method: "POST",
       }),
     onSuccess: (data) => {
+      setAccessToken(null);
       queryClient.setQueryData(sessionQueryKey, data);
       setNotice({
         kind: "success",
@@ -220,13 +239,12 @@ function App() {
 
             <div className="space-y-4">
               <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-                Session-backed sign up, login, and logout are wired into the Rust
-                API.
+                JWT-backed sign up, login, and logout are wired into the Rust API.
               </h1>
               <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
                 The frontend keeps auth state in React Query, the backend hashes
-                passwords with a crate, and login state is stored in a session
-                cookie.
+                passwords with a crate, and login state is stored as a bearer
+                token in local storage.
               </p>
             </div>
           </div>

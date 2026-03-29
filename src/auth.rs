@@ -1,22 +1,26 @@
 use axum::{
-    http::StatusCode,
+    extract::State,
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
-use axum_login::{
-    tower_sessions::{MemoryStore, SessionManagerLayer},
-    AuthManagerLayerBuilder, AuthUser, AuthnBackend,
-};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
+use std::{
+    env,
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
-type AuthSession = axum_login::AuthSession<AuthBackend>;
 type AppResult<T> = Result<T, ApiError>;
 
+const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 90);
+const DEFAULT_AUTH_TOKEN_SECRET: &str = "dev-only-change-me";
 const MIN_PASSWORD_LENGTH: usize = 8;
 pub const STORAGE_NOTICE: &str =
-    "Auth users are stored in Postgres. Sessions remain in memory until a persistent session store is configured.";
+    "Auth users are stored in Postgres. Login state uses a stateless JWT access token, so server restarts do not clear sessions.";
 const USERS_TABLE_SQL: &str = r#"
     CREATE TABLE IF NOT EXISTS users (
         id BIGSERIAL PRIMARY KEY,
@@ -27,6 +31,12 @@ const USERS_TABLE_SQL: &str = r#"
 "#;
 const UNIQUE_VIOLATION_CODE: &str = "23505";
 
+#[derive(Clone, Debug)]
+struct AuthState {
+    pool: PgPool,
+    jwt_secret: Arc<str>,
+}
+
 #[derive(Debug, Clone, FromRow)]
 struct UserRecord {
     id: i64,
@@ -35,39 +45,13 @@ struct UserRecord {
     password_hash: String,
 }
 
-impl AuthUser for UserRecord {
-    type Id = i64;
-
-    fn id(&self) -> Self::Id {
-        self.id
-    }
-
-    fn session_auth_hash(&self) -> &[u8] {
-        self.password_hash.as_bytes()
-    }
-}
-
-#[derive(Clone, Debug)]
-struct AuthBackend {
-    pool: PgPool,
-}
-
-impl AuthBackend {
-    async fn create_user(&self, new_user: NewUser) -> Result<UserRecord, sqlx::Error> {
-        let password_hash = password_auth::generate_hash(new_user.password);
-
-        sqlx::query_as::<_, UserRecord>(
-            r#"
-            INSERT INTO users (email, name, password_hash)
-            VALUES ($1, $2, $3)
-            RETURNING id, email, name, password_hash
-            "#,
-        )
-        .bind(new_user.email)
-        .bind(new_user.name)
-        .bind(password_hash)
-        .fetch_one(&self.pool)
-        .await
+impl UserRecord {
+    fn into_public(self) -> PublicUser {
+        PublicUser {
+            id: self.id,
+            email: self.email,
+            name: self.name,
+        }
     }
 }
 
@@ -75,50 +59,6 @@ impl AuthBackend {
 struct Credentials {
     email: String,
     password: String,
-}
-
-impl AuthnBackend for AuthBackend {
-    type User = UserRecord;
-    type Credentials = Credentials;
-    type Error = sqlx::Error;
-
-    async fn authenticate(
-        &self,
-        credentials: Self::Credentials,
-    ) -> Result<Option<Self::User>, Self::Error> {
-        let user = sqlx::query_as::<_, UserRecord>(
-            r#"
-            SELECT id, email, name, password_hash
-            FROM users
-            WHERE email = $1
-            "#,
-        )
-        .bind(credentials.email)
-        .fetch_optional(&self.pool)
-        .await?;
-
-        let Some(user) = user else {
-            return Ok(None);
-        };
-
-        match password_auth::verify_password(credentials.password, &user.password_hash) {
-            Ok(()) => Ok(Some(user)),
-            Err(_) => Ok(None),
-        }
-    }
-
-    async fn get_user(&self, user_id: &i64) -> Result<Option<Self::User>, Self::Error> {
-        sqlx::query_as::<_, UserRecord>(
-            r#"
-            SELECT id, email, name, password_hash
-            FROM users
-            WHERE id = $1
-            "#,
-        )
-        .bind(user_id)
-        .fetch_optional(&self.pool)
-        .await
-    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -181,88 +121,200 @@ struct PublicUser {
     name: String,
 }
 
-impl From<UserRecord> for PublicUser {
-    fn from(user: UserRecord) -> Self {
-        Self {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-        }
-    }
-}
-
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SessionResponse {
     user: Option<PublicUser>,
+    access_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Claims {
+    sub: String,
+    exp: u64,
 }
 
 pub async fn router(pool: PgPool) -> Result<Router, sqlx::Error> {
     sqlx::query(USERS_TABLE_SQL).execute(&pool).await?;
 
-    let backend = AuthBackend { pool };
-    let session_store = MemoryStore::default();
-    let session_layer = SessionManagerLayer::new(session_store).with_secure(false);
-    let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
+    let jwt_secret = env::var("AUTH_TOKEN_SECRET").unwrap_or_else(|_| {
+        tracing::warn!(
+            "AUTH_TOKEN_SECRET is not set; using the built-in development secret. Set AUTH_TOKEN_SECRET for any shared or production environment."
+        );
+        DEFAULT_AUTH_TOKEN_SECRET.to_owned()
+    });
+
+    let auth_state = AuthState {
+        pool,
+        jwt_secret: Arc::<str>::from(jwt_secret),
+    };
 
     Ok(Router::new()
         .route("/auth/me", get(me))
         .route("/auth/signup", post(signup))
         .route("/auth/login", post(login))
         .route("/auth/logout", post(logout))
-        .layer(auth_layer))
+        .with_state(auth_state))
 }
 
-async fn me(auth_session: AuthSession) -> Json<SessionResponse> {
-    Json(SessionResponse {
-        user: auth_session.user.map(Into::into),
-    })
+async fn me(
+    State(auth_state): State<AuthState>,
+    headers: HeaderMap,
+) -> AppResult<Json<SessionResponse>> {
+    let user = current_user(&auth_state, &headers).await?;
+
+    Ok(Json(SessionResponse {
+        user: user.map(UserRecord::into_public),
+        access_token: None,
+    }))
 }
 
 async fn signup(
-    mut auth_session: AuthSession,
+    State(auth_state): State<AuthState>,
     Json(payload): Json<SignupRequest>,
 ) -> AppResult<(StatusCode, Json<SessionResponse>)> {
     let new_user = validate_signup(payload)?;
+    let password_hash = password_auth::generate_hash(new_user.password);
 
-    let user = auth_session
-        .backend
-        .create_user(new_user)
-        .await
-        .map_err(map_create_user_error)?;
+    let user = sqlx::query_as::<_, UserRecord>(
+        r#"
+        INSERT INTO users (email, name, password_hash)
+        VALUES ($1, $2, $3)
+        RETURNING id, email, name, password_hash
+        "#,
+    )
+    .bind(new_user.email)
+    .bind(new_user.name)
+    .bind(password_hash)
+    .fetch_one(&auth_state.pool)
+    .await
+    .map_err(map_create_user_error)?;
 
-    auth_session.login(&user).await.map_err(internal_error)?;
+    let access_token = issue_access_token(&auth_state, user.id)?;
 
     Ok((
         StatusCode::CREATED,
         Json(SessionResponse {
-            user: Some(user.into()),
+            user: Some(user.into_public()),
+            access_token: Some(access_token),
         }),
     ))
 }
 
 async fn login(
-    mut auth_session: AuthSession,
+    State(auth_state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
 ) -> AppResult<Json<SessionResponse>> {
     let credentials = validate_login(payload)?;
-
-    let user = auth_session
-        .authenticate(credentials)
+    let user = authenticate(&auth_state.pool, credentials)
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Invalid email or password."))?;
 
-    auth_session.login(&user).await.map_err(internal_error)?;
+    let access_token = issue_access_token(&auth_state, user.id)?;
 
     Ok(Json(SessionResponse {
-        user: Some(user.into()),
+        user: Some(user.into_public()),
+        access_token: Some(access_token),
     }))
 }
 
-async fn logout(mut auth_session: AuthSession) -> AppResult<Json<SessionResponse>> {
-    auth_session.logout().await.map_err(internal_error)?;
+async fn logout() -> Json<SessionResponse> {
+    Json(SessionResponse {
+        user: None,
+        access_token: None,
+    })
+}
 
-    Ok(Json(SessionResponse { user: None }))
+async fn current_user(auth_state: &AuthState, headers: &HeaderMap) -> AppResult<Option<UserRecord>> {
+    let Some(token) = bearer_token(headers) else {
+        return Ok(None);
+    };
+
+    let Some(user_id) = verify_access_token(auth_state, token) else {
+        return Ok(None);
+    };
+
+    sqlx::query_as::<_, UserRecord>(
+        r#"
+        SELECT id, email, name, password_hash
+        FROM users
+        WHERE id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_optional(&auth_state.pool)
+    .await
+    .map_err(internal_error)
+}
+
+async fn authenticate(
+    pool: &PgPool,
+    credentials: Credentials,
+) -> Result<Option<UserRecord>, sqlx::Error> {
+    let user = sqlx::query_as::<_, UserRecord>(
+        r#"
+        SELECT id, email, name, password_hash
+        FROM users
+        WHERE email = $1
+        "#,
+    )
+    .bind(credentials.email)
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(user) = user else {
+        return Ok(None);
+    };
+
+    match password_auth::verify_password(credentials.password, &user.password_hash) {
+        Ok(()) => Ok(Some(user)),
+        Err(_) => Ok(None),
+    }
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+    let header_value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+    let (scheme, token) = header_value.split_once(' ')?;
+
+    if scheme.eq_ignore_ascii_case("Bearer") && !token.is_empty() {
+        Some(token)
+    } else {
+        None
+    }
+}
+
+fn issue_access_token(auth_state: &AuthState, user_id: i64) -> AppResult<String> {
+    let claims = Claims {
+        sub: user_id.to_string(),
+        exp: current_unix_timestamp() + ACCESS_TOKEN_TTL.as_secs(),
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(auth_state.jwt_secret.as_bytes()),
+    )
+    .map_err(internal_error)
+}
+
+fn verify_access_token(auth_state: &AuthState, token: &str) -> Option<i64> {
+    let claims = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(auth_state.jwt_secret.as_bytes()),
+        &Validation::default(),
+    )
+    .ok()?
+    .claims;
+
+    claims.sub.parse().ok()
+}
+
+fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 fn validate_signup(input: SignupRequest) -> AppResult<NewUser> {
