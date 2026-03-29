@@ -45,18 +45,8 @@ struct UserRecord {
 
 impl UserRecord {
     fn into_public(self) -> PublicUser {
-        PublicUser {
-            id: self.id,
-            email: self.email,
-            name: self.name,
-        }
+        self.into()
     }
-}
-
-#[derive(Clone, Debug)]
-struct Credentials {
-    email: String,
-    password: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,13 +59,6 @@ struct SignupRequest {
 #[derive(Debug, Deserialize)]
 struct LoginRequest {
     email: String,
-    password: String,
-}
-
-#[derive(Debug)]
-struct NewUser {
-    email: String,
-    name: String,
     password: String,
 }
 
@@ -117,6 +100,16 @@ struct PublicUser {
     id: i64,
     email: String,
     name: String,
+}
+
+impl From<UserRecord> for PublicUser {
+    fn from(user: UserRecord) -> Self {
+        Self {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -171,8 +164,8 @@ async fn signup(
     State(auth_state): State<AuthState>,
     Json(payload): Json<SignupRequest>,
 ) -> AppResult<(StatusCode, Json<SessionResponse>)> {
-    let new_user = validate_signup(payload)?;
-    let password_hash = password_auth::generate_hash(new_user.password);
+    let signup = validate_signup(payload)?;
+    let password_hash = password_auth::generate_hash(signup.password);
 
     let user = sqlx::query_as::<_, UserRecord>(
         r#"
@@ -181,8 +174,8 @@ async fn signup(
         RETURNING id, email, name, password_hash
         "#,
     )
-    .bind(new_user.email)
-    .bind(new_user.name)
+    .bind(signup.email)
+    .bind(signup.name)
     .bind(password_hash)
     .fetch_one(&auth_state.pool)
     .await
@@ -203,8 +196,8 @@ async fn login(
     State(auth_state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
 ) -> AppResult<Json<SessionResponse>> {
-    let credentials = validate_login(payload)?;
-    let user = authenticate(&auth_state.pool, credentials)
+    let login = validate_login(payload)?;
+    let user = authenticate(&auth_state.pool, login)
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Invalid email or password."))?;
@@ -224,7 +217,10 @@ async fn logout() -> Json<SessionResponse> {
     })
 }
 
-async fn current_user(auth_state: &AuthState, headers: &HeaderMap) -> AppResult<Option<UserRecord>> {
+async fn current_user(
+    auth_state: &AuthState,
+    headers: &HeaderMap,
+) -> AppResult<Option<UserRecord>> {
     let Some(token) = bearer_token(headers) else {
         return Ok(None);
     };
@@ -248,7 +244,7 @@ async fn current_user(auth_state: &AuthState, headers: &HeaderMap) -> AppResult<
 
 async fn authenticate(
     pool: &PgPool,
-    credentials: Credentials,
+    login: LoginRequest,
 ) -> Result<Option<UserRecord>, sqlx::Error> {
     let user = sqlx::query_as::<_, UserRecord>(
         r#"
@@ -257,7 +253,7 @@ async fn authenticate(
         WHERE email = $1
         "#,
     )
-    .bind(credentials.email)
+    .bind(login.email)
     .fetch_optional(pool)
     .await?;
 
@@ -265,10 +261,11 @@ async fn authenticate(
         return Ok(None);
     };
 
-    match password_auth::verify_password(credentials.password, &user.password_hash) {
-        Ok(()) => Ok(Some(user)),
-        Err(_) => Ok(None),
-    }
+    Ok(
+        password_auth::verify_password(login.password, &user.password_hash)
+            .ok()
+            .map(|()| user),
+    )
 }
 
 fn bearer_token(headers: &HeaderMap) -> Option<&str> {
@@ -315,18 +312,18 @@ fn current_unix_timestamp() -> u64 {
         .as_secs()
 }
 
-fn validate_signup(input: SignupRequest) -> AppResult<NewUser> {
-    let name = input.name.trim().to_owned();
-    let email = normalize_email(&input.email);
+fn validate_signup(mut input: SignupRequest) -> AppResult<SignupRequest> {
+    input.name = input.name.trim().to_owned();
+    input.email = normalize_email(&input.email);
 
-    if name.chars().count() < 2 {
+    if input.name.chars().count() < 2 {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "Name must be at least 2 characters long.",
         ));
     }
 
-    if !looks_like_email(&email) {
+    if !looks_like_email(&input.email) {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "Enter a valid email address.",
@@ -340,17 +337,13 @@ fn validate_signup(input: SignupRequest) -> AppResult<NewUser> {
         ));
     }
 
-    Ok(NewUser {
-        email,
-        name,
-        password: input.password,
-    })
+    Ok(input)
 }
 
-fn validate_login(input: LoginRequest) -> AppResult<Credentials> {
-    let email = normalize_email(&input.email);
+fn validate_login(mut input: LoginRequest) -> AppResult<LoginRequest> {
+    input.email = normalize_email(&input.email);
 
-    if !looks_like_email(&email) {
+    if !looks_like_email(&input.email) {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "Enter a valid email address.",
@@ -364,10 +357,7 @@ fn validate_login(input: LoginRequest) -> AppResult<Credentials> {
         ));
     }
 
-    Ok(Credentials {
-        email,
-        password: input.password,
-    })
+    Ok(input)
 }
 
 fn map_create_user_error(error: sqlx::Error) -> ApiError {
