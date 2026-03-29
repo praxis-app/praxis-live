@@ -1,5 +1,18 @@
-# ── Build stage ────────────────────────────────────────────────────────────────
-FROM rust:1.93-slim-bookworm AS builder
+# ── Frontend build stage ───────────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS frontend-builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
+COPY vite.config.ts components.json ./
+COPY view ./view
+
+RUN npm ci
+RUN npm run build
+
+# ── Backend build stage ────────────────────────────────────────────────────────
+FROM rust:1.93-slim-bookworm AS backend-builder
 
 WORKDIR /app
 
@@ -17,6 +30,9 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/praxis-live .
+COPY --from=backend-builder /app/target/release/praxis-live ./
+COPY --from=frontend-builder /app/view/dist ./static
+
+ENV FRONTEND_DIST_DIR=/app/static
 
 CMD ["./praxis-live"]

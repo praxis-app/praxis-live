@@ -1,5 +1,6 @@
 target/
-view/
+node_modules/
+view/dist/
 .git/
 .gitignore
 .env
