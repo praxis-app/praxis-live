@@ -19,8 +19,6 @@ type AppResult<T> = Result<T, ApiError>;
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 90);
 const DEFAULT_AUTH_TOKEN_SECRET: &str = "dev-only-change-me";
 const MIN_PASSWORD_LENGTH: usize = 8;
-pub const STORAGE_NOTICE: &str =
-    "Auth users are stored in Postgres. Login state uses a stateless JWT access token, so server restarts do not clear sessions.";
 const USERS_TABLE_SQL: &str = r#"
     CREATE TABLE IF NOT EXISTS users (
         id BIGSERIAL PRIMARY KEY,

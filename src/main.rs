@@ -41,7 +41,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .unwrap_or(3100);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], server_port));
-    tracing::info!("{}", auth::STORAGE_NOTICE);
     tracing::info!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
