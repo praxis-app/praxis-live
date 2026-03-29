@@ -1,5 +1,5 @@
 import type { SyntheticEvent } from "react";
-import { AuthField } from "@/components/auth/form-field";
+import { AuthField } from "@/components/auth/auth-field";
 import { Spinner } from "@/components/ui/spinner";
 
 type LoginFormProps = {
