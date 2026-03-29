@@ -43,12 +43,6 @@ struct UserRecord {
     password_hash: String,
 }
 
-impl UserRecord {
-    fn into_public(self) -> PublicUser {
-        self.into()
-    }
-}
-
 #[derive(Debug, Deserialize)]
 struct SignupRequest {
     email: String,
@@ -155,7 +149,7 @@ async fn me(
     let user = current_user(&auth_state, &headers).await?;
 
     Ok(Json(SessionResponse {
-        user: user.map(UserRecord::into_public),
+        user: user.map(Into::into),
         access_token: None,
     }))
 }
@@ -186,7 +180,7 @@ async fn signup(
     Ok((
         StatusCode::CREATED,
         Json(SessionResponse {
-            user: Some(user.into_public()),
+            user: Some(user.into()),
             access_token: Some(access_token),
         }),
     ))
@@ -205,7 +199,7 @@ async fn login(
     let access_token = issue_access_token(&auth_state, user.id)?;
 
     Ok(Json(SessionResponse {
-        user: Some(user.into_public()),
+        user: Some(user.into()),
         access_token: Some(access_token),
     }))
 }
