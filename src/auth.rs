@@ -7,40 +7,25 @@ use axum::{
 };
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, PgPool};
+use sqlx::PgPool;
 use std::{
     env,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use crate::user::{self, CreateUserError, PublicUser, UserRecord};
+
 type AppResult<T> = Result<T, ApiError>;
 
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 90);
 const DEFAULT_AUTH_TOKEN_SECRET: &str = "dev-only-change-me";
 const MIN_PASSWORD_LENGTH: usize = 8;
-const USERS_TABLE_SQL: &str = r#"
-    CREATE TABLE IF NOT EXISTS users (
-        id BIGSERIAL PRIMARY KEY,
-        email TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        password_hash TEXT NOT NULL
-    )
-"#;
-const UNIQUE_VIOLATION_CODE: &str = "23505";
 
 #[derive(Clone, Debug)]
 struct AuthState {
     pool: PgPool,
     jwt_secret: Arc<str>,
-}
-
-#[derive(Debug, Clone, FromRow)]
-struct UserRecord {
-    id: i64,
-    email: String,
-    name: String,
-    password_hash: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,7 +42,7 @@ struct LoginRequest {
 }
 
 #[derive(Debug)]
-struct ApiError {
+pub(crate) struct ApiError {
     status: StatusCode,
     message: String,
 }
@@ -90,24 +75,6 @@ struct ErrorResponse {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PublicUser {
-    id: i64,
-    email: String,
-    name: String,
-}
-
-impl From<UserRecord> for PublicUser {
-    fn from(user: UserRecord) -> Self {
-        Self {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 struct SessionResponse {
     user: Option<PublicUser>,
     access_token: Option<String>,
@@ -120,7 +87,7 @@ struct Claims {
 }
 
 pub async fn router(pool: PgPool) -> Result<Router, sqlx::Error> {
-    sqlx::query(USERS_TABLE_SQL).execute(&pool).await?;
+    user::ensure_table(&pool).await?;
 
     let jwt_secret = env::var("AUTH_TOKEN_SECRET").unwrap_or_else(|_| {
         tracing::warn!(
@@ -160,20 +127,9 @@ async fn signup(
 ) -> AppResult<(StatusCode, Json<SessionResponse>)> {
     let signup = validate_signup(payload)?;
     let password_hash = password_auth::generate_hash(signup.password);
-
-    let user = sqlx::query_as::<_, UserRecord>(
-        r#"
-        INSERT INTO users (email, name, password_hash)
-        VALUES ($1, $2, $3)
-        RETURNING id, email, name, password_hash
-        "#,
-    )
-    .bind(signup.email)
-    .bind(signup.name)
-    .bind(password_hash)
-    .fetch_one(&auth_state.pool)
-    .await
-    .map_err(map_create_user_error)?;
+    let user = user::create_user(&auth_state.pool, signup.email, signup.name, password_hash)
+        .await
+        .map_err(map_create_user_error)?;
 
     let access_token = issue_access_token(&auth_state, user.id)?;
 
@@ -191,7 +147,7 @@ async fn login(
     Json(payload): Json<LoginRequest>,
 ) -> AppResult<Json<SessionResponse>> {
     let login = validate_login(payload)?;
-    let user = authenticate(&auth_state.pool, login)
+    let user = user::authenticate(&auth_state.pool, login.email, login.password)
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Invalid email or password."))?;
@@ -223,43 +179,9 @@ async fn current_user(
         return Ok(None);
     };
 
-    sqlx::query_as::<_, UserRecord>(
-        r#"
-        SELECT id, email, name, password_hash
-        FROM users
-        WHERE id = $1
-        "#,
-    )
-    .bind(user_id)
-    .fetch_optional(&auth_state.pool)
+    user::find_user_by_id(&auth_state.pool, user_id)
     .await
     .map_err(internal_error)
-}
-
-async fn authenticate(
-    pool: &PgPool,
-    login: LoginRequest,
-) -> Result<Option<UserRecord>, sqlx::Error> {
-    let user = sqlx::query_as::<_, UserRecord>(
-        r#"
-        SELECT id, email, name, password_hash
-        FROM users
-        WHERE email = $1
-        "#,
-    )
-    .bind(login.email)
-    .fetch_optional(pool)
-    .await?;
-
-    let Some(user) = user else {
-        return Ok(None);
-    };
-
-    Ok(
-        password_auth::verify_password(login.password, &user.password_hash)
-            .ok()
-            .map(|()| user),
-    )
 }
 
 fn bearer_token(headers: &HeaderMap) -> Option<&str> {
@@ -354,22 +276,14 @@ fn validate_login(mut input: LoginRequest) -> AppResult<LoginRequest> {
     Ok(input)
 }
 
-fn map_create_user_error(error: sqlx::Error) -> ApiError {
-    if is_unique_violation(&error) {
-        return ApiError::new(
+fn map_create_user_error(error: CreateUserError) -> ApiError {
+    match error {
+        CreateUserError::DuplicateEmail => ApiError::new(
             StatusCode::CONFLICT,
             "An account with that email already exists.",
-        );
+        ),
+        CreateUserError::Database(error) => internal_error(error),
     }
-
-    internal_error(error)
-}
-
-fn is_unique_violation(error: &sqlx::Error) -> bool {
-    error
-        .as_database_error()
-        .and_then(|database_error| database_error.code())
-        .is_some_and(|code| code == UNIQUE_VIOLATION_CODE)
 }
 
 fn normalize_email(email: &str) -> String {

@@ -1,4 +1,5 @@
 mod auth;
+mod user;
 
 use axum::{routing::get, Json, Router};
 use serde::Serialize;
