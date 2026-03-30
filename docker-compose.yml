@@ -19,6 +19,7 @@ services:
         condition: service_healthy
       livekit:
         condition: service_started
+        required: false
 
   database:
     image: postgres:16
@@ -43,6 +44,7 @@ services:
       - "${LIVEKIT_RTC_TCP_PORT}:${LIVEKIT_RTC_TCP_PORT}"
       - "${LIVEKIT_RTC_UDP_PORT}:${LIVEKIT_RTC_UDP_PORT}/udp"
     command: --dev --bind 0.0.0.0
+    profiles: ["livekit"]
 
 volumes:
   postgres_data:
