@@ -17,6 +17,7 @@ dist-ssr/
 .docs
 .scripts
 .idea
+.tmp
 .vscode/*
 !.vscode/tasks.json
 !.vscode/launch.json
