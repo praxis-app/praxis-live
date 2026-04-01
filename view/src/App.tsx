@@ -218,7 +218,7 @@ function App() {
         </div>
 
         <Card className="w-full border-border shadow-sm">
-          <CardContent className="space-y-6 p-6">
+          <CardContent className="space-y-2 p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <h1 className="text-xl font-semibold text-foreground">
