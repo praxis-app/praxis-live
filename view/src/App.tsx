@@ -25,22 +25,17 @@ type ApiError = {
   error?: string;
 };
 
-type Notice =
-  | {
-      kind: "error" | "success";
-      message: string;
-    }
-  | null;
+type Notice = {
+  kind: "error" | "success";
+  message: string;
+} | null;
 
 const sessionQueryKey = ["auth", "session"] as const;
 const accessTokenStorageKey = "praxis-live-access-token";
 const emptyLoginForm = { email: "", password: "" };
 const emptySignupForm = { email: "", name: "", password: "" };
 
-async function requestJson<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const accessToken = window.localStorage.getItem(accessTokenStorageKey);
   const response = await fetch(path, {
     headers: {
@@ -118,7 +113,9 @@ function App() {
       setNotice({
         kind: "error",
         message:
-          error instanceof Error ? error.message : "Could not sign in right now.",
+          error instanceof Error
+            ? error.message
+            : "Could not sign in right now.",
       });
     },
   });
@@ -146,7 +143,9 @@ function App() {
       setNotice({
         kind: "error",
         message:
-          error instanceof Error ? error.message : "Could not create the account.",
+          error instanceof Error
+            ? error.message
+            : "Could not create the account.",
       });
     },
   });
@@ -168,7 +167,9 @@ function App() {
       setNotice({
         kind: "error",
         message:
-          error instanceof Error ? error.message : "Could not sign out right now.",
+          error instanceof Error
+            ? error.message
+            : "Could not sign out right now.",
       });
     },
   });
@@ -176,7 +177,9 @@ function App() {
   const user = sessionQuery.data?.user ?? null;
   const backendOffline = healthQuery.error instanceof Error;
   const authBusy =
-    loginMutation.isPending || signupMutation.isPending || logoutMutation.isPending;
+    loginMutation.isPending ||
+    signupMutation.isPending ||
+    logoutMutation.isPending;
 
   function switchMode(nextMode: "login" | "signup") {
     setMode(nextMode);
@@ -204,7 +207,9 @@ function App() {
             src="/assets/images/app-icon.png"
             width={32}
           />
-          <span className="text-sm font-medium text-foreground">Praxis Live</span>
+          <span className="text-sm font-medium text-foreground">
+            Praxis Live
+          </span>
         </div>
 
         <Card className="w-full border-border shadow-sm">
@@ -214,7 +219,11 @@ function App() {
                 {user ? user.name : "Auth"}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {user ? user.email : mode === "login" ? "Log in" : "Create account"}
+                {user
+                  ? user.email
+                  : mode === "login"
+                    ? "Log in"
+                    : "Create account"}
               </p>
             </div>
 
@@ -232,15 +241,8 @@ function App() {
             ) : null}
 
             {backendOffline && healthQuery.error instanceof Error ? (
-              <div className="flex items-center gap-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-                <img
-                  alt="Connection error"
-                  className="size-10 rounded-md object-cover"
-                  height={40}
-                  src="/assets/images/error.gif"
-                  width={40}
-                />
-                <span>{healthQuery.error.message}</span>
+              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                {healthQuery.error.message}
               </div>
             ) : null}
 
@@ -272,14 +274,6 @@ function App() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex justify-center">
-                  <img
-                    alt="Authentication"
-                    className="h-20 w-auto rounded-md"
-                    src="/assets/images/404.gif"
-                  />
-                </div>
-
                 <div className="grid grid-cols-2 rounded-md border border-border p-1">
                   <button
                     className={cn(
