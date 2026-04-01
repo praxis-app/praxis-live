@@ -195,7 +195,18 @@ function App() {
 
   return (
     <main className="min-h-screen bg-background px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md items-center">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center gap-4">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-card/80 px-4 py-3 shadow-sm">
+          <img
+            alt="Praxis Live"
+            className="size-8 rounded-md"
+            height={32}
+            src="/assets/images/app-icon.png"
+            width={32}
+          />
+          <span className="text-sm font-medium text-foreground">Praxis Live</span>
+        </div>
+
         <Card className="w-full border-border shadow-sm">
           <CardContent className="space-y-6 p-6">
             <div className="space-y-1">
@@ -221,8 +232,15 @@ function App() {
             ) : null}
 
             {backendOffline && healthQuery.error instanceof Error ? (
-              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-                {healthQuery.error.message}
+              <div className="flex items-center gap-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                <img
+                  alt="Connection error"
+                  className="size-10 rounded-md object-cover"
+                  height={40}
+                  src="/assets/images/error.gif"
+                  width={40}
+                />
+                <span>{healthQuery.error.message}</span>
               </div>
             ) : null}
 
@@ -254,6 +272,14 @@ function App() {
               </div>
             ) : (
               <div className="space-y-4">
+                <div className="flex justify-center">
+                  <img
+                    alt="Authentication"
+                    className="h-20 w-auto rounded-md"
+                    src="/assets/images/404.gif"
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 rounded-md border border-border p-1">
                   <button
                     className={cn(
