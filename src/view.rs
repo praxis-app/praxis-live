@@ -21,10 +21,17 @@ pub(crate) fn attach(app: Router) -> Router {
             move |uri| frontend_fallback(uri, frontend_dist.clone())
         })
     } else {
-        tracing::warn!(
-            "Frontend assets were not found at {}; serving API routes only.",
-            frontend_dist.display()
-        );
+        if !cfg!(debug_assertions) {
+            tracing::warn!(
+                "Frontend assets were not found at {}; serving API routes only.",
+                frontend_dist.display()
+            );
+        } else {
+            tracing::debug!(
+                "Frontend assets were not found at {}; assuming a frontend dev server is in use.",
+                frontend_dist.display()
+            );
+        }
 
         app
     }
