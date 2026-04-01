@@ -57,20 +57,22 @@ function SignupForm({
         type="password"
         value={password}
       />
-      <button
-        className="inline-flex w-full items-center justify-center rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={disabled}
-        type="submit"
-      >
-        {isPending ? (
-          <span className="flex items-center gap-2">
-            <Spinner className="text-background" />
-            Creating account...
-          </span>
-        ) : (
-          "Create account"
-        )}
-      </button>
+      <div className="flex justify-end pt-1">
+        <button
+          className="inline-flex h-9 items-center justify-center rounded-md bg-foreground px-4 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={disabled}
+          type="submit"
+        >
+          {isPending ? (
+            <span className="flex items-center gap-2">
+              <Spinner className="text-background" />
+              Creating account...
+            </span>
+          ) : (
+            "Create account"
+          )}
+        </button>
+      </div>
     </form>
   );
 }

@@ -1,8 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Menu } from "lucide-react";
 import { useState } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 import { SignupForm } from "@/components/auth/signup-form";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
@@ -212,17 +219,44 @@ function App() {
 
         <Card className="w-full border-border shadow-sm">
           <CardContent className="space-y-6 p-6">
-            <div className="space-y-1">
-              <h1 className="text-xl font-semibold text-foreground">
-                {user ? user.name : "Auth"}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {user
-                  ? user.email
-                  : mode === "login"
-                    ? "Log in"
-                    : "Create account"}
-              </p>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h1 className="text-xl font-semibold text-foreground">
+                  {user ? user.name : "Welcome"}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {user
+                    ? user.email
+                    : mode === "login"
+                      ? "Log in"
+                      : "Create account"}
+                </p>
+              </div>
+
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      aria-label="Account menu"
+                      className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-muted text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+                      type="button"
+                    >
+                      <Menu className="size-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      disabled={logoutMutation.isPending}
+                      onClick={() => {
+                        setNotice(null);
+                        logoutMutation.mutate();
+                      }}
+                    >
+                      {logoutMutation.isPending ? "Signing out..." : "Log out"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
             </div>
 
             {notice ? (
@@ -250,26 +284,7 @@ function App() {
                 <span>Loading...</span>
               </div>
             ) : user ? (
-              <div className="space-y-4">
-                <button
-                  className="inline-flex w-full items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={logoutMutation.isPending}
-                  onClick={() => {
-                    setNotice(null);
-                    logoutMutation.mutate();
-                  }}
-                  type="button"
-                >
-                  {logoutMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <Spinner className="text-background" />
-                      Signing out...
-                    </span>
-                  ) : (
-                    "Log out"
-                  )}
-                </button>
-              </div>
+              <div className="space-y-4" />
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 rounded-md border border-border p-1">
