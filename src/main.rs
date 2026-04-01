@@ -1,23 +1,15 @@
 mod auth;
 mod config;
+mod health;
 mod user;
+mod view;
 
-use axum::{routing::get, Json, Router};
-use serde::Serialize;
+use axum::{routing::get, Router};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use std::{env, error::Error, io, net::SocketAddr};
 use tower_http::trace::TraceLayer;
 
 use crate::config::required_env;
-
-#[derive(Debug, Serialize)]
-struct HealthResponse {
-    status: &'static str,
-}
-
-async fn health() -> Json<HealthResponse> {
-    Json(HealthResponse { status: "ok" })
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -32,12 +24,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let database_pool = connect_database().await?;
     let api = Router::new()
-        .route("/health", get(health))
+        .route("/health", get(health::health))
         .merge(auth::router(database_pool).await?);
 
-    let app = Router::new()
-        .nest("/api", api)
-        .layer(TraceLayer::new_for_http());
+    let app = Router::new().nest("/api", api);
+    let app = view::attach(app);
+    let app = app.layer(TraceLayer::new_for_http());
 
     let server_port = env::var("SERVER_PORT")
         .ok()
