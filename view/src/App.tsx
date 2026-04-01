@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Menu } from "lucide-react";
 import { useState } from "react";
 import { LoginForm } from "@/components/auth/login-form";
+import { PixelBackground } from "@/components/background/pixel-background";
 import { SignupForm } from "@/components/auth/signup-form";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -204,8 +205,10 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center gap-4">
+    <main className="relative min-h-screen overflow-hidden bg-background px-4 py-8 sm:px-6">
+      <PixelBackground />
+
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center gap-4">
         <div className="flex items-center gap-3 rounded-lg border border-border bg-card/80 px-4 py-3 shadow-sm">
           <img
             alt="praxis"
