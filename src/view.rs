@@ -10,6 +10,11 @@ use std::{
 };
 
 pub(crate) fn attach(app: Router) -> Router {
+    if cfg!(debug_assertions) {
+        tracing::info!("Running in debug mode; serving API routes only.");
+        return app;
+    }
+
     let frontend_dist = frontend_dist_dir();
     let index_path = frontend_dist.join("index.html");
 
@@ -21,17 +26,10 @@ pub(crate) fn attach(app: Router) -> Router {
             move |uri| frontend_fallback(uri, frontend_dist.clone())
         })
     } else {
-        if !cfg!(debug_assertions) {
-            tracing::warn!(
-                "Frontend assets were not found at {}; serving API routes only.",
-                frontend_dist.display()
-            );
-        } else {
-            tracing::debug!(
-                "Frontend assets were not found at {}; assuming a frontend dev server is in use.",
-                frontend_dist.display()
-            );
-        }
+        tracing::warn!(
+            "Frontend assets were not found at {}; serving API routes only.",
+            frontend_dist.display()
+        );
 
         app
     }
