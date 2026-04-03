@@ -1,8 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Menu } from "lucide-react";
 import { useState } from "react";
 import { LoginForm } from "@/components/auth/login-form";
 import { SignupForm } from "@/components/auth/signup-form";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
@@ -25,22 +32,17 @@ type ApiError = {
   error?: string;
 };
 
-type Notice =
-  | {
-      kind: "error" | "success";
-      message: string;
-    }
-  | null;
+type Notice = {
+  kind: "error" | "success";
+  message: string;
+} | null;
 
 const sessionQueryKey = ["auth", "session"] as const;
 const accessTokenStorageKey = "praxis-live-access-token";
 const emptyLoginForm = { email: "", password: "" };
 const emptySignupForm = { email: "", name: "", password: "" };
 
-async function requestJson<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const accessToken = window.localStorage.getItem(accessTokenStorageKey);
   const response = await fetch(path, {
     headers: {
@@ -118,7 +120,9 @@ function App() {
       setNotice({
         kind: "error",
         message:
-          error instanceof Error ? error.message : "Could not sign in right now.",
+          error instanceof Error
+            ? error.message
+            : "Could not sign in right now.",
       });
     },
   });
@@ -146,7 +150,9 @@ function App() {
       setNotice({
         kind: "error",
         message:
-          error instanceof Error ? error.message : "Could not create the account.",
+          error instanceof Error
+            ? error.message
+            : "Could not create the account.",
       });
     },
   });
@@ -168,7 +174,9 @@ function App() {
       setNotice({
         kind: "error",
         message:
-          error instanceof Error ? error.message : "Could not sign out right now.",
+          error instanceof Error
+            ? error.message
+            : "Could not sign out right now.",
       });
     },
   });
@@ -176,7 +184,9 @@ function App() {
   const user = sessionQuery.data?.user ?? null;
   const backendOffline = healthQuery.error instanceof Error;
   const authBusy =
-    loginMutation.isPending || signupMutation.isPending || logoutMutation.isPending;
+    loginMutation.isPending ||
+    signupMutation.isPending ||
+    logoutMutation.isPending;
 
   function switchMode(nextMode: "login" | "signup") {
     setMode(nextMode);
@@ -195,16 +205,58 @@ function App() {
 
   return (
     <main className="min-h-screen bg-background px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md items-center">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center gap-4">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-card/80 px-4 py-3 shadow-sm">
+          <img
+            alt="praxis"
+            className="size-8 rounded-md"
+            height={32}
+            src="/assets/images/app-icon.png"
+            width={32}
+          />
+          <span className="text-sm font-medium text-foreground">praxis</span>
+        </div>
+
         <Card className="w-full border-border shadow-sm">
-          <CardContent className="space-y-6 p-6">
-            <div className="space-y-1">
-              <h1 className="text-xl font-semibold text-foreground">
-                {user ? user.name : "Auth"}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {user ? user.email : mode === "login" ? "Log in" : "Create account"}
-              </p>
+          <CardContent className="space-y-2 p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h1 className="text-xl font-semibold text-foreground">
+                  {user ? user.name : "Welcome"}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {user
+                    ? user.email
+                    : mode === "login"
+                      ? "Log in"
+                      : "Create account"}
+                </p>
+              </div>
+
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      aria-label="Account menu"
+                      className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-muted text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+                      type="button"
+                    >
+                      <Menu className="size-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      disabled={logoutMutation.isPending}
+                      onClick={() => {
+                        setNotice(null);
+                        logoutMutation.mutate();
+                      }}
+                    >
+                      {logoutMutation.isPending ? "Signing out..." : "Log out"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
             </div>
 
             {notice ? (
@@ -232,26 +284,7 @@ function App() {
                 <span>Loading...</span>
               </div>
             ) : user ? (
-              <div className="space-y-4">
-                <button
-                  className="inline-flex w-full items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={logoutMutation.isPending}
-                  onClick={() => {
-                    setNotice(null);
-                    logoutMutation.mutate();
-                  }}
-                  type="button"
-                >
-                  {logoutMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <Spinner className="text-background" />
-                      Signing out...
-                    </span>
-                  ) : (
-                    "Log out"
-                  )}
-                </button>
-              </div>
+              <div className="space-y-4" />
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 rounded-md border border-border p-1">

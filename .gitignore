@@ -16,6 +16,7 @@ dist-ssr/
 .claude
 .docs
 .scripts
+.tmp
 .idea
 .vscode/*
 !.vscode/tasks.json
