@@ -1,0 +1,15 @@
+[package]
+name = "api"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum.workspace = true
+entity = { path = "../entity" }
+jsonwebtoken.workspace = true
+mime_guess.workspace = true
+password-auth.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+tokio.workspace = true
+tracing.workspace = true

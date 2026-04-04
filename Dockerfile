@@ -17,11 +17,12 @@ FROM rust:1.93-slim-bookworm AS backend-builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-COPY build.rs ./
+COPY api ./api
+COPY entity ./entity
 COPY migrations ./migrations
 COPY src ./src
 
-RUN cargo build --release
+RUN cargo build --release -p praxis-live
 
 # ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM debian:bookworm-slim
