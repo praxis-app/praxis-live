@@ -77,6 +77,7 @@ struct ErrorResponse {
 #[serde(rename_all = "camelCase")]
 struct SessionResponse {
     user: Option<PublicUser>,
+    #[serde(rename = "access_token")]
     access_token: Option<String>,
 }
 
