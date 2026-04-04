@@ -25,7 +25,7 @@ type User = {
 
 type SessionResponse = {
   user: User | null;
-  accessToken?: string | null;
+  access_token?: string | null;
 };
 
 type ApiError = {
@@ -38,16 +38,16 @@ type Notice = {
 } | null;
 
 const sessionQueryKey = ["auth", "session"] as const;
-const accessTokenStorageKey = "accessToken";
+const accessTokenStorageKey = "access_token";
 const emptyLoginForm = { email: "", password: "" };
 const emptySignupForm = { email: "", name: "", password: "" };
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const accessToken = window.localStorage.getItem(accessTokenStorageKey);
+  const access_token = window.localStorage.getItem(accessTokenStorageKey);
   const response = await fetch(path, {
     headers: {
       Accept: "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(access_token ? { Authorization: `Bearer ${access_token}` } : {}),
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
@@ -104,8 +104,8 @@ function App() {
         body: JSON.stringify(payload),
       }),
     onSuccess: (data) => {
-      if (data.accessToken) {
-        window.localStorage.setItem(accessTokenStorageKey, data.accessToken);
+      if (data.access_token) {
+        window.localStorage.setItem(accessTokenStorageKey, data.access_token);
       } else {
         window.localStorage.removeItem(accessTokenStorageKey);
       }
@@ -134,8 +134,8 @@ function App() {
         body: JSON.stringify(payload),
       }),
     onSuccess: (data) => {
-      if (data.accessToken) {
-        window.localStorage.setItem(accessTokenStorageKey, data.accessToken);
+      if (data.access_token) {
+        window.localStorage.setItem(accessTokenStorageKey, data.access_token);
       } else {
         window.localStorage.removeItem(accessTokenStorageKey);
       }
