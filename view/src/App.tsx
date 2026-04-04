@@ -38,7 +38,7 @@ type Notice = {
 } | null;
 
 const sessionQueryKey = ["auth", "session"] as const;
-const accessTokenStorageKey = "praxis-live-access-token";
+const accessTokenStorageKey = "accessToken";
 const emptyLoginForm = { email: "", password: "" };
 const emptySignupForm = { email: "", name: "", password: "" };
 
