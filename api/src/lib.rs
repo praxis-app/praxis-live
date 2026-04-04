@@ -1,5 +1,4 @@
 mod auth;
-mod config;
 mod health;
 mod user;
 mod view;
@@ -9,8 +8,6 @@ use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 use std::{env, error::Error, io, net::SocketAddr};
 use tower_http::trace::TraceLayer;
-
-use crate::config::required_env;
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -90,4 +87,14 @@ fn migrations_enabled() -> bool {
     env::var("DB_MIGRATIONS")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
+}
+
+fn required_env(name: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    env::var(name).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{name} must be set before starting the server."),
+        )
+        .into()
+    })
 }
