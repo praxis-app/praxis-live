@@ -1,0 +1,30 @@
+services:
+  database:
+    image: postgres:16
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -p 5432"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  web:
+    build: .
+    ports:
+      - "3210:3210"
+    environment:
+      SERVER_PORT: 3210
+      AUTH_TOKEN_SECRET: e2e-secret
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_SCHEMA: postgres
+      DB_HOST: database
+      DB_PORT: 5432
+    depends_on:
+      database:
+        condition: service_healthy
