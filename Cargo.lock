@@ -37,14 +37,19 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "dotenv",
  "entity",
  "jsonwebtoken",
+ "migrations",
  "mime_guess",
  "password-auth",
  "sea-orm",
+ "sea-orm-migration",
  "serde",
  "tokio",
+ "tower-http",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1244,15 +1249,6 @@ name = "praxis-live"
 version = "0.1.0"
 dependencies = [
  "api",
- "axum",
- "dotenv",
- "migrations",
- "sea-orm",
- "sea-orm-migration",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
