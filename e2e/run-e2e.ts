@@ -2,27 +2,23 @@ import { spawnSync } from "node:child_process";
 
 const composeArgs = ["compose", "-f", "docker-compose.e2e.yml"];
 const appUrl = "http://127.0.0.1:3210/api/health";
-const commandEnv = {
-  ...process.env,
-  PATH: `/opt/homebrew/bin:${process.env.PATH ?? ""}`,
-};
 
-function run(command, args) {
+const run = (command: string, args: string[]) => {
   return spawnSync(command, args, {
     stdio: "inherit",
-    env: commandEnv,
+    env: process.env,
   });
-}
+};
 
-function getExitCode(status) {
+const getExitCode = (status: number | null) => {
   return status ?? 1;
-}
+};
 
-function cleanup() {
+const cleanup = () => {
   return run("docker", [...composeArgs, "down", "-v", "--remove-orphans"]);
-}
+};
 
-async function waitForAppReady(timeoutMs) {
+const waitForAppReady = async (timeoutMs: number) => {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
@@ -40,7 +36,7 @@ async function waitForAppReady(timeoutMs) {
   }
 
   return false;
-}
+};
 
 let exitCode = 0;
 
