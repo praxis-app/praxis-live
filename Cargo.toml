@@ -2,13 +2,14 @@
 name = "praxis-live"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 axum = "0.8"
 jsonwebtoken = "9"
 mime_guess = "2"
 password-auth = "1"
-sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "derive"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "derive", "migrate"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "fs", "trace"] }
 tracing = "0.1"

@@ -88,8 +88,6 @@ struct Claims {
 }
 
 pub async fn router(pool: PgPool) -> Result<Router, Box<dyn Error + Send + Sync>> {
-    user::ensure_table(&pool).await?;
-
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
 
     let auth_state = AuthState {

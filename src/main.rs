@@ -73,5 +73,18 @@ async fn connect_database() -> Result<sqlx::PgPool, Box<dyn Error + Send + Sync>
         .connect_with(options)
         .await?;
 
+    if migrations_enabled() {
+        tracing::info!("Running database migrations.");
+        sqlx::migrate!().run(&pool).await?;
+    } else {
+        tracing::info!("DB_MIGRATIONS is not set to true. Skipping migrations.");
+    }
+
     Ok(pool)
+}
+
+fn migrations_enabled() -> bool {
+    env::var("DB_MIGRATIONS")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
 }

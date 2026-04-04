@@ -18,6 +18,6 @@ test("user can sign up on a fresh instance", async ({ page }) => {
   await expect(page.getByRole("heading", { name })).toBeVisible();
   await expect(page.getByText(email)).toBeVisible();
   await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("accessToken")))
+    .poll(() => page.evaluate(() => localStorage.getItem("access_token")))
     .not.toBeNull();
 });
