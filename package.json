@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "tsx ./e2e/run-e2e.ts",
-    "test:e2e:headed": "tsx ./e2e/run-e2e.ts --headed",
+    "test:e2e:headed": "PLAYWRIGHT_SLOW_MO=500 tsx ./e2e/run-e2e.ts --headed",
     "test:e2e:install": "npx playwright install chromium"
   },
   "dependencies": {

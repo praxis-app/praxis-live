@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const appPort = 3210;
+const slowMo = Number.parseInt(process.env.PLAYWRIGHT_SLOW_MO ?? "0", 10);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -16,6 +17,7 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    launchOptions: slowMo > 0 ? { slowMo } : undefined,
   },
   projects: [
     {
