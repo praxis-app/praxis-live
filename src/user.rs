@@ -1,14 +1,6 @@
 use serde::Serialize;
 use sqlx::{FromRow, PgPool};
 
-const USERS_TABLE_SQL: &str = r#"
-    CREATE TABLE IF NOT EXISTS users (
-        id BIGSERIAL PRIMARY KEY,
-        email TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        password_hash TEXT NOT NULL
-    )
-"#;
 const UNIQUE_VIOLATION_CODE: &str = "23505";
 
 #[derive(Debug, Clone, FromRow)]
@@ -40,11 +32,6 @@ impl From<UserRecord> for PublicUser {
 pub(crate) enum CreateUserError {
     DuplicateEmail,
     Database(sqlx::Error),
-}
-
-pub(crate) async fn ensure_table(pool: &PgPool) -> Result<(), sqlx::Error> {
-    sqlx::query(USERS_TABLE_SQL).execute(pool).await?;
-    Ok(())
 }
 
 pub(crate) async fn create_user(

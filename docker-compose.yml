@@ -11,6 +11,7 @@ services:
       DB_SCHEMA: ${DB_SCHEMA}
       DB_HOST: database
       DB_PORT: ${DB_PORT}
+      DB_MIGRATIONS: ${DB_MIGRATIONS:-false}
       LIVEKIT_URL: ws://livekit:${LIVEKIT_PORT}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
