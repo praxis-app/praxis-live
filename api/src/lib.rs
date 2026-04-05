@@ -1,6 +1,6 @@
 mod auth;
 mod health;
-mod user;
+mod users;
 mod view;
 
 use axum::{routing::get, Router};
