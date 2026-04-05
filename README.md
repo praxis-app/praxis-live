@@ -20,3 +20,14 @@ Praxis is free and open source software, as specified by the GNU General Public 
 You are entering a construction yard. Things are going to change and break regularly as the project is still getting off the ground. Your feedback is highly welcome.
 
 Please note that this is also an experimental approach within the Praxis project. The main repository is located at https://github.com/praxis-app/praxis.
+
+## Backend tests
+
+The Rust API route integration tests live in `api/tests/axum_routes.rs` and use a real local Postgres server with temporary per-test databases.
+
+Recommended commands:
+
+- `./scripts/test-api-integration.sh`
+- `cargo test -p api --test axum_routes`
+
+These commands intentionally run only the integration-test target so the output stays focused on backend route coverage without the extra `running 0 tests` line from the empty unit-test target in `api/src/lib.rs`.

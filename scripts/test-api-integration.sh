@@ -5,6 +5,22 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat <<'EOF'
+Run the Rust Axum integration-test target against a local Postgres server.
+
+This intentionally runs only the `axum_routes` integration target so the
+output stays focused on the backend route tests without the empty unit-test
+target noise from `cargo test -p api`.
+
+Usage:
+  ./scripts/test-api-integration.sh
+  ./scripts/test-api-integration.sh -- --nocapture
+  ./scripts/test-api-integration.sh signup_returns_created_user_and_access_token -- --nocapture
+EOF
+  exit 0
+fi
+
 if [[ -f ".env" ]]; then
   set -a
   # shellcheck disable=SC1091
