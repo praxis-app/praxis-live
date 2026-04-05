@@ -21,7 +21,7 @@ You are entering a construction yard. Things are going to change and break regul
 
 Please note that this is also an experimental approach within the Praxis project. The main repository is located at https://github.com/praxis-app/praxis.
 
-## Backend tests
+## Integration tests
 
 The Rust API route integration tests live in `api/tests/axum_routes.rs` and use a real local Postgres server with temporary per-test databases.
 
