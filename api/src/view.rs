@@ -92,7 +92,9 @@ async fn serve_file(path: PathBuf, status: StatusCode) -> Response {
             .status(status)
             .header(
                 header::CONTENT_TYPE,
-                mime_guess::from_path(&path).first_or_octet_stream().as_ref(),
+                mime_guess::from_path(&path)
+                    .first_or_octet_stream()
+                    .as_ref(),
             )
             .body(Body::from(contents))
             .unwrap_or_else(|error| {

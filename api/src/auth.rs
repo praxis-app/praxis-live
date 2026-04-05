@@ -6,15 +6,13 @@ use axum::{
     Json, Router,
 };
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 use std::{
-    error::Error,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::config::required_env;
 use crate::user::{self, CreateUserError, PublicUser, UserRecord};
 
 type AppResult<T> = Result<T, ApiError>;
@@ -24,7 +22,7 @@ const MIN_PASSWORD_LENGTH: usize = 8;
 
 #[derive(Clone, Debug)]
 struct AuthState {
-    pool: PgPool,
+    database: DatabaseConnection,
     jwt_secret: Arc<str>,
 }
 
@@ -87,20 +85,18 @@ struct Claims {
     exp: u64,
 }
 
-pub async fn router(pool: PgPool) -> Result<Router, Box<dyn Error + Send + Sync>> {
-    let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
-
+pub fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
     let auth_state = AuthState {
-        pool,
+        database,
         jwt_secret: Arc::<str>::from(jwt_secret),
     };
 
-    Ok(Router::new()
+    Router::new()
         .route("/auth/me", get(me))
         .route("/auth/signup", post(signup))
         .route("/auth/login", post(login))
         .route("/auth/logout", post(logout))
-        .with_state(auth_state))
+        .with_state(auth_state)
 }
 
 async fn me(
@@ -121,9 +117,14 @@ async fn signup(
 ) -> AppResult<(StatusCode, Json<SessionResponse>)> {
     let signup = validate_signup(payload)?;
     let password_hash = password_auth::generate_hash(signup.password);
-    let user = user::create_user(&auth_state.pool, signup.email, signup.name, password_hash)
-        .await
-        .map_err(map_create_user_error)?;
+    let user = user::create_user(
+        &auth_state.database,
+        signup.email,
+        signup.name,
+        password_hash,
+    )
+    .await
+    .map_err(map_create_user_error)?;
 
     let access_token = issue_access_token(&auth_state, user.id)?;
 
@@ -141,7 +142,7 @@ async fn login(
     Json(payload): Json<LoginRequest>,
 ) -> AppResult<Json<SessionResponse>> {
     let login = validate_login(payload)?;
-    let user = user::authenticate(&auth_state.pool, login.email, login.password)
+    let user = user::authenticate(&auth_state.database, login.email, login.password)
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Invalid email or password."))?;
@@ -173,9 +174,9 @@ async fn current_user(
         return Ok(None);
     };
 
-    user::find_user_by_id(&auth_state.pool, user_id)
-    .await
-    .map_err(internal_error)
+    user::find_user_by_id(&auth_state.database, user_id)
+        .await
+        .map_err(internal_error)
 }
 
 fn bearer_token(headers: &HeaderMap) -> Option<&str> {
@@ -270,6 +271,26 @@ fn validate_login(mut input: LoginRequest) -> AppResult<LoginRequest> {
     Ok(input)
 }
 
+fn normalize_email(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
+}
+
+fn looks_like_email(value: &str) -> bool {
+    let mut parts = value.split('@');
+    let Some(local_part) = parts.next() else {
+        return false;
+    };
+    let Some(domain) = parts.next() else {
+        return false;
+    };
+
+    !local_part.is_empty()
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
+        && parts.next().is_none()
+}
+
 fn map_create_user_error(error: CreateUserError) -> ApiError {
     match error {
         CreateUserError::DuplicateEmail => ApiError::new(
@@ -280,22 +301,7 @@ fn map_create_user_error(error: CreateUserError) -> ApiError {
     }
 }
 
-fn normalize_email(email: &str) -> String {
-    email.trim().to_lowercase()
-}
-
-fn looks_like_email(email: &str) -> bool {
-    let mut parts = email.split('@');
-    let local = parts.next().unwrap_or_default();
-    let domain = parts.next().unwrap_or_default();
-
-    !local.is_empty() && domain.contains('.') && parts.next().is_none()
-}
-
-fn internal_error(error: impl std::error::Error) -> ApiError {
-    tracing::error!("authentication flow failed: {error}");
-    ApiError::new(
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "The server could not complete the authentication request.",
-    )
+fn internal_error(error: impl std::fmt::Display) -> ApiError {
+    tracing::error!("request failed: {error}");
+    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }
