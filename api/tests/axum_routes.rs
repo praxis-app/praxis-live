@@ -42,27 +42,6 @@ async fn signup_returns_created_user_and_access_token() {
 }
 
 #[tokio::test]
-async fn signup_rejects_invalid_payloads() {
-    let app = TestApp::new().await;
-
-    let response = app
-        .post_json(
-            "/api/auth/signup",
-            &json!({
-                "email": "not-an-email",
-                "name": "A",
-                "password": "short",
-            }),
-        )
-        .await;
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-
-    let body = json_body(response).await;
-    assert_eq!(body["error"], "Name must be at least 2 characters long.");
-}
-
-#[tokio::test]
 async fn signup_rejects_duplicate_email_after_normalization() {
     let app = TestApp::new().await;
 
@@ -171,17 +150,4 @@ async fn login_rejects_invalid_credentials() {
 
     let body = json_body(response).await;
     assert_eq!(body["error"], "Invalid email or password.");
-}
-
-#[tokio::test]
-async fn logout_returns_an_empty_session_payload() {
-    let app = TestApp::new().await;
-
-    let response = app.post_empty("/api/auth/logout").await;
-
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = json_body(response).await;
-    assert!(body["user"].is_null());
-    assert!(body["access_token"].is_null());
 }

@@ -73,10 +73,6 @@ impl TestApp {
             .await
     }
 
-    pub async fn post_empty(&self, uri: &str) -> Response<Body> {
-        self.request(Method::POST, uri, Body::empty(), None).await
-    }
-
     async fn request(
         &self,
         method: Method,
