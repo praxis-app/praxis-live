@@ -63,8 +63,6 @@ pub async fn connect_database(
     if run_migrations {
         tracing::info!("Running database migrations.");
         migrations::Migrator::up(&database, None).await?;
-    } else {
-        tracing::info!("DB_MIGRATIONS is not set to true. Skipping migrations.");
     }
 
     Ok(database)
