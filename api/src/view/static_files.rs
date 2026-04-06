@@ -10,7 +10,7 @@ use std::{
 };
 
 pub(crate) fn attach(app: Router) -> Router {
-    // Vite dev server will likely handle the frontend in dev
+    // Vite dev server will handle the frontend in dev
     if cfg!(debug_assertions) {
         return app;
     }
