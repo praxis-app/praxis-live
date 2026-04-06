@@ -23,11 +23,13 @@ Please note that this is also an experimental approach within the Praxis project
 
 ## Integration tests
 
-The Rust API route integration tests live in `api/tests/axum_routes.rs` and use a real local Postgres server with temporary per-test databases.
+The Rust API route integration tests live in `api/tests/http_routes/` and use a real local Postgres server with temporary per-test databases.
 
 Recommended commands:
 
-- `./scripts/test-api-integration.sh`
-- `cargo test -p api --test axum_routes`
+- `cargo test -p api --test http_routes`
+- `npm run test:api:integration`
 
-These commands intentionally run only the integration-test target so the output stays focused on backend route coverage without the extra `running 0 tests` line from the empty unit-test target in `api/src/lib.rs`.
+The test support code already loads `.env` automatically. For database config, it accepts `PRAXIS_TEST_DATABASE_ADMIN_URL`, `DATABASE_URL`, or the `DB_HOST` / `DB_PORT` / `DB_USERNAME` / `DB_PASSWORD` variables.
+
+These commands intentionally run only the `http_routes` integration-test target so the output stays focused on backend route coverage without the extra `running 0 tests` line from the empty unit-test target in `api/src/lib.rs`.
