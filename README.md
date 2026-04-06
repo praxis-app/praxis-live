@@ -27,9 +27,7 @@ The Rust API route integration tests live in `api/tests/http_routes/` and use a 
 
 Recommended commands:
 
-- `cargo test -p api --test http_routes`
 - `npm run test:api:integration`
-
-The test support code already loads `.env` automatically. For database config, it accepts `PRAXIS_TEST_DATABASE_ADMIN_URL`, `DATABASE_URL`, or the `DB_HOST` / `DB_PORT` / `DB_USERNAME` / `DB_PASSWORD` variables.
+- `cargo test -p api --test http_routes`
 
 These commands intentionally run only the `http_routes` integration-test target so the output stays focused on backend route coverage without the extra `running 0 tests` line from the empty unit-test target in `api/src/lib.rs`.
