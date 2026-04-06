@@ -16,7 +16,7 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "praxis_live=info,tower_http=debug".into()),
+                .unwrap_or_else(|_| "api=info,praxis_live=info,tower_http=debug".into()),
         )
         .init();
 
