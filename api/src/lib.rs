@@ -16,13 +16,13 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "praxis_live=info,tower_http=debug".into()),
+                .unwrap_or_else(|_| "api=info,praxis_live=info,tower_http=debug".into()),
         )
         .init();
 
-    let database = connect_database().await?;
+    let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
-    let app = router(database, jwt_secret).layer(TraceLayer::new_for_http());
+    let app = build_router(database, jwt_secret).layer(TraceLayer::new_for_http());
 
     let server_port = env::var("SERVER_PORT")
         .ok()
@@ -30,7 +30,7 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .unwrap_or(3100);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], server_port));
-    tracing::info!("Listening on {}", addr);
+    tracing::info!("Server running at {} 🚀", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
@@ -38,31 +38,37 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
-fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
+pub fn build_router(database: DatabaseConnection, jwt_secret: impl Into<String>) -> Router {
     let api = Router::new()
         .route("/health", get(health::health))
-        .merge(auth::router(database, jwt_secret));
+        .merge(auth::router(database, jwt_secret.into()));
 
     view::attach(Router::new().nest("/api", api))
 }
 
-async fn connect_database() -> Result<DatabaseConnection, Box<dyn Error + Send + Sync>> {
-    let mut options = ConnectOptions::new(database_url()?);
+pub async fn connect_database_from_env() -> Result<DatabaseConnection, Box<dyn Error + Send + Sync>>
+{
+    connect_database(&database_url_from_env()?, migrations_enabled()).await
+}
+
+pub async fn connect_database(
+    database_url: &str,
+    run_migrations: bool,
+) -> Result<DatabaseConnection, Box<dyn Error + Send + Sync>> {
+    let mut options = ConnectOptions::new(database_url.to_owned());
     options.max_connections(5);
 
     let database = Database::connect(options).await?;
 
-    if migrations_enabled() {
+    if run_migrations {
         tracing::info!("Running database migrations.");
         migrations::Migrator::up(&database, None).await?;
-    } else {
-        tracing::info!("DB_MIGRATIONS is not set to true. Skipping migrations.");
     }
 
     Ok(database)
 }
 
-fn database_url() -> Result<String, Box<dyn Error + Send + Sync>> {
+pub fn database_url_from_env() -> Result<String, Box<dyn Error + Send + Sync>> {
     if let Ok(database_url) = env::var("DATABASE_URL") {
         return Ok(database_url);
     }
@@ -83,7 +89,7 @@ fn database_url() -> Result<String, Box<dyn Error + Send + Sync>> {
     ))
 }
 
-fn migrations_enabled() -> bool {
+pub fn migrations_enabled() -> bool {
     env::var("DB_MIGRATIONS")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false)

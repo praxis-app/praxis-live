@@ -20,3 +20,14 @@ Praxis is free and open source software, as specified by the GNU General Public 
 You are entering a construction yard. Things are going to change and break regularly as the project is still getting off the ground. Your feedback is highly welcome.
 
 Please note that this is also an experimental approach within the Praxis project. The main repository is located at https://github.com/praxis-app/praxis.
+
+## Integration tests
+
+The Rust API route integration tests live in `api/tests/http_routes/` and use a real local Postgres server with temporary per-test databases. They assume Postgres is already running locally and create/drop temporary databases inside that existing server during the test run.
+
+Recommended commands:
+
+- `npm run test:api:integration`
+- `cargo test -p api --test http_routes`
+
+These commands intentionally run only the `http_routes` integration-test target.
