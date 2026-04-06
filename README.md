@@ -23,11 +23,11 @@ Please note that this is also an experimental approach within the Praxis project
 
 ## Integration tests
 
-The Rust API route integration tests live in `api/tests/http_routes/` and use a real local Postgres server with temporary per-test databases.
+The Rust API route integration tests live in `api/tests/http_routes/` and use a real local Postgres server with temporary per-test databases. They assume Postgres is already running locally and create/drop temporary databases inside that existing server during the test run.
 
 Recommended commands:
 
 - `npm run test:api:integration`
 - `cargo test -p api --test http_routes`
 
-These commands intentionally run only the `http_routes` integration-test target so the output stays focused on backend route coverage without the extra `running 0 tests` line from the empty unit-test target in `api/src/lib.rs`.
+These commands intentionally run only the `http_routes` integration-test target.
