@@ -8,7 +8,7 @@
       "cwd": "${workspaceFolder}",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "runtimeVersion": "24.14.0",
+      "runtimeVersion": "24.14.1",
       "outputCapture": "std",
       "skipFiles": ["<node_internals>/**"],
       "restart": true
