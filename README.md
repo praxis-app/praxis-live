@@ -6,7 +6,8 @@ Designed for organizations, teams, and communities that need robust group decisi
 
 **Tech Stack**:
 
-- Rust 1.93.0
+- Rust v1.93.0
+- Node v24.14.1
 - React/Vite
 - TypeScript
 - PostgreSQL
