@@ -15,6 +15,7 @@ use super::{
     },
     types::{ApiError, AppResult, LoginRequest, SessionResponse, SignupRequest},
 };
+use crate::chat;
 use crate::users::{self, UserRecord};
 
 #[derive(Clone, Debug)]
@@ -63,6 +64,9 @@ async fn signup(
     )
     .await
     .map_err(map_create_user_error)?;
+    chat::provision_user_memberships(&auth_state.database, user.id)
+        .await
+        .map_err(internal_error)?;
 
     let access_token = issue_access_token(&auth_state, user.id)?;
 

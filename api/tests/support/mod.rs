@@ -8,6 +8,7 @@ use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use serde_json::Value;
 use std::{
+    collections::HashMap,
     env,
     error::Error,
     process,
@@ -73,6 +74,45 @@ impl TestApp {
             .await
     }
 
+    pub async fn post_json_with_bearer<T: Serialize>(
+        &self,
+        uri: &str,
+        payload: &T,
+        token: &str,
+    ) -> Response<Body> {
+        let body = serde_json::to_vec(payload).expect("expected request body serialization");
+
+        self.request(Method::POST, uri, Body::from(body), Some(token))
+            .await
+    }
+
+    pub async fn post_multipart_with_bearer(
+        &self,
+        uri: &str,
+        token: &str,
+        fields: HashMap<String, MultipartField>,
+    ) -> Response<Body> {
+        let boundary = format!("praxis-live-boundary-{}", unique_database_name());
+        let body = multipart_body(&boundary, fields);
+
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(uri)
+            .header(
+                "content-type",
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::from(body))
+            .expect("expected multipart request to build");
+
+        self.app
+            .clone()
+            .oneshot(request)
+            .await
+            .expect("expected router request to succeed")
+    }
+
     async fn request(
         &self,
         method: Method,
@@ -125,6 +165,50 @@ pub async fn json_body(response: Response<Body>) -> Value {
         .to_bytes();
 
     serde_json::from_slice(&bytes).expect("expected a JSON response body")
+}
+
+#[derive(Clone, Debug)]
+pub struct MultipartField {
+    pub name: String,
+    pub filename: Option<String>,
+    pub content_type: Option<String>,
+    pub bytes: Vec<u8>,
+}
+
+fn multipart_body(boundary: &str, fields: HashMap<String, MultipartField>) -> Vec<u8> {
+    let mut body = Vec::new();
+
+    for (_key, field) in fields {
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(
+            format!(
+                "Content-Disposition: form-data; name=\"{}\"{}{}\r\n",
+                field.name,
+                field
+                    .filename
+                    .as_ref()
+                    .map(|_filename| "; filename=\"")
+                    .unwrap_or(""),
+                field
+                    .filename
+                    .as_ref()
+                    .map(|filename| format!("{filename}\""))
+                    .unwrap_or_default()
+            )
+            .as_bytes(),
+        );
+
+        if let Some(content_type) = field.content_type {
+            body.extend_from_slice(format!("Content-Type: {content_type}\r\n").as_bytes());
+        }
+
+        body.extend_from_slice(b"\r\n");
+        body.extend_from_slice(&field.bytes);
+        body.extend_from_slice(b"\r\n");
+    }
+
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+    body
 }
 
 async fn create_database(

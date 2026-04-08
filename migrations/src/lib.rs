@@ -1,12 +1,16 @@
 pub use sea_orm_migration::prelude::*;
 
 mod m20260404_110000_create_users;
+mod m20260408_000001_create_basic_chat;
 
 pub struct Migrator;
 
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(m20260404_110000_create_users::Migration)]
+        vec![
+            Box::new(m20260404_110000_create_users::Migration),
+            Box::new(m20260408_000001_create_basic_chat::Migration),
+        ]
     }
 }

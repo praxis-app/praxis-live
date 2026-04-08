@@ -1,4 +1,5 @@
 mod auth;
+mod chat;
 mod health;
 mod users;
 mod view;
@@ -39,9 +40,11 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 pub fn build_router(database: DatabaseConnection, jwt_secret: impl Into<String>) -> Router {
+    let jwt_secret = jwt_secret.into();
     let api = Router::new()
         .route("/health", get(health::health))
-        .merge(auth::router(database, jwt_secret.into()));
+        .merge(auth::router(database.clone(), jwt_secret.clone()))
+        .merge(chat::router(database, jwt_secret));
 
     view::attach(Router::new().nest("/api", api))
 }
