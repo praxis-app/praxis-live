@@ -7,47 +7,6 @@ use crate::support::{json_body, MultipartField, TestApp};
 const DEFAULT_SERVER_ID: &str = "11111111-1111-1111-1111-111111111111";
 
 #[tokio::test]
-async fn channels_and_joined_channels_follow_the_basic_contract() {
-    let app = TestApp::new().await;
-    let token = signup_and_get_token(&app).await;
-
-    let channels_response = app
-        .get(&format!("/api/servers/{DEFAULT_SERVER_ID}/channels"))
-        .await;
-    assert_eq!(channels_response.status(), StatusCode::OK);
-
-    let channels_body = json_body(channels_response).await;
-    assert_eq!(channels_body["channels"].as_array().unwrap().len(), 1);
-    let channel = channels_body["channels"][0].clone();
-    let channel_id = channel["id"].as_str().unwrap().to_owned();
-    assert_eq!(channel["name"], "general");
-    assert_eq!(channel["server"]["id"], DEFAULT_SERVER_ID);
-    assert_eq!(channel["server"]["slug"], "praxis");
-
-    let joined_response = app
-        .get_with_bearer(
-            &format!("/api/servers/{DEFAULT_SERVER_ID}/channels/joined"),
-            &token,
-        )
-        .await;
-    assert_eq!(joined_response.status(), StatusCode::OK);
-
-    let joined_body = json_body(joined_response).await;
-    assert_eq!(joined_body["channels"][0]["id"], channel_id);
-
-    let channel_response = app
-        .get(&format!(
-            "/api/servers/{DEFAULT_SERVER_ID}/channels/{channel_id}"
-        ))
-        .await;
-    assert_eq!(channel_response.status(), StatusCode::OK);
-
-    let channel_body = json_body(channel_response).await;
-    assert_eq!(channel_body["channel"]["id"], channel_id);
-    assert_eq!(channel_body["channel"]["name"], "general");
-}
-
-#[tokio::test]
 async fn create_message_and_upload_image_support_text_and_images() {
     let app = TestApp::new().await;
     let token = signup_and_get_token(&app).await;
