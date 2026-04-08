@@ -45,6 +45,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-blurple-1: var(--blurple-1);
+  --color-blurple-2: var(--blurple-2);
+  --color-blurple-3: var(--blurple-3);
   --font-inter: "Inter", system-ui, sans-serif;
 }
 
@@ -65,7 +68,7 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
+  --border: oklch(0.5 0 0 / 7.5%);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -81,22 +84,27 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --blurple-1: oklch(0.5725 0.1982 274.68);
+  --blurple-2: oklch(0.5549 0.1529 273.48);
+  --blurple-3: oklch(0.6838 0.1187 270.06);
+
+  scrollbar-color: #d1d1d1 #f0f0f0;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --background: oklch(0.2195 0.0077 285.82);
+  --foreground: oklch(0.9246 0.0058 264.53);
+  --card: oklab(0.256753 0.000630058 -0.00758529);
+  --card-foreground: oklch(0.9246 0.0058 264.53);
+  --popover: oklch(0.26 0.0025 245);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
+  --primary: oklch(0.9246 0.0058 264.53);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.7667 0.0074 268.53);
+  --accent: oklch(0.33 0.0022 247.89);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
@@ -115,6 +123,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --blurple-1: oklch(0.5725 0.1982 274.68);
+  --blurple-2: oklch(0.5549 0.1529 273.48);
+  --blurple-3: oklch(0.6838 0.1187 270.06);
+
+  scrollbar-color: #6b6b6b #2c2c2c;
 }
 
 @layer base {

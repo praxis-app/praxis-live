@@ -16,7 +16,7 @@ test("user can sign up and send a basic chat message", async ({ page }) => {
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(page).toHaveURL(/\/chat\/?/);
-  await expect(page.getByRole("heading", { name: "# general" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "general" })).toBeVisible();
   await expect(page.locator(".sidebar__user-name")).toHaveText(name);
   await expect(page.getByText(email)).toBeVisible();
   await expect(page.getByText("No messages yet")).toBeVisible();
@@ -25,7 +25,7 @@ test("user can sign up and send a basic chat message", async ({ page }) => {
   await page.getByRole("button", { name: "Send message" }).click();
 
   await expect(page.getByText(message)).toBeVisible();
-  await expect(page.locator(".message-card")).toContainText(name);
+  await expect(page.locator(".message-row").first()).toContainText(name);
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("access_token")))
     .not.toBeNull();

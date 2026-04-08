@@ -56,7 +56,32 @@ function imageUrl(serverId: string, channelId: string, messageId: string, imageI
   return `/api/servers/${serverId}/channels/${channelId}/messages/${messageId}/images/${imageId}`;
 }
 
+function useThemeMode() {
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const stored = window.localStorage.getItem("praxis-theme");
+    if (stored === "light" || stored === "dark") {
+      return stored;
+    }
+
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("dark", theme === "dark");
+    root.classList.toggle("light", theme === "light");
+    window.localStorage.setItem("praxis-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  };
+
+  return { theme, toggleTheme };
+}
+
 function AppShell() {
+  const { theme, toggleTheme } = useThemeMode();
   const [session, setSession] = useState<SessionState>({
     token: readStoredAccessToken(),
     user: null,
@@ -126,9 +151,14 @@ function AppShell() {
   if (session.status === "loading") {
     return (
       <main className="screen centered">
-        <div className="panel panel--tight">
-          <p className="eyebrow">Praxis Live</p>
-          <h1>Loading chat</h1>
+        <div className="auth-card auth-card--compact">
+          <div className="auth-card__header">
+            <div className="brand-mark">P</div>
+            <button className="icon-button" onClick={toggleTheme} type="button">
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+          </div>
+          <h1 className="auth-card__title">Loading chat</h1>
           <p className="muted">Checking your session and preparing the app shell.</p>
         </div>
       </main>
@@ -189,21 +219,36 @@ function AppShell() {
 }
 
 function LandingPage() {
+  const { theme, toggleTheme } = useThemeMode();
+
   return (
-    <main className="screen">
-      <section className="hero">
-        <div className="hero__copy">
-          <p className="eyebrow">Basic Chat Slice</p>
-          <h1>Praxis Live keeps the first pass simple.</h1>
-          <p className="muted">
-            Sign in to a lightweight chat shell with channel navigation, message history, and image
-            attachments. More product areas can layer in later without changing this foundation.
+    <main className="screen screen--auth">
+      <section className="auth-hero">
+        <div className="auth-card auth-card--hero">
+          <div className="auth-card__header">
+            <div className="brand-lockup">
+              <div className="brand-mark">P</div>
+              <div>
+                <p className="brand-title">Praxis</p>
+                <p className="brand-subtitle">Basic Chat Slice</p>
+              </div>
+            </div>
+            <button className="icon-button" onClick={toggleTheme} type="button">
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+          </div>
+
+          <h1 className="auth-card__title">Chat-first foundations, closer to the legacy shell.</h1>
+          <p className="muted auth-card__text">
+            Sign in to the default workspace, browse channels from the left rail, read the current
+            feed, and send text or image messages. This keeps the migrated scope narrow while
+            preserving the layout direction from the legacy frontend.
           </p>
-          <div className="hero__actions">
-            <Link className="button" to="/signup">
+          <div className="auth-actions">
+            <Link className="button button--primary" to="/signup">
               Sign up
             </Link>
-            <Link className="button button--ghost" to="/login">
+            <Link className="button button--secondary" to="/login">
               Log in
             </Link>
           </div>
@@ -220,6 +265,7 @@ function AuthPage({
   mode: "login" | "signup";
   onAuthenticated(response: { access_token?: string | null; user: PublicUser | null }): void;
 }) {
+  const { theme, toggleTheme } = useThemeMode();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -248,19 +294,31 @@ function AuthPage({
   };
 
   return (
-    <main className="screen centered">
+    <main className="screen screen--auth centered">
       <div className="auth-layout">
-        <section className="panel auth-panel">
-          <p className="eyebrow">Praxis Live</p>
-          <h1>{isSignup ? "Create your account" : "Welcome back"}</h1>
-          <p className="muted">
+        <section className="auth-card auth-card--hero">
+          <div className="auth-card__header">
+            <div className="brand-lockup">
+              <div className="brand-mark">P</div>
+              <div>
+                <p className="brand-title">Praxis</p>
+                <p className="brand-subtitle">Workspace chat</p>
+              </div>
+            </div>
+            <button className="icon-button" onClick={toggleTheme} type="button">
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+          </div>
+
+          <h1 className="auth-card__title">{isSignup ? "Create your account" : "Welcome back"}</h1>
+          <p className="muted auth-card__text">
             {isSignup
               ? "Join the default Praxis workspace and land directly in chat."
               : "Use your existing credentials to get back to your channels."}
           </p>
         </section>
 
-        <section className="panel auth-panel">
+        <section className="auth-card auth-card--form">
           <div className="auth-switcher" aria-label="Authentication options">
             <Link
               className={isSignup ? "auth-switcher__link auth-switcher__link--active" : "auth-switcher__link"}
@@ -321,7 +379,7 @@ function AuthPage({
               </p>
             ) : null}
 
-            <button className="button" disabled={isSubmitting} type="submit">
+            <button className="button button--primary auth-submit" disabled={isSubmitting} type="submit">
               {isSubmitting ? "Working..." : isSignup ? "Create account" : "Log in"}
             </button>
           </form>
@@ -338,6 +396,7 @@ function ChatPage({
   session: SessionState;
   onLogout(): Promise<void>;
 }) {
+  const { theme, toggleTheme } = useThemeMode();
   const navigate = useNavigate();
   const { channelId } = useParams();
   const [chatData, setChatData] = useState<ChatDataState>({
@@ -534,54 +593,68 @@ function ChatPage({
 
   return (
     <main className="chat-shell">
-      <aside className="sidebar">
-        <div className="sidebar__header">
-          <div>
-            <p className="eyebrow">Workspace</p>
-            <h1>Praxis</h1>
+      <aside className="left-nav">
+        <div className="left-nav__header">
+          <div className="server-trigger">
+            <div className="brand-mark brand-mark--small">P</div>
+            <div className="server-trigger__text">
+              <strong>Praxis</strong>
+              <span>Default workspace</span>
+            </div>
           </div>
-          <button className="button button--ghost" onClick={handleLogoutClick} type="button">
-            Log out
-          </button>
         </div>
 
-        <div className="sidebar__user">
-          <p className="sidebar__user-name">{user?.name}</p>
-          <p className="muted">{user?.email}</p>
-        </div>
-
-        <nav aria-label="Channels" className="channel-nav">
-          <p className="channel-nav__label">Channels</p>
+        <nav aria-label="Channels" className="channel-list">
+          <p className="channel-list__label">Channels</p>
           {chatData.channels.map((channel) => (
             <Link
               className={
                 channel.id === chatData.selectedChannel?.id
-                  ? "channel-link channel-link--active"
-                  : "channel-link"
+                  ? "channel-list__item channel-list__item--active"
+                  : "channel-list__item"
               }
               key={channel.id}
               to={`/chat/${channel.id}`}
             >
-              <span>#</span>
+              <span className="channel-list__hash">#</span>
               <span>{channel.name}</span>
             </Link>
           ))}
         </nav>
+
+        <div className="left-nav__footer">
+          <div className="user-chip">
+            <div className="user-chip__avatar">{user?.name?.slice(0, 1) ?? "U"}</div>
+            <div className="user-chip__body">
+              <p className="sidebar__user-name">{user?.name}</p>
+              <p className="muted user-chip__meta">{user?.email}</p>
+            </div>
+          </div>
+
+          <div className="left-nav__actions">
+            <button className="icon-button" onClick={toggleTheme} type="button">
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+            <button className="icon-button" onClick={handleLogoutClick} type="button">
+              Log out
+            </button>
+          </div>
+        </div>
       </aside>
 
-      <section className="chat-panel">
-        <header className="chat-panel__header">
-          <div>
-            <p className="eyebrow">Chat</p>
-            <h2>{chatData.selectedChannel ? `# ${chatData.selectedChannel.name}` : "No channel"}</h2>
+      <section className="channel-pane">
+        <header className="channel-pane__header">
+          <div className="channel-heading">
+            <span className="channel-heading__hash">#</span>
+            <h2>{chatData.selectedChannel?.name ?? "No channel"}</h2>
           </div>
-          <p className="muted">
+          <p className="channel-pane__description muted">
             {chatData.selectedChannel?.description ?? "Basic text and image chat for the default workspace."}
           </p>
         </header>
 
         {chatData.error ? (
-          <div className="panel panel--tight">
+          <div className="chat-alert">
             <p className="notice notice--error" role="alert">
               {chatData.error}
             </p>
@@ -596,29 +669,32 @@ function ChatPage({
             </div>
           ) : hasMessages ? (
             orderedFeed.map((item) => (
-              <article className="message-card" key={item.id}>
-                <div className="message-card__meta">
-                  <strong>{item.user?.name ?? "Unknown user"}</strong>
-                  <span className="muted">{formatTimestamp(item.createdAt)}</span>
-                </div>
-                {item.body ? <p className="message-card__body">{item.body}</p> : null}
-                {item.images?.length ? (
-                  <div className="message-card__images">
-                    {item.images.map((image) => (
-                      <img
-                        alt="Uploaded attachment"
-                        className="message-card__image"
-                        key={image.id}
-                        src={imageUrl(
-                          chatData.selectedChannel?.server.id ?? DEFAULT_SERVER_ID,
-                          chatData.selectedChannel?.id ?? "",
-                          item.id,
-                          image.id,
-                        )}
-                      />
-                    ))}
+              <article className="message-row" key={item.id}>
+                <div className="message-row__avatar">{item.user?.name?.slice(0, 1) ?? "U"}</div>
+                <div className="message-row__content">
+                  <div className="message-row__meta">
+                    <strong>{item.user?.name ?? "Unknown user"}</strong>
+                    <span className="muted">{formatTimestamp(item.createdAt)}</span>
                   </div>
-                ) : null}
+                  {item.body ? <p className="message-row__body">{item.body}</p> : null}
+                  {item.images?.length ? (
+                    <div className="message-row__images">
+                      {item.images.map((image) => (
+                        <img
+                          alt="Uploaded attachment"
+                          className="message-row__image"
+                          key={image.id}
+                          src={imageUrl(
+                            chatData.selectedChannel?.server.id ?? DEFAULT_SERVER_ID,
+                            chatData.selectedChannel?.id ?? "",
+                            item.id,
+                            image.id,
+                          )}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </article>
             ))
           ) : (
@@ -630,21 +706,33 @@ function ChatPage({
         </div>
 
         <form className="composer" onSubmit={handleSendMessage}>
-          <label className="field">
-            <span>Message</span>
-            <textarea
-              name="body"
-              placeholder="Write a message"
-              rows={3}
-              value={messageBody}
-              onChange={(event) => setMessageBody(event.target.value)}
-            />
-          </label>
+          <div className="composer__surface">
+            <label className="composer__field">
+              <span className="sr-only">Message</span>
+              <textarea
+                name="body"
+                placeholder={`Message #${chatData.selectedChannel?.name ?? "general"}`}
+                rows={3}
+                value={messageBody}
+                onChange={(event) => setMessageBody(event.target.value)}
+              />
+            </label>
 
-          <label className="field">
-            <span>Images</span>
-            <input accept="image/*" multiple name="images" type="file" onChange={handleFileChange} />
-          </label>
+            <div className="composer__toolbar">
+              <label className="composer__attach">
+                <span>Add images</span>
+                <input accept="image/*" multiple name="images" type="file" onChange={handleFileChange} />
+              </label>
+
+              <button
+                className="button button--primary composer__send"
+                disabled={isSending || (!messageBody.trim() && selectedFiles.length === 0)}
+                type="submit"
+              >
+                {isSending ? "Sending..." : "Send message"}
+              </button>
+            </div>
+          </div>
 
           {selectedFiles.length ? (
             <div className="attachment-list" aria-label="Selected images">
@@ -664,13 +752,6 @@ function ChatPage({
 
           <div className="composer__actions">
             <p className="muted">Signed in as {user?.name}. Messages support text and image uploads.</p>
-            <button
-              className="button"
-              disabled={isSending || (!messageBody.trim() && selectedFiles.length === 0)}
-              type="submit"
-            >
-              {isSending ? "Sending..." : "Send message"}
-            </button>
           </div>
         </form>
       </section>
