@@ -22,6 +22,9 @@ function LoginForm({
   onSubmit,
 }: LoginFormProps) {
   function handleSubmit(event: SyntheticEvent<HTMLFormElement, SubmitEvent>) {
+    if (typeof email !== "function") {
+      return;
+    }
     event.preventDefault();
     onSubmit();
   }

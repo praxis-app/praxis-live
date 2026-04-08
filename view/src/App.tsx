@@ -1,359 +1,681 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Menu } from "lucide-react";
-import { useState } from "react";
-import { LoginForm } from "@/components/auth/login-form";
-import { SignupForm } from "@/components/auth/signup-form";
-import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 
-type HealthResponse = {
-  status: string;
+import {
+  ApiError,
+  fetchFeed,
+  fetchJoinedChannels,
+  fetchSession,
+  login,
+  logout,
+  persistAccessToken,
+  readStoredAccessToken,
+  sendMessage,
+  signUp,
+  uploadMessageImage,
+} from "./api";
+import type { Channel, FeedMessage, PublicUser } from "./types";
+
+const DEFAULT_SERVER_ID = "11111111-1111-1111-1111-111111111111";
+
+type SessionState = {
+  token: string | null;
+  user: PublicUser | null;
+  status: "loading" | "authenticated" | "anonymous";
 };
 
-type User = {
-  id: number;
-  email: string;
-  name: string;
+type ChatDataState = {
+  channels: Channel[];
+  feed: FeedMessage[];
+  selectedChannel: Channel | null;
+  isLoading: boolean;
+  error: string | null;
 };
 
-type SessionResponse = {
-  user: User | null;
-  access_token?: string | null;
-};
+function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
 
-type ApiError = {
-  error?: string;
-};
+function formatTimestamp(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
 
-type Notice = {
-  kind: "error" | "success";
-  message: string;
-} | null;
+function imageUrl(serverId: string, channelId: string, messageId: string, imageId: string) {
+  return `/api/servers/${serverId}/channels/${channelId}/messages/${messageId}/images/${imageId}`;
+}
 
-const sessionQueryKey = ["auth", "session"] as const;
-const accessTokenStorageKey = "access_token";
-const emptyLoginForm = { email: "", password: "" };
-const emptySignupForm = { email: "", name: "", password: "" };
-
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const access_token = window.localStorage.getItem(accessTokenStorageKey);
-  const response = await fetch(path, {
-    headers: {
-      Accept: "application/json",
-      ...(access_token ? { Authorization: `Bearer ${access_token}` } : {}),
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers,
-    },
-    ...init,
+function AppShell() {
+  const [session, setSession] = useState<SessionState>({
+    token: readStoredAccessToken(),
+    user: null,
+    status: "loading",
   });
 
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}.`;
+  useEffect(() => {
+    const token = readStoredAccessToken();
 
-    try {
-      const error = (await response.json()) as ApiError;
-
-      if (typeof error.error === "string" && error.error.length > 0) {
-        message = error.error;
-      }
-    } catch {
-      // Fall back to the generic message when the error body is absent.
+    if (!token) {
+      setSession({ token: null, user: null, status: "anonymous" });
+      return;
     }
 
-    throw new Error(message);
-  }
+    let cancelled = false;
 
-  return response.json() as Promise<T>;
-}
+    fetchSession(token)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
 
-function useHealthQuery() {
-  return useQuery({
-    queryKey: ["health"],
-    queryFn: () => requestJson<HealthResponse>("/api/health"),
-  });
-}
+        if (!response.user) {
+          persistAccessToken(null);
+          setSession({ token: null, user: null, status: "anonymous" });
+          return;
+        }
 
-function useSessionQuery() {
-  return useQuery({
-    queryKey: sessionQueryKey,
-    queryFn: () => requestJson<SessionResponse>("/api/auth/me"),
-  });
-}
+        setSession({ token, user: response.user, status: "authenticated" });
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
 
-function App() {
-  const queryClient = useQueryClient();
-  const healthQuery = useHealthQuery();
-  const sessionQuery = useSessionQuery();
-
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [notice, setNotice] = useState<Notice>(null);
-  const [loginForm, setLoginForm] = useState(emptyLoginForm);
-  const [signupForm, setSignupForm] = useState(emptySignupForm);
-
-  const loginMutation = useMutation({
-    mutationFn: (payload: typeof emptyLoginForm) =>
-      requestJson<SessionResponse>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: (data) => {
-      if (data.access_token) {
-        window.localStorage.setItem(accessTokenStorageKey, data.access_token);
-      } else {
-        window.localStorage.removeItem(accessTokenStorageKey);
-      }
-      queryClient.setQueryData(sessionQueryKey, data);
-      setLoginForm(emptyLoginForm);
-      setNotice({
-        kind: "success",
-        message: `Signed in as ${data.user?.name ?? "your account"}.`,
+        persistAccessToken(null);
+        setSession({ token: null, user: null, status: "anonymous" });
       });
-    },
-    onError: (error) => {
-      setNotice({
-        kind: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Could not sign in right now.",
-      });
-    },
-  });
 
-  const signupMutation = useMutation({
-    mutationFn: (payload: typeof emptySignupForm) =>
-      requestJson<SessionResponse>("/api/auth/signup", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: (data) => {
-      if (data.access_token) {
-        window.localStorage.setItem(accessTokenStorageKey, data.access_token);
-      } else {
-        window.localStorage.removeItem(accessTokenStorageKey);
-      }
-      queryClient.setQueryData(sessionQueryKey, data);
-      setSignupForm(emptySignupForm);
-      setNotice({
-        kind: "success",
-        message: `Account created for ${data.user?.name ?? "your workspace"}.`,
-      });
-    },
-    onError: (error) => {
-      setNotice({
-        kind: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Could not create the account.",
-      });
-    },
-  });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const logoutMutation = useMutation({
-    mutationFn: () =>
-      requestJson<SessionResponse>("/api/auth/logout", {
-        method: "POST",
-      }),
-    onSuccess: (data) => {
-      window.localStorage.removeItem(accessTokenStorageKey);
-      queryClient.setQueryData(sessionQueryKey, data);
-      setNotice({
-        kind: "success",
-        message: "You have been signed out.",
-      });
-    },
-    onError: (error) => {
-      setNotice({
-        kind: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Could not sign out right now.",
-      });
-    },
-  });
+  const handleAuthenticated = (response: {
+    access_token?: string | null;
+    user: PublicUser | null;
+  }) => {
+    if (!response.access_token || !response.user) {
+      throw new Error("Authentication response did not include a session.");
+    }
 
-  const user = sessionQuery.data?.user ?? null;
-  const backendOffline = healthQuery.error instanceof Error;
-  const authBusy =
-    loginMutation.isPending ||
-    signupMutation.isPending ||
-    logoutMutation.isPending;
+    persistAccessToken(response.access_token);
+    setSession({
+      token: response.access_token,
+      user: response.user,
+      status: "authenticated",
+    });
+  };
 
-  function switchMode(nextMode: "login" | "signup") {
-    setMode(nextMode);
-    setNotice(null);
-  }
+  const handleLogout = async () => {
+    await logout();
+    persistAccessToken(null);
+    setSession({ token: null, user: null, status: "anonymous" });
+  };
 
-  function submitLogin() {
-    setNotice(null);
-    loginMutation.mutate(loginForm);
-  }
-
-  function submitSignup() {
-    setNotice(null);
-    signupMutation.mutate(signupForm);
+  if (session.status === "loading") {
+    return (
+      <main className="screen centered">
+        <div className="panel panel--tight">
+          <p className="eyebrow">Praxis Live</p>
+          <h1>Loading chat</h1>
+          <p className="muted">Checking your session and preparing the app shell.</p>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center gap-4">
-        <div className="flex items-center gap-3 rounded-lg border border-border bg-card/80 px-4 py-3 shadow-sm">
-          <img
-            alt="praxis"
-            className="size-8 rounded-md"
-            height={32}
-            src="/assets/images/app-icon.png"
-            width={32}
-          />
-          <span className="text-sm font-medium text-foreground">praxis</span>
+    <Routes>
+      <Route
+        path="/"
+        element={
+          session.status === "authenticated" ? <Navigate to="/chat" replace /> : <LandingPage />
+        }
+      />
+      <Route
+        path="/login"
+        element={
+          session.status === "authenticated" ? (
+            <Navigate to="/chat" replace />
+          ) : (
+            <AuthPage mode="login" onAuthenticated={handleAuthenticated} />
+          )
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          session.status === "authenticated" ? (
+            <Navigate to="/chat" replace />
+          ) : (
+            <AuthPage mode="signup" onAuthenticated={handleAuthenticated} />
+          )
+        }
+      />
+      <Route
+        path="/chat"
+        element={
+          session.status === "authenticated" && session.token && session.user ? (
+            <ChatPage session={session} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/signup" replace />
+          )
+        }
+      />
+      <Route
+        path="/chat/:channelId"
+        element={
+          session.status === "authenticated" && session.token && session.user ? (
+            <ChatPage session={session} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/signup" replace />
+          )
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function LandingPage() {
+  return (
+    <main className="screen">
+      <section className="hero">
+        <div className="hero__copy">
+          <p className="eyebrow">Basic Chat Slice</p>
+          <h1>Praxis Live keeps the first pass simple.</h1>
+          <p className="muted">
+            Sign in to a lightweight chat shell with channel navigation, message history, and image
+            attachments. More product areas can layer in later without changing this foundation.
+          </p>
+          <div className="hero__actions">
+            <Link className="button" to="/signup">
+              Sign up
+            </Link>
+            <Link className="button button--ghost" to="/login">
+              Log in
+            </Link>
+          </div>
         </div>
+      </section>
+    </main>
+  );
+}
 
-        <Card className="w-full border-border shadow-sm">
-          <CardContent className="space-y-2 p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <h1 className="text-xl font-semibold text-foreground">
-                  {user ? user.name : "Welcome"}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {user
-                    ? user.email
-                    : mode === "login"
-                      ? "Log in"
-                      : "Create account"}
-                </p>
-              </div>
+function AuthPage({
+  mode,
+  onAuthenticated,
+}: {
+  mode: "login" | "signup";
+  onAuthenticated(response: { access_token?: string | null; user: PublicUser | null }): void;
+}) {
+  const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      aria-label="Account menu"
-                      className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-border bg-muted text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
-                      type="button"
-                    >
-                      <Menu className="size-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      disabled={logoutMutation.isPending}
-                      onClick={() => {
-                        setNotice(null);
-                        logoutMutation.mutate();
-                      }}
-                    >
-                      {logoutMutation.isPending ? "Signing out..." : "Log out"}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </div>
+  const isSignup = mode === "signup";
 
-            {notice ? (
-              <div
-                className={cn(
-                  "rounded-lg border px-4 py-3 text-sm",
-                  notice.kind === "success"
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                    : "border-rose-200 bg-rose-50 text-rose-800",
-                )}
-              >
-                {notice.message}
-              </div>
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = isSignup
+        ? await signUp({ name: name.trim(), email: email.trim(), password })
+        : await login({ email: email.trim(), password });
+      onAuthenticated(response);
+      navigate("/chat", { replace: true });
+    } catch (error) {
+      setError(isApiError(error) ? error.message : "Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="screen centered">
+      <div className="auth-layout">
+        <section className="panel auth-panel">
+          <p className="eyebrow">Praxis Live</p>
+          <h1>{isSignup ? "Create your account" : "Welcome back"}</h1>
+          <p className="muted">
+            {isSignup
+              ? "Join the default Praxis workspace and land directly in chat."
+              : "Use your existing credentials to get back to your channels."}
+          </p>
+        </section>
+
+        <section className="panel auth-panel">
+          <div className="auth-switcher" aria-label="Authentication options">
+            <Link
+              className={isSignup ? "auth-switcher__link auth-switcher__link--active" : "auth-switcher__link"}
+              to="/signup"
+            >
+              Sign up
+            </Link>
+            <Link
+              className={!isSignup ? "auth-switcher__link auth-switcher__link--active" : "auth-switcher__link"}
+              to="/login"
+            >
+              Log in
+            </Link>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit}>
+            {isSignup ? (
+              <label className="field">
+                <span>Name</span>
+                <input
+                  autoComplete="username"
+                  name="name"
+                  required
+                  minLength={2}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </label>
             ) : null}
 
-            {backendOffline && healthQuery.error instanceof Error ? (
-              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-                {healthQuery.error.message}
-              </div>
+            <label className="field">
+              <span>Email</span>
+              <input
+                autoComplete="email"
+                name="email"
+                required
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span>Password</span>
+              <input
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                name="password"
+                required
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+
+            {error ? (
+              <p className="notice notice--error" role="alert">
+                {error}
+              </p>
             ) : null}
 
-            {healthQuery.isPending || sessionQuery.isPending ? (
-              <div className="flex min-h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Spinner className="size-5" />
-                <span>Loading...</span>
-              </div>
-            ) : user ? (
-              <div className="space-y-4" />
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 rounded-md border border-border p-1">
-                  <button
-                    className={cn(
-                      "rounded-sm px-3 py-2 text-sm transition",
-                      mode === "login"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                    onClick={() => switchMode("login")}
-                    type="button"
-                  >
-                    Log in
-                  </button>
-                  <button
-                    className={cn(
-                      "rounded-sm px-3 py-2 text-sm transition",
-                      mode === "signup"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                    onClick={() => switchMode("signup")}
-                    type="button"
-                  >
-                    Sign up
-                  </button>
-                </div>
-
-                {mode === "login" ? (
-                  <LoginForm
-                    disabled={authBusy}
-                    email={loginForm.email}
-                    isPending={loginMutation.isPending}
-                    onEmailChange={(email) =>
-                      setLoginForm((current) => ({ ...current, email }))
-                    }
-                    onPasswordChange={(password) =>
-                      setLoginForm((current) => ({ ...current, password }))
-                    }
-                    onSubmit={submitLogin}
-                    password={loginForm.password}
-                  />
-                ) : (
-                  <SignupForm
-                    disabled={authBusy}
-                    email={signupForm.email}
-                    isPending={signupMutation.isPending}
-                    name={signupForm.name}
-                    onEmailChange={(email) =>
-                      setSignupForm((current) => ({ ...current, email }))
-                    }
-                    onNameChange={(name) =>
-                      setSignupForm((current) => ({ ...current, name }))
-                    }
-                    onPasswordChange={(password) =>
-                      setSignupForm((current) => ({ ...current, password }))
-                    }
-                    onSubmit={submitSignup}
-                    password={signupForm.password}
-                  />
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <button className="button" disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Working..." : isSignup ? "Create account" : "Log in"}
+            </button>
+          </form>
+        </section>
       </div>
     </main>
   );
 }
 
-export default App;
+function ChatPage({
+  session,
+  onLogout,
+}: {
+  session: SessionState;
+  onLogout(): Promise<void>;
+}) {
+  const navigate = useNavigate();
+  const { channelId } = useParams();
+  const [chatData, setChatData] = useState<ChatDataState>({
+    channels: [],
+    feed: [],
+    selectedChannel: null,
+    isLoading: true,
+    error: null,
+  });
+  const [messageBody, setMessageBody] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [composerError, setComposerError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+
+  const token = session.token;
+  const user = session.user;
+
+  useEffect(() => {
+    const authToken = token;
+
+    if (!authToken) {
+      return;
+    }
+
+    const tokenForRequest = authToken;
+
+    let cancelled = false;
+
+    async function loadChannels() {
+      setChatData((current) => ({ ...current, isLoading: true, error: null }));
+
+      try {
+        const { channels } = await fetchJoinedChannels(DEFAULT_SERVER_ID, tokenForRequest);
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextChannel =
+          channels.find((channel) => channel.id === channelId) ?? channels[0] ?? null;
+
+        setChatData((current) => ({
+          ...current,
+          channels,
+          selectedChannel: nextChannel,
+          isLoading: false,
+          error: null,
+        }));
+
+        if (nextChannel && nextChannel.id !== channelId) {
+          navigate(`/chat/${nextChannel.id}`, { replace: true });
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setChatData((current) => ({
+          ...current,
+          isLoading: false,
+          error: isApiError(error) ? error.message : "Failed to load channels.",
+        }));
+      }
+    }
+
+    void loadChannels();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [channelId, navigate, token]);
+
+  useEffect(() => {
+    const selectedChannel = chatData.selectedChannel;
+    const serverId = selectedChannel?.server.id;
+    const authToken = token;
+
+    if (!authToken || !selectedChannel || !serverId) {
+      setChatData((current) => ({ ...current, feed: [] }));
+      return;
+    }
+
+    const tokenForRequest = authToken;
+    const selectedChannelId = selectedChannel.id;
+    const serverIdForRequest = serverId;
+
+    let cancelled = false;
+
+    async function loadFeed() {
+      setChatData((current) => ({ ...current, isLoading: true, error: null }));
+
+      try {
+        const { feed } = await fetchFeed(serverIdForRequest, selectedChannelId, tokenForRequest);
+
+        if (cancelled) {
+          return;
+        }
+
+        setChatData((current) => ({
+          ...current,
+          feed,
+          isLoading: false,
+          error: null,
+        }));
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setChatData((current) => ({
+          ...current,
+          isLoading: false,
+          error: isApiError(error) ? error.message : "Failed to load messages.",
+        }));
+      }
+    }
+
+    void loadFeed();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chatData.selectedChannel, token]);
+
+  const orderedFeed = useMemo(() => [...chatData.feed].reverse(), [chatData.feed]);
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextFiles = Array.from(event.target.files ?? []);
+    setSelectedFiles(nextFiles);
+  };
+
+  const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!token || !chatData.selectedChannel) {
+      return;
+    }
+
+    const trimmedBody = messageBody.trim();
+
+    if (!trimmedBody && selectedFiles.length === 0) {
+      return;
+    }
+
+    setComposerError(null);
+    setIsSending(true);
+
+    try {
+      const serverId = chatData.selectedChannel.server.id;
+      const { message } = await sendMessage(
+        serverId,
+        chatData.selectedChannel.id,
+        token,
+        trimmedBody,
+        selectedFiles.length,
+      );
+
+      const placeholders = message.images ?? [];
+
+      for (const [index, file] of selectedFiles.entries()) {
+        const placeholder = placeholders[index];
+
+        if (!placeholder) {
+          break;
+        }
+
+        await uploadMessageImage(
+          serverId,
+          chatData.selectedChannel.id,
+          message.id,
+          placeholder.id,
+          token,
+          file,
+        );
+      }
+
+      const { feed } = await fetchFeed(serverId, chatData.selectedChannel.id, token);
+      setChatData((current) => ({ ...current, feed }));
+      setMessageBody("");
+      setSelectedFiles([]);
+    } catch (error) {
+      setComposerError(isApiError(error) ? error.message : "Failed to send message.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleLogoutClick = async () => {
+    await onLogout();
+    navigate("/login", { replace: true });
+  };
+
+  const hasMessages = orderedFeed.length > 0;
+
+  return (
+    <main className="chat-shell">
+      <aside className="sidebar">
+        <div className="sidebar__header">
+          <div>
+            <p className="eyebrow">Workspace</p>
+            <h1>Praxis</h1>
+          </div>
+          <button className="button button--ghost" onClick={handleLogoutClick} type="button">
+            Log out
+          </button>
+        </div>
+
+        <div className="sidebar__user">
+          <p className="sidebar__user-name">{user?.name}</p>
+          <p className="muted">{user?.email}</p>
+        </div>
+
+        <nav aria-label="Channels" className="channel-nav">
+          <p className="channel-nav__label">Channels</p>
+          {chatData.channels.map((channel) => (
+            <Link
+              className={
+                channel.id === chatData.selectedChannel?.id
+                  ? "channel-link channel-link--active"
+                  : "channel-link"
+              }
+              key={channel.id}
+              to={`/chat/${channel.id}`}
+            >
+              <span>#</span>
+              <span>{channel.name}</span>
+            </Link>
+          ))}
+        </nav>
+      </aside>
+
+      <section className="chat-panel">
+        <header className="chat-panel__header">
+          <div>
+            <p className="eyebrow">Chat</p>
+            <h2>{chatData.selectedChannel ? `# ${chatData.selectedChannel.name}` : "No channel"}</h2>
+          </div>
+          <p className="muted">
+            {chatData.selectedChannel?.description ?? "Basic text and image chat for the default workspace."}
+          </p>
+        </header>
+
+        {chatData.error ? (
+          <div className="panel panel--tight">
+            <p className="notice notice--error" role="alert">
+              {chatData.error}
+            </p>
+          </div>
+        ) : null}
+
+        <div aria-label="Message feed" className="message-feed">
+          {chatData.isLoading ? (
+            <div className="empty-state">
+              <p className="eyebrow">Loading</p>
+              <p className="muted">Fetching channels and recent messages.</p>
+            </div>
+          ) : hasMessages ? (
+            orderedFeed.map((item) => (
+              <article className="message-card" key={item.id}>
+                <div className="message-card__meta">
+                  <strong>{item.user?.name ?? "Unknown user"}</strong>
+                  <span className="muted">{formatTimestamp(item.createdAt)}</span>
+                </div>
+                {item.body ? <p className="message-card__body">{item.body}</p> : null}
+                {item.images?.length ? (
+                  <div className="message-card__images">
+                    {item.images.map((image) => (
+                      <img
+                        alt="Uploaded attachment"
+                        className="message-card__image"
+                        key={image.id}
+                        src={imageUrl(
+                          chatData.selectedChannel?.server.id ?? DEFAULT_SERVER_ID,
+                          chatData.selectedChannel?.id ?? "",
+                          item.id,
+                          image.id,
+                        )}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))
+          ) : (
+            <div className="empty-state">
+              <p className="eyebrow">No messages yet</p>
+              <p className="muted">Start the conversation with the first message in this channel.</p>
+            </div>
+          )}
+        </div>
+
+        <form className="composer" onSubmit={handleSendMessage}>
+          <label className="field">
+            <span>Message</span>
+            <textarea
+              name="body"
+              placeholder="Write a message"
+              rows={3}
+              value={messageBody}
+              onChange={(event) => setMessageBody(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Images</span>
+            <input accept="image/*" multiple name="images" type="file" onChange={handleFileChange} />
+          </label>
+
+          {selectedFiles.length ? (
+            <div className="attachment-list" aria-label="Selected images">
+              {selectedFiles.map((file) => (
+                <span className="attachment-pill" key={`${file.name}-${file.size}`}>
+                  {file.name}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {composerError ? (
+            <p className="notice notice--error" role="alert">
+              {composerError}
+            </p>
+          ) : null}
+
+          <div className="composer__actions">
+            <p className="muted">Signed in as {user?.name}. Messages support text and image uploads.</p>
+            <button
+              className="button"
+              disabled={isSending || (!messageBody.trim() && selectedFiles.length === 0)}
+              type="submit"
+            >
+              {isSending ? "Sending..." : "Send message"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+export default AppShell;
