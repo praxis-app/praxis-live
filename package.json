@@ -27,7 +27,7 @@
     "color-hash": "^2.0.2",
     "copy-to-clipboard": "^3.3.3",
     "dayjs": "^1.11.20",
-    "i18next": "^26.0.4",
+    "i18next": "^21.10.0",
     "lucide-react": "^0.575.0",
     "marked": "^18.0.0",
     "next-themes": "^0.4.6",
