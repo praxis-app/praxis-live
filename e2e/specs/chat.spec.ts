@@ -2,14 +2,18 @@ import { test } from "@playwright/test";
 
 import { ChatPage } from "../pages/chat.page";
 import { NavigationPage } from "../pages/navigation.page";
-import { createAuthenticatedUser } from "../support/api";
-import { createTestMessage, createTestUser } from "../support/test-data";
+import { createAuthenticatedUser } from "../lib/api";
+import { createTestMessage, createTestUser } from "../lib/test-data";
 
-test("authenticated user can send a basic chat message", async ({ context, page, request }) => {
+test("authenticated user can send a basic chat message", async ({
+  context,
+  page,
+  request,
+}) => {
   const authenticatedUser = await createAuthenticatedUser(
     request,
     context,
-    createTestUser("chat"),
+    createTestUser("chat")
   );
   const message = createTestMessage("chat", authenticatedUser.user.suffix);
   const chat = new ChatPage(page);
