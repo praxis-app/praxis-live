@@ -71,6 +71,10 @@ pub async fn connect_database(
         migrations::Migrator::up(&database, None).await?;
     }
 
+    servers::initialize_instance(&database)
+        .await
+        .map_err(|error| io::Error::other(error.to_string()))?;
+
     Ok(database)
 }
 

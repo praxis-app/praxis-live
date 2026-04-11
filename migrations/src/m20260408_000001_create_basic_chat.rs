@@ -1,9 +1,5 @@
 use sea_orm::sea_query::Expr;
 use sea_orm_migration::prelude::*;
-use sea_orm_migration::sea_orm::prelude::Uuid;
-
-const DEFAULT_SERVER_ID: &str = "11111111-1111-1111-1111-111111111111";
-const DEFAULT_CHANNEL_ID: &str = "22222222-2222-2222-2222-222222222222";
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -49,17 +45,12 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(ServerMembers::Id)
-                            .big_integer()
+                            .uuid()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(ServerMembers::ServerId).uuid().not_null())
-                    .col(
-                        ColumnDef::new(ServerMembers::UserId)
-                            .big_integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(ServerMembers::UserId).uuid().not_null())
                     .col(ColumnDef::new(ServerMembers::LastActiveAt).timestamp_with_time_zone())
                     .col(
                         ColumnDef::new(ServerMembers::CreatedAt)
@@ -197,7 +188,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(InstanceConfigs::Id)
-                            .big_integer()
+                            .uuid()
                             .not_null()
                             .primary_key(),
                     )
@@ -277,17 +268,12 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(ChannelMembers::Id)
-                            .big_integer()
+                            .uuid()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(ChannelMembers::ChannelId).uuid().not_null())
-                    .col(
-                        ColumnDef::new(ChannelMembers::UserId)
-                            .big_integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(ChannelMembers::UserId).uuid().not_null())
                     .col(
                         ColumnDef::new(ChannelMembers::CreatedAt)
                             .timestamp_with_time_zone()
@@ -328,7 +314,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(ColumnDef::new(Messages::Id).uuid().not_null().primary_key())
                     .col(ColumnDef::new(Messages::ChannelId).uuid().not_null())
-                    .col(ColumnDef::new(Messages::UserId).big_integer().not_null())
+                    .col(ColumnDef::new(Messages::UserId).uuid().not_null())
                     .col(ColumnDef::new(Messages::Body).text())
                     .col(
                         ColumnDef::new(Messages::CreatedAt)
@@ -396,76 +382,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .exec_stmt(
-                Query::insert()
-                    .into_table(Servers::Table)
-                    .columns([
-                        Servers::Id,
-                        Servers::Slug,
-                        Servers::Name,
-                        Servers::Description,
-                    ])
-                    .values_panic([
-                        Expr::value(DEFAULT_SERVER_ID.parse::<Uuid>().unwrap()),
-                        Expr::value("praxis"),
-                        Expr::value("Praxis"),
-                        Expr::value(Value::String(None)),
-                    ])
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .exec_stmt(
-                Query::insert()
-                    .into_table(ServerConfigs::Table)
-                    .columns([ServerConfigs::Id, ServerConfigs::ServerId])
-                    .values_panic([
-                        Expr::value(
-                            "33333333-3333-3333-3333-333333333333"
-                                .parse::<Uuid>()
-                                .unwrap(),
-                        ),
-                        Expr::value(DEFAULT_SERVER_ID.parse::<Uuid>().unwrap()),
-                    ])
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .exec_stmt(
-                Query::insert()
-                    .into_table(InstanceConfigs::Table)
-                    .columns([InstanceConfigs::Id, InstanceConfigs::DefaultServerId])
-                    .values_panic([
-                        Expr::value(1_i64),
-                        Expr::value(DEFAULT_SERVER_ID.parse::<Uuid>().unwrap()),
-                    ])
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .exec_stmt(
-                Query::insert()
-                    .into_table(Channels::Table)
-                    .columns([
-                        Channels::Id,
-                        Channels::ServerId,
-                        Channels::Name,
-                        Channels::Description,
-                    ])
-                    .values_panic([
-                        Expr::value(DEFAULT_CHANNEL_ID.parse::<Uuid>().unwrap()),
-                        Expr::value(DEFAULT_SERVER_ID.parse::<Uuid>().unwrap()),
-                        Expr::value("general"),
-                        Expr::value(Value::String(None)),
-                    ])
                     .to_owned(),
             )
             .await?;

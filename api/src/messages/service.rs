@@ -12,15 +12,17 @@ use super::types::{
     CreateMessageRequest, FeedMessageResponse, ImageResponse, MessageResponse, MessageUser,
     StoredImage,
 };
+use crate::servers as server_api;
 
-pub(crate) const DEFAULT_SERVER_ID: &str = "11111111-1111-1111-1111-111111111111";
 const MAX_IMAGE_COUNT: usize = 8;
 
 pub(crate) async fn provision_user_memberships(
     database: &DatabaseConnection,
-    user_id: i64,
+    user_id: Uuid,
 ) -> Result<(), sea_orm::DbErr> {
-    let default_server_id = default_server_id();
+    let default_server_id = server_api::default_server_id(database)
+        .await
+        .map_err(|error| sea_orm::DbErr::Custom(error.to_string()))?;
     let server_membership = server_members::Entity::find()
         .filter(server_members::Column::UserId.eq(user_id))
         .filter(server_members::Column::ServerId.eq(default_server_id))
@@ -29,6 +31,7 @@ pub(crate) async fn provision_user_memberships(
 
     if server_membership.is_none() {
         server_members::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
             server_id: Set(default_server_id),
             user_id: Set(user_id),
             ..Default::default()
@@ -53,6 +56,7 @@ pub(crate) async fn provision_user_memberships(
 
     for channel in channels {
         channel_members::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
             channel_id: Set(channel.id),
             user_id: Set(user_id),
             ..Default::default()
@@ -87,7 +91,7 @@ pub(crate) async fn list_channels(
 pub(crate) async fn list_joined_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
 ) -> AppResult<Vec<ChannelResponse>> {
     ensure_server(database, server_id).await?;
 
@@ -158,6 +162,7 @@ pub(crate) async fn create_channel(
 
     for member in server_members {
         let _ = channel_members::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
             channel_id: Set(channel.id),
             user_id: Set(member.user_id),
             ..Default::default()
@@ -212,7 +217,7 @@ pub(crate) async fn get_feed(
         .await
         .map_err(internal_error)?;
 
-    let user_ids: Vec<i64> = messages.iter().map(|message| message.user_id).collect();
+    let user_ids: Vec<Uuid> = messages.iter().map(|message| message.user_id).collect();
     let message_ids: Vec<Uuid> = messages.iter().map(|message| message.id).collect();
 
     let users = users::Entity::find()
@@ -244,7 +249,7 @@ pub(crate) async fn create_message(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
     request: CreateMessageRequest,
 ) -> AppResult<MessageResponse> {
     validate_create_message(&request)?;
@@ -311,7 +316,7 @@ pub(crate) async fn store_message_image(
     channel_id: Uuid,
     message_id: Uuid,
     image_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
     content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<ImageResponse> {
@@ -489,7 +494,7 @@ async fn find_channel(
 async fn ensure_channel_membership(
     database: &DatabaseConnection,
     channel_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
 ) -> AppResult<()> {
     let membership = channel_members::Entity::find()
         .filter(channel_members::Column::ChannelId.eq(channel_id))
@@ -555,12 +560,6 @@ fn validate_channel_request(request: ChannelRequest) -> AppResult<(String, Optio
     }
 
     Ok((name, description))
-}
-
-fn default_server_id() -> Uuid {
-    DEFAULT_SERVER_ID
-        .parse()
-        .expect("default server id should be valid")
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

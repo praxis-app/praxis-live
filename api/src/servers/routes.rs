@@ -235,7 +235,7 @@ async fn update_server_config(
     Ok(Json(serde_json::json!({})))
 }
 
-fn require_user_id(state: &ServersState, headers: &HeaderMap) -> AppResult<i64> {
+fn require_user_id(state: &ServersState, headers: &HeaderMap) -> AppResult<Uuid> {
     let token = bearer_token(headers)
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))?;
 
@@ -245,7 +245,7 @@ fn require_user_id(state: &ServersState, headers: &HeaderMap) -> AppResult<i64> 
         &Validation::default(),
     )
     .ok()
-    .and_then(|claims| claims.claims.sub.parse::<i64>().ok())
+    .and_then(|claims| claims.claims.sub.parse::<Uuid>().ok())
     .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))
 }
 
@@ -266,13 +266,13 @@ fn parse_uuid(value: &str, field: &str) -> AppResult<Uuid> {
         .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, format!("{field} must be a UUID.")))
 }
 
-fn parse_user_ids(values: &[String]) -> AppResult<Vec<i64>> {
+fn parse_user_ids(values: &[String]) -> AppResult<Vec<Uuid>> {
     values
         .iter()
         .map(|value| {
             value
-                .parse::<i64>()
-                .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "userIds must be numeric."))
+                .parse::<Uuid>()
+                .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "userIds must be UUIDs."))
         })
         .collect()
 }

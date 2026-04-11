@@ -23,7 +23,8 @@ async fn signup_returns_created_user_and_access_token() {
     let body = json_body(response).await;
     assert_eq!(body["user"]["email"], "person@example.com");
     assert_eq!(body["user"]["name"], "Person Example");
-    assert!(body["user"]["id"].as_i64().unwrap_or_default() > 0);
+    let user_id = body["user"]["id"].as_str().unwrap();
+    assert!(uuid::Uuid::parse_str(user_id).is_ok());
     assert!(body["access_token"].as_str().is_some());
 }
 

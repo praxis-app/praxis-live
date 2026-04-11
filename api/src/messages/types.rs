@@ -21,6 +21,14 @@ impl ApiError {
     }
 }
 
+impl std::fmt::Display for ApiError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}: {}", self.status, self.message)
+    }
+}
+
+impl std::error::Error for ApiError {}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         (

@@ -14,8 +14,28 @@ use super::types::{
 };
 use crate::messages::types::{ApiError, AppResult};
 
-pub(crate) const DEFAULT_SERVER_ID: &str = "11111111-1111-1111-1111-111111111111";
-const INSTANCE_CONFIG_ID: i64 = 1;
+const INITIAL_SERVER_NAME: &str = "Praxis";
+const INITIAL_SERVER_SLUG: &str = "praxis";
+
+pub(crate) async fn initialize_instance(database: &DatabaseConnection) -> AppResult<()> {
+    let count = instance_configs::Entity::find()
+        .count(database)
+        .await
+        .map_err(internal_error)?;
+
+    if count > 0 {
+        return Ok(());
+    }
+
+    initialize_instance_config(database).await?;
+    tracing::info!("Instance initialized.");
+    Ok(())
+}
+
+pub(crate) async fn default_server_id(database: &DatabaseConnection) -> AppResult<Uuid> {
+    let config = get_instance_config_safely(database).await?;
+    Ok(config.default_server_id)
+}
 
 pub(crate) async fn get_servers(database: &DatabaseConnection) -> AppResult<Vec<ServerResponse>> {
     let default_server_id = default_server_id(database).await?;
@@ -35,7 +55,7 @@ pub(crate) async fn get_servers(database: &DatabaseConnection) -> AppResult<Vec<
 
 pub(crate) async fn get_servers_for_user(
     database: &DatabaseConnection,
-    user_id: i64,
+    user_id: Uuid,
 ) -> AppResult<Vec<ServerResponse>> {
     let default_server_id = default_server_id(database).await?;
     let memberships = server_members::Entity::find()
@@ -70,7 +90,7 @@ pub(crate) async fn get_servers_for_user(
 
 pub(crate) async fn get_current_server(
     database: &DatabaseConnection,
-    user_id: i64,
+    user_id: Uuid,
 ) -> AppResult<Option<ServerResponse>> {
     let default_server_id = default_server_id(database).await?;
     let membership = server_members::Entity::find()
@@ -117,7 +137,7 @@ pub(crate) async fn get_server_by_id(
 pub(crate) async fn get_server_by_slug(
     database: &DatabaseConnection,
     slug: &str,
-    user_id: i64,
+    user_id: Uuid,
 ) -> AppResult<ServerResponse> {
     let server = servers::Entity::find()
         .filter(servers::Column::Slug.eq(slug))
@@ -140,7 +160,7 @@ pub(crate) async fn get_default_server(database: &DatabaseConnection) -> AppResu
 pub(crate) async fn create_server(
     database: &DatabaseConnection,
     request: ServerRequest,
-    current_user_id: i64,
+    current_user_id: Uuid,
 ) -> AppResult<ServerResponse> {
     let (name, slug, description) = validate_server_request(&request)?;
     let server_id = NativeUuid::new_v4();
@@ -224,7 +244,7 @@ pub(crate) async fn get_server_members(
         .all(database)
         .await
         .map_err(internal_error)?;
-    let user_ids: Vec<i64> = memberships
+    let user_ids: Vec<Uuid> = memberships
         .iter()
         .map(|membership| membership.user_id)
         .collect();
@@ -252,7 +272,7 @@ pub(crate) async fn get_users_eligible_for_server(
         .all(database)
         .await
         .map_err(internal_error)?;
-    let member_ids: Vec<i64> = memberships
+    let member_ids: Vec<Uuid> = memberships
         .iter()
         .map(|membership| membership.user_id)
         .collect();
@@ -269,7 +289,7 @@ pub(crate) async fn get_users_eligible_for_server(
 pub(crate) async fn add_server_members(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_ids: &[i64],
+    user_ids: &[Uuid],
 ) -> AppResult<()> {
     find_server(database, server_id).await?;
 
@@ -293,6 +313,7 @@ pub(crate) async fn add_server_members(
 
         if !exists {
             server_members::ActiveModel {
+                id: Set(NativeUuid::new_v4()),
                 server_id: Set(server_id),
                 user_id: Set(*user_id),
                 ..Default::default()
@@ -311,7 +332,7 @@ pub(crate) async fn add_server_members(
 pub(crate) async fn remove_server_members(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_ids: &[i64],
+    user_ids: &[Uuid],
 ) -> AppResult<()> {
     find_server(database, server_id).await?;
 
@@ -344,7 +365,7 @@ pub(crate) async fn remove_server_members(
 pub(crate) async fn join_server(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
     _invite_token: &str,
 ) -> AppResult<()> {
     add_server_members(database, server_id, &[user_id]).await
@@ -475,24 +496,10 @@ async fn find_server(database: &DatabaseConnection, server_id: Uuid) -> AppResul
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Server not found."))
 }
 
-async fn default_server_id(database: &DatabaseConnection) -> AppResult<Uuid> {
-    let config = instance_configs::Entity::find_by_id(INSTANCE_CONFIG_ID)
-        .one(database)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(config
-        .map(|config| config.default_server_id)
-        .unwrap_or_else(default_server_uuid))
-}
-
 async fn set_default_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
     find_server(database, server_id).await?;
 
-    let config = instance_configs::Entity::find_by_id(INSTANCE_CONFIG_ID)
-        .one(database)
-        .await
-        .map_err(internal_error)?;
+    let config = find_instance_config(database).await?;
 
     if let Some(config) = config {
         let mut active = config.into_active_model();
@@ -500,7 +507,7 @@ async fn set_default_server(database: &DatabaseConnection, server_id: Uuid) -> A
         active.update(database).await.map_err(internal_error)?;
     } else {
         instance_configs::ActiveModel {
-            id: Set(INSTANCE_CONFIG_ID),
+            id: Set(NativeUuid::new_v4()),
             default_server_id: Set(server_id),
             ..Default::default()
         }
@@ -510,6 +517,69 @@ async fn set_default_server(database: &DatabaseConnection, server_id: Uuid) -> A
     }
 
     Ok(())
+}
+
+async fn get_instance_config_safely(
+    database: &DatabaseConnection,
+) -> AppResult<instance_configs::Model> {
+    if let Some(config) = find_instance_config(database).await? {
+        return Ok(config);
+    }
+
+    initialize_instance_config(database).await
+}
+
+async fn find_instance_config(
+    database: &DatabaseConnection,
+) -> AppResult<Option<instance_configs::Model>> {
+    instance_configs::Entity::find()
+        .order_by_asc(instance_configs::Column::CreatedAt)
+        .one(database)
+        .await
+        .map_err(internal_error)
+}
+
+async fn initialize_instance_config(
+    database: &DatabaseConnection,
+) -> AppResult<instance_configs::Model> {
+    let initial_server = create_initial_server(database).await?;
+
+    instance_configs::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        default_server_id: Set(initial_server.id),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)
+}
+
+async fn create_initial_server(database: &DatabaseConnection) -> AppResult<servers::Model> {
+    if let Some(server) = servers::Entity::find()
+        .filter(servers::Column::Slug.eq(INITIAL_SERVER_SLUG))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    {
+        ensure_server_config(database, server.id).await?;
+        create_general_channel(database, server.id).await?;
+        return Ok(server);
+    }
+
+    let server = servers::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        name: Set(INITIAL_SERVER_NAME.to_owned()),
+        slug: Set(INITIAL_SERVER_SLUG.to_owned()),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(map_write_error)?;
+
+    ensure_server_config(database, server.id).await?;
+    create_general_channel(database, server.id).await?;
+
+    Ok(server)
 }
 
 async fn ensure_server_config(
@@ -566,6 +636,7 @@ async fn create_general_channel(database: &DatabaseConnection, server_id: Uuid) 
         .map_err(internal_error)?;
     for member in members {
         channel_members::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
             channel_id: Set(channel.id),
             user_id: Set(member.user_id),
             ..Default::default()
@@ -594,7 +665,7 @@ async fn general_channel_id(
 async fn add_member_to_all_server_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
 ) -> AppResult<()> {
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
@@ -612,6 +683,7 @@ async fn add_member_to_all_server_channels(
             .is_some();
         if !exists {
             channel_members::ActiveModel {
+                id: Set(NativeUuid::new_v4()),
                 channel_id: Set(channel.id),
                 user_id: Set(user_id),
                 ..Default::default()
@@ -628,7 +700,7 @@ async fn add_member_to_all_server_channels(
 async fn set_member_activity(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
 ) -> AppResult<()> {
     let _membership = server_members::Entity::find()
         .filter(server_members::Column::ServerId.eq(server_id))
@@ -738,12 +810,6 @@ fn valid_slug(value: &str) -> bool {
         .iter()
         .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'-')
         && !value.contains("--")
-}
-
-fn default_server_uuid() -> Uuid {
-    DEFAULT_SERVER_ID
-        .parse()
-        .expect("default server id should be valid")
 }
 
 fn map_write_error(error: sea_orm::DbErr) -> ApiError {

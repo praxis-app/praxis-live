@@ -269,7 +269,7 @@ async fn get_message_image(
         .map_err(internal_error)
 }
 
-fn require_user_id(chat_state: &ChatState, headers: &HeaderMap) -> AppResult<i64> {
+fn require_user_id(chat_state: &ChatState, headers: &HeaderMap) -> AppResult<Uuid> {
     let token = bearer_token(headers)
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))?;
 
@@ -279,7 +279,7 @@ fn require_user_id(chat_state: &ChatState, headers: &HeaderMap) -> AppResult<i64
         &Validation::default(),
     )
     .ok()
-    .and_then(|claims| claims.claims.sub.parse::<i64>().ok())
+    .and_then(|claims| claims.claims.sub.parse::<Uuid>().ok())
     .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))
 }
 

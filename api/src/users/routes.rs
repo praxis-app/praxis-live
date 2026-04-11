@@ -7,7 +7,9 @@ use axum::{
 };
 use entity::users;
 use jsonwebtoken::{decode, DecodingKey, Validation};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::{
+    prelude::Uuid, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+};
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -92,8 +94,8 @@ async fn get_user_profile(
     Path(user_id): Path<String>,
 ) -> AppResult<Json<serde_json::Value>> {
     let user_id = user_id
-        .parse::<i64>()
-        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "userId must be numeric."))?;
+        .parse::<Uuid>()
+        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "userId must be a UUID."))?;
     let user = users::Entity::find()
         .filter(users::Column::Id.eq(user_id))
         .one(&state.database)
@@ -111,7 +113,7 @@ async fn get_user_profile(
     })))
 }
 
-fn require_user_id(state: &UsersState, headers: &HeaderMap) -> AppResult<i64> {
+fn require_user_id(state: &UsersState, headers: &HeaderMap) -> AppResult<Uuid> {
     let token = bearer_token(headers)
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))?;
 
@@ -121,7 +123,7 @@ fn require_user_id(state: &UsersState, headers: &HeaderMap) -> AppResult<i64> {
         &Validation::default(),
     )
     .ok()
-    .and_then(|claims| claims.claims.sub.parse::<i64>().ok())
+    .and_then(|claims| claims.claims.sub.parse::<Uuid>().ok())
     .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))
 }
 
