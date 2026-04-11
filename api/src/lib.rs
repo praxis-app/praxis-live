@@ -1,5 +1,6 @@
 mod auth;
 mod health;
+mod instance;
 mod messages;
 mod servers;
 mod users;
@@ -71,7 +72,7 @@ pub async fn connect_database(
         migrations::Migrator::up(&database, None).await?;
     }
 
-    servers::initialize_instance(&database)
+    instance::initialize(&database)
         .await
         .map_err(|error| io::Error::other(error.to_string()))?;
 

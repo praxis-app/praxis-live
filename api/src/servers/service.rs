@@ -12,28 +12,14 @@ use super::types::{
     serialize_timestamp, ServerConfigRequest, ServerConfigResponse, ServerRequest, ServerResponse,
     UserResponse,
 };
+use crate::instance;
 use crate::messages::types::{ApiError, AppResult};
 
 const INITIAL_SERVER_NAME: &str = "Praxis";
 const INITIAL_SERVER_SLUG: &str = "praxis";
 
-pub(crate) async fn initialize_instance(database: &DatabaseConnection) -> AppResult<()> {
-    let count = instance_configs::Entity::find()
-        .count(database)
-        .await
-        .map_err(internal_error)?;
-
-    if count > 0 {
-        return Ok(());
-    }
-
-    initialize_instance_config(database).await?;
-    tracing::info!("Instance initialized.");
-    Ok(())
-}
-
 pub(crate) async fn default_server_id(database: &DatabaseConnection) -> AppResult<Uuid> {
-    let config = get_instance_config_safely(database).await?;
+    let config = instance::get_config_safely(database).await?;
     Ok(config.default_server_id)
 }
 
@@ -499,7 +485,7 @@ async fn find_server(database: &DatabaseConnection, server_id: Uuid) -> AppResul
 async fn set_default_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
     find_server(database, server_id).await?;
 
-    let config = find_instance_config(database).await?;
+    let config = instance::find_config(database).await?;
 
     if let Some(config) = config {
         let mut active = config.into_active_model();
@@ -519,42 +505,9 @@ async fn set_default_server(database: &DatabaseConnection, server_id: Uuid) -> A
     Ok(())
 }
 
-async fn get_instance_config_safely(
+pub(crate) async fn create_initial_server(
     database: &DatabaseConnection,
-) -> AppResult<instance_configs::Model> {
-    if let Some(config) = find_instance_config(database).await? {
-        return Ok(config);
-    }
-
-    initialize_instance_config(database).await
-}
-
-async fn find_instance_config(
-    database: &DatabaseConnection,
-) -> AppResult<Option<instance_configs::Model>> {
-    instance_configs::Entity::find()
-        .order_by_asc(instance_configs::Column::CreatedAt)
-        .one(database)
-        .await
-        .map_err(internal_error)
-}
-
-async fn initialize_instance_config(
-    database: &DatabaseConnection,
-) -> AppResult<instance_configs::Model> {
-    let initial_server = create_initial_server(database).await?;
-
-    instance_configs::ActiveModel {
-        id: Set(NativeUuid::new_v4()),
-        default_server_id: Set(initial_server.id),
-        ..Default::default()
-    }
-    .insert(database)
-    .await
-    .map_err(internal_error)
-}
-
-async fn create_initial_server(database: &DatabaseConnection) -> AppResult<servers::Model> {
+) -> AppResult<servers::Model> {
     if let Some(server) = servers::Entity::find()
         .filter(servers::Column::Slug.eq(INITIAL_SERVER_SLUG))
         .one(database)
