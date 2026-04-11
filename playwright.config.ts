@@ -4,7 +4,7 @@ const appPort = 3210;
 const slowMo = Number.parseInt(process.env.PLAYWRIGHT_SLOW_MO ?? "0", 10);
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./e2e/specs",
   fullyParallel: false,
   workers: 1,
   timeout: 30_000,
