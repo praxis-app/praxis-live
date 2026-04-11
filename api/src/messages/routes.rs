@@ -13,8 +13,9 @@ use std::{path::PathBuf, sync::Arc};
 
 use super::{
     service,
-    types::{ApiError, AppResult, ChannelRequest, CreateMessageRequest},
+    types::{ApiError, AppResult, CreateMessageRequest},
 };
+use crate::channels::{self, types::ChannelRequest};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ChatState {
@@ -92,7 +93,7 @@ async fn create_channel(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
     require_user_id(&chat_state, &headers)?;
-    let channel = service::create_channel(&chat_state.database, server_id, payload).await?;
+    let channel = channels::create_channel(&chat_state.database, server_id, payload).await?;
     Ok(Json(serde_json::json!({ "channel": channel })))
 }
 
@@ -105,7 +106,7 @@ async fn update_channel(
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
     require_user_id(&chat_state, &headers)?;
-    service::update_channel(&chat_state.database, server_id, channel_id, payload).await?;
+    channels::update_channel(&chat_state.database, server_id, channel_id, payload).await?;
     Ok(Json(serde_json::json!({})))
 }
 
@@ -117,7 +118,7 @@ async fn delete_channel(
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
     require_user_id(&chat_state, &headers)?;
-    service::delete_channel(&chat_state.database, server_id, channel_id).await?;
+    channels::delete_channel(&chat_state.database, server_id, channel_id).await?;
     Ok(Json(serde_json::json!({})))
 }
 
@@ -126,7 +127,7 @@ async fn get_channels(
     Path(server_id): Path<String>,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    let channels = service::list_channels(&chat_state.database, server_id).await?;
+    let channels = channels::list_channels(&chat_state.database, server_id).await?;
     Ok(Json(serde_json::json!({ "channels": channels })))
 }
 
@@ -137,7 +138,7 @@ async fn get_joined_channels(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
     let user_id = require_user_id(&chat_state, &headers)?;
-    let channels = service::list_joined_channels(&chat_state.database, server_id, user_id).await?;
+    let channels = channels::list_joined_channels(&chat_state.database, server_id, user_id).await?;
     Ok(Json(serde_json::json!({ "channels": channels })))
 }
 
@@ -147,7 +148,7 @@ async fn get_channel(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let channel = service::get_channel(&chat_state.database, server_id, channel_id).await?;
+    let channel = channels::get_channel(&chat_state.database, server_id, channel_id).await?;
     Ok(Json(serde_json::json!({ "channel": channel })))
 }
 

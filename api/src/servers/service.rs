@@ -474,12 +474,23 @@ fn shape_server_config(config: server_configs::Model) -> ServerConfigResponse {
     }
 }
 
-async fn find_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<servers::Model> {
+pub(crate) async fn load_server(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<servers::Model> {
     servers::Entity::find_by_id(server_id)
         .one(database)
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Server not found."))
+}
+
+pub(crate) async fn ensure_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
+    load_server(database, server_id).await.map(|_| ())
+}
+
+async fn find_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<servers::Model> {
+    load_server(database, server_id).await
 }
 
 async fn set_default_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {

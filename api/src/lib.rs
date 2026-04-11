@@ -1,4 +1,5 @@
 mod auth;
+mod channels;
 mod health;
 mod instance;
 mod messages;

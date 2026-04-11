@@ -3,4 +3,4 @@ pub(crate) mod service;
 mod types;
 
 pub(crate) use routes::router;
-pub(crate) use service::default_server_id;
+pub(crate) use service::{default_server_id, ensure_server, load_server};

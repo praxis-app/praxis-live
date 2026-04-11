@@ -15,7 +15,7 @@ use super::{
     },
     types::{ApiError, AppResult, LoginRequest, SessionResponse, SignupRequest},
 };
-use crate::messages;
+use crate::channels;
 use crate::users::{self, UserRecord};
 
 #[derive(Clone, Debug)]
@@ -64,7 +64,7 @@ async fn signup(
     )
     .await
     .map_err(map_create_user_error)?;
-    messages::provision_user_memberships(&auth_state.database, user.id)
+    channels::provision_user_memberships(&auth_state.database, user.id)
         .await
         .map_err(internal_error)?;
 
