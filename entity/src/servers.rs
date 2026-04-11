@@ -7,17 +7,36 @@ pub struct Model {
     pub id: Uuid,
     pub slug: String,
     pub name: String,
+    pub description: Option<String>,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::channels::Entity")]
     Channels,
+    #[sea_orm(has_many = "super::server_members::Entity")]
+    Members,
+    #[sea_orm(has_one = "super::server_configs::Entity")]
+    Config,
 }
 
 impl Related<super::channels::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Channels.def()
+    }
+}
+
+impl Related<super::server_members::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Members.def()
+    }
+}
+
+impl Related<super::server_configs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Config.def()
     }
 }
 

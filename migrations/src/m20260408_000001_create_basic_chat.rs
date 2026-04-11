@@ -19,11 +19,212 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Servers::Id).uuid().not_null().primary_key())
                     .col(ColumnDef::new(Servers::Slug).string().not_null())
                     .col(ColumnDef::new(Servers::Name).string().not_null())
+                    .col(ColumnDef::new(Servers::Description).string())
+                    .col(
+                        ColumnDef::new(Servers::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Servers::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .index(
                         Index::create()
                             .name("servers-slug-key")
                             .col(Servers::Slug)
                             .unique(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(ServerMembers::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(ServerMembers::Id)
+                            .big_integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(ServerMembers::ServerId).uuid().not_null())
+                    .col(
+                        ColumnDef::new(ServerMembers::UserId)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ServerMembers::LastActiveAt).timestamp_with_time_zone())
+                    .col(
+                        ColumnDef::new(ServerMembers::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(ServerMembers::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("server-members-server-id-fkey")
+                            .from(ServerMembers::Table, ServerMembers::ServerId)
+                            .to(Servers::Table, Servers::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("server-members-user-id-fkey")
+                            .from(ServerMembers::Table, ServerMembers::UserId)
+                            .to(Users::Table, Users::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .index(
+                        Index::create()
+                            .name("server-members-user-id-server-id-key")
+                            .col(ServerMembers::UserId)
+                            .col(ServerMembers::ServerId)
+                            .unique(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(ServerConfigs::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(ServerConfigs::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(ServerConfigs::ServerId).uuid().not_null())
+                    .col(
+                        ColumnDef::new(ServerConfigs::DecisionMakingModel)
+                            .string()
+                            .not_null()
+                            .default("consensus"),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::DisagreementsLimit)
+                            .integer()
+                            .not_null()
+                            .default(2),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::AbstainsLimit)
+                            .integer()
+                            .not_null()
+                            .default(2),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::AgreementThreshold)
+                            .integer()
+                            .not_null()
+                            .default(51),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::QuorumEnabled)
+                            .boolean()
+                            .not_null()
+                            .default(true),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::QuorumThreshold)
+                            .integer()
+                            .not_null()
+                            .default(25),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::VotingTimeLimit)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::AnonymousUsersEnabled)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(ServerConfigs::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("server-configs-server-id-fkey")
+                            .from(ServerConfigs::Table, ServerConfigs::ServerId)
+                            .to(Servers::Table, Servers::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .index(
+                        Index::create()
+                            .name("server-configs-server-id-key")
+                            .col(ServerConfigs::ServerId)
+                            .unique(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(InstanceConfigs::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(InstanceConfigs::Id)
+                            .big_integer()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(InstanceConfigs::DefaultServerId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(InstanceConfigs::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(InstanceConfigs::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("instance-configs-default-server-id-fkey")
+                            .from(InstanceConfigs::Table, InstanceConfigs::DefaultServerId)
+                            .to(Servers::Table, Servers::Id)
+                            .on_delete(ForeignKeyAction::Restrict)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -203,11 +404,47 @@ impl MigrationTrait for Migration {
             .exec_stmt(
                 Query::insert()
                     .into_table(Servers::Table)
-                    .columns([Servers::Id, Servers::Slug, Servers::Name])
+                    .columns([
+                        Servers::Id,
+                        Servers::Slug,
+                        Servers::Name,
+                        Servers::Description,
+                    ])
                     .values_panic([
                         Expr::value(DEFAULT_SERVER_ID.parse::<Uuid>().unwrap()),
                         Expr::value("praxis"),
                         Expr::value("Praxis"),
+                        Expr::value(Value::String(None)),
+                    ])
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .exec_stmt(
+                Query::insert()
+                    .into_table(ServerConfigs::Table)
+                    .columns([ServerConfigs::Id, ServerConfigs::ServerId])
+                    .values_panic([
+                        Expr::value(
+                            "33333333-3333-3333-3333-333333333333"
+                                .parse::<Uuid>()
+                                .unwrap(),
+                        ),
+                        Expr::value(DEFAULT_SERVER_ID.parse::<Uuid>().unwrap()),
+                    ])
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .exec_stmt(
+                Query::insert()
+                    .into_table(InstanceConfigs::Table)
+                    .columns([InstanceConfigs::Id, InstanceConfigs::DefaultServerId])
+                    .values_panic([
+                        Expr::value(1_i64),
+                        Expr::value(DEFAULT_SERVER_ID.parse::<Uuid>().unwrap()),
                     ])
                     .to_owned(),
             )
@@ -247,6 +484,15 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(ChannelMembers::Table).to_owned())
             .await?;
         manager
+            .drop_table(Table::drop().table(InstanceConfigs::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(ServerConfigs::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(ServerMembers::Table).to_owned())
+            .await?;
+        manager
             .drop_table(Table::drop().table(Channels::Table).to_owned())
             .await?;
         manager
@@ -261,6 +507,46 @@ enum Servers {
     Id,
     Slug,
     Name,
+    Description,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum ServerMembers {
+    Table,
+    Id,
+    ServerId,
+    UserId,
+    LastActiveAt,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum ServerConfigs {
+    Table,
+    Id,
+    ServerId,
+    DecisionMakingModel,
+    DisagreementsLimit,
+    AbstainsLimit,
+    AgreementThreshold,
+    QuorumEnabled,
+    QuorumThreshold,
+    VotingTimeLimit,
+    AnonymousUsersEnabled,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum InstanceConfigs {
+    Table,
+    Id,
+    DefaultServerId,
+    CreatedAt,
+    UpdatedAt,
 }
 
 #[derive(DeriveIden)]

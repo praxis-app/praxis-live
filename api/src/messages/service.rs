@@ -1,15 +1,16 @@
 use axum::http::StatusCode;
-use entity::{channel_members, channels, message_images, messages, servers, users};
+use entity::{channel_members, channels, message_images, messages, server_members, servers, users};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    serialize_timestamp, ApiError, AppResult, ChannelResponse, ChannelServer, CreateMessageRequest,
-    FeedMessageResponse, ImageResponse, MessageResponse, MessageUser, StoredImage,
+    serialize_timestamp, ApiError, AppResult, ChannelRequest, ChannelResponse, ChannelServer,
+    CreateMessageRequest, FeedMessageResponse, ImageResponse, MessageResponse, MessageUser,
+    StoredImage,
 };
 
 pub(crate) const DEFAULT_SERVER_ID: &str = "11111111-1111-1111-1111-111111111111";
@@ -19,6 +20,23 @@ pub(crate) async fn provision_user_memberships(
     database: &DatabaseConnection,
     user_id: i64,
 ) -> Result<(), sea_orm::DbErr> {
+    let default_server_id = default_server_id();
+    let server_membership = server_members::Entity::find()
+        .filter(server_members::Column::UserId.eq(user_id))
+        .filter(server_members::Column::ServerId.eq(default_server_id))
+        .one(database)
+        .await?;
+
+    if server_membership.is_none() {
+        server_members::ActiveModel {
+            server_id: Set(default_server_id),
+            user_id: Set(user_id),
+            ..Default::default()
+        }
+        .insert(database)
+        .await?;
+    }
+
     let existing = channel_members::Entity::find()
         .filter(channel_members::Column::UserId.eq(user_id))
         .count(database)
@@ -29,7 +47,7 @@ pub(crate) async fn provision_user_memberships(
     }
 
     let channels = channels::Entity::find()
-        .filter(channels::Column::ServerId.eq(default_server_id()))
+        .filter(channels::Column::ServerId.eq(default_server_id))
         .all(database)
         .await?;
 
@@ -111,6 +129,69 @@ pub(crate) async fn get_channel(
     let server = load_server(database, server_id).await?;
     let channel = find_channel(database, server_id, channel_id).await?;
     Ok(shape_channel(channel, &server))
+}
+
+pub(crate) async fn create_channel(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    request: ChannelRequest,
+) -> AppResult<ChannelResponse> {
+    let server = load_server(database, server_id).await?;
+    let (name, description) = validate_channel_request(request)?;
+
+    let channel = channels::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        server_id: Set(server_id),
+        name: Set(name),
+        description: Set(description),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)?;
+
+    let server_members = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    for member in server_members {
+        let _ = channel_members::ActiveModel {
+            channel_id: Set(channel.id),
+            user_id: Set(member.user_id),
+            ..Default::default()
+        }
+        .insert(database)
+        .await;
+    }
+
+    Ok(shape_channel(channel, &server))
+}
+
+pub(crate) async fn update_channel(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    request: ChannelRequest,
+) -> AppResult<()> {
+    let (name, description) = validate_channel_request(request)?;
+    let channel = find_channel(database, server_id, channel_id).await?;
+    let mut active = channel.into_active_model();
+    active.name = Set(name);
+    active.description = Set(description);
+    active.update(database).await.map_err(internal_error)?;
+    Ok(())
+}
+
+pub(crate) async fn delete_channel(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+) -> AppResult<()> {
+    let channel = find_channel(database, server_id, channel_id).await?;
+    channel.delete(database).await.map_err(internal_error)?;
+    Ok(())
 }
 
 pub(crate) async fn get_feed(
@@ -446,6 +527,34 @@ fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
             "A message must include text or at least one image.",
         ))
     }
+}
+
+fn validate_channel_request(request: ChannelRequest) -> AppResult<(String, Option<String>)> {
+    let name = request.name.trim().to_ascii_lowercase();
+    if !(2..=30).contains(&name.chars().count()) {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Channel name must be between 2 and 30 characters.",
+        ));
+    }
+
+    let description = request
+        .description
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty());
+
+    if description
+        .as_ref()
+        .map(|value| value.chars().count() > 255)
+        .unwrap_or(false)
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Channel description must be at most 255 characters.",
+        ));
+    }
+
+    Ok((name, description))
 }
 
 fn default_server_id() -> Uuid {
