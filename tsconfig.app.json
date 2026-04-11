@@ -23,10 +23,13 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
+
+    /* shadcn/ui */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./view/src/*"]
+      "@/*": ["./view/src/*"],
+      "@common/*": ["./common/*"]
     }
   },
-  "include": ["view/src"]
+  "include": ["view/src", "common"]
 }
