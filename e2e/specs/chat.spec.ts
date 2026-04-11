@@ -1,9 +1,8 @@
 import { test } from "@playwright/test";
-
+import { createAuthenticatedUser } from "../lib/auth-api";
+import { createTestMessage, createTestUser } from "../lib/test-data";
 import { ChatPage } from "../pages/chat.page";
 import { NavigationPage } from "../pages/navigation.page";
-import { createAuthenticatedUser } from "../lib/api";
-import { createTestMessage, createTestUser } from "../lib/test-data";
 
 test("authenticated user can send a basic chat message", async ({
   context,
