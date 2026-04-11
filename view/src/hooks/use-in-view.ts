@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { RefObject } from 'react';
 
 export const useInView = (
-  ref: RefObject<HTMLElement>,
+  ref: RefObject<HTMLElement | null>,
   rootMargin = '0px',
   onView?: () => void,
 ) => {

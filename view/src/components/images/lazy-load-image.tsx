@@ -31,7 +31,7 @@ interface Props extends ComponentProps<'img'> {
  * - forwardedRef: For parent components like DialogTrigger (needs DOM element access)
  *
  * This is necessary because:
- * 1. IntersectionObserver requires a stable RefObject<HTMLElement>
+ * 1. IntersectionObserver requires a stable RefObject<HTMLElement | null>
  * 2. DialogTrigger with asChild needs a ref to the DOM element for accessibility/focus
  * 3. ForwardedRef can be null or a function, which breaks IntersectionObserver
  */

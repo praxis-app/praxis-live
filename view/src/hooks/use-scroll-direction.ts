@@ -1,13 +1,13 @@
-import { RefObject, useEffect, useRef, useState } from 'react';
-import { BrowserEvents } from '@/constants/shared.constants';
+import { BrowserEvents } from "@/constants/shared.constants";
+import { RefObject, useEffect, useRef, useState } from "react";
 
 const RESET_SCROLL_DIRECTION_TIMEOUT = 800;
 
-type ScrollDirection = 'up' | 'down' | null;
+type ScrollDirection = "up" | "down" | null;
 
 export const useScrollDirection = (
-  scrollableRef: RefObject<HTMLElement>,
-  resetTimeout = RESET_SCROLL_DIRECTION_TIMEOUT,
+  scrollableRef: RefObject<HTMLElement | null>,
+  resetTimeout = RESET_SCROLL_DIRECTION_TIMEOUT
 ) => {
   const [scrollDirection, setScrollDirection] = useState<ScrollDirection>(null);
   const previousScrollTop = useRef(0);
@@ -26,9 +26,9 @@ export const useScrollDirection = (
       const currentScrollTop = scrollableCopy.scrollTop;
 
       if (previousScrollTop.current > currentScrollTop) {
-        setScrollDirection('up');
+        setScrollDirection("up");
       } else if (previousScrollTop.current < currentScrollTop) {
-        setScrollDirection('down');
+        setScrollDirection("down");
       }
 
       previousScrollTop.current = currentScrollTop;

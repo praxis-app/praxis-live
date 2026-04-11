@@ -38,7 +38,7 @@ export const throttle = <TThis, TArgs extends unknown[], TReturn>(
   func: (this: TThis, ...args: TArgs) => TReturn,
   delay: number,
 ) => {
-  let timeoutId: NodeJS.Timeout | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let lastExecTime = 0;
 
   return function (this: TThis, ...args: TArgs) {

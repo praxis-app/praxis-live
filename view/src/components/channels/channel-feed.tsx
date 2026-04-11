@@ -26,7 +26,7 @@ const IN_VIEW_THRESHOLD = 50;
 interface Props {
   channel?: ChannelRes;
   feed: FeedItemRes[];
-  feedBoxRef: RefObject<HTMLDivElement>;
+  feedBoxRef: RefObject<HTMLDivElement | null>;
   isLastPage: boolean;
   onLoadMore: () => void;
 }

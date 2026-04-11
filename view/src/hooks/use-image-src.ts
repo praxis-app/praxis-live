@@ -13,7 +13,7 @@ interface UseImageSrcProps {
   pollId?: string;
   userId?: string;
   onError?: () => void;
-  ref: RefObject<HTMLElement>;
+  ref: RefObject<HTMLElement | null>;
 }
 
 export const useImageSrc = ({
