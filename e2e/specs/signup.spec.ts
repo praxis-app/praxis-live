@@ -1,9 +1,8 @@
 import { test } from "@playwright/test";
-
+import { createTestUser } from "../lib/test-data";
 import { AuthPage } from "../pages/auth.page";
 import { ChatPage } from "../pages/chat.page";
 import { NavigationPage } from "../pages/navigation.page";
-import { createTestUser } from "../support/test-data";
 
 test("user can sign up from the landing page", async ({ page }) => {
   const user = createTestUser("signup");
