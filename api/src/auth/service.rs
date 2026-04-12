@@ -4,7 +4,7 @@ use sea_orm::prelude::Uuid;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{
-    routes::AuthState,
+    handlers::AuthState,
     types::{ApiError, AppResult, Claims, LoginRequest, SignupRequest},
 };
 use crate::users::CreateUserError;
