@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use entity::{channel_members, channels, server_members, servers};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
+    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -17,10 +17,12 @@ pub(crate) async fn provision_user_memberships(
     let default_server_id = server_api::default_server_id(database)
         .await
         .map_err(|error| sea_orm::DbErr::Custom(error.to_string()))?;
+    let transaction = database.begin().await?;
+
     let server_membership = server_members::Entity::find()
         .filter(server_members::Column::UserId.eq(user_id))
         .filter(server_members::Column::ServerId.eq(default_server_id))
-        .one(database)
+        .one(&transaction)
         .await?;
 
     if server_membership.is_none() {
@@ -30,22 +32,23 @@ pub(crate) async fn provision_user_memberships(
             user_id: Set(user_id),
             ..Default::default()
         }
-        .insert(database)
+        .insert(&transaction)
         .await?;
     }
 
     let existing = channel_members::Entity::find()
         .filter(channel_members::Column::UserId.eq(user_id))
-        .count(database)
+        .count(&transaction)
         .await?;
 
     if existing > 0 {
+        transaction.commit().await?;
         return Ok(());
     }
 
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(default_server_id))
-        .all(database)
+        .all(&transaction)
         .await?;
 
     for channel in channels {
@@ -55,10 +58,11 @@ pub(crate) async fn provision_user_memberships(
             user_id: Set(user_id),
             ..Default::default()
         }
-        .insert(database)
+        .insert(&transaction)
         .await?;
     }
 
+    transaction.commit().await?;
     Ok(())
 }
 
