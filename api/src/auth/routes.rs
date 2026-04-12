@@ -133,7 +133,7 @@ async fn current_user(
         return Ok(None);
     };
 
-    users::find_user_by_id(&auth_state.database, user_id)
+    users::get_user_by_id(&auth_state.database, user_id)
         .await
         .map_err(internal_error)
 }

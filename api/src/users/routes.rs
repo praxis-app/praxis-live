@@ -13,7 +13,7 @@ use sea_orm::{
 use serde::Deserialize;
 use std::sync::Arc;
 
-use super::find_user_by_id;
+use super::get_user_by_id;
 use crate::{
     messages::types::{ApiError, AppResult},
     servers,
@@ -49,7 +49,7 @@ async fn get_current_user(
     headers: HeaderMap,
 ) -> AppResult<Json<serde_json::Value>> {
     let user_id = require_user_id(&state, &headers)?;
-    let user = find_user_by_id(&state.database, user_id)
+    let user = get_user_by_id(&state.database, user_id)
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))?;

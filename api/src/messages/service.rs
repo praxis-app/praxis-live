@@ -22,7 +22,7 @@ pub(crate) async fn get_feed(
     offset: u64,
     limit: u64,
 ) -> AppResult<Vec<FeedMessageResponse>> {
-    channels::find_channel(database, server_id, channel_id).await?;
+    channels::get_channel(database, server_id, channel_id).await?;
 
     let messages = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
@@ -69,7 +69,7 @@ pub(crate) async fn create_message(
     request: CreateMessageRequest,
 ) -> AppResult<MessageResponse> {
     validate_create_message(&request)?;
-    channels::find_channel(database, server_id, channel_id).await?;
+    channels::get_channel(database, server_id, channel_id).await?;
     channels::ensure_channel_membership(database, channel_id, user_id).await?;
 
     let body = request
@@ -153,7 +153,7 @@ pub(crate) async fn store_message_image(
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
     }
 
-    channels::find_channel(database, server_id, channel_id).await?;
+    channels::get_channel(database, server_id, channel_id).await?;
     channels::ensure_channel_membership(database, channel_id, user_id).await?;
 
     if message.user_id != user_id {
@@ -212,7 +212,7 @@ pub(crate) async fn get_message_image(
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
     }
 
-    channels::find_channel(database, server_id, channel_id).await?;
+    channels::get_channel(database, server_id, channel_id).await?;
 
     let image = message_images::Entity::find_by_id(image_id)
         .one(database)

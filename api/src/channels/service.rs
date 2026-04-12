@@ -67,13 +67,13 @@ pub(crate) async fn get_joined_channels(
         .collect())
 }
 
-pub(crate) async fn get_channel(
+pub(crate) async fn get_channel_with_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
 ) -> AppResult<ChannelResponse> {
     let server = server_api::load_server(database, server_id).await?;
-    let channel = find_channel(database, server_id, channel_id).await?;
+    let channel = get_channel(database, server_id, channel_id).await?;
     Ok(shape_channel(channel, &server))
 }
 
@@ -123,7 +123,7 @@ pub(crate) async fn update_channel(
     request: ChannelRequest,
 ) -> AppResult<()> {
     let (name, description) = validate_channel_request(request)?;
-    let channel = find_channel(database, server_id, channel_id).await?;
+    let channel = get_channel(database, server_id, channel_id).await?;
     let mut active = channel.into_active_model();
     active.name = Set(name);
     active.description = Set(description);
@@ -136,12 +136,12 @@ pub(crate) async fn delete_channel(
     server_id: Uuid,
     channel_id: Uuid,
 ) -> AppResult<()> {
-    let channel = find_channel(database, server_id, channel_id).await?;
+    let channel = get_channel(database, server_id, channel_id).await?;
     channel.delete(database).await.map_err(internal_error)?;
     Ok(())
 }
 
-pub(crate) async fn find_channel(
+pub(crate) async fn get_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,

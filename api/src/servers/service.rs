@@ -110,7 +110,7 @@ pub(crate) async fn get_server_by_id(
     include_general_channel: bool,
 ) -> AppResult<ServerResponse> {
     let default_server_id = default_server_id(database).await?;
-    let server = find_server(database, server_id).await?;
+    let server = get_server(database, server_id).await?;
     shape_server(
         database,
         server,
@@ -140,7 +140,7 @@ pub(crate) async fn get_server_by_slug(
 
 pub(crate) async fn get_default_server(database: &DatabaseConnection) -> AppResult<ServerResponse> {
     let default_server_id = default_server_id(database).await?;
-    let server = find_server(database, default_server_id).await?;
+    let server = get_server(database, default_server_id).await?;
     shape_server(database, server, default_server_id, true, true).await
 }
 
@@ -181,7 +181,7 @@ pub(crate) async fn update_server(
     request: ServerRequest,
 ) -> AppResult<ServerResponse> {
     let (name, slug, description) = validate_server_request(&request)?;
-    let server = find_server(database, server_id).await?;
+    let server = get_server(database, server_id).await?;
     let mut active = server.into_active_model();
     active.name = Set(name);
     active.slug = Set(slug);
@@ -197,7 +197,7 @@ pub(crate) async fn update_server(
 }
 
 pub(crate) async fn delete_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
-    let server = find_server(database, server_id).await?;
+    let server = get_server(database, server_id).await?;
     let server_count = servers::Entity::find()
         .count(database)
         .await
@@ -224,7 +224,7 @@ pub(crate) async fn get_server_members(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<UserResponse>> {
-    find_server(database, server_id).await?;
+    get_server(database, server_id).await?;
     let memberships = server_members::Entity::find()
         .filter(server_members::Column::ServerId.eq(server_id))
         .order_by_asc(server_members::Column::CreatedAt)
@@ -253,7 +253,7 @@ pub(crate) async fn get_users_eligible_for_server(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<UserResponse>> {
-    find_server(database, server_id).await?;
+    get_server(database, server_id).await?;
     let memberships = server_members::Entity::find()
         .filter(server_members::Column::ServerId.eq(server_id))
         .all(database)
@@ -278,7 +278,7 @@ pub(crate) async fn add_server_members(
     server_id: Uuid,
     user_ids: &[Uuid],
 ) -> AppResult<()> {
-    find_server(database, server_id).await?;
+    get_server(database, server_id).await?;
 
     for user_id in user_ids {
         if users::Entity::find_by_id(*user_id)
@@ -335,7 +335,7 @@ pub(crate) async fn remove_server_members(
     server_id: Uuid,
     user_ids: &[Uuid],
 ) -> AppResult<()> {
-    find_server(database, server_id).await?;
+    get_server(database, server_id).await?;
 
     server_members::Entity::delete_many()
         .filter(server_members::Column::ServerId.eq(server_id))
@@ -504,14 +504,14 @@ pub(crate) async fn ensure_server(database: &DatabaseConnection, server_id: Uuid
     load_server(database, server_id).await.map(|_| ())
 }
 
-async fn find_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<servers::Model> {
+async fn get_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<servers::Model> {
     load_server(database, server_id).await
 }
 
 async fn set_default_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
-    find_server(database, server_id).await?;
+    get_server(database, server_id).await?;
 
-    let config = instance::find_config(database).await?;
+    let config = instance::get_config(database).await?;
 
     if let Some(config) = config {
         let mut active = config.into_active_model();
@@ -565,7 +565,7 @@ async fn ensure_server_config(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<server_configs::Model> {
-    find_server(database, server_id).await?;
+    get_server(database, server_id).await?;
 
     if let Some(config) = server_configs::Entity::find()
         .filter(server_configs::Column::ServerId.eq(server_id))

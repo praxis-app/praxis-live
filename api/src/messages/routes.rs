@@ -148,7 +148,8 @@ async fn get_channel(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let channel = channels::get_channel(&chat_state.database, server_id, channel_id).await?;
+    let channel =
+        channels::get_channel_with_server(&chat_state.database, server_id, channel_id).await?;
     Ok(Json(serde_json::json!({ "channel": channel })))
 }
 

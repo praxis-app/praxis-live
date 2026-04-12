@@ -26,7 +26,7 @@ pub(crate) async fn create_user(
     .map_err(map_create_user_error)
 }
 
-pub(crate) async fn find_user_by_id(
+pub(crate) async fn get_user_by_id(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> Result<Option<UserRecord>, DbErr> {

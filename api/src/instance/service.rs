@@ -6,7 +6,7 @@ use uuid::Uuid as NativeUuid;
 use crate::messages::types::{ApiError, AppResult};
 
 pub(crate) async fn initialize(database: &DatabaseConnection) -> AppResult<()> {
-    if find_config(database).await?.is_some() {
+    if get_config(database).await?.is_some() {
         return Ok(());
     }
 
@@ -18,14 +18,14 @@ pub(crate) async fn initialize(database: &DatabaseConnection) -> AppResult<()> {
 pub(crate) async fn get_config_safely(
     database: &DatabaseConnection,
 ) -> AppResult<instance_configs::Model> {
-    if let Some(config) = find_config(database).await? {
+    if let Some(config) = get_config(database).await? {
         return Ok(config);
     }
 
     initialize_config(database).await
 }
 
-pub(crate) async fn find_config(
+pub(crate) async fn get_config(
     database: &DatabaseConnection,
 ) -> AppResult<Option<instance_configs::Model>> {
     instance_configs::Entity::find()
