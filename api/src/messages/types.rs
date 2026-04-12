@@ -96,8 +96,8 @@ pub(crate) struct FeedMessageResponse {
 
 #[derive(Debug, Clone)]
 pub(crate) struct StoredImage {
-    pub(crate) storage_key: Option<String>,
     pub(crate) content_type: Option<String>,
+    pub(crate) bytes: Vec<u8>,
 }
 
 pub(crate) fn serialize_timestamp(value: DateTimeWithTimeZone) -> String {

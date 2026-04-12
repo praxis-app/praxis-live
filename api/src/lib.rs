@@ -3,6 +3,7 @@ mod channels;
 mod health;
 mod instance;
 mod messages;
+mod request;
 mod servers;
 mod users;
 mod view;
