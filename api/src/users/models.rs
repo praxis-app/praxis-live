@@ -1,10 +1,11 @@
 use entity::users;
+use sea_orm::prelude::Uuid;
 use sea_orm::DbErr;
 use serde::Serialize;
 
 #[derive(Debug, Clone)]
 pub(crate) struct UserRecord {
-    pub(crate) id: i64,
+    pub(crate) id: Uuid,
     pub(crate) email: String,
     pub(crate) name: String,
     pub(crate) password_hash: String,
@@ -13,7 +14,7 @@ pub(crate) struct UserRecord {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PublicUser {
-    id: i64,
+    id: Uuid,
     email: String,
     name: String,
 }

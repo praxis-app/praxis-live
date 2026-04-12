@@ -1,6 +1,9 @@
 mod auth;
-mod chat;
+mod channels;
 mod health;
+mod instance;
+mod messages;
+mod servers;
 mod users;
 mod view;
 
@@ -44,7 +47,9 @@ pub fn build_router(database: DatabaseConnection, jwt_secret: impl Into<String>)
     let api = Router::new()
         .route("/health", get(health::health))
         .merge(auth::router(database.clone(), jwt_secret.clone()))
-        .merge(chat::router(database, jwt_secret));
+        .merge(users::router(database.clone(), jwt_secret.clone()))
+        .merge(servers::router(database.clone(), jwt_secret.clone()))
+        .merge(messages::router(database, jwt_secret));
 
     view::attach(Router::new().nest("/api", api))
 }
@@ -67,6 +72,10 @@ pub async fn connect_database(
         tracing::info!("Running database migrations.");
         migrations::Migrator::up(&database, None).await?;
     }
+
+    instance::initialize(&database)
+        .await
+        .map_err(|error| io::Error::other(error.to_string()))?;
 
     Ok(database)
 }

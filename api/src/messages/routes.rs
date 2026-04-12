@@ -3,7 +3,7 @@ use axum::{
     extract::{Multipart, Path, Query, State},
     http::{header, HeaderMap, Response, StatusCode},
     response::Json,
-    routing::{get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 use jsonwebtoken::{decode, DecodingKey, Validation};
@@ -15,6 +15,7 @@ use super::{
     service,
     types::{ApiError, AppResult, CreateMessageRequest},
 };
+use crate::channels::{self, types::ChannelRequest};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ChatState {
@@ -64,7 +65,10 @@ pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router
     let channels_router = Router::new()
         .route("/", get(get_channels))
         .route("/joined", get(get_joined_channels))
+        .route("/", post(create_channel))
         .route("/{channelId}", get(get_channel))
+        .route("/{channelId}", put(update_channel))
+        .route("/{channelId}", delete(delete_channel))
         .route("/{channelId}/feed", get(get_channel_feed))
         .route("/{channelId}/messages", post(create_message))
         .route(
@@ -81,12 +85,49 @@ pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router
         .with_state(chat_state)
 }
 
+async fn create_channel(
+    State(chat_state): State<ChatState>,
+    Path(server_id): Path<String>,
+    headers: HeaderMap,
+    Json(payload): Json<ChannelRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let server_id = parse_uuid(&server_id, "serverId")?;
+    require_user_id(&chat_state, &headers)?;
+    let channel = channels::create_channel(&chat_state.database, server_id, payload).await?;
+    Ok(Json(serde_json::json!({ "channel": channel })))
+}
+
+async fn update_channel(
+    State(chat_state): State<ChatState>,
+    Path(path): Path<ChannelPath>,
+    headers: HeaderMap,
+    Json(payload): Json<ChannelRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let server_id = parse_uuid(&path.server_id, "serverId")?;
+    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
+    require_user_id(&chat_state, &headers)?;
+    channels::update_channel(&chat_state.database, server_id, channel_id, payload).await?;
+    Ok(Json(serde_json::json!({})))
+}
+
+async fn delete_channel(
+    State(chat_state): State<ChatState>,
+    Path(path): Path<ChannelPath>,
+    headers: HeaderMap,
+) -> AppResult<Json<serde_json::Value>> {
+    let server_id = parse_uuid(&path.server_id, "serverId")?;
+    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
+    require_user_id(&chat_state, &headers)?;
+    channels::delete_channel(&chat_state.database, server_id, channel_id).await?;
+    Ok(Json(serde_json::json!({})))
+}
+
 async fn get_channels(
     State(chat_state): State<ChatState>,
     Path(server_id): Path<String>,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    let channels = service::list_channels(&chat_state.database, server_id).await?;
+    let channels = channels::get_channels(&chat_state.database, server_id).await?;
     Ok(Json(serde_json::json!({ "channels": channels })))
 }
 
@@ -97,7 +138,7 @@ async fn get_joined_channels(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
     let user_id = require_user_id(&chat_state, &headers)?;
-    let channels = service::list_joined_channels(&chat_state.database, server_id, user_id).await?;
+    let channels = channels::get_joined_channels(&chat_state.database, server_id, user_id).await?;
     Ok(Json(serde_json::json!({ "channels": channels })))
 }
 
@@ -107,7 +148,8 @@ async fn get_channel(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let channel = service::get_channel(&chat_state.database, server_id, channel_id).await?;
+    let channel =
+        channels::get_channel_with_server(&chat_state.database, server_id, channel_id).await?;
     Ok(Json(serde_json::json!({ "channel": channel })))
 }
 
@@ -229,7 +271,7 @@ async fn get_message_image(
         .map_err(internal_error)
 }
 
-fn require_user_id(chat_state: &ChatState, headers: &HeaderMap) -> AppResult<i64> {
+fn require_user_id(chat_state: &ChatState, headers: &HeaderMap) -> AppResult<Uuid> {
     let token = bearer_token(headers)
         .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))?;
 
@@ -239,7 +281,7 @@ fn require_user_id(chat_state: &ChatState, headers: &HeaderMap) -> AppResult<i64
         &Validation::default(),
     )
     .ok()
-    .and_then(|claims| claims.claims.sub.parse::<i64>().ok())
+    .and_then(|claims| claims.claims.sub.parse::<Uuid>().ok())
     .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))
 }
 
@@ -254,13 +296,13 @@ fn bearer_token(headers: &HeaderMap) -> Option<&str> {
     }
 }
 
-fn parse_uuid(value: &str, field: &str) -> AppResult<Uuid> {
+pub(crate) fn parse_uuid(value: &str, field: &str) -> AppResult<Uuid> {
     value
         .parse()
         .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, format!("{field} must be a UUID.")))
 }
 
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
+pub(crate) fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("chat route failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }

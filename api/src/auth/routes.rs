@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use sea_orm::DatabaseConnection;
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use std::sync::Arc;
 
 use super::{
@@ -15,8 +15,8 @@ use super::{
     },
     types::{ApiError, AppResult, LoginRequest, SessionResponse, SignupRequest},
 };
-use crate::chat;
 use crate::users::{self, UserRecord};
+use crate::{channels, servers};
 
 #[derive(Clone, Debug)]
 pub(super) struct AuthState {
@@ -64,9 +64,21 @@ async fn signup(
     )
     .await
     .map_err(map_create_user_error)?;
-    chat::provision_user_memberships(&auth_state.database, user.id)
+
+    let default_server_id = servers::default_server_id(&auth_state.database)
         .await
         .map_err(internal_error)?;
+    let transaction = auth_state.database.begin().await.map_err(internal_error)?;
+
+    servers::add_member_to_server(&transaction, default_server_id, user.id)
+        .await
+        .map_err(internal_error)?;
+
+    channels::add_member_to_all_server_channels(&transaction, default_server_id, user.id)
+        .await
+        .map_err(internal_error)?;
+
+    transaction.commit().await.map_err(internal_error)?;
 
     let access_token = issue_access_token(&auth_state, user.id)?;
 
@@ -121,7 +133,7 @@ async fn current_user(
         return Ok(None);
     };
 
-    users::find_user_by_id(&auth_state.database, user_id)
+    users::get_user_by_id(&auth_state.database, user_id)
         .await
         .map_err(internal_error)
 }

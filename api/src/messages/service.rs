@@ -1,117 +1,19 @@
 use axum::http::StatusCode;
-use entity::{channel_members, channels, message_images, messages, servers, users};
+use entity::{message_images, messages, users};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    QueryFilter, QueryOrder, QuerySelect, Set,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    serialize_timestamp, ApiError, AppResult, ChannelResponse, ChannelServer, CreateMessageRequest,
-    FeedMessageResponse, ImageResponse, MessageResponse, MessageUser, StoredImage,
+    serialize_timestamp, ApiError, AppResult, CreateMessageRequest, FeedMessageResponse,
+    ImageResponse, MessageResponse, MessageUser, StoredImage,
 };
+use crate::channels;
 
-pub(crate) const DEFAULT_SERVER_ID: &str = "11111111-1111-1111-1111-111111111111";
 const MAX_IMAGE_COUNT: usize = 8;
-
-pub(crate) async fn provision_user_memberships(
-    database: &DatabaseConnection,
-    user_id: i64,
-) -> Result<(), sea_orm::DbErr> {
-    let existing = channel_members::Entity::find()
-        .filter(channel_members::Column::UserId.eq(user_id))
-        .count(database)
-        .await?;
-
-    if existing > 0 {
-        return Ok(());
-    }
-
-    let channels = channels::Entity::find()
-        .filter(channels::Column::ServerId.eq(default_server_id()))
-        .all(database)
-        .await?;
-
-    for channel in channels {
-        channel_members::ActiveModel {
-            channel_id: Set(channel.id),
-            user_id: Set(user_id),
-            ..Default::default()
-        }
-        .insert(database)
-        .await?;
-    }
-
-    Ok(())
-}
-
-pub(crate) async fn list_channels(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-) -> AppResult<Vec<ChannelResponse>> {
-    ensure_server(database, server_id).await?;
-
-    let server = load_server(database, server_id).await?;
-    let channels = channels::Entity::find()
-        .filter(channels::Column::ServerId.eq(server_id))
-        .order_by_asc(channels::Column::CreatedAt)
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(channels
-        .into_iter()
-        .map(|channel| shape_channel(channel, &server))
-        .collect())
-}
-
-pub(crate) async fn list_joined_channels(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    user_id: i64,
-) -> AppResult<Vec<ChannelResponse>> {
-    ensure_server(database, server_id).await?;
-
-    let server = load_server(database, server_id).await?;
-    let memberships = channel_members::Entity::find()
-        .filter(channel_members::Column::UserId.eq(user_id))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-
-    let channel_ids: Vec<Uuid> = memberships
-        .into_iter()
-        .map(|member| member.channel_id)
-        .collect();
-
-    if channel_ids.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let channels = channels::Entity::find()
-        .filter(channels::Column::ServerId.eq(server_id))
-        .filter(channels::Column::Id.is_in(channel_ids))
-        .order_by_asc(channels::Column::CreatedAt)
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(channels
-        .into_iter()
-        .map(|channel| shape_channel(channel, &server))
-        .collect())
-}
-
-pub(crate) async fn get_channel(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-) -> AppResult<ChannelResponse> {
-    let server = load_server(database, server_id).await?;
-    let channel = find_channel(database, server_id, channel_id).await?;
-    Ok(shape_channel(channel, &server))
-}
 
 pub(crate) async fn get_feed(
     database: &DatabaseConnection,
@@ -120,7 +22,7 @@ pub(crate) async fn get_feed(
     offset: u64,
     limit: u64,
 ) -> AppResult<Vec<FeedMessageResponse>> {
-    find_channel(database, server_id, channel_id).await?;
+    channels::get_channel(database, server_id, channel_id).await?;
 
     let messages = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
@@ -131,7 +33,7 @@ pub(crate) async fn get_feed(
         .await
         .map_err(internal_error)?;
 
-    let user_ids: Vec<i64> = messages.iter().map(|message| message.user_id).collect();
+    let user_ids: Vec<Uuid> = messages.iter().map(|message| message.user_id).collect();
     let message_ids: Vec<Uuid> = messages.iter().map(|message| message.id).collect();
 
     let users = users::Entity::find()
@@ -163,12 +65,12 @@ pub(crate) async fn create_message(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
     request: CreateMessageRequest,
 ) -> AppResult<MessageResponse> {
     validate_create_message(&request)?;
-    find_channel(database, server_id, channel_id).await?;
-    ensure_channel_membership(database, channel_id, user_id).await?;
+    channels::get_channel(database, server_id, channel_id).await?;
+    channels::ensure_channel_membership(database, channel_id, user_id).await?;
 
     let body = request
         .body
@@ -230,7 +132,7 @@ pub(crate) async fn store_message_image(
     channel_id: Uuid,
     message_id: Uuid,
     image_id: Uuid,
-    user_id: i64,
+    user_id: Uuid,
     content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<ImageResponse> {
@@ -251,8 +153,8 @@ pub(crate) async fn store_message_image(
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
     }
 
-    find_channel(database, server_id, channel_id).await?;
-    ensure_channel_membership(database, channel_id, user_id).await?;
+    channels::get_channel(database, server_id, channel_id).await?;
+    channels::ensure_channel_membership(database, channel_id, user_id).await?;
 
     if message.user_id != user_id {
         return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
@@ -310,7 +212,7 @@ pub(crate) async fn get_message_image(
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
     }
 
-    find_channel(database, server_id, channel_id).await?;
+    channels::get_channel(database, server_id, channel_id).await?;
 
     let image = message_images::Entity::find_by_id(image_id)
         .one(database)
@@ -334,18 +236,6 @@ pub(crate) fn upload_root() -> PathBuf {
 
 pub(crate) fn resolve_upload_path(upload_root: &Path, storage_key: &str) -> PathBuf {
     upload_root.join(storage_key)
-}
-
-fn shape_channel(channel: channels::Model, server: &servers::Model) -> ChannelResponse {
-    ChannelResponse {
-        id: channel.id.to_string(),
-        name: channel.name,
-        description: channel.description,
-        server: ChannelServer {
-            id: server.id.to_string(),
-            slug: server.slug.clone(),
-        },
-    }
 }
 
 fn shape_message<'a>(
@@ -380,50 +270,6 @@ fn shape_image(image: &message_images::Model, is_placeholder: bool) -> ImageResp
     }
 }
 
-async fn load_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<servers::Model> {
-    servers::Entity::find_by_id(server_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Server not found."))
-}
-
-async fn ensure_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
-    load_server(database, server_id).await.map(|_| ())
-}
-
-async fn find_channel(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-) -> AppResult<channels::Model> {
-    channels::Entity::find_by_id(channel_id)
-        .filter(channels::Column::ServerId.eq(server_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Channel not found."))
-}
-
-async fn ensure_channel_membership(
-    database: &DatabaseConnection,
-    channel_id: Uuid,
-    user_id: i64,
-) -> AppResult<()> {
-    let membership = channel_members::Entity::find()
-        .filter(channel_members::Column::ChannelId.eq(channel_id))
-        .filter(channel_members::Column::UserId.eq(user_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?;
-
-    if membership.is_some() {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
-}
-
 fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
     if request.image_count > MAX_IMAGE_COUNT {
         return Err(ApiError::new(
@@ -446,12 +292,6 @@ fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
             "A message must include text or at least one image.",
         ))
     }
-}
-
-fn default_server_id() -> Uuid {
-    DEFAULT_SERVER_ID
-        .parse()
-        .expect("default server id should be valid")
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

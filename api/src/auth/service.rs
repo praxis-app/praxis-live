@@ -1,5 +1,6 @@
 use axum::{http::HeaderMap, http::StatusCode};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use sea_orm::prelude::Uuid;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{
@@ -11,7 +12,7 @@ use crate::users::CreateUserError;
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 90);
 const MIN_PASSWORD_LENGTH: usize = 8;
 
-pub(super) fn issue_access_token(auth_state: &AuthState, user_id: i64) -> AppResult<String> {
+pub(super) fn issue_access_token(auth_state: &AuthState, user_id: Uuid) -> AppResult<String> {
     let claims = Claims {
         sub: user_id.to_string(),
         exp: current_unix_timestamp() + ACCESS_TOKEN_TTL.as_secs(),
@@ -25,7 +26,7 @@ pub(super) fn issue_access_token(auth_state: &AuthState, user_id: i64) -> AppRes
     .map_err(internal_error)
 }
 
-pub(super) fn verify_access_token(auth_state: &AuthState, token: &str) -> Option<i64> {
+pub(crate) fn verify_access_token(auth_state: &AuthState, token: &str) -> Option<Uuid> {
     let claims = decode::<Claims>(
         token,
         &DecodingKey::from_secret(auth_state.jwt_secret.as_bytes()),
@@ -37,7 +38,7 @@ pub(super) fn verify_access_token(auth_state: &AuthState, token: &str) -> Option
     claims.sub.parse().ok()
 }
 
-pub(super) fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+pub(crate) fn bearer_token(headers: &HeaderMap) -> Option<&str> {
     let header_value = headers
         .get(axum::http::header::AUTHORIZATION)?
         .to_str()
@@ -109,7 +110,7 @@ pub(super) fn map_create_user_error(error: CreateUserError) -> ApiError {
     }
 }
 
-pub(super) fn internal_error(error: impl std::fmt::Display) -> ApiError {
+pub(crate) fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }

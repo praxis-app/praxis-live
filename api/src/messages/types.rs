@@ -21,6 +21,14 @@ impl ApiError {
     }
 }
 
+impl std::fmt::Display for ApiError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}: {}", self.status, self.message)
+    }
+}
+
+impl std::error::Error for ApiError {}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         (
@@ -45,20 +53,6 @@ pub(crate) type AppResult<T> = Result<T, ApiError>;
 pub(crate) struct CreateMessageRequest {
     pub(crate) body: Option<String>,
     pub(crate) image_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct ChannelServer {
-    pub(crate) id: String,
-    pub(crate) slug: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct ChannelResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) description: Option<String>,
-    pub(crate) server: ChannelServer,
 }
 
 #[derive(Debug, Clone, Serialize)]

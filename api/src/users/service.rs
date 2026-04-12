@@ -1,7 +1,9 @@
 use entity::users;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set, SqlErr,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
+    QueryFilter, Set, SqlErr,
 };
+use uuid::Uuid as NativeUuid;
 
 use super::{CreateUserError, UserRecord};
 
@@ -12,6 +14,7 @@ pub(crate) async fn create_user(
     password_hash: String,
 ) -> Result<UserRecord, CreateUserError> {
     users::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
         email: Set(email),
         name: Set(name),
         password_hash: Set(password_hash),
@@ -23,9 +26,9 @@ pub(crate) async fn create_user(
     .map_err(map_create_user_error)
 }
 
-pub(crate) async fn find_user_by_id(
+pub(crate) async fn get_user_by_id(
     database: &DatabaseConnection,
-    user_id: i64,
+    user_id: Uuid,
 ) -> Result<Option<UserRecord>, DbErr> {
     users::Entity::find_by_id(user_id)
         .one(database)
