@@ -15,7 +15,7 @@ export function createTestUser(label = "user"): TestUser {
   const suffix = randomUUID().slice(0, 8);
 
   return {
-    name: `E2E ${label} ${suffix}`,
+    name: `e2e${label.slice(0, 2)}_${suffix}`,
     email: `e2e_${label}_${suffix}@example.com`,
     password: TEST_PASSWORD,
     suffix,
