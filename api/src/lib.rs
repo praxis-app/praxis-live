@@ -1,3 +1,6 @@
+// TODO: Split startup/config/router/database concerns out of this crate root.
+// See .docs/prompts/backend/split-api-composition-root.md.
+
 mod auth;
 mod channels;
 mod common;
