@@ -3,8 +3,8 @@ use entity::{
     channel_members, channels, instance_configs, server_configs, server_members, servers, users,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
+    IntoActiveModel, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -12,6 +12,7 @@ use super::types::{
     serialize_timestamp, ServerConfigRequest, ServerConfigResponse, ServerRequest, ServerResponse,
     UserResponse,
 };
+use crate::channels as channel_api;
 use crate::instance;
 use crate::messages::types::{ApiError, AppResult};
 
@@ -289,28 +290,42 @@ pub(crate) async fn add_server_members(
             continue;
         }
 
-        let exists = server_members::Entity::find()
-            .filter(server_members::Column::ServerId.eq(server_id))
-            .filter(server_members::Column::UserId.eq(*user_id))
-            .one(database)
-            .await
-            .map_err(internal_error)?
-            .is_some();
-
-        if !exists {
-            server_members::ActiveModel {
-                id: Set(NativeUuid::new_v4()),
-                server_id: Set(server_id),
-                user_id: Set(*user_id),
-                ..Default::default()
-            }
-            .insert(database)
-            .await
-            .map_err(internal_error)?;
-        }
-
-        add_member_to_all_server_channels(database, server_id, *user_id).await?;
+        add_member_to_server(database, server_id, *user_id).await?;
+        channel_api::add_member_to_all_server_channels(database, server_id, *user_id).await?;
     }
+
+    Ok(())
+}
+
+pub(crate) async fn add_member_to_server<C>(
+    database: &C,
+    server_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let exists = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .filter(server_members::Column::UserId.eq(user_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .is_some();
+
+    if exists {
+        return Ok(());
+    }
+
+    server_members::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        server_id: Set(server_id),
+        user_id: Set(user_id),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)?;
 
     Ok(())
 }
@@ -624,41 +639,6 @@ async fn general_channel_id(
         .await
         .map_err(internal_error)?;
     Ok(channel.map(|channel| channel.id))
-}
-
-async fn add_member_to_all_server_channels(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()> {
-    let channels = channels::Entity::find()
-        .filter(channels::Column::ServerId.eq(server_id))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-
-    for channel in channels {
-        let exists = channel_members::Entity::find()
-            .filter(channel_members::Column::ChannelId.eq(channel.id))
-            .filter(channel_members::Column::UserId.eq(user_id))
-            .one(database)
-            .await
-            .map_err(internal_error)?
-            .is_some();
-        if !exists {
-            channel_members::ActiveModel {
-                id: Set(NativeUuid::new_v4()),
-                channel_id: Set(channel.id),
-                user_id: Set(user_id),
-                ..Default::default()
-            }
-            .insert(database)
-            .await
-            .map_err(internal_error)?;
-        }
-    }
-
-    Ok(())
 }
 
 async fn set_member_activity(

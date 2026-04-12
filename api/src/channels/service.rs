@@ -1,70 +1,14 @@
 use axum::http::StatusCode;
 use entity::{channel_members, channels, server_members, servers};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
+    IntoActiveModel, ModelTrait, QueryFilter, QueryOrder, Set,
 };
 use uuid::Uuid as NativeUuid;
 
 use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
 use crate::messages::types::{ApiError, AppResult};
 use crate::servers as server_api;
-
-pub(crate) async fn provision_user_memberships(
-    database: &DatabaseConnection,
-    user_id: Uuid,
-) -> Result<(), sea_orm::DbErr> {
-    let default_server_id = server_api::default_server_id(database)
-        .await
-        .map_err(|error| sea_orm::DbErr::Custom(error.to_string()))?;
-    let transaction = database.begin().await?;
-
-    let server_membership = server_members::Entity::find()
-        .filter(server_members::Column::UserId.eq(user_id))
-        .filter(server_members::Column::ServerId.eq(default_server_id))
-        .one(&transaction)
-        .await?;
-
-    if server_membership.is_none() {
-        server_members::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            server_id: Set(default_server_id),
-            user_id: Set(user_id),
-            ..Default::default()
-        }
-        .insert(&transaction)
-        .await?;
-    }
-
-    let existing = channel_members::Entity::find()
-        .filter(channel_members::Column::UserId.eq(user_id))
-        .count(&transaction)
-        .await?;
-
-    if existing > 0 {
-        transaction.commit().await?;
-        return Ok(());
-    }
-
-    let channels = channels::Entity::find()
-        .filter(channels::Column::ServerId.eq(default_server_id))
-        .all(&transaction)
-        .await?;
-
-    for channel in channels {
-        channel_members::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            channel_id: Set(channel.id),
-            user_id: Set(user_id),
-            ..Default::default()
-        }
-        .insert(&transaction)
-        .await?;
-    }
-
-    transaction.commit().await?;
-    Ok(())
-}
 
 pub(crate) async fn list_channels(
     database: &DatabaseConnection,
@@ -227,6 +171,55 @@ pub(crate) async fn ensure_channel_membership(
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
     }
+}
+
+pub(crate) async fn add_member_to_all_server_channels<C>(
+    database: &C,
+    server_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let server_channels = channels::Entity::find()
+        .filter(channels::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let channel_ids: Vec<Uuid> = server_channels.iter().map(|channel| channel.id).collect();
+
+    if channel_ids.is_empty() {
+        return Ok(());
+    }
+
+    let existing_memberships = channel_members::Entity::find()
+        .filter(channel_members::Column::UserId.eq(user_id))
+        .filter(channel_members::Column::ChannelId.is_in(channel_ids.clone()))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let existing_channel_ids: std::collections::HashSet<Uuid> = existing_memberships
+        .into_iter()
+        .map(|membership| membership.channel_id)
+        .collect();
+
+    for channel in server_channels {
+        if existing_channel_ids.contains(&channel.id) {
+            continue;
+        }
+
+        channel_members::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
+            channel_id: Set(channel.id),
+            user_id: Set(user_id),
+            ..Default::default()
+        }
+        .insert(database)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    Ok(())
 }
 
 fn shape_channel(channel: channels::Model, server: &servers::Model) -> ChannelResponse {
