@@ -10,7 +10,7 @@ use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
 use crate::messages::types::{ApiError, AppResult};
 use crate::servers as server_api;
 
-pub(crate) async fn list_channels(
+pub(crate) async fn get_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<ChannelResponse>> {
@@ -30,7 +30,7 @@ pub(crate) async fn list_channels(
         .collect())
 }
 
-pub(crate) async fn list_joined_channels(
+pub(crate) async fn get_joined_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Uuid,
