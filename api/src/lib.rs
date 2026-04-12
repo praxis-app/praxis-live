@@ -48,9 +48,7 @@ pub fn build_router(database: DatabaseConnection, jwt_secret: impl Into<String>)
         .route("/health", get(health::health))
         .merge(auth::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
-        .merge(servers::router(database.clone(), jwt_secret.clone()))
-        .merge(channels::router(database.clone(), jwt_secret.clone()))
-        .merge(messages::router(database, jwt_secret));
+        .merge(servers::router(database, jwt_secret));
 
     view::attach(Router::new().nest("/api", api))
 }

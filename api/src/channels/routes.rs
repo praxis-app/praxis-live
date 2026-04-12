@@ -11,7 +11,10 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use super::{service, types::ChannelRequest};
-use crate::messages::types::{ApiError, AppResult};
+use crate::messages::{
+    self,
+    types::{ApiError, AppResult},
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ChannelsState {
@@ -34,27 +37,20 @@ struct Claims {
 
 pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
     let state = ChannelsState {
-        database,
-        jwt_secret: Arc::<str>::from(jwt_secret),
+        database: database.clone(),
+        jwt_secret: Arc::<str>::from(jwt_secret.clone()),
     };
 
-    Router::new()
-        .route("/servers/{serverId}/channels/", get(get_channels))
-        .route(
-            "/servers/{serverId}/channels/joined",
-            get(get_joined_channels),
-        )
-        .route("/servers/{serverId}/channels/", post(create_channel))
-        .route("/servers/{serverId}/channels/{channelId}", get(get_channel))
-        .route(
-            "/servers/{serverId}/channels/{channelId}",
-            put(update_channel),
-        )
-        .route(
-            "/servers/{serverId}/channels/{channelId}",
-            delete(delete_channel),
-        )
-        .with_state(state)
+    let channels_router = Router::new()
+        .route("/", get(get_channels))
+        .route("/joined", get(get_joined_channels))
+        .route("/", post(create_channel))
+        .route("/{channelId}", get(get_channel))
+        .route("/{channelId}", put(update_channel))
+        .route("/{channelId}", delete(delete_channel))
+        .with_state(state);
+
+    channels_router.merge(messages::router(database, jwt_secret))
 }
 
 async fn create_channel(

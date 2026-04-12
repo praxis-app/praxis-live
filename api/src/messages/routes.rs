@@ -61,7 +61,7 @@ pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router
         upload_root: Arc::new(service::upload_root()),
     };
 
-    let channels_router = Router::new()
+    Router::new()
         .route("/{channelId}/feed", get(get_channel_feed))
         .route("/{channelId}/messages", post(create_message))
         .route(
@@ -71,10 +71,7 @@ pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router
         .route(
             "/{channelId}/messages/{messageId}/images/{imageId}/upload",
             post(upload_message_image),
-        );
-
-    Router::new()
-        .nest("/servers/{serverId}/channels", channels_router)
+        )
         .with_state(chat_state)
 }
 

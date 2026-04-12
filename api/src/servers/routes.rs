@@ -14,7 +14,10 @@ use super::{
     service,
     types::{JoinServerRequest, ServerConfigRequest, ServerMembersRequest, ServerRequest},
 };
-use crate::messages::types::{ApiError, AppResult};
+use crate::{
+    channels,
+    messages::types::{ApiError, AppResult},
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct ServersState {
@@ -29,11 +32,11 @@ struct Claims {
 
 pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
     let state = ServersState {
-        database,
-        jwt_secret: Arc::<str>::from(jwt_secret),
+        database: database.clone(),
+        jwt_secret: Arc::<str>::from(jwt_secret.clone()),
     };
 
-    Router::new()
+    let servers_router = Router::new()
         .route("/servers", get(get_servers))
         .route("/servers", post(create_server))
         .route("/servers/default", get(get_default_server))
@@ -59,7 +62,12 @@ pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router
             "/servers/{serverId}/configs/anon-enabled",
             get(is_anonymous_users_enabled),
         )
-        .with_state(state)
+        .with_state(state);
+
+    servers_router.nest(
+        "/servers/{serverId}/channels",
+        channels::router(database, jwt_secret),
+    )
 }
 
 async fn get_servers(
