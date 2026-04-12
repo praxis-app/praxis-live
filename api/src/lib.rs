@@ -1,9 +1,9 @@
 mod auth;
 mod channels;
+mod common;
 mod health;
 mod instance;
 mod messages;
-mod request;
 mod servers;
 mod users;
 mod view;

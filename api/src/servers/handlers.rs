@@ -11,8 +11,8 @@ use super::{
     types::{JoinServerRequest, ServerConfigRequest, ServerMembersRequest, ServerRequest},
 };
 use crate::{
+    common::request::{parse_uuid, AuthenticatedUser, HasJwtSecret},
     messages::types::{ApiError, AppResult},
-    request::{parse_uuid, AuthenticatedUser, HasJwtSecret},
 };
 
 #[derive(Clone, Debug)]

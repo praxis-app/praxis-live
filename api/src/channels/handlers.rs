@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use super::{service, types::ChannelRequest};
 use crate::{
+    common::request::{parse_uuid, AuthenticatedUser, HasJwtSecret},
     messages::types::AppResult,
-    request::{parse_uuid, AuthenticatedUser, HasJwtSecret},
 };
 
 #[derive(Clone, Debug)]

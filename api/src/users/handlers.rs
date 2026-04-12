@@ -9,8 +9,8 @@ use std::sync::Arc;
 
 use super::get_user_by_id;
 use crate::{
+    common::request::{parse_uuid, AuthenticatedUser, HasJwtSecret},
     messages::types::{ApiError, AppResult},
-    request::{parse_uuid, AuthenticatedUser, HasJwtSecret},
     servers,
 };
 

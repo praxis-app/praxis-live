@@ -12,7 +12,7 @@ use super::{
     service,
     types::{ApiError, AppResult, CreateMessageRequest},
 };
-use crate::request::{multipart_file, parse_uuid, AuthenticatedUser, HasJwtSecret};
+use crate::common::request::{multipart_file, parse_uuid, AuthenticatedUser, HasJwtSecret};
 
 #[derive(Clone, Debug)]
 pub(super) struct ChatState {
