@@ -4,9 +4,12 @@ use std::sync::Arc;
 
 use super::{
     service::{internal_error, issue_access_token, signup as signup_user, validate_login},
-    types::{ApiError, AppResult, LoginRequest, SessionResponse, SignupRequest},
+    types::{LoginRequest, SessionResponse, SignupRequest},
 };
-use crate::users;
+use crate::{
+    common::{ApiError, AppResult},
+    users,
+};
 
 #[derive(Clone, Debug)]
 pub(super) struct AuthState {

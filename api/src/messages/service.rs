@@ -8,10 +8,13 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    serialize_timestamp, ApiError, AppResult, CreateMessageRequest, FeedMessageResponse,
-    ImageResponse, MessageResponse, MessageUser, StoredImage,
+    serialize_timestamp, CreateMessageRequest, FeedMessageResponse, ImageResponse, MessageResponse,
+    MessageUser, StoredImage,
 };
-use crate::channels;
+use crate::{
+    channels,
+    common::{ApiError, AppResult},
+};
 
 const MAX_IMAGE_COUNT: usize = 8;
 

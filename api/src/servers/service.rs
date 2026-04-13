@@ -8,8 +8,8 @@ use uuid::Uuid as NativeUuid;
 
 use super::types::{serialize_timestamp, ServerRequest, ServerResponse, UserResponse};
 use crate::channels as channel_api;
+use crate::common::{ApiError, AppResult};
 use crate::instance;
-use crate::messages::types::{ApiError, AppResult};
 
 pub(crate) use super::server_configs::{
     ensure_server_config, get_server_config, is_anonymous_users_enabled, update_server_config,

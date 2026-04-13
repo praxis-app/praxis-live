@@ -62,11 +62,6 @@ impl TestApp {
         self.request(Method::GET, uri, Body::empty(), None).await
     }
 
-    pub async fn get_with_bearer(&self, uri: &str, token: &str) -> Response<Body> {
-        self.request(Method::GET, uri, Body::empty(), Some(token))
-            .await
-    }
-
     pub async fn post_json<T: Serialize>(&self, uri: &str, payload: &T) -> Response<Body> {
         let body = serde_json::to_vec(payload).expect("expected request body serialization");
 

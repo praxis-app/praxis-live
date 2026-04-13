@@ -8,11 +8,14 @@ use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
-use super::{
-    service,
-    types::{ApiError, AppResult, CreateMessageRequest},
+use super::{service, types::CreateMessageRequest};
+use crate::{
+    auth::{AuthenticatedUser, HasJwtSecret},
+    common::{
+        request::{multipart_file, parse_uuid},
+        ApiError, AppResult,
+    },
 };
-use crate::common::request::{multipart_file, parse_uuid, AuthenticatedUser, HasJwtSecret};
 
 #[derive(Clone, Debug)]
 pub(super) struct ChatState {

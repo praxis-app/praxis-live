@@ -5,10 +5,12 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{
     handlers::AuthState,
-    types::{ApiError, AppResult, Claims, LoginRequest, SignupRequest},
+    types::{Claims, LoginRequest, SignupRequest},
 };
 use crate::{
-    channels, servers,
+    channels,
+    common::{ApiError, AppResult},
+    servers,
     users::{self, CreateUserError, UserRecord},
 };
 

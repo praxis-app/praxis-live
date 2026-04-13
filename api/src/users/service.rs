@@ -10,7 +10,7 @@ use super::models::{
     CreateUserError, CurrentUserPermissions, CurrentUserResponse, UserProfileResponse, UserRecord,
 };
 use crate::{
-    messages::types::{ApiError, AppResult},
+    common::{ApiError, AppResult},
     servers,
 };
 

@@ -7,7 +7,7 @@ use sea_orm::{
 use uuid::Uuid as NativeUuid;
 
 use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
-use crate::messages::types::{ApiError, AppResult};
+use crate::common::{ApiError, AppResult};
 use crate::servers as server_api;
 
 pub(crate) async fn get_channels(
