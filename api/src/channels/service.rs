@@ -222,6 +222,64 @@ where
     Ok(())
 }
 
+pub(crate) async fn create_general_channel(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<()> {
+    let existing = channels::Entity::find()
+        .filter(channels::Column::ServerId.eq(server_id))
+        .filter(channels::Column::Name.eq("general"))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    if existing.is_some() {
+        return Ok(());
+    }
+
+    let channel = channels::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        server_id: Set(server_id),
+        name: Set("general".to_owned()),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)?;
+
+    let members = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    for member in members {
+        channel_members::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
+            channel_id: Set(channel.id),
+            user_id: Set(member.user_id),
+            ..Default::default()
+        }
+        .insert(database)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    Ok(())
+}
+
+pub(crate) async fn general_channel_id(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<Option<Uuid>> {
+    let channel = channels::Entity::find()
+        .filter(channels::Column::ServerId.eq(server_id))
+        .filter(channels::Column::Name.eq("general"))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    Ok(channel.map(|channel| channel.id))
+}
+
 fn shape_channel(channel: channels::Model, server: &servers::Model) -> ChannelResponse {
     ChannelResponse {
         id: channel.id.to_string(),
