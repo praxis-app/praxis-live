@@ -422,7 +422,10 @@ export const InlinePoll = ({ poll, channel, me }: Props) => {
                   title={
                     config?.closingAt
                       ? t('polls.labels.closedAt', {
-                          date: new Date(config.closingAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }),
+                          date: new Date(config.closingAt).toLocaleString(
+                            undefined,
+                            { dateStyle: 'medium', timeStyle: 'short' },
+                          ),
                         })
                       : undefined
                   }
@@ -436,7 +439,10 @@ export const InlinePoll = ({ poll, channel, me }: Props) => {
                   <>
                     {MIDDOT_WITH_SPACES}
                     <span
-                      title={new Date(config.closingAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                      title={new Date(config.closingAt).toLocaleString(
+                        undefined,
+                        { dateStyle: 'medium', timeStyle: 'short' },
+                      )}
                     >
                       {timeFromNow(config.closingAt, true)}
                     </span>
