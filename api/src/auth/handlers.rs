@@ -1,15 +1,12 @@
-use axum::{extract::State, http::HeaderMap, response::Json};
+use axum::{extract::State, response::Json};
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 use super::{
-    service::{
-        bearer_token, internal_error, issue_access_token, signup as signup_user, validate_login,
-        verify_access_token,
-    },
+    service::{internal_error, issue_access_token, signup as signup_user, validate_login},
     types::{ApiError, AppResult, LoginRequest, SessionResponse, SignupRequest},
 };
-use crate::users::{self, UserRecord};
+use crate::users;
 
 #[derive(Clone, Debug)]
 pub(super) struct AuthState {
@@ -24,18 +21,6 @@ impl AuthState {
             jwt_secret: Arc::<str>::from(jwt_secret),
         }
     }
-}
-
-pub(super) async fn me(
-    State(auth_state): State<AuthState>,
-    headers: HeaderMap,
-) -> AppResult<Json<SessionResponse>> {
-    let user = current_user(&auth_state, &headers).await?;
-
-    Ok(Json(SessionResponse {
-        user: user.map(Into::into),
-        access_token: None,
-    }))
 }
 
 pub(super) async fn signup(
@@ -82,21 +67,4 @@ pub(super) async fn logout() -> Json<SessionResponse> {
         user: None,
         access_token: None,
     })
-}
-
-async fn current_user(
-    auth_state: &AuthState,
-    headers: &HeaderMap,
-) -> AppResult<Option<UserRecord>> {
-    let Some(token) = bearer_token(headers) else {
-        return Ok(None);
-    };
-
-    let Some(user_id) = verify_access_token(auth_state, token) else {
-        return Ok(None);
-    };
-
-    users::get_user_by_id(&auth_state.database, user_id)
-        .await
-        .map_err(internal_error)
 }

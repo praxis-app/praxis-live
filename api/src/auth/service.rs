@@ -1,5 +1,5 @@
-use axum::{http::HeaderMap, http::StatusCode};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use axum::http::StatusCode;
+use jsonwebtoken::{encode, EncodingKey, Header};
 use sea_orm::{prelude::Uuid, DatabaseConnection, TransactionTrait};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -54,32 +54,6 @@ pub(super) async fn signup(
     transaction.commit().await.map_err(internal_error)?;
 
     Ok(user)
-}
-
-pub(crate) fn verify_access_token(auth_state: &AuthState, token: &str) -> Option<Uuid> {
-    let claims = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(auth_state.jwt_secret.as_bytes()),
-        &Validation::default(),
-    )
-    .ok()?
-    .claims;
-
-    claims.sub.parse().ok()
-}
-
-pub(crate) fn bearer_token(headers: &HeaderMap) -> Option<&str> {
-    let header_value = headers
-        .get(axum::http::header::AUTHORIZATION)?
-        .to_str()
-        .ok()?;
-    let (scheme, token) = header_value.split_once(' ')?;
-
-    if scheme.eq_ignore_ascii_case("Bearer") && !token.is_empty() {
-        Some(token)
-    } else {
-        None
-    }
 }
 
 pub(super) fn validate_signup(mut input: SignupRequest) -> AppResult<SignupRequest> {
