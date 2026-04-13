@@ -1,4 +1,4 @@
-import { ForcedSubject, MongoAbility } from '@casl/ability';
+import { type ForcedSubject, type MongoAbility } from '@casl/ability';
 import {
   ABILITY_ACTIONS,
   INSTANCE_ROLE_ABILITY_SUBJECTS,
@@ -6,7 +6,7 @@ import {
   SERVER_ROLE_ABILITY_SUBJECTS,
   SERVER_PERMISSION_KEYS,
 } from '../constants/role.constants';
-import { UserRes } from './user.types';
+import { type UserRes } from './user.types';
 
 export type AbilityAction = (typeof ABILITY_ACTIONS)[number];
 export type ServerAbilitySubject =

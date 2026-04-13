@@ -1,11 +1,11 @@
-import { WizardStepProps } from '@/components/shared/wizard/wizard.types';
+import { type WizardStepProps } from '@/components/shared/wizard/wizard.types';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
-import { ServerPermissionKeys } from '@/types/role.types';
-import { UserRes } from '@/types/user.types';
+import { type ServerPermissionKeys } from '@/types/role.types';
+import { type UserRes } from '@/types/user.types';
 import {
-  PollActionType,
-  RoleAttributeChangeType,
+  type PollActionType,
+  type RoleAttributeChangeType,
 } from '@/types/poll-action.types';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -14,8 +14,8 @@ import { Badge } from '../../../../ui/badge';
 import { Button } from '../../../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../ui/card';
 import {
-  CreateProposalFormSchema,
-  CreateProposalWizardContext,
+  type CreateProposalFormSchema,
+  type CreateProposalWizardContext,
 } from '../create-proposal-form.types';
 
 export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {

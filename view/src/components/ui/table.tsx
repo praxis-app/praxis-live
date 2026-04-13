@@ -1,5 +1,5 @@
 import { cn } from '@/lib/shared.utils';
-import { ComponentProps } from 'react';
+import { type ComponentProps } from 'react';
 
 function Table({ className, ...props }: ComponentProps<'table'>) {
   return (

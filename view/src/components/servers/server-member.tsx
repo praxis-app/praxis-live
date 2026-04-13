@@ -11,7 +11,7 @@ import {
 import { UserAvatar } from '@/components/users/user-avatar';
 import { handleError } from '@/lib/error.utils';
 import { truncate } from '@/lib/text.utils';
-import { UserRes } from '@/types/user.types';
+import { type UserRes } from '@/types/user.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';

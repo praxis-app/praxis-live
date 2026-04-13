@@ -2,7 +2,7 @@ import { DECISION_MAKING_MODEL } from '@/constants/poll.constants';
 import { ServerConfigErrorKeys } from '@/constants/server-config.constants';
 import { VotingTimeLimit } from '@/constants/vote.constants';
 import * as zod from 'zod';
-import { DecisionMakingModel } from './poll.types';
+import { type DecisionMakingModel } from './poll.types';
 
 export const serverConfigSchema = zod
   .object({

@@ -1,9 +1,9 @@
 import { api } from '@/client/api-client';
 import { validateImageInput } from '@/lib/image.utilts';
 import {
-  CurrentUser,
-  UpdateUserProfileReq,
-  UserProfileRes,
+  type CurrentUser,
+  type UpdateUserProfileReq,
+  type UserProfileRes,
 } from '@/types/user.types';
 import {
   BIO_MAX_LENGTH,

@@ -1,8 +1,8 @@
-import { WizardStepProps } from '@/components/shared/wizard/wizard.types';
+import { type WizardStepProps } from '@/components/shared/wizard/wizard.types';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { POLL_ACTION_TYPE } from '@/constants/poll-action.constants';
-import { PollActionType } from '@/types/poll-action.types';
-import { ControllerRenderProps, useFormContext } from 'react-hook-form';
+import { type PollActionType } from '@/types/poll-action.types';
+import { type ControllerRenderProps, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useWizardContext } from '../../../../shared/wizard/wizard-hooks';
 import { Button } from '../../../../ui/button';
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '../../../../ui/select';
 import { Textarea } from '../../../../ui/textarea';
-import { CreateProposalFormSchema } from '../create-proposal-form.types';
+import { type CreateProposalFormSchema } from '../create-proposal-form.types';
 
 export const ProposalDetailsStep = ({ isLoading }: WizardStepProps) => {
   const form = useFormContext<CreateProposalFormSchema>();

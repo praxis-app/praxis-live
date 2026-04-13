@@ -3,7 +3,7 @@ import { useInView } from '@/hooks/use-in-view';
 import { useServerData } from '@/hooks/use-server-data';
 import { useAuthStore } from '@/store/auth.store';
 import { useQuery } from '@tanstack/react-query';
-import { RefObject } from 'react';
+import { type RefObject } from 'react';
 
 interface UseImageSrcProps {
   enabled?: boolean;

@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
-import { ServerConfigReq, ServerConfigRes } from '@/types/server-config.types';
+import { type ServerConfigReq, type ServerConfigRes } from '@/types/server-config.types';
 import { serverConfigSchema } from '@/types/server-config.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

@@ -22,7 +22,7 @@ import { useNavStore } from '@/store/nav.store';
 import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useQuery } from '@tanstack/react-query';
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuChevronRight } from 'react-icons/lu';
 import { MdExitToApp, MdPersonAdd, MdTag } from 'react-icons/md';

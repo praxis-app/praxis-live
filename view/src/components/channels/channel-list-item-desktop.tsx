@@ -1,7 +1,7 @@
 import { useAbility } from '@/hooks/use-ability';
 import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
-import { ChannelRes } from '@/types/channel.types';
+import { type ChannelRes } from '@/types/channel.types';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdSettings, MdTag } from 'react-icons/md';

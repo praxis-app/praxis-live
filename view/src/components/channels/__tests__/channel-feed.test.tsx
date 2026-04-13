@@ -1,9 +1,9 @@
 import { ChannelFeed } from '@/components/channels/channel-feed';
 import { useAuthStore } from '@/store/auth.store';
 import { customRender as render } from '@/test/lib/custom-render';
-import { ChannelRes, FeedItemRes } from '@/types/channel.types';
+import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
 import { screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 vi.mock('@/store/auth.store');
 vi.mock('react-i18next', () => ({

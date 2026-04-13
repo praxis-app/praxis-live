@@ -3,7 +3,7 @@ import { EditServerPage } from '@/pages/settings/instance-settings/edit-server-p
 import { InstanceRoles } from '@/pages/settings/instance-settings/instance-roles';
 import { InstanceSettings } from '@/pages/settings/instance-settings/instance-settings';
 import { ManageServers } from '@/pages/settings/instance-settings/manage-servers';
-import { RouteObject } from 'react-router-dom';
+import { type RouteObject } from 'react-router-dom';
 
 export const instanceSettingsRouter: RouteObject = {
   path: '/settings',

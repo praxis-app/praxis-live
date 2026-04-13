@@ -3,12 +3,12 @@ import {
   SERVER_PERMISSION_KEYS,
 } from '@/constants/role.constants';
 import { t } from 'i18next';
-import { Namespace, TFunction } from 'react-i18next';
+import { type Namespace, type TFunction } from 'react-i18next';
 import {
-  InstancePermission,
-  InstancePermissionKeys,
-  ServerPermission,
-  ServerPermissionKeys,
+  type InstancePermission,
+  type InstancePermissionKeys,
+  type ServerPermission,
+  type ServerPermissionKeys,
 } from '../types/role.types';
 
 export const getServerPermissionValues = (permissions: ServerPermission[]) =>

@@ -10,15 +10,15 @@ import { useServerData } from '@/hooks/use-server-data';
 import { useSubscription } from '@/hooks/use-subscription';
 import { useAuthStore } from '@/store/auth.store';
 import {
-  ChannelRes,
-  FeedItemRes,
-  FeedQuery,
-  FeedQueryPage,
+  type ChannelRes,
+  type FeedItemRes,
+  type FeedQuery,
+  type FeedQueryPage,
 } from '@/types/channel.types';
-import { ImageRes } from '@/types/image.types';
-import { MessageRes } from '@/types/message.types';
-import { PollRes } from '@/types/poll.types';
-import { PubSubMessage } from '@/types/shared.types';
+import { type ImageRes } from '@/types/image.types';
+import { type MessageRes } from '@/types/message.types';
+import { type PollRes } from '@/types/poll.types';
+import { type PubSubMessage } from '@/types/shared.types';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';

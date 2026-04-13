@@ -7,15 +7,15 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { PollConfigRes } from '@/types/poll.types';
-import { VoteRes } from '@/types/vote.types';
+import { type PollConfigRes } from '@/types/poll.types';
+import { type VoteRes } from '@/types/vote.types';
 import {
   getProgressPercentage,
   getRequiredCount,
 } from '@/lib/poll.utils';
 import {
   sortConsensusVotesByType,
-  WithVoteType,
+  type WithVoteType,
 } from '@/lib/vote.utils';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useMemo } from 'react';

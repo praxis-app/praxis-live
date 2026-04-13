@@ -14,7 +14,7 @@ import { useMeQuery } from '@/hooks/use-me-query';
 import { truncate } from '@/lib/text.utils';
 import { useAuthStore } from '@/store/auth.store';
 import { useNavStore } from '@/store/nav.store';
-import { ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdExitToApp, MdPerson } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';

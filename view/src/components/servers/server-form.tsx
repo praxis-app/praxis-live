@@ -1,5 +1,5 @@
 import { cn } from '@/lib/shared.utils';
-import { ServerReq, ServerRes } from '@/types/server.types';
+import { type ServerReq, type ServerRes } from '@/types/server.types';
 import { ServerErrorKeys } from '@/constants/server.constants';
 import { serverFormSchema } from '@/types/server.types';
 import { zodResolver } from '@hookform/resolvers/zod';

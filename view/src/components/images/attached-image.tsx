@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/shared.utils';
-import { ImageRes } from '@/types/image.types';
+import { type ImageRes } from '@/types/image.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';

@@ -1,6 +1,6 @@
 import { api } from '@/client/api-client';
 import { RoleForm } from '../role-form';
-import { CreateRoleReq, InstanceRoleRes } from '@/types/role.types';
+import { type CreateRoleReq, type InstanceRoleRes } from '@/types/role.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Props {

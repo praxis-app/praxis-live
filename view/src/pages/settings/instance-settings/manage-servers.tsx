@@ -8,7 +8,7 @@ import { Container } from '@/components/ui/container';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { handleError } from '@/lib/error.utils';
-import { ServerReq, ServerRes } from '@/types/server.types';
+import { type ServerReq, type ServerRes } from '@/types/server.types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';

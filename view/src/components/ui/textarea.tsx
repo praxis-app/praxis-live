@@ -1,7 +1,7 @@
 // Ref: https://ui.shadcn.com/docs/components/textarea
 
 import { cn } from '@/lib/shared.utils';
-import { ComponentProps, forwardRef } from 'react';
+import { type ComponentProps, forwardRef } from 'react';
 
 const Textarea = forwardRef<HTMLTextAreaElement, ComponentProps<'textarea'>>(
   ({ className, ...props }, ref) => {

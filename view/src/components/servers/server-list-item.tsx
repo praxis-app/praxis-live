@@ -4,7 +4,7 @@ import {
   MIDDOT_WITH_SPACES,
   NavigationPaths,
 } from '@/constants/shared.constants';
-import { ServerRes } from '@/types/server.types';
+import { type ServerRes } from '@/types/server.types';
 import chroma from 'chroma-js';
 import ColorHash from 'color-hash';
 import { useTranslation } from 'react-i18next';

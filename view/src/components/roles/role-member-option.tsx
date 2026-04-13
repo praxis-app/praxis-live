@@ -2,7 +2,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
-import { UserRes } from '@/types/user.types';
+import { type UserRes } from '@/types/user.types';
 
 export interface RoleMemberOptionProps {
   selectedUserIds: string[];

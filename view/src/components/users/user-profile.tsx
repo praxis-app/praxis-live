@@ -1,4 +1,4 @@
-import { CurrentUser } from '@/types/user.types';
+import { type CurrentUser } from '@/types/user.types';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { MdEdit } from 'react-icons/md';

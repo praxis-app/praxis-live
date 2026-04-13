@@ -11,8 +11,8 @@ import {
 import { UserAvatar } from '@/components/users/user-avatar';
 import { useServerData } from '@/hooks/use-server-data';
 import { truncate } from '@/lib/text.utils';
-import { ServerRoleRes } from '@/types/role.types';
-import { UserRes } from '@/types/user.types';
+import { type ServerRoleRes } from '@/types/role.types';
+import { type UserRes } from '@/types/user.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';

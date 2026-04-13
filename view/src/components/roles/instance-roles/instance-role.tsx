@@ -1,6 +1,6 @@
 import { NavigationPaths } from '@/constants/shared.constants';
 import { RoleListItem } from '../role-list-item';
-import { InstanceRoleRes } from '@/types/role.types';
+import { type InstanceRoleRes } from '@/types/role.types';
 
 interface Props {
   instanceRole: InstanceRoleRes;

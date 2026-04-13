@@ -1,7 +1,7 @@
 // Ref: https://ui.shadcn.com/docs/components/input
 
 import { cn } from '@/lib/shared.utils';
-import { ComponentProps, forwardRef } from 'react';
+import { type ComponentProps, forwardRef } from 'react';
 
 const Input = forwardRef<HTMLInputElement, ComponentProps<'input'>>(
   ({ className, type, ...props }, ref) => {

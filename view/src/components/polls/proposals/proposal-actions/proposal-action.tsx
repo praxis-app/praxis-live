@@ -1,4 +1,4 @@
-import { PollActionRes } from '@/types/poll-action.types';
+import { type PollActionRes } from '@/types/poll-action.types';
 import { ProposalActionRole } from './proposal-action-role';
 
 interface Props {

@@ -14,8 +14,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuX } from 'react-icons/lu';
 import { truncate } from '@/lib/text.utils';
-import { InstanceRoleRes } from '@/types/role.types';
-import { UserRes } from '@/types/user.types';
+import { type InstanceRoleRes } from '@/types/role.types';
+import { type UserRes } from '@/types/user.types';
 
 interface Props {
   instanceRoleId: string;

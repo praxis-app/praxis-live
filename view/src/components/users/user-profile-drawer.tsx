@@ -1,7 +1,7 @@
 import { useIsDesktop } from '@/hooks/use-is-desktop';
-import { CurrentUser } from '@/types/user.types';
+import { type CurrentUser } from '@/types/user.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/shared.utils';
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 const MAX_WIDTH_CLASSES = {
   xs: 'max-w-xs',

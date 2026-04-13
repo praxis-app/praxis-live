@@ -6,9 +6,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import {
-  InstancePermission,
-  InstancePermissionKeys,
-  InstanceRoleRes,
+  type InstancePermission,
+  type InstancePermissionKeys,
+  type InstanceRoleRes,
 } from '@/types/role.types';
 import { RolePermissionToggle } from '../role-permission-toggle';
 

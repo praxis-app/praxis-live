@@ -1,5 +1,5 @@
-import { ChannelRes } from '@/types/channel.types';
-import { ReactNode, useState } from 'react';
+import { type ChannelRes } from '@/types/channel.types';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Sheet,

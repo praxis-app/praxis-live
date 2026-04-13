@@ -1,4 +1,4 @@
-import { ChangeEvent, ReactNode, useRef } from 'react';
+import { type ChangeEvent, type ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { MdImage } from 'react-icons/md';

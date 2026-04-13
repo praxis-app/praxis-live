@@ -1,8 +1,8 @@
 import { Switch } from '@/components/ui/switch';
 import { getPermissionText } from '@/lib/role.utils';
 import {
-  InstancePermissionKeys,
-  ServerPermissionKeys,
+  type InstancePermissionKeys,
+  type ServerPermissionKeys,
 } from '@/types/role.types';
 import { t } from 'i18next';
 
