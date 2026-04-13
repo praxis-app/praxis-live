@@ -12,11 +12,11 @@ import { VoteRes } from '@/types/vote.types';
 import {
   getProgressPercentage,
   getRequiredCount,
-} from '@common/polls/poll.utils';
+} from '@/lib/poll.utils';
 import {
   sortConsensusVotesByType,
   WithVoteType,
-} from '@common/votes/vote.utils';
+} from '@/lib/vote.utils';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';

@@ -1,4 +1,4 @@
-import { CommandStatus } from '@common/commands/command.types';
+import { CommandStatus } from '@/types/command.types';
 import { ImageRes } from './image.types';
 import { UserRes } from './user.types';
 

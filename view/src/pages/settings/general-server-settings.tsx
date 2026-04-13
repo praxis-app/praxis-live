@@ -16,7 +16,7 @@ import { NavigationPaths } from '@/constants/shared.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
 import { ServerConfigReq, ServerConfigRes } from '@/types/server-config.types';
-import { serverConfigSchema } from '@common/server-configs/server-config.types';
+import { serverConfigSchema } from '@/types/server-config.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';

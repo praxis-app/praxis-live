@@ -1,7 +1,7 @@
 import { cn } from '@/lib/shared.utils';
 import { ServerReq, ServerRes } from '@/types/server.types';
-import { ServerErrorKeys } from '@common/servers/server.constants';
-import { serverFormSchema } from '@common/servers/server.types';
+import { ServerErrorKeys } from '@/constants/server.constants';
+import { serverFormSchema } from '@/types/server.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';

@@ -21,7 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
 import { FeedItemRes, FeedQuery } from '@/types/channel.types';
-import { VotingTimeLimit } from '@common/votes/vote.constants';
+import { VotingTimeLimit } from '@/constants/vote.constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFieldArray, useForm } from 'react-hook-form';

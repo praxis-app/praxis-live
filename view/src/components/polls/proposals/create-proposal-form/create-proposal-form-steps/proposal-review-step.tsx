@@ -6,7 +6,7 @@ import { UserRes } from '@/types/user.types';
 import {
   PollActionType,
   RoleAttributeChangeType,
-} from '@common/poll-actions/poll-action.types';
+} from '@/types/poll-action.types';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useWizardContext } from '../../../../shared/wizard/wizard-hooks';

@@ -6,7 +6,6 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
 COPY vite.config.ts components.json ./
-COPY common ./common
 COPY view ./view
 
 RUN npm ci

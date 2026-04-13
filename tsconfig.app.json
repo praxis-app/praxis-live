@@ -25,9 +25,8 @@
     /* shadcn/ui */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./view/src/*"],
-      "@common/*": ["./common/*"]
+      "@/*": ["./view/src/*"]
     }
   },
-  "include": ["view/src", "common"]
+  "include": ["view/src"]
 }

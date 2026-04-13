@@ -19,7 +19,7 @@ import { ImageRes } from '@/types/image.types';
 import { MessageRes } from '@/types/message.types';
 import { PollRes } from '@/types/poll.types';
 import { PubSubMessage } from '@/types/shared.types';
-import { PubSubMessageType } from '@common/pub-sub/pub-sub.constants';
+import { PubSubMessageType } from '@/constants/pub-sub.constants';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 

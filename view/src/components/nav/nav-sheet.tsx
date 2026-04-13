@@ -19,7 +19,7 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useAuthStore } from '@/store/auth.store';
 import { useNavStore } from '@/store/nav.store';
-import { INITIAL_SERVER_NAME } from '@common/servers/server.constants';
+import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useQuery } from '@tanstack/react-query';
 import { ReactNode } from 'react';
