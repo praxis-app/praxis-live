@@ -1,7 +1,7 @@
 import { NavigationPaths } from '@/constants/shared.constants';
 import { RoleListItem } from '../role-list-item';
 import { useServerData } from '@/hooks/use-server-data';
-import { ServerRoleRes } from '@/types/role.types';
+import { type ServerRoleRes } from '@/types/role.types';
 
 interface Props {
   serverRole: ServerRoleRes;

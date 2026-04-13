@@ -1,5 +1,5 @@
-import { ChannelRes } from '@/types/channel.types';
-import { ReactNode } from 'react';
+import { type ChannelRes } from '@/types/channel.types';
+import { type ReactNode } from 'react';
 import { MdTag } from 'react-icons/md';
 import {
   Dialog,

@@ -1,3 +1,30 @@
+export const ABILITY_ACTIONS = [
+  'delete',
+  'create',
+  'read',
+  'update',
+  'manage',
+] as const;
+
+export const SERVER_ROLE_ABILITY_SUBJECTS = [
+  'ServerConfig',
+  'Channel',
+  'Invite',
+  'Message',
+  'ServerRole',
+  'all',
+] as const;
+
+export const INSTANCE_ROLE_ABILITY_SUBJECTS = [
+  'InstanceConfig',
+  'InstanceRole',
+  'Server',
+  'all',
+] as const;
+
+export const DEFAULT_ROLE_COLOR = '#f44336';
+export const ADMIN_ROLE_NAME = 'admin';
+
 export const SERVER_PERMISSION_KEYS = [
   'manageChannels',
   'manageServerSettings',

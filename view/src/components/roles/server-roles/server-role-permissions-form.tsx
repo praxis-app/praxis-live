@@ -3,9 +3,9 @@ import { SERVER_PERMISSION_KEYS } from '@/constants/role.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import { getServerPermissionValues } from '@/lib/role.utils';
 import {
-  ServerPermission,
-  ServerPermissionKeys,
-  ServerRoleRes,
+  type ServerPermission,
+  type ServerPermissionKeys,
+  type ServerRoleRes,
 } from '@/types/role.types';
 import { Button } from '@/components/ui/button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';

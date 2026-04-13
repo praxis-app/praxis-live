@@ -1,6 +1,6 @@
-import { ImageRes } from './image.types';
-import { InstancePermission, ServerPermission } from './role.types';
-import { ServerRes } from './server.types';
+import { type ImageRes } from './image.types';
+import { type InstancePermission, type ServerPermission } from './role.types';
+import { type ServerRes } from './server.types';
 
 export interface UserRes {
   id: string;

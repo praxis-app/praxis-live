@@ -3,10 +3,10 @@
 import { cn } from '@/lib/shared.utils';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
-  ComponentPropsWithoutRef,
-  ElementRef,
+  type ComponentPropsWithoutRef,
+  type ElementRef,
   forwardRef,
-  HTMLAttributes,
+  type HTMLAttributes,
 } from 'react';
 import { LuX } from 'react-icons/lu';
 

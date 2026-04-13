@@ -33,7 +33,7 @@ import { NavigationPaths } from '../../constants/shared.constants';
 import { useAbility } from '../../hooks/use-ability';
 import { useServerData } from '../../hooks/use-server-data';
 import { handleError } from '../../lib/error.utils';
-import { ServerRoleRes } from '../../types/role.types';
+import { type ServerRoleRes } from '../../types/role.types';
 
 enum EditServerRoleTabName {
   Permissions = 'permissions',

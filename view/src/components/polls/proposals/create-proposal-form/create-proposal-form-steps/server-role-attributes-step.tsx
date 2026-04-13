@@ -1,6 +1,6 @@
 // TODO: Add remaining layout and functionality - the following is a WIP
 
-import { WizardStepProps } from '@/components/shared/wizard/wizard.types';
+import { type WizardStepProps } from '@/components/shared/wizard/wizard.types';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -17,8 +17,8 @@ import {
 } from '../../../../ui/form';
 import { Input } from '../../../../ui/input';
 import {
-  CreateProposalFormSchema,
-  CreateProposalWizardContext,
+  type CreateProposalFormSchema,
+  type CreateProposalWizardContext,
 } from '../create-proposal-form.types';
 
 export const ServerRoleAttributesStep = ({ isLoading }: WizardStepProps) => {

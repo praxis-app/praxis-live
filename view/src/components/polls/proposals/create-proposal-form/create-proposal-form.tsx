@@ -1,13 +1,13 @@
 import { api } from '@/client/api-client';
-import { WizardStepData } from '@/components/shared/wizard/wizard.types';
+import { type WizardStepData } from '@/components/shared/wizard/wizard.types';
 import { useServerData } from '@/hooks/use-server-data';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
-import { FeedItemRes, FeedQuery } from '@/types/channel.types';
+import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import {
-  CreatePollActionServerRoleMemberReq,
-  CreatePollActionServerRolePermissionReq,
+  type CreatePollActionServerRoleMemberReq,
+  type CreatePollActionServerRolePermissionReq,
 } from '@/types/poll-action.types';
-import { ServerPermissionKeys } from '@/types/role.types';
+import { type ServerPermissionKeys } from '@/types/role.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
@@ -23,7 +23,7 @@ import { ServerRoleMembersStep } from './create-proposal-form-steps/server-role-
 import { ServerRolePermissionsStep } from './create-proposal-form-steps/server-role-permissions-step';
 import { ServerRoleSelectionStep } from './create-proposal-form-steps/server-role-selection-step';
 import {
-  CreateProposalFormSchema,
+  type CreateProposalFormSchema,
   createProposalFormSchema,
 } from './create-proposal-form.types';
 

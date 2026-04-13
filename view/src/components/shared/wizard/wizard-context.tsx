@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { WizardContext, WizardContextType } from './wizard-hooks';
+import { type ReactNode } from 'react';
+import { WizardContext, type WizardContextType } from './wizard-hooks';
 
 interface WizardProviderProps<ContextValues> {
   children: ReactNode;

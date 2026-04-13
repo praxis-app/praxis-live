@@ -21,7 +21,7 @@ pub(crate) use super::server_configs::{
     update_server_config,
 };
 
-const INITIAL_SERVER_NAME: &str = "Praxis";
+const INITIAL_SERVER_NAME: &str = "praxis";
 const INITIAL_SERVER_SLUG: &str = "praxis";
 
 pub(crate) async fn default_server_id(

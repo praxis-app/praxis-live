@@ -1,4 +1,4 @@
-import { RouteObject } from 'react-router-dom';
+import { type RouteObject } from 'react-router-dom';
 import { InviteCheck } from '@/pages/invites/invite-check';
 import { JoinServerPage } from '@/pages/invites/join-server-page';
 

@@ -1,10 +1,14 @@
 import {
-  PollActionType,
-  RoleAttributeChangeType,
-} from '@common/poll-actions/poll-action.types';
-import { AbilityAction } from '@common/roles/role.types';
-import { ServerAbilitySubject } from '@common/roles/server-roles/server-ability';
-import { UserRes } from './user.types';
+  POLL_ACTION_TYPE,
+  ROLE_ATTRIBUTE_CHANGE_TYPE,
+} from '@/constants/poll-action.constants';
+import { type AbilityAction, type ServerAbilitySubject } from '@/types/role.types';
+import { type UserRes } from './user.types';
+
+export type PollActionType = (typeof POLL_ACTION_TYPE)[number];
+
+export type RoleAttributeChangeType =
+  (typeof ROLE_ATTRIBUTE_CHANGE_TYPE)[number];
 
 // -------------------------------------------------------------------------
 // Requests

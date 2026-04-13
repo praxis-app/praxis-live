@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ROLE_COLOR_OPTIONS } from '@/constants/role.constants';
-import { CreateRoleReq } from '@/types/role.types';
+import { type CreateRoleReq } from '@/types/role.types';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';

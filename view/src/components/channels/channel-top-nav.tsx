@@ -6,7 +6,7 @@ import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { truncate } from '@/lib/text.utils';
 import { useAppStore } from '@/store/app.store';
-import { ChannelRes } from '@/types/channel.types';
+import { type ChannelRes } from '@/types/channel.types';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
 import { MdChevronRight, MdSearch, MdTag } from 'react-icons/md';

@@ -1,7 +1,7 @@
 import { MessageForm } from '@/components/messages/message-form';
 import { useAuthStore } from '@/store/auth.store';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),

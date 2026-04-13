@@ -27,7 +27,7 @@ import { useMeQuery } from '@/hooks/use-me-query';
 import { useServerData } from '@/hooks/use-server-data';
 import { useNavStore } from '@/store/nav.store';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdAddCircle, MdOutlineSettings, MdSettings } from 'react-icons/md';
 import { TbSwitchHorizontal } from 'react-icons/tb';

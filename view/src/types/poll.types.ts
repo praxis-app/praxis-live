@@ -1,12 +1,18 @@
-import { ImageRes } from '@/types/image.types';
-import { CreatePollActionReq, PollActionRes } from '@/types/poll-action.types';
-import { UserRes } from '@/types/user.types';
-import { VoteRes } from '@/types/vote.types';
+import { type ImageRes } from '@/types/image.types';
+import { type CreatePollActionReq, type PollActionRes } from '@/types/poll-action.types';
+import { type UserRes } from '@/types/user.types';
+import { type VoteRes } from '@/types/vote.types';
 import {
-  DecisionMakingModel,
-  PollStage,
-  PollType,
-} from '@common/polls/poll.types';
+  DECISION_MAKING_MODEL,
+  POLL_STAGE,
+  POLL_TYPE,
+} from '@/constants/poll.constants';
+
+export type DecisionMakingModel = (typeof DECISION_MAKING_MODEL)[number];
+
+export type PollStage = (typeof POLL_STAGE)[number];
+
+export type PollType = (typeof POLL_TYPE)[number];
 
 export interface PollRes {
   id: string;

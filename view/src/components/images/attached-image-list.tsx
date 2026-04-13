@@ -1,6 +1,6 @@
 import { Box } from '@/components/ui/box';
 import { cn } from '@/lib/shared.utils';
-import { ImageRes } from '@/types/image.types';
+import { type ImageRes } from '@/types/image.types';
 import { AttachedImage } from './attached-image';
 
 interface Props {

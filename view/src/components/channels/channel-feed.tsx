@@ -10,10 +10,10 @@ import { useScrollDirection } from '@/hooks/use-scroll-direction';
 import { useServerData } from '@/hooks/use-server-data';
 import { debounce, throttle } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
-import { ChannelRes, FeedItemRes } from '@/types/channel.types';
+import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
 import {
-  RefObject,
-  UIEvent,
+  type RefObject,
+  type UIEvent,
   useEffect,
   useMemo,
   useRef,

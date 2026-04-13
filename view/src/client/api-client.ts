@@ -1,44 +1,44 @@
 // API client for server endpoints
 
 import { LocalStorageKeys } from '@/constants/shared.constants';
-import { AuthRes, LoginReq, SignUpReq } from '@/types/auth.types';
+import { type AuthRes, type LoginReq, type SignUpReq } from '@/types/auth.types';
 import {
-  ChannelRes,
-  CreateChannelReq,
-  FeedItemRes,
-  UpdateChannelReq,
+  type ChannelRes,
+  type CreateChannelReq,
+  type FeedItemRes,
+  type UpdateChannelReq,
 } from '@/types/channel.types';
-import { ImageRes } from '@/types/image.types';
+import { type ImageRes } from '@/types/image.types';
 import {
-  InstanceConfigReq,
-  InstanceConfigRes,
+  type InstanceConfigReq,
+  type InstanceConfigRes,
 } from '@/types/instance-config.types';
-import { CreateInviteReq, InviteRes } from '@/types/invite.types';
-import { MessageRes } from '@/types/message.types';
-import { CreatePollReq, PollRes } from '@/types/poll.types';
+import { type CreateInviteReq, type InviteRes } from '@/types/invite.types';
+import { type MessageRes } from '@/types/message.types';
+import { type CreatePollReq, type PollRes } from '@/types/poll.types';
 import {
-  CreateRoleReq,
-  InstanceRoleRes,
-  ServerRoleRes,
-  UpdateInstanceRolePermissionsReq,
-  UpdateServerRolePermissionsReq,
+  type CreateRoleReq,
+  type InstanceRoleRes,
+  type ServerRoleRes,
+  type UpdateInstanceRolePermissionsReq,
+  type UpdateServerRolePermissionsReq,
 } from '@/types/role.types';
-import { ServerConfigReq, ServerConfigRes } from '@/types/server-config.types';
-import { ServerReq, ServerRes } from '@/types/server.types';
+import { type ServerConfigReq, type ServerConfigRes } from '@/types/server-config.types';
+import { type ServerReq, type ServerRes } from '@/types/server.types';
 import {
-  CurrentUserRes,
-  UpdateUserProfileReq,
-  UserProfileRes,
-  UserRes,
+  type CurrentUserRes,
+  type UpdateUserProfileReq,
+  type UserProfileRes,
+  type UserRes,
 } from '@/types/user.types';
 import {
-  CreateVoteReq,
-  CreateVoteRes,
-  PollOptionVoterRes,
-  UpdateVoteReq,
-  UpdateVoteRes,
+  type CreateVoteReq,
+  type CreateVoteRes,
+  type PollOptionVoterRes,
+  type UpdateVoteReq,
+  type UpdateVoteRes,
 } from '@/types/vote.types';
-import axios, { AxiosInstance, AxiosResponse, Method } from 'axios';
+import axios, { type AxiosInstance, type AxiosResponse, type Method } from 'axios';
 
 class ApiClient {
   private axiosInstance: AxiosInstance;

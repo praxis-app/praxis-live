@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Container } from '@/components/ui/container';
 import { useLogOut } from '@/hooks/use-log-out';
 import { useServerData } from '@/hooks/use-server-data';
-import { INITIAL_SERVER_NAME } from '@common/servers/server.constants';
+import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 

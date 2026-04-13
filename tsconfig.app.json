@@ -11,6 +11,7 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
@@ -25,9 +26,8 @@
     /* shadcn/ui */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./view/src/*"],
-      "@common/*": ["./common/*"]
+      "@/*": ["./view/src/*"]
     }
   },
-  "include": ["view/src", "common"]
+  "include": ["view/src"]
 }

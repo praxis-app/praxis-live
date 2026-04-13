@@ -3,7 +3,7 @@ import { cn } from '@/lib/shared.utils';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdRemoveCircle } from 'react-icons/md';
-import { ImageRes } from '../../types/image.types';
+import { type ImageRes } from '../../types/image.types';
 import { Button } from '../ui/button';
 
 const RemoveButton = ({

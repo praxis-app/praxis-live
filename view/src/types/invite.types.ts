@@ -1,4 +1,4 @@
-import { UserRes } from './user.types';
+import { type UserRes } from './user.types';
 
 export interface InviteRes {
   id: string;

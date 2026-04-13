@@ -2,8 +2,8 @@ import { api } from '@/client/api-client';
 import { LocalStorageKeys } from '@/constants/shared.constants';
 import { useAppStore } from '@/store/app.store';
 import { useAuthStore } from '@/store/auth.store';
-import { CurrentUser } from '@/types/user.types';
-import { useQuery, UseQueryOptions } from '@tanstack/react-query';
+import { type CurrentUser } from '@/types/user.types';
+import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 
 type UseMeQueryOptions = Omit<

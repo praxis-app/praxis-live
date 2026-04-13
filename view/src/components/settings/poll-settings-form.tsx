@@ -1,10 +1,10 @@
 import { api } from '@/client/api-client';
 import { Button } from '@/components/ui/button';
-import { ServerConfigReq, ServerConfigRes } from '@/types/server-config.types';
-import { DECISION_MAKING_MODEL } from '@common/polls/poll.constants';
-import { ServerConfigErrorKeys } from '@common/server-configs/server-config.constants';
-import { serverConfigSchema } from '@common/server-configs/server-config.types';
-import { VotingTimeLimit } from '@common/votes/vote.constants';
+import { type ServerConfigReq, type ServerConfigRes } from '@/types/server-config.types';
+import { DECISION_MAKING_MODEL } from '@/constants/poll.constants';
+import { ServerConfigErrorKeys } from '@/constants/server-config.constants';
+import { serverConfigSchema } from '@/types/server-config.types';
+import { VotingTimeLimit } from '@/constants/vote.constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';

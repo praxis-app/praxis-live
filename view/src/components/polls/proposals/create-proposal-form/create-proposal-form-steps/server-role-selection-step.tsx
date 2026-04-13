@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../../ui/select';
-import { CreateProposalFormSchema } from '../create-proposal-form.types';
+import { type CreateProposalFormSchema } from '../create-proposal-form.types';
 
 export const ServerRoleSelectionStep = () => {
   const form = useFormContext<CreateProposalFormSchema>();

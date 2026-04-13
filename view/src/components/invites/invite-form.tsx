@@ -1,6 +1,6 @@
 import { api } from '@/client/api-client';
 import { Time } from '@/constants/shared.constants';
-import { InviteRes } from '@/types/invite.types';
+import { type InviteRes } from '@/types/invite.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';

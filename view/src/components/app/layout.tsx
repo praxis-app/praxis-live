@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { AuthWrapper } from '../auth/auth-wrapper';
 import { ThemeProvider } from '../theme/theme-provider';
 import { Toaster } from '../ui/sonner';

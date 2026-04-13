@@ -1,5 +1,5 @@
 import { BrowserEvents } from '@/constants/shared.constants';
-import { RefObject, useEffect, useRef, useState } from 'react';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 
 const RESET_SCROLL_DIRECTION_TIMEOUT = 800;
 

@@ -1,6 +1,6 @@
-import { FieldValues, FormProvider, UseFormReturn } from 'react-hook-form';
+import { type FieldValues, FormProvider, type UseFormReturn } from 'react-hook-form';
 import { WizardProvider } from './wizard-context';
-import { WizardStepData } from './wizard.types';
+import { type WizardStepData } from './wizard.types';
 
 interface WizardProps<FormValues extends FieldValues, ContextValues> {
   steps: WizardStepData[];

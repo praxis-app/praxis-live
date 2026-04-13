@@ -4,11 +4,11 @@ import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { timeAgo } from '@/lib/time.utils';
-import { MessageRes } from '@/types/message.types';
+import { type MessageRes } from '@/types/message.types';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/shared.utils';
 import { truncate } from '../../lib/text.utils';
-import { CurrentUser } from '../../types/user.types';
+import { type CurrentUser } from '../../types/user.types';
 
 interface Props {
   message: MessageRes;

@@ -1,4 +1,4 @@
-import { VoteType } from './vote.types';
+import { type VoteType } from '@/types/vote.types';
 
 export interface WithVoteType {
   voteType: VoteType;

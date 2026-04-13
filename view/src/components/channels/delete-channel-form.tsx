@@ -1,8 +1,8 @@
 import { api } from '@/client/api-client';
 import { useServerData } from '@/hooks/use-server-data';
-import { ChannelRes } from '@/types/channel.types';
+import { type ChannelRes } from '@/types/channel.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdTag } from 'react-icons/md';
 import { useNavigate, useParams } from 'react-router-dom';

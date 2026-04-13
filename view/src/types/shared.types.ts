@@ -1,4 +1,4 @@
-import { Options } from 'react-use-websocket';
+import { type Options } from 'react-use-websocket';
 
 export interface PubSubRequest<T = unknown> {
   type: 'REQUEST';

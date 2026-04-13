@@ -29,8 +29,8 @@ import { useServerData } from '@/hooks/use-server-data';
 import { cn } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
 import { useAuthStore } from '@/store/auth.store';
-import { CurrentUserRes } from '@/types/user.types';
-import { INITIAL_SERVER_NAME } from '@common/servers/server.constants';
+import { type CurrentUserRes } from '@/types/user.types';
+import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {

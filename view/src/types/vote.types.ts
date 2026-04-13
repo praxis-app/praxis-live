@@ -1,4 +1,6 @@
-import { VoteType } from '@common/votes/vote.types';
+import { VOTE_TYPES } from '@/constants/vote.constants';
+
+export type VoteType = (typeof VOTE_TYPES)[number];
 
 export interface VoteRes {
   id: string;

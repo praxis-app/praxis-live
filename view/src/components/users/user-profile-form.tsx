@@ -1,9 +1,9 @@
 import { api } from '@/client/api-client';
 import { validateImageInput } from '@/lib/image.utilts';
 import {
-  CurrentUser,
-  UpdateUserProfileReq,
-  UserProfileRes,
+  type CurrentUser,
+  type UpdateUserProfileReq,
+  type UserProfileRes,
 } from '@/types/user.types';
 import {
   BIO_MAX_LENGTH,
@@ -12,7 +12,7 @@ import {
   NAME_MAX_LENGTH,
   NAME_MIN_LENGTH,
   VALID_NAME_REGEX,
-} from '@common/users/user.constants';
+} from '@/constants/user.constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';

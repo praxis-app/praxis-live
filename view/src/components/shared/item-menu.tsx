@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/shared.utils';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPencil, LuTrash } from 'react-icons/lu';
 import { MdMoreHoriz } from 'react-icons/md';

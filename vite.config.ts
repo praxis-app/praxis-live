@@ -26,7 +26,6 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "view/src"),
-        "@common": path.resolve(__dirname, "./common"),
       },
     },
   };

@@ -1,4 +1,4 @@
-import React, { ComponentProps, ElementType, ReactNode } from 'react';
+import React, { type ComponentProps, type ElementType, type ReactNode } from 'react';
 
 interface BoxProps extends ComponentProps<ElementType> {
   children: ReactNode;

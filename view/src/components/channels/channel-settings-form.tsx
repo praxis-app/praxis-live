@@ -1,6 +1,6 @@
 import { api } from '@/client/api-client';
 import { useServerData } from '@/hooks/use-server-data';
-import { ChannelRes } from '@/types/channel.types';
+import { type ChannelRes } from '@/types/channel.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';

@@ -1,4 +1,4 @@
-import { IconType } from 'react-icons/lib';
+import { type IconType } from 'react-icons/lib';
 import { MdChevronRight } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';

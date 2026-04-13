@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { InviteRes } from '@/types/invite.types';
+import { type InviteRes } from '@/types/invite.types';
 import { useTranslation } from 'react-i18next';
 import { InviteTableRow } from './invite-table-row';
 

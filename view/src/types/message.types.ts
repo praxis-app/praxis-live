@@ -1,6 +1,6 @@
-import { CommandStatus } from '@common/commands/command.types';
-import { ImageRes } from './image.types';
-import { UserRes } from './user.types';
+import { type CommandStatus } from '@/types/command.types';
+import { type ImageRes } from './image.types';
+import { type UserRes } from './user.types';
 
 export interface BotRes {
   id: string;

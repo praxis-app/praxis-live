@@ -1,11 +1,11 @@
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
-import { CSSProperties, ReactNode, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdVisibility } from 'react-icons/md';
 import appIconImg from '../../assets/images/app-icon.png';
-import { MessageRes } from '../../types/message.types';
+import { type MessageRes } from '../../types/message.types';
 import { FormattedText } from '../shared/formatted-text';
 import { Button } from '../ui/button';
 import { UserAvatar } from '../users/user-avatar';

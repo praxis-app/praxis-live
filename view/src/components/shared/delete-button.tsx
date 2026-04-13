@@ -1,5 +1,5 @@
 import { cn } from '@/lib/shared.utils';
-import { ButtonHTMLAttributes } from 'react';
+import { type ButtonHTMLAttributes } from 'react';
 import { Button } from '../ui/button';
 
 interface DeleteButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

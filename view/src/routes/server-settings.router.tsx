@@ -4,7 +4,7 @@ import { GeneralServerSettings } from '@/pages/settings/general-server-settings'
 import { PollSettings } from '@/pages/settings/poll-settings';
 import { ServerRoles } from '@/pages/settings/server-roles';
 import { ServerSettings } from '@/pages/settings/server-settings';
-import { RouteObject } from 'react-router-dom';
+import { type RouteObject } from 'react-router-dom';
 
 export const serverSettingsRouter: RouteObject = {
   path: '/s/:serverSlug/settings',

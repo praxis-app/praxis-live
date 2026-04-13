@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/shared.utils';
 import * as SwitchPrimitive from '@radix-ui/react-switch';
-import { ComponentProps } from 'react';
+import { type ComponentProps } from 'react';
 
 const Switch = ({
   className,

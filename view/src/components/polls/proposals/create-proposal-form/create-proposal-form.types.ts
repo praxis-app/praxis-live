@@ -1,9 +1,9 @@
 import { SERVER_PERMISSION_KEYS } from '@/constants/role.constants';
 import { t } from '@/lib/shared.utils';
-import { ServerRoleRes } from '@/types/role.types';
-import { UserRes } from '@/types/user.types';
-import { POLL_ACTION_TYPE } from '@common/poll-actions/poll-action.constants';
-import { POLL_BODY_MAX } from '@common/polls/poll.constants';
+import { type ServerRoleRes } from '@/types/role.types';
+import { type UserRes } from '@/types/user.types';
+import { POLL_ACTION_TYPE } from '@/constants/poll-action.constants';
+import { POLL_BODY_MAX } from '@/constants/poll.constants';
 import * as zod from 'zod';
 
 export const createProposalFormSchema = zod

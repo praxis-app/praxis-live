@@ -1,8 +1,8 @@
 import { useImageSrc } from '@/hooks/use-image-src';
 import { cn } from '@/lib/shared.utils';
 import {
-  ComponentProps,
-  SyntheticEvent,
+  type ComponentProps,
+  type SyntheticEvent,
   forwardRef,
   useRef,
   useState,

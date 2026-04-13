@@ -1,7 +1,7 @@
 import { useAbility } from '@/hooks/use-ability';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
-import { ChannelRes } from '@/types/channel.types';
-import { ReactNode, useState } from 'react';
+import { type ChannelRes } from '@/types/channel.types';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BiTrash } from 'react-icons/bi';
 import { MdChevronRight, MdSettings, MdTag } from 'react-icons/md';

@@ -1,5 +1,5 @@
-import { MessageRes } from './message.types';
-import { PollRes } from './poll.types';
+import { type MessageRes } from './message.types';
+import { type PollRes } from './poll.types';
 
 export interface ChannelRes {
   id: string;

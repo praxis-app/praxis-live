@@ -11,10 +11,10 @@ import { SERVER_PERMISSION_KEYS } from '@/constants/role.constants';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import {
-  PollActionRes,
-  PollActionServerRoleMemberRes,
+  type PollActionRes,
+  type PollActionServerRoleMemberRes,
 } from '@/types/poll-action.types';
-import { ServerPermissionKeys } from '@/types/role.types';
+import { type ServerPermissionKeys } from '@/types/role.types';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';

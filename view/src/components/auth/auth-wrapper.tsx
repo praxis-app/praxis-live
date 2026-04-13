@@ -1,5 +1,5 @@
 import { useMeQuery } from '@/hooks/use-me-query';
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
