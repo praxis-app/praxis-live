@@ -1,15 +1,15 @@
 use axum::http::StatusCode;
 use entity::{message_images, messages, users};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    QueryFilter, QueryOrder, QuerySelect, Set,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
+    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    serialize_timestamp, CreateMessageRequest, FeedMessageResponse, ImageResponse, MessageResponse,
-    MessageUser, StoredImage,
+    serialize_timestamp, CreateMessageRequest, FeedMessageResponse,
+    ImageResponse, MessageResponse, MessageUser, StoredImage,
 };
 use crate::{
     channels,
@@ -36,8 +36,10 @@ pub(crate) async fn get_feed(
         .await
         .map_err(internal_error)?;
 
-    let user_ids: Vec<Uuid> = messages.iter().map(|message| message.user_id).collect();
-    let message_ids: Vec<Uuid> = messages.iter().map(|message| message.id).collect();
+    let user_ids: Vec<Uuid> =
+        messages.iter().map(|message| message.user_id).collect();
+    let message_ids: Vec<Uuid> =
+        messages.iter().map(|message| message.id).collect();
 
     let users = users::Entity::find()
         .filter(users::Column::Id.is_in(user_ids))
@@ -109,7 +111,9 @@ pub(crate) async fn create_message(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))?;
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
+        })?;
 
     Ok(MessageResponse {
         id: message.id.to_string(),
@@ -150,7 +154,9 @@ pub(crate) async fn store_message_image(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Message not found."))?;
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Message not found.")
+        })?;
 
     if message.channel_id != channel_id {
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
@@ -167,7 +173,9 @@ pub(crate) async fn store_message_image(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Image not found."))?;
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
+        })?;
 
     if image.message_id != message_id {
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."));
@@ -210,7 +218,9 @@ pub(crate) async fn get_message_image(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Message not found."))?;
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Message not found.")
+        })?;
 
     if message.channel_id != channel_id {
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
@@ -222,15 +232,17 @@ pub(crate) async fn get_message_image(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Image not found."))?;
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
+        })?;
 
     if image.message_id != message_id {
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."));
     }
 
-    let storage_key = image
-        .storage_key
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Image not uploaded yet."))?;
+    let storage_key = image.storage_key.ok_or_else(|| {
+        ApiError::new(StatusCode::NOT_FOUND, "Image not uploaded yet.")
+    })?;
     let bytes = tokio::fs::read(resolve_upload_path(upload_root, &storage_key))
         .await
         .map_err(internal_error)?;
@@ -273,7 +285,10 @@ fn shape_message<'a>(
     }
 }
 
-fn shape_image(image: &message_images::Model, is_placeholder: bool) -> ImageResponse {
+fn shape_image(
+    image: &message_images::Model,
+    is_placeholder: bool,
+) -> ImageResponse {
     ImageResponse {
         id: image.id.to_string(),
         is_placeholder: is_placeholder.then_some(true),

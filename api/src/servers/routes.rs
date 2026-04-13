@@ -5,14 +5,18 @@ use axum::{
 use sea_orm::DatabaseConnection;
 
 use super::handlers::{
-    add_server_members, create_server, delete_server, get_default_server, get_server_by_id,
-    get_server_by_invite_token, get_server_by_slug, get_server_config, get_server_members,
-    get_servers, get_users_eligible_for_server, is_anonymous_users_enabled, join_server,
+    add_server_members, create_server, delete_server, get_default_server,
+    get_server_by_id, get_server_by_invite_token, get_server_by_slug,
+    get_server_config, get_server_members, get_servers,
+    get_users_eligible_for_server, is_anonymous_users_enabled, join_server,
     remove_server_members, update_server, update_server_config, ServersState,
 };
 use crate::channels;
 
-pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
+pub(crate) fn router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+) -> Router {
     let servers_router = Router::new()
         .route("/servers", get(get_servers))
         .route("/servers", post(create_server))

@@ -19,7 +19,10 @@ pub(super) struct ChannelsState {
 }
 
 impl ChannelsState {
-    pub(super) fn new(database: DatabaseConnection, jwt_secret: String) -> Self {
+    pub(super) fn new(
+        database: DatabaseConnection,
+        jwt_secret: String,
+    ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
@@ -48,7 +51,8 @@ pub(super) async fn create_channel(
     Json(payload): Json<ChannelRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    let channel = service::create_channel(&state.database, server_id, payload).await?;
+    let channel =
+        service::create_channel(&state.database, server_id, payload).await?;
     Ok(Json(serde_json::json!({ "channel": channel })))
 }
 
@@ -60,7 +64,8 @@ pub(super) async fn update_channel(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    service::update_channel(&state.database, server_id, channel_id, payload).await?;
+    service::update_channel(&state.database, server_id, channel_id, payload)
+        .await?;
     Ok(Json(serde_json::json!({})))
 }
 
@@ -90,7 +95,9 @@ pub(super) async fn get_joined_channels(
     AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    let channels = service::get_joined_channels(&state.database, server_id, user_id).await?;
+    let channels =
+        service::get_joined_channels(&state.database, server_id, user_id)
+            .await?;
     Ok(Json(serde_json::json!({ "channels": channels })))
 }
 
@@ -100,6 +107,11 @@ pub(super) async fn get_channel(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let channel = service::get_channel_with_server(&state.database, server_id, channel_id).await?;
+    let channel = service::get_channel_with_server(
+        &state.database,
+        server_id,
+        channel_id,
+    )
+    .await?;
     Ok(Json(serde_json::json!({ "channel": channel })))
 }

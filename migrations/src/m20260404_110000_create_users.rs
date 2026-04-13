@@ -11,10 +11,17 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Users::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Users::Id).uuid().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(Users::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(Users::Email).string().not_null())
                     .col(ColumnDef::new(Users::Name).string().not_null())
-                    .col(ColumnDef::new(Users::PasswordHash).string().not_null())
+                    .col(
+                        ColumnDef::new(Users::PasswordHash).string().not_null(),
+                    )
                     .index(
                         Index::create()
                             .name("users-email-key")

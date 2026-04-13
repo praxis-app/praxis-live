@@ -1,13 +1,14 @@
 use axum::http::StatusCode;
 use entity::users;
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    PaginatorTrait, QueryFilter, Set, SqlErr,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr,
+    EntityTrait, PaginatorTrait, QueryFilter, Set, SqlErr,
 };
 use uuid::Uuid as NativeUuid;
 
 use super::models::{
-    CreateUserError, CurrentUserPermissions, CurrentUserResponse, UserProfileResponse, UserRecord,
+    CreateUserError, CurrentUserPermissions, CurrentUserResponse,
+    UserProfileResponse, UserRecord,
 };
 use crate::{
     common::{ApiError, AppResult},
@@ -71,9 +72,13 @@ pub(crate) async fn get_current_user(
     let user = get_user_by_id(database, user_id)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))?;
-    let servers = servers::service::get_servers_for_user(database, user_id).await?;
-    let current_server = servers::service::get_current_server(database, user_id).await?;
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
+        })?;
+    let servers =
+        servers::service::get_servers_for_user(database, user_id).await?;
+    let current_server =
+        servers::service::get_current_server(database, user_id).await?;
 
     Ok(CurrentUserResponse {
         id: user.id.to_string(),
@@ -96,7 +101,9 @@ pub(crate) async fn get_current_user(
     })
 }
 
-pub(crate) async fn is_first_user(database: &DatabaseConnection) -> AppResult<bool> {
+pub(crate) async fn is_first_user(
+    database: &DatabaseConnection,
+) -> AppResult<bool> {
     users::Entity::find()
         .count(database)
         .await
@@ -112,7 +119,9 @@ pub(crate) async fn get_user_profile(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "User not found."))?;
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "User not found.")
+        })?;
 
     Ok(UserProfileResponse {
         id: user.id.to_string(),

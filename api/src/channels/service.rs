@@ -1,8 +1,9 @@
 use axum::http::StatusCode;
 use entity::{channel_members, channels, server_members, servers};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
-    IntoActiveModel, ModelTrait, QueryFilter, QueryOrder, Set,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
+    DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter,
+    QueryOrder, Set,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -151,7 +152,9 @@ pub(crate) async fn get_channel(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Channel not found."))
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
+        })
 }
 
 pub(crate) async fn ensure_channel_membership(
@@ -186,7 +189,8 @@ where
         .all(database)
         .await
         .map_err(internal_error)?;
-    let channel_ids: Vec<Uuid> = server_channels.iter().map(|channel| channel.id).collect();
+    let channel_ids: Vec<Uuid> =
+        server_channels.iter().map(|channel| channel.id).collect();
 
     if channel_ids.is_empty() {
         return Ok(());
@@ -198,10 +202,11 @@ where
         .all(database)
         .await
         .map_err(internal_error)?;
-    let existing_channel_ids: std::collections::HashSet<Uuid> = existing_memberships
-        .into_iter()
-        .map(|membership| membership.channel_id)
-        .collect();
+    let existing_channel_ids: std::collections::HashSet<Uuid> =
+        existing_memberships
+            .into_iter()
+            .map(|membership| membership.channel_id)
+            .collect();
 
     for channel in server_channels {
         if existing_channel_ids.contains(&channel.id) {
@@ -280,7 +285,10 @@ pub(crate) async fn general_channel_id(
     Ok(channel.map(|channel| channel.id))
 }
 
-fn shape_channel(channel: channels::Model, server: &servers::Model) -> ChannelResponse {
+fn shape_channel(
+    channel: channels::Model,
+    server: &servers::Model,
+) -> ChannelResponse {
     ChannelResponse {
         id: channel.id.to_string(),
         name: channel.name,
@@ -292,7 +300,9 @@ fn shape_channel(channel: channels::Model, server: &servers::Model) -> ChannelRe
     }
 }
 
-fn validate_channel_request(request: ChannelRequest) -> AppResult<(String, Option<String>)> {
+fn validate_channel_request(
+    request: ChannelRequest,
+) -> AppResult<(String, Option<String>)> {
     let name = request.name.trim().to_ascii_lowercase();
     if !(2..=30).contains(&name.chars().count()) {
         return Err(ApiError::new(

@@ -5,12 +5,15 @@ use axum::{
 use sea_orm::DatabaseConnection;
 
 use super::handlers::{
-    create_channel, delete_channel, get_channel, get_channels, get_joined_channels, update_channel,
-    ChannelsState,
+    create_channel, delete_channel, get_channel, get_channels,
+    get_joined_channels, update_channel, ChannelsState,
 };
 use crate::messages;
 
-pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
+pub(crate) fn router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+) -> Router {
     let channels_router = Router::new()
         .route("/", get(get_channels))
         .route("/joined", get(get_joined_channels))

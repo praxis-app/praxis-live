@@ -17,7 +17,10 @@ use crate::{
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 90);
 const MIN_PASSWORD_LENGTH: usize = 8;
 
-pub(super) fn issue_access_token(auth_state: &AuthState, user_id: Uuid) -> AppResult<String> {
+pub(super) fn issue_access_token(
+    auth_state: &AuthState,
+    user_id: Uuid,
+) -> AppResult<String> {
     let claims = Claims {
         sub: user_id.to_string(),
         exp: current_unix_timestamp() + ACCESS_TOKEN_TTL.as_secs(),
@@ -37,9 +40,10 @@ pub(super) async fn signup(
 ) -> AppResult<UserRecord> {
     let signup = validate_signup(payload)?;
     let password_hash = password_auth::generate_hash(signup.password);
-    let user = users::create_user(database, signup.email, signup.name, password_hash)
-        .await
-        .map_err(map_create_user_error)?;
+    let user =
+        users::create_user(database, signup.email, signup.name, password_hash)
+            .await
+            .map_err(map_create_user_error)?;
 
     let default_server_id = servers::default_server_id(database)
         .await
@@ -49,16 +53,22 @@ pub(super) async fn signup(
     servers::add_member_to_server(&transaction, default_server_id, user.id)
         .await
         .map_err(internal_error)?;
-    channels::add_member_to_all_server_channels(&transaction, default_server_id, user.id)
-        .await
-        .map_err(internal_error)?;
+    channels::add_member_to_all_server_channels(
+        &transaction,
+        default_server_id,
+        user.id,
+    )
+    .await
+    .map_err(internal_error)?;
 
     transaction.commit().await.map_err(internal_error)?;
 
     Ok(user)
 }
 
-pub(super) fn validate_signup(mut input: SignupRequest) -> AppResult<SignupRequest> {
+pub(super) fn validate_signup(
+    mut input: SignupRequest,
+) -> AppResult<SignupRequest> {
     input.name = input.name.trim().to_owned();
     input.email = normalize_email(&input.email);
 
@@ -86,7 +96,9 @@ pub(super) fn validate_signup(mut input: SignupRequest) -> AppResult<SignupReque
     Ok(input)
 }
 
-pub(super) fn validate_login(mut input: LoginRequest) -> AppResult<LoginRequest> {
+pub(super) fn validate_login(
+    mut input: LoginRequest,
+) -> AppResult<LoginRequest> {
     input.email = normalize_email(&input.email);
 
     if !looks_like_email(&input.email) {

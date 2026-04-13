@@ -25,7 +25,10 @@ pub(super) struct ChatState {
 }
 
 impl ChatState {
-    pub(super) fn new(database: DatabaseConnection, jwt_secret: String) -> Self {
+    pub(super) fn new(
+        database: DatabaseConnection,
+        jwt_secret: String,
+    ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),

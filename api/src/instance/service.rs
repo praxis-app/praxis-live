@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
 use entity::instance_configs;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, QueryOrder, Set};
+use sea_orm::{
+    ActiveModelTrait, DatabaseConnection, EntityTrait, QueryOrder, Set,
+};
 use uuid::Uuid as NativeUuid;
 
 use crate::common::{ApiError, AppResult};
@@ -35,8 +37,11 @@ pub(crate) async fn get_config(
         .map_err(internal_error)
 }
 
-async fn initialize_config(database: &DatabaseConnection) -> AppResult<instance_configs::Model> {
-    let initial_server = crate::servers::service::create_initial_server(database).await?;
+async fn initialize_config(
+    database: &DatabaseConnection,
+) -> AppResult<instance_configs::Model> {
+    let initial_server =
+        crate::servers::service::create_initial_server(database).await?;
 
     instance_configs::ActiveModel {
         id: Set(NativeUuid::new_v4()),

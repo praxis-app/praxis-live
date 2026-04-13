@@ -5,10 +5,14 @@ use axum::{
 use sea_orm::DatabaseConnection;
 
 use super::handlers::{
-    create_message, get_channel_feed, get_message_image, upload_message_image, ChatState,
+    create_message, get_channel_feed, get_message_image, upload_message_image,
+    ChatState,
 };
 
-pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
+pub(crate) fn router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+) -> Router {
     Router::new()
         .route("/{channelId}/feed", get(get_channel_feed))
         .route("/{channelId}/messages", post(create_message))

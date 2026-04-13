@@ -2,10 +2,14 @@ use axum::{routing::get, Router};
 use sea_orm::DatabaseConnection;
 
 use super::handlers::{
-    get_current_user, get_current_user_servers, get_user_profile, is_first_user, UsersState,
+    get_current_user, get_current_user_servers, get_user_profile,
+    is_first_user, UsersState,
 };
 
-pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
+pub(crate) fn router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+) -> Router {
     Router::new()
         .route("/users/me", get(get_current_user))
         .route("/users/me/servers", get(get_current_user_servers))

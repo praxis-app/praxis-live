@@ -19,7 +19,10 @@ pub(super) struct UsersState {
 }
 
 impl UsersState {
-    pub(super) fn new(database: DatabaseConnection, jwt_secret: String) -> Self {
+    pub(super) fn new(
+        database: DatabaseConnection,
+        jwt_secret: String,
+    ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
@@ -46,7 +49,9 @@ pub(super) async fn get_current_user_servers(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let servers = servers::service::get_servers_for_user(&state.database, user_id).await?;
+    let servers =
+        servers::service::get_servers_for_user(&state.database, user_id)
+            .await?;
     Ok(Json(serde_json::json!({ "servers": servers })))
 }
 

@@ -8,7 +8,10 @@ use std::sync::Arc;
 
 use super::{
     service,
-    types::{JoinServerRequest, ServerConfigRequest, ServerMembersRequest, ServerRequest},
+    types::{
+        JoinServerRequest, ServerConfigRequest, ServerMembersRequest,
+        ServerRequest,
+    },
 };
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
@@ -22,7 +25,10 @@ pub(super) struct ServersState {
 }
 
 impl ServersState {
-    pub(super) fn new(database: DatabaseConnection, jwt_secret: String) -> Self {
+    pub(super) fn new(
+        database: DatabaseConnection,
+        jwt_secret: String,
+    ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
@@ -50,7 +56,8 @@ pub(super) async fn get_server_by_id(
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    let server = service::get_server_by_id(&state.database, server_id, false).await?;
+    let server =
+        service::get_server_by_id(&state.database, server_id, false).await?;
     Ok(Json(serde_json::json!({ "server": server })))
 }
 
@@ -59,7 +66,8 @@ pub(super) async fn get_server_by_slug(
     Path(slug): Path<String>,
     AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server = service::get_server_by_slug(&state.database, &slug, user_id).await?;
+    let server =
+        service::get_server_by_slug(&state.database, &slug, user_id).await?;
     Ok(Json(serde_json::json!({ "server": server })))
 }
 
@@ -83,7 +91,8 @@ pub(super) async fn create_server(
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<ServerRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server = service::create_server(&state.database, payload, user_id).await?;
+    let server =
+        service::create_server(&state.database, payload, user_id).await?;
     Ok(Json(serde_json::json!({ "server": server })))
 }
 
@@ -94,7 +103,8 @@ pub(super) async fn update_server(
     Json(payload): Json<ServerRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    let server = service::update_server(&state.database, server_id, payload).await?;
+    let server =
+        service::update_server(&state.database, server_id, payload).await?;
     Ok(Json(serde_json::json!({ "server": server })))
 }
 
@@ -124,7 +134,9 @@ pub(super) async fn get_users_eligible_for_server(
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    let users = service::get_users_eligible_for_server(&state.database, server_id).await?;
+    let users =
+        service::get_users_eligible_for_server(&state.database, server_id)
+            .await?;
     Ok(Json(serde_json::json!({ "users": users })))
 }
 
@@ -148,7 +160,8 @@ pub(super) async fn remove_server_members(
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
     let user_ids = parse_user_ids(&payload.user_ids)?;
-    service::remove_server_members(&state.database, server_id, &user_ids).await?;
+    service::remove_server_members(&state.database, server_id, &user_ids)
+        .await?;
     Ok(Json(serde_json::json!({})))
 }
 
@@ -159,7 +172,13 @@ pub(super) async fn join_server(
     Json(payload): Json<JoinServerRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    service::join_server(&state.database, server_id, user_id, &payload.invite_token).await?;
+    service::join_server(
+        &state.database,
+        server_id,
+        user_id,
+        &payload.invite_token,
+    )
+    .await?;
     Ok(Json(serde_json::json!({})))
 }
 
@@ -169,7 +188,8 @@ pub(super) async fn get_server_config(
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&server_id, "serverId")?;
-    let server_config = service::get_server_config(&state.database, server_id).await?;
+    let server_config =
+        service::get_server_config(&state.database, server_id).await?;
     Ok(Json(serde_json::json!({ "serverConfig": server_config })))
 }
 
@@ -200,9 +220,9 @@ fn parse_user_ids(values: &[String]) -> AppResult<Vec<Uuid>> {
     values
         .iter()
         .map(|value| {
-            value
-                .parse::<Uuid>()
-                .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "userIds must be UUIDs."))
+            value.parse::<Uuid>().map_err(|_| {
+                ApiError::new(StatusCode::BAD_REQUEST, "userIds must be UUIDs.")
+            })
         })
         .collect()
 }

@@ -1,13 +1,15 @@
 use axum::http::StatusCode;
 use entity::server_configs;
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    QueryFilter, Set,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
+    EntityTrait, IntoActiveModel, QueryFilter, Set,
 };
 use uuid::Uuid as NativeUuid;
 
 use crate::common::{ApiError, AppResult};
-use crate::servers::types::{serialize_timestamp, ServerConfigRequest, ServerConfigResponse};
+use crate::servers::types::{
+    serialize_timestamp, ServerConfigRequest, ServerConfigResponse,
+};
 
 pub(crate) async fn get_server_config(
     database: &DatabaseConnection,
@@ -102,7 +104,9 @@ fn shape_server_config(config: server_configs::Model) -> ServerConfigResponse {
     }
 }
 
-fn validate_server_config_request(request: &ServerConfigRequest) -> AppResult<()> {
+fn validate_server_config_request(
+    request: &ServerConfigRequest,
+) -> AppResult<()> {
     if let Some(model) = request.decision_making_model.as_deref() {
         if !matches!(model, "consent" | "consensus" | "majority-vote") {
             return Err(ApiError::new(
@@ -141,7 +145,12 @@ fn validate_server_config_request(request: &ServerConfigRequest) -> AppResult<()
     Ok(())
 }
 
-fn validate_range(value: Option<i32>, min: i32, max: i32, field: &str) -> AppResult<()> {
+fn validate_range(
+    value: Option<i32>,
+    min: i32,
+    max: i32,
+    field: &str,
+) -> AppResult<()> {
     if value
         .map(|value| value < min || value > max)
         .unwrap_or(false)

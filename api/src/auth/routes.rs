@@ -3,7 +3,10 @@ use sea_orm::DatabaseConnection;
 
 use super::handlers::{login, logout, signup, AuthState};
 
-pub(crate) fn router(database: DatabaseConnection, jwt_secret: String) -> Router {
+pub(crate) fn router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+) -> Router {
     Router::new()
         .route("/auth/signup", post(signup))
         .route("/auth/login", post(login))

@@ -1,29 +1,39 @@
 use axum::http::StatusCode;
-use entity::{channel_members, channels, instance_configs, server_members, servers, users};
+use entity::{
+    channel_members, channels, instance_configs, server_members, servers, users,
+};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
-    IntoActiveModel, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
+    DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
 };
 use uuid::Uuid as NativeUuid;
 
-use super::types::{serialize_timestamp, ServerRequest, ServerResponse, UserResponse};
+use super::types::{
+    serialize_timestamp, ServerRequest, ServerResponse, UserResponse,
+};
 use crate::channels as channel_api;
 use crate::common::{ApiError, AppResult};
 use crate::instance;
 
 pub(crate) use super::server_configs::{
-    ensure_server_config, get_server_config, is_anonymous_users_enabled, update_server_config,
+    ensure_server_config, get_server_config, is_anonymous_users_enabled,
+    update_server_config,
 };
 
 const INITIAL_SERVER_NAME: &str = "Praxis";
 const INITIAL_SERVER_SLUG: &str = "praxis";
 
-pub(crate) async fn default_server_id(database: &DatabaseConnection) -> AppResult<Uuid> {
+pub(crate) async fn default_server_id(
+    database: &DatabaseConnection,
+) -> AppResult<Uuid> {
     let config = instance::get_config_safely(database).await?;
     Ok(config.default_server_id)
 }
 
-pub(crate) async fn get_servers(database: &DatabaseConnection) -> AppResult<Vec<ServerResponse>> {
+pub(crate) async fn get_servers(
+    database: &DatabaseConnection,
+) -> AppResult<Vec<ServerResponse>> {
     let default_server_id = default_server_id(database).await?;
     let servers = servers::Entity::find()
         .order_by_desc(servers::Column::CreatedAt)
@@ -33,7 +43,10 @@ pub(crate) async fn get_servers(database: &DatabaseConnection) -> AppResult<Vec<
 
     let mut responses = Vec::with_capacity(servers.len());
     for server in servers {
-        responses.push(shape_server(database, server, default_server_id, false, true).await?);
+        responses.push(
+            shape_server(database, server, default_server_id, false, true)
+                .await?,
+        );
     }
 
     Ok(responses)
@@ -68,7 +81,10 @@ pub(crate) async fn get_servers_for_user(
 
     let mut responses = Vec::with_capacity(servers.len());
     for server in servers {
-        responses.push(shape_server(database, server, default_server_id, false, true).await?);
+        responses.push(
+            shape_server(database, server, default_server_id, false, true)
+                .await?,
+        );
     }
 
     Ok(responses)
@@ -130,14 +146,18 @@ pub(crate) async fn get_server_by_slug(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Server not found."))?;
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Server not found.")
+        })?;
 
     set_member_activity(database, server.id, user_id).await?;
     let default_server_id = default_server_id(database).await?;
     shape_server(database, server, default_server_id, true, false).await
 }
 
-pub(crate) async fn get_default_server(database: &DatabaseConnection) -> AppResult<ServerResponse> {
+pub(crate) async fn get_default_server(
+    database: &DatabaseConnection,
+) -> AppResult<ServerResponse> {
     let default_server_id = default_server_id(database).await?;
     let server = get_server(database, default_server_id).await?;
     shape_server(database, server, default_server_id, true, true).await
@@ -195,7 +215,10 @@ pub(crate) async fn update_server(
     shape_server(database, server, default_server_id, false, false).await
 }
 
-pub(crate) async fn delete_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
+pub(crate) async fn delete_server(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<()> {
     let server = get_server(database, server_id).await?;
     let server_count = servers::Entity::find()
         .count(database)
@@ -290,7 +313,10 @@ pub(crate) async fn add_server_members(
         }
 
         add_member_to_server(database, server_id, *user_id).await?;
-        channel_api::add_member_to_all_server_channels(database, server_id, *user_id).await?;
+        channel_api::add_member_to_all_server_channels(
+            database, server_id, *user_id,
+        )
+        .await?;
     }
 
     Ok(())
@@ -348,7 +374,8 @@ pub(crate) async fn remove_server_members(
         .all(database)
         .await
         .map_err(internal_error)?;
-    let channel_ids: Vec<Uuid> = server_channels.iter().map(|channel| channel.id).collect();
+    let channel_ids: Vec<Uuid> =
+        server_channels.iter().map(|channel| channel.id).collect();
 
     if !channel_ids.is_empty() {
         channel_members::Entity::delete_many()
@@ -428,18 +455,29 @@ pub(crate) async fn load_server(
         .one(database)
         .await
         .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Server not found."))
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Server not found.")
+        })
 }
 
-pub(crate) async fn ensure_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
+pub(crate) async fn ensure_server(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<()> {
     load_server(database, server_id).await.map(|_| ())
 }
 
-async fn get_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<servers::Model> {
+async fn get_server(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<servers::Model> {
     load_server(database, server_id).await
 }
 
-async fn set_default_server(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
+async fn set_default_server(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<()> {
     get_server(database, server_id).await?;
 
     let config = instance::get_config(database).await?;
@@ -507,7 +545,9 @@ async fn set_member_activity(
     Ok(())
 }
 
-fn validate_server_request(request: &ServerRequest) -> AppResult<(String, String, Option<String>)> {
+fn validate_server_request(
+    request: &ServerRequest,
+) -> AppResult<(String, String, Option<String>)> {
     let name = request.name.trim().to_owned();
     let slug = request.slug.trim().to_ascii_lowercase();
     let description = request
@@ -548,10 +588,9 @@ fn valid_slug(value: &str) -> bool {
         return false;
     }
 
-    bytes
-        .iter()
-        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'-')
-        && !value.contains("--")
+    bytes.iter().all(|byte| {
+        byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'-'
+    }) && !value.contains("--")
 }
 
 fn map_write_error(error: sea_orm::DbErr) -> ApiError {

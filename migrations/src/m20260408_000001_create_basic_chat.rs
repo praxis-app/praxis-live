@@ -12,7 +12,12 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Servers::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Servers::Id).uuid().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(Servers::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(Servers::Slug).string().not_null())
                     .col(ColumnDef::new(Servers::Name).string().not_null())
                     .col(ColumnDef::new(Servers::Description).string())
@@ -49,9 +54,18 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ServerMembers::ServerId).uuid().not_null())
-                    .col(ColumnDef::new(ServerMembers::UserId).uuid().not_null())
-                    .col(ColumnDef::new(ServerMembers::LastActiveAt).timestamp_with_time_zone())
+                    .col(
+                        ColumnDef::new(ServerMembers::ServerId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ServerMembers::UserId).uuid().not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ServerMembers::LastActiveAt)
+                            .timestamp_with_time_zone(),
+                    )
                     .col(
                         ColumnDef::new(ServerMembers::CreatedAt)
                             .timestamp_with_time_zone()
@@ -102,7 +116,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ServerConfigs::ServerId).uuid().not_null())
+                    .col(
+                        ColumnDef::new(ServerConfigs::ServerId)
+                            .uuid()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ServerConfigs::DecisionMakingModel)
                             .string()
@@ -212,7 +230,10 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("instance-configs-default-server-id-fkey")
-                            .from(InstanceConfigs::Table, InstanceConfigs::DefaultServerId)
+                            .from(
+                                InstanceConfigs::Table,
+                                InstanceConfigs::DefaultServerId,
+                            )
                             .to(Servers::Table, Servers::Id)
                             .on_delete(ForeignKeyAction::Restrict)
                             .on_update(ForeignKeyAction::Cascade),
@@ -226,7 +247,12 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Channels::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Channels::Id).uuid().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(Channels::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(Channels::ServerId).uuid().not_null())
                     .col(ColumnDef::new(Channels::Name).string().not_null())
                     .col(ColumnDef::new(Channels::Description).string())
@@ -272,8 +298,16 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ChannelMembers::ChannelId).uuid().not_null())
-                    .col(ColumnDef::new(ChannelMembers::UserId).uuid().not_null())
+                    .col(
+                        ColumnDef::new(ChannelMembers::ChannelId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ChannelMembers::UserId)
+                            .uuid()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ChannelMembers::CreatedAt)
                             .timestamp_with_time_zone()
@@ -283,7 +317,10 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("channel-members-channel-id-fkey")
-                            .from(ChannelMembers::Table, ChannelMembers::ChannelId)
+                            .from(
+                                ChannelMembers::Table,
+                                ChannelMembers::ChannelId,
+                            )
                             .to(Channels::Table, Channels::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
@@ -312,7 +349,12 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Messages::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Messages::Id).uuid().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(Messages::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(Messages::ChannelId).uuid().not_null())
                     .col(ColumnDef::new(Messages::UserId).uuid().not_null())
                     .col(ColumnDef::new(Messages::Body).text())
@@ -359,7 +401,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(MessageImages::MessageId).uuid().not_null())
+                    .col(
+                        ColumnDef::new(MessageImages::MessageId)
+                            .uuid()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(MessageImages::StorageKey).string())
                     .col(ColumnDef::new(MessageImages::ContentType).string())
                     .col(
@@ -377,7 +423,10 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("message-images-message-id-fkey")
-                            .from(MessageImages::Table, MessageImages::MessageId)
+                            .from(
+                                MessageImages::Table,
+                                MessageImages::MessageId,
+                            )
                             .to(Messages::Table, Messages::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
