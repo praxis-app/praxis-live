@@ -1,20 +1,19 @@
 use axum::http::StatusCode;
-use entity::{
-    channel_members, channels, instance_configs, server_configs, server_members, servers, users,
-};
+use entity::{channel_members, channels, instance_configs, server_members, servers, users};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     IntoActiveModel, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
 };
 use uuid::Uuid as NativeUuid;
 
-use super::types::{
-    serialize_timestamp, ServerConfigRequest, ServerConfigResponse, ServerRequest, ServerResponse,
-    UserResponse,
-};
+use super::types::{serialize_timestamp, ServerRequest, ServerResponse, UserResponse};
 use crate::channels as channel_api;
+use crate::common::{ApiError, AppResult};
 use crate::instance;
-use crate::messages::types::{ApiError, AppResult};
+
+pub(crate) use super::server_configs::{
+    ensure_server_config, get_server_config, is_anonymous_users_enabled, update_server_config,
+};
 
 const INITIAL_SERVER_NAME: &str = "Praxis";
 const INITIAL_SERVER_SLUG: &str = "praxis";
@@ -165,7 +164,7 @@ pub(crate) async fn create_server(
 
     ensure_server_config(database, server.id).await?;
     add_server_members(database, server.id, &[current_user_id]).await?;
-    create_general_channel(database, server.id).await?;
+    channel_api::create_general_channel(database, server.id).await?;
 
     if request.is_default_server.unwrap_or(false) {
         set_default_server(database, server.id).await?;
@@ -372,60 +371,6 @@ pub(crate) async fn join_server(
     add_server_members(database, server_id, &[user_id]).await
 }
 
-pub(crate) async fn get_server_config(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-) -> AppResult<ServerConfigResponse> {
-    let config = ensure_server_config(database, server_id).await?;
-    Ok(shape_server_config(config))
-}
-
-pub(crate) async fn is_anonymous_users_enabled(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-) -> AppResult<bool> {
-    let config = ensure_server_config(database, server_id).await?;
-    Ok(config.anonymous_users_enabled)
-}
-
-pub(crate) async fn update_server_config(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    request: ServerConfigRequest,
-) -> AppResult<()> {
-    validate_server_config_request(&request)?;
-    let config = ensure_server_config(database, server_id).await?;
-    let mut active = config.into_active_model();
-
-    if let Some(value) = request.anonymous_users_enabled {
-        active.anonymous_users_enabled = Set(value);
-    }
-    if let Some(value) = request.decision_making_model {
-        active.decision_making_model = Set(value);
-    }
-    if let Some(value) = request.disagreements_limit {
-        active.disagreements_limit = Set(value);
-    }
-    if let Some(value) = request.abstains_limit {
-        active.abstains_limit = Set(value);
-    }
-    if let Some(value) = request.agreement_threshold {
-        active.agreement_threshold = Set(value);
-    }
-    if let Some(value) = request.quorum_enabled {
-        active.quorum_enabled = Set(value);
-    }
-    if let Some(value) = request.quorum_threshold {
-        active.quorum_threshold = Set(value);
-    }
-    if let Some(value) = request.voting_time_limit {
-        active.voting_time_limit = Set(value);
-    }
-
-    active.update(database).await.map_err(internal_error)?;
-    Ok(())
-}
-
 async fn shape_server(
     database: &DatabaseConnection,
     server: servers::Model,
@@ -434,7 +379,7 @@ async fn shape_server(
     include_member_count: bool,
 ) -> AppResult<ServerResponse> {
     let general_channel_id = if include_general_channel {
-        general_channel_id(database, server.id)
+        channel_api::general_channel_id(database, server.id)
             .await?
             .map(|id| id.to_string())
     } else {
@@ -472,20 +417,6 @@ fn shape_user(user: users::Model) -> UserResponse {
         name: user.name,
         display_name: None,
         profile_picture: None,
-    }
-}
-
-fn shape_server_config(config: server_configs::Model) -> ServerConfigResponse {
-    ServerConfigResponse {
-        anonymous_users_enabled: config.anonymous_users_enabled,
-        decision_making_model: config.decision_making_model,
-        disagreements_limit: config.disagreements_limit,
-        abstains_limit: config.abstains_limit,
-        agreement_threshold: config.agreement_threshold,
-        quorum_enabled: config.quorum_enabled,
-        quorum_threshold: config.quorum_threshold,
-        voting_time_limit: config.voting_time_limit,
-        updated_at: serialize_timestamp(config.updated_at),
     }
 }
 
@@ -541,7 +472,7 @@ pub(crate) async fn create_initial_server(
         .map_err(internal_error)?
     {
         ensure_server_config(database, server.id).await?;
-        create_general_channel(database, server.id).await?;
+        channel_api::create_general_channel(database, server.id).await?;
         return Ok(server);
     }
 
@@ -556,89 +487,9 @@ pub(crate) async fn create_initial_server(
     .map_err(map_write_error)?;
 
     ensure_server_config(database, server.id).await?;
-    create_general_channel(database, server.id).await?;
+    channel_api::create_general_channel(database, server.id).await?;
 
     Ok(server)
-}
-
-async fn ensure_server_config(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-) -> AppResult<server_configs::Model> {
-    get_server(database, server_id).await?;
-
-    if let Some(config) = server_configs::Entity::find()
-        .filter(server_configs::Column::ServerId.eq(server_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-    {
-        return Ok(config);
-    }
-
-    server_configs::ActiveModel {
-        id: Set(NativeUuid::new_v4()),
-        server_id: Set(server_id),
-        ..Default::default()
-    }
-    .insert(database)
-    .await
-    .map_err(internal_error)
-}
-
-async fn create_general_channel(database: &DatabaseConnection, server_id: Uuid) -> AppResult<()> {
-    let existing = channels::Entity::find()
-        .filter(channels::Column::ServerId.eq(server_id))
-        .filter(channels::Column::Name.eq("general"))
-        .one(database)
-        .await
-        .map_err(internal_error)?;
-
-    if existing.is_some() {
-        return Ok(());
-    }
-
-    let channel = channels::ActiveModel {
-        id: Set(NativeUuid::new_v4()),
-        server_id: Set(server_id),
-        name: Set("general".to_owned()),
-        ..Default::default()
-    }
-    .insert(database)
-    .await
-    .map_err(internal_error)?;
-
-    let members = server_members::Entity::find()
-        .filter(server_members::Column::ServerId.eq(server_id))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    for member in members {
-        channel_members::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            channel_id: Set(channel.id),
-            user_id: Set(member.user_id),
-            ..Default::default()
-        }
-        .insert(database)
-        .await
-        .map_err(internal_error)?;
-    }
-
-    Ok(())
-}
-
-async fn general_channel_id(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-) -> AppResult<Option<Uuid>> {
-    let channel = channels::Entity::find()
-        .filter(channels::Column::ServerId.eq(server_id))
-        .filter(channels::Column::Name.eq("general"))
-        .one(database)
-        .await
-        .map_err(internal_error)?;
-    Ok(channel.map(|channel| channel.id))
 }
 
 async fn set_member_activity(
@@ -689,59 +540,6 @@ fn validate_server_request(request: &ServerRequest) -> AppResult<(String, String
     }
 
     Ok((name, slug, description))
-}
-
-fn validate_server_config_request(request: &ServerConfigRequest) -> AppResult<()> {
-    if let Some(model) = request.decision_making_model.as_deref() {
-        if !matches!(model, "consent" | "consensus" | "majority-vote") {
-            return Err(ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Decision making model is invalid.",
-            ));
-        }
-    }
-
-    validate_range(request.disagreements_limit, 0, 10, "disagreementsLimit")?;
-    validate_range(request.abstains_limit, 0, 10, "abstainsLimit")?;
-    validate_range(request.agreement_threshold, 1, 100, "agreementThreshold")?;
-    validate_range(request.quorum_threshold, 1, 100, "quorumThreshold")?;
-
-    if request.decision_making_model.as_deref() == Some("majority-vote")
-        && request
-            .agreement_threshold
-            .map(|value| value <= 50)
-            .unwrap_or(false)
-    {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Majority vote agreement threshold must be greater than 50.",
-        ));
-    }
-
-    if request.decision_making_model.as_deref() == Some("consent")
-        && request.voting_time_limit == Some(0)
-    {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Consent requires a voting time limit.",
-        ));
-    }
-
-    Ok(())
-}
-
-fn validate_range(value: Option<i32>, min: i32, max: i32, field: &str) -> AppResult<()> {
-    if value
-        .map(|value| value < min || value > max)
-        .unwrap_or(false)
-    {
-        Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            format!("{field} must be between {min} and {max}."),
-        ))
-    } else {
-        Ok(())
-    }
 }
 
 fn valid_slug(value: &str) -> bool {

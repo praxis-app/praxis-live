@@ -3,7 +3,7 @@ use entity::instance_configs;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, QueryOrder, Set};
 use uuid::Uuid as NativeUuid;
 
-use crate::messages::types::{ApiError, AppResult};
+use crate::common::{ApiError, AppResult};
 
 pub(crate) async fn initialize(database: &DatabaseConnection) -> AppResult<()> {
     if get_config(database).await?.is_some() {

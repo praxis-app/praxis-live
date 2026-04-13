@@ -8,10 +8,13 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    serialize_timestamp, ApiError, AppResult, CreateMessageRequest, FeedMessageResponse,
-    ImageResponse, MessageResponse, MessageUser, StoredImage,
+    serialize_timestamp, CreateMessageRequest, FeedMessageResponse, ImageResponse, MessageResponse,
+    MessageUser, StoredImage,
 };
-use crate::channels;
+use crate::{
+    channels,
+    common::{ApiError, AppResult},
+};
 
 const MAX_IMAGE_COUNT: usize = 8;
 
@@ -197,6 +200,7 @@ pub(crate) async fn store_message_image(
 
 pub(crate) async fn get_message_image(
     database: &DatabaseConnection,
+    upload_root: &Path,
     server_id: Uuid,
     channel_id: Uuid,
     message_id: Uuid,
@@ -224,9 +228,16 @@ pub(crate) async fn get_message_image(
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."));
     }
 
+    let storage_key = image
+        .storage_key
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Image not uploaded yet."))?;
+    let bytes = tokio::fs::read(resolve_upload_path(upload_root, &storage_key))
+        .await
+        .map_err(internal_error)?;
+
     Ok(StoredImage {
-        storage_key: image.storage_key,
         content_type: image.content_type,
+        bytes,
     })
 }
 
@@ -234,7 +245,7 @@ pub(crate) fn upload_root() -> PathBuf {
     std::env::temp_dir().join("praxis-live-chat-uploads")
 }
 
-pub(crate) fn resolve_upload_path(upload_root: &Path, storage_key: &str) -> PathBuf {
+fn resolve_upload_path(upload_root: &Path, storage_key: &str) -> PathBuf {
     upload_root.join(storage_key)
 }
 

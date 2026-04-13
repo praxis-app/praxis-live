@@ -1,5 +1,9 @@
+// TODO: Split startup/config/router/database concerns out of this crate root.
+// See .docs/prompts/backend/split-api-composition-root.md.
+
 mod auth;
 mod channels;
+mod common;
 mod health;
 mod instance;
 mod messages;
@@ -48,8 +52,7 @@ pub fn build_router(database: DatabaseConnection, jwt_secret: impl Into<String>)
         .route("/health", get(health::health))
         .merge(auth::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
-        .merge(servers::router(database.clone(), jwt_secret.clone()))
-        .merge(messages::router(database, jwt_secret));
+        .merge(servers::router(database, jwt_secret));
 
     view::attach(Router::new().nest("/api", api))
 }
