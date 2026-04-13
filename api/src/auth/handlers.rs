@@ -1,16 +1,15 @@
 use axum::{extract::State, http::HeaderMap, response::Json};
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 use super::{
     service::{
-        bearer_token, internal_error, issue_access_token, map_create_user_error, validate_login,
-        validate_signup, verify_access_token,
+        bearer_token, internal_error, issue_access_token, signup as signup_user, validate_login,
+        verify_access_token,
     },
     types::{ApiError, AppResult, LoginRequest, SessionResponse, SignupRequest},
 };
 use crate::users::{self, UserRecord};
-use crate::{channels, servers};
 
 #[derive(Clone, Debug)]
 pub(super) struct AuthState {
@@ -43,32 +42,7 @@ pub(super) async fn signup(
     State(auth_state): State<AuthState>,
     Json(payload): Json<SignupRequest>,
 ) -> AppResult<(axum::http::StatusCode, Json<SessionResponse>)> {
-    let signup = validate_signup(payload)?;
-    let password_hash = password_auth::generate_hash(signup.password);
-    let user = users::create_user(
-        &auth_state.database,
-        signup.email,
-        signup.name,
-        password_hash,
-    )
-    .await
-    .map_err(map_create_user_error)?;
-
-    let default_server_id = servers::default_server_id(&auth_state.database)
-        .await
-        .map_err(internal_error)?;
-    let transaction = auth_state.database.begin().await.map_err(internal_error)?;
-
-    servers::add_member_to_server(&transaction, default_server_id, user.id)
-        .await
-        .map_err(internal_error)?;
-
-    channels::add_member_to_all_server_channels(&transaction, default_server_id, user.id)
-        .await
-        .map_err(internal_error)?;
-
-    transaction.commit().await.map_err(internal_error)?;
-
+    let user = signup_user(&auth_state.database, payload).await?;
     let access_token = issue_access_token(&auth_state, user.id)?;
 
     Ok((

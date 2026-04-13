@@ -1,13 +1,16 @@
 use axum::{http::HeaderMap, http::StatusCode};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use sea_orm::prelude::Uuid;
+use sea_orm::{prelude::Uuid, DatabaseConnection, TransactionTrait};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{
     handlers::AuthState,
     types::{ApiError, AppResult, Claims, LoginRequest, SignupRequest},
 };
-use crate::users::CreateUserError;
+use crate::{
+    channels, servers,
+    users::{self, CreateUserError, UserRecord},
+};
 
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 90);
 const MIN_PASSWORD_LENGTH: usize = 8;
@@ -24,6 +27,33 @@ pub(super) fn issue_access_token(auth_state: &AuthState, user_id: Uuid) -> AppRe
         &EncodingKey::from_secret(auth_state.jwt_secret.as_bytes()),
     )
     .map_err(internal_error)
+}
+
+pub(super) async fn signup(
+    database: &DatabaseConnection,
+    payload: SignupRequest,
+) -> AppResult<UserRecord> {
+    let signup = validate_signup(payload)?;
+    let password_hash = password_auth::generate_hash(signup.password);
+    let user = users::create_user(database, signup.email, signup.name, password_hash)
+        .await
+        .map_err(map_create_user_error)?;
+
+    let default_server_id = servers::default_server_id(database)
+        .await
+        .map_err(internal_error)?;
+    let transaction = database.begin().await.map_err(internal_error)?;
+
+    servers::add_member_to_server(&transaction, default_server_id, user.id)
+        .await
+        .map_err(internal_error)?;
+    channels::add_member_to_all_server_channels(&transaction, default_server_id, user.id)
+        .await
+        .map_err(internal_error)?;
+
+    transaction.commit().await.map_err(internal_error)?;
+
+    Ok(user)
 }
 
 pub(crate) fn verify_access_token(auth_state: &AuthState, token: &str) -> Option<Uuid> {

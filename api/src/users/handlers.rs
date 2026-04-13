@@ -1,16 +1,14 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
     response::Json,
 };
-use entity::users;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
-use super::get_user_by_id;
+use super::service;
 use crate::{
     common::request::{parse_uuid, AuthenticatedUser, HasJwtSecret},
-    messages::types::{ApiError, AppResult},
+    messages::types::AppResult,
     servers,
 };
 
@@ -39,27 +37,9 @@ pub(super) async fn get_current_user(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let user = get_user_by_id(&state.database, user_id)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required."))?;
-    let servers = servers::service::get_servers_for_user(&state.database, user_id).await?;
-    let current_server = servers::service::get_current_server(&state.database, user_id).await?;
+    let user = service::get_current_user(&state.database, user_id).await?;
 
-    Ok(Json(serde_json::json!({
-        "user": {
-            "id": user.id.to_string(),
-            "name": user.name,
-            "anonymous": false,
-            "permissions": {
-                "instance": ["read:Server", "create:Server", "update:Server", "delete:Server"],
-                "servers": {}
-            },
-            "profilePicture": null,
-            "currentServer": current_server,
-            "serversCount": servers.len()
-        }
-    })))
+    Ok(Json(serde_json::json!({ "user": user })))
 }
 
 pub(super) async fn get_current_user_servers(
@@ -73,11 +53,8 @@ pub(super) async fn get_current_user_servers(
 pub(super) async fn is_first_user(
     State(state): State<UsersState>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let count = users::Entity::find()
-        .count(&state.database)
-        .await
-        .map_err(internal_error)?;
-    Ok(Json(serde_json::json!({ "isFirstUser": count == 0 })))
+    let is_first_user = service::is_first_user(&state.database).await?;
+    Ok(Json(serde_json::json!({ "isFirstUser": is_first_user })))
 }
 
 pub(super) async fn get_user_profile(
@@ -85,24 +62,7 @@ pub(super) async fn get_user_profile(
     Path(user_id): Path<String>,
 ) -> AppResult<Json<serde_json::Value>> {
     let user_id = parse_uuid(&user_id, "userId")?;
-    let user = users::Entity::find()
-        .filter(users::Column::Id.eq(user_id))
-        .one(&state.database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "User not found."))?;
+    let user = service::get_user_profile(&state.database, user_id).await?;
 
-    Ok(Json(serde_json::json!({
-        "user": {
-            "id": user.id.to_string(),
-            "name": user.name,
-            "profilePicture": null,
-            "coverPhoto": null
-        }
-    })))
-}
-
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
-    tracing::error!("users request failed: {error}");
-    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+    Ok(Json(serde_json::json!({ "user": user })))
 }

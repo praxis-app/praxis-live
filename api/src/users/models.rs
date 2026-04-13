@@ -44,3 +44,30 @@ pub(crate) enum CreateUserError {
     DuplicateEmail,
     Database(DbErr),
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CurrentUserResponse {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) anonymous: bool,
+    pub(crate) permissions: CurrentUserPermissions,
+    pub(crate) profile_picture: Option<serde_json::Value>,
+    pub(crate) current_server: serde_json::Value,
+    pub(crate) servers_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct CurrentUserPermissions {
+    pub(crate) instance: [&'static str; 4],
+    pub(crate) servers: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UserProfileResponse {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) profile_picture: Option<serde_json::Value>,
+    pub(crate) cover_photo: Option<serde_json::Value>,
+}
