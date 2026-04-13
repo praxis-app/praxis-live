@@ -1,17 +1,26 @@
-use axum::{http::HeaderMap, http::StatusCode};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use axum::http::StatusCode;
+use jsonwebtoken::{encode, EncodingKey, Header};
+use sea_orm::{prelude::Uuid, DatabaseConnection, TransactionTrait};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{
-    routes::AuthState,
-    types::{ApiError, AppResult, Claims, LoginRequest, SignupRequest},
+    handlers::AuthState,
+    types::{Claims, LoginRequest, SignupRequest},
 };
-use crate::users::CreateUserError;
+use crate::{
+    channels,
+    common::{ApiError, AppResult},
+    servers,
+    users::{self, CreateUserError, UserRecord},
+};
 
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(60 * 60 * 24 * 90);
 const MIN_PASSWORD_LENGTH: usize = 8;
 
-pub(super) fn issue_access_token(auth_state: &AuthState, user_id: i64) -> AppResult<String> {
+pub(super) fn issue_access_token(
+    auth_state: &AuthState,
+    user_id: Uuid,
+) -> AppResult<String> {
     let claims = Claims {
         sub: user_id.to_string(),
         exp: current_unix_timestamp() + ACCESS_TOKEN_TTL.as_secs(),
@@ -25,33 +34,41 @@ pub(super) fn issue_access_token(auth_state: &AuthState, user_id: i64) -> AppRes
     .map_err(internal_error)
 }
 
-pub(super) fn verify_access_token(auth_state: &AuthState, token: &str) -> Option<i64> {
-    let claims = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(auth_state.jwt_secret.as_bytes()),
-        &Validation::default(),
+pub(super) async fn signup(
+    database: &DatabaseConnection,
+    payload: SignupRequest,
+) -> AppResult<UserRecord> {
+    let signup = validate_signup(payload)?;
+    let password_hash = password_auth::generate_hash(signup.password);
+    let user =
+        users::create_user(database, signup.email, signup.name, password_hash)
+            .await
+            .map_err(map_create_user_error)?;
+
+    let default_server_id = servers::default_server_id(database)
+        .await
+        .map_err(internal_error)?;
+    let transaction = database.begin().await.map_err(internal_error)?;
+
+    servers::add_member_to_server(&transaction, default_server_id, user.id)
+        .await
+        .map_err(internal_error)?;
+    channels::add_member_to_all_server_channels(
+        &transaction,
+        default_server_id,
+        user.id,
     )
-    .ok()?
-    .claims;
+    .await
+    .map_err(internal_error)?;
 
-    claims.sub.parse().ok()
+    transaction.commit().await.map_err(internal_error)?;
+
+    Ok(user)
 }
 
-pub(super) fn bearer_token(headers: &HeaderMap) -> Option<&str> {
-    let header_value = headers
-        .get(axum::http::header::AUTHORIZATION)?
-        .to_str()
-        .ok()?;
-    let (scheme, token) = header_value.split_once(' ')?;
-
-    if scheme.eq_ignore_ascii_case("Bearer") && !token.is_empty() {
-        Some(token)
-    } else {
-        None
-    }
-}
-
-pub(super) fn validate_signup(mut input: SignupRequest) -> AppResult<SignupRequest> {
+pub(super) fn validate_signup(
+    mut input: SignupRequest,
+) -> AppResult<SignupRequest> {
     input.name = input.name.trim().to_owned();
     input.email = normalize_email(&input.email);
 
@@ -79,7 +96,9 @@ pub(super) fn validate_signup(mut input: SignupRequest) -> AppResult<SignupReque
     Ok(input)
 }
 
-pub(super) fn validate_login(mut input: LoginRequest) -> AppResult<LoginRequest> {
+pub(super) fn validate_login(
+    mut input: LoginRequest,
+) -> AppResult<LoginRequest> {
     input.email = normalize_email(&input.email);
 
     if !looks_like_email(&input.email) {
@@ -109,7 +128,7 @@ pub(super) fn map_create_user_error(error: CreateUserError) -> ApiError {
     }
 }
 
-pub(super) fn internal_error(error: impl std::fmt::Display) -> ApiError {
+pub(crate) fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }

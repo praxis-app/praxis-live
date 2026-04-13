@@ -1,17 +1,21 @@
-import { useNavigate } from "react-router-dom";
+import { NavigationPaths } from '@/constants/shared.constants';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import pageNotFoundGif from '../assets/images/404.gif';
 
-export function PageNotFound() {
+export const PageNotFound = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center">
+    <div className="flex h-full w-full flex-col items-center justify-center">
       <img
-        alt="Page not found"
+        src={pageNotFoundGif}
+        alt={t('errors.pageNotFound')}
         className="w-8/12 max-w-xl cursor-pointer"
-        onClick={() => navigate("/")}
-        src="/assets/images/404.gif"
-        title="Go to home"
+        onClick={() => navigate(NavigationPaths.Home)}
+        title={t('actions.goToHome')}
       />
     </div>
   );
-}
+};

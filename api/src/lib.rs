@@ -1,6 +1,13 @@
+// TODO: Split startup/config/router/database concerns out of this crate root.
+// See .docs/prompts/backend/split-api-composition-root.md.
+
 mod auth;
-mod chat;
+mod channels;
+mod common;
 mod health;
+mod instance;
+mod messages;
+mod servers;
 mod users;
 mod view;
 
@@ -17,13 +24,16 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "api=info,praxis_live=info,tower_http=debug".into()),
+                .unwrap_or_else(|_| {
+                    "api=info,praxis_live=info,tower_http=debug".into()
+                }),
         )
         .init();
 
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
-    let app = build_router(database, jwt_secret).layer(TraceLayer::new_for_http());
+    let app =
+        build_router(database, jwt_secret).layer(TraceLayer::new_for_http());
 
     let server_port = env::var("SERVER_PORT")
         .ok()
@@ -39,18 +49,22 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
-pub fn build_router(database: DatabaseConnection, jwt_secret: impl Into<String>) -> Router {
+pub fn build_router(
+    database: DatabaseConnection,
+    jwt_secret: impl Into<String>,
+) -> Router {
     let jwt_secret = jwt_secret.into();
     let api = Router::new()
         .route("/health", get(health::health))
         .merge(auth::router(database.clone(), jwt_secret.clone()))
-        .merge(chat::router(database, jwt_secret));
+        .merge(users::router(database.clone(), jwt_secret.clone()))
+        .merge(servers::router(database, jwt_secret));
 
     view::attach(Router::new().nest("/api", api))
 }
 
-pub async fn connect_database_from_env() -> Result<DatabaseConnection, Box<dyn Error + Send + Sync>>
-{
+pub async fn connect_database_from_env(
+) -> Result<DatabaseConnection, Box<dyn Error + Send + Sync>> {
     connect_database(&database_url_from_env()?, migrations_enabled()).await
 }
 
@@ -67,6 +81,10 @@ pub async fn connect_database(
         tracing::info!("Running database migrations.");
         migrations::Migrator::up(&database, None).await?;
     }
+
+    instance::initialize(&database)
+        .await
+        .map_err(|error| io::Error::other(error.to_string()))?;
 
     Ok(database)
 }

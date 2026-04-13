@@ -9,7 +9,7 @@ export class AuthPage {
   }
 
   async gotoSignup() {
-    await this.page.goto("/signup");
+    await this.page.goto("/auth/signup");
   }
 
   async followSignupLink() {
@@ -17,13 +17,14 @@ export class AuthPage {
   }
 
   async signUp(user: TestUser) {
-    await this.page.getByLabel("Name").fill(user.name);
-    await this.page.getByLabel("Email").fill(user.email);
-    await this.page.getByLabel("Password").fill(user.password);
+    await this.page.getByLabel("Username").fill(user.name);
+    await this.page.getByLabel("Email address").fill(user.email);
+    await this.page.getByLabel("Password", { exact: true }).fill(user.password);
+    await this.page.getByLabel("Confirm password").fill(user.password);
     await this.page.getByRole("button", { name: "Create account" }).click();
   }
 
   async expectSignedUp() {
-    await expect(this.page).toHaveURL(/\/chat\/?/);
+    await expect(this.page).toHaveURL(/\/s\/[^/]+\/c\/[^/]+\/?/);
   }
 }

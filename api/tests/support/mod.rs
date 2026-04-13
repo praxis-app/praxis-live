@@ -35,20 +35,22 @@ impl TestApp {
     pub async fn new() -> Self {
         load_dotenv();
 
-        let admin_database_url =
-            admin_database_url().expect("expected a local Postgres admin connection string");
+        let admin_database_url = admin_database_url()
+            .expect("expected a local Postgres admin connection string");
         let database_name = unique_database_name();
 
         create_database(&admin_database_url, &database_name)
             .await
             .expect("expected test database creation to succeed");
 
-        let database_url = database_url_for(&admin_database_url, &database_name)
-            .expect("expected a test database URL");
+        let database_url =
+            database_url_for(&admin_database_url, &database_name)
+                .expect("expected a test database URL");
         let database = api::connect_database(&database_url, true)
             .await
             .expect("expected test database migrations to succeed");
-        let app = api::build_router(database.clone(), "integration-test-secret");
+        let app =
+            api::build_router(database.clone(), "integration-test-secret");
 
         Self {
             app,
@@ -62,13 +64,13 @@ impl TestApp {
         self.request(Method::GET, uri, Body::empty(), None).await
     }
 
-    pub async fn get_with_bearer(&self, uri: &str, token: &str) -> Response<Body> {
-        self.request(Method::GET, uri, Body::empty(), Some(token))
-            .await
-    }
-
-    pub async fn post_json<T: Serialize>(&self, uri: &str, payload: &T) -> Response<Body> {
-        let body = serde_json::to_vec(payload).expect("expected request body serialization");
+    pub async fn post_json<T: Serialize>(
+        &self,
+        uri: &str,
+        payload: &T,
+    ) -> Response<Body> {
+        let body = serde_json::to_vec(payload)
+            .expect("expected request body serialization");
 
         self.request(Method::POST, uri, Body::from(body), None)
             .await
@@ -80,7 +82,8 @@ impl TestApp {
         payload: &T,
         token: &str,
     ) -> Response<Body> {
-        let body = serde_json::to_vec(payload).expect("expected request body serialization");
+        let body = serde_json::to_vec(payload)
+            .expect("expected request body serialization");
 
         self.request(Method::POST, uri, Body::from(body), Some(token))
             .await
@@ -92,7 +95,8 @@ impl TestApp {
         token: &str,
         fields: HashMap<String, MultipartField>,
     ) -> Response<Body> {
-        let boundary = format!("praxis-live-boundary-{}", unique_database_name());
+        let boundary =
+            format!("praxis-live-boundary-{}", unique_database_name());
         let body = multipart_body(&boundary, fields);
 
         let request = Request::builder()
@@ -126,7 +130,8 @@ impl TestApp {
             .header("content-type", "application/json");
 
         if let Some(token) = bearer_token {
-            request = request.header("authorization", format!("Bearer {token}"));
+            request =
+                request.header("authorization", format!("Bearer {token}"));
         }
 
         self.app
@@ -175,7 +180,10 @@ pub struct MultipartField {
     pub bytes: Vec<u8>,
 }
 
-fn multipart_body(boundary: &str, fields: HashMap<String, MultipartField>) -> Vec<u8> {
+fn multipart_body(
+    boundary: &str,
+    fields: HashMap<String, MultipartField>,
+) -> Vec<u8> {
     let mut body = Vec::new();
 
     for (_key, field) in fields {
@@ -199,7 +207,9 @@ fn multipart_body(boundary: &str, fields: HashMap<String, MultipartField>) -> Ve
         );
 
         if let Some(content_type) = field.content_type {
-            body.extend_from_slice(format!("Content-Type: {content_type}\r\n").as_bytes());
+            body.extend_from_slice(
+                format!("Content-Type: {content_type}\r\n").as_bytes(),
+            );
         }
 
         body.extend_from_slice(b"\r\n");
@@ -243,7 +253,10 @@ fn drop_database(
     Ok(())
 }
 
-fn run_psql(admin_database_url: &str, sql: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn run_psql(
+    admin_database_url: &str,
+    sql: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let status = Command::new("psql")
         .arg(admin_database_url)
         .arg("-v")
@@ -289,7 +302,9 @@ fn database_url_for(
     let path_index = database_url[authority_start..]
         .find('/')
         .map(|index| authority_start + index)
-        .ok_or_else(|| format!("missing database path in Postgres URL: {database_url}"))?;
+        .ok_or_else(|| {
+            format!("missing database path in Postgres URL: {database_url}")
+        })?;
     let query_index = database_url[path_index + 1..]
         .find(['?', '#'])
         .map(|index| path_index + 1 + index)
@@ -303,7 +318,8 @@ fn database_url_for(
 }
 
 fn env_var(name: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-    env::var(name).map_err(|_| format!("{name} must be set for integration tests").into())
+    env::var(name)
+        .map_err(|_| format!("{name} must be set for integration tests").into())
 }
 
 fn load_dotenv() {

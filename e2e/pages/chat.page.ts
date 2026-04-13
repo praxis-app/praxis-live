@@ -8,16 +8,17 @@ export class ChatPage {
   }
 
   async goto() {
-    await this.page.goto("/chat");
+    await this.page.goto("/");
   }
 
   async sendMessage(message: string) {
-    await this.page.getByRole("textbox", { name: "Message" }).fill(message);
-    await this.page.getByRole("button", { name: "Send message" }).click();
+    const messageInput = this.page.getByPlaceholder("Send a message...");
+    await messageInput.fill(message);
+    await messageInput.press("Enter");
   }
 
   async expectChannel(channelName: string) {
-    await expect(this.page.getByRole("heading", { name: channelName })).toBeVisible();
+    await expect(this.page.getByText(channelName, { exact: true }).first()).toBeVisible();
   }
 
   async expectEmptyFeed() {
@@ -26,8 +27,6 @@ export class ChatPage {
 
   async expectMessage(message: string, author: string) {
     await expect(this.page.getByText(message)).toBeVisible();
-    await expect(this.page.locator(".message-row").filter({ hasText: message })).toContainText(
-      author,
-    );
+    await expect(this.page.getByText(author).first()).toBeVisible();
   }
 }

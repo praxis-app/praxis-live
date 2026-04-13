@@ -26,3 +26,7 @@ Refer to `README.md` for more information.
 
 - Do not run git commands that stage, commit, amend, stash, or rewrite history (`git add`, `git commit`, `git reset`, etc.).
 - Read-only inspection commands like `git status` or `git diff` are allowed when needed for context.
+
+# Legacy code
+
+Refer to `.tmp/praxis-chat` for the legacy codebase. There's a chance that .tmp is missing or empty. If so, run `git clone https://github.com/praxis-app/praxis-chat.git .tmp/praxis-chat` to get the legacy codebase.

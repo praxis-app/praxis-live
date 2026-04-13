@@ -23,7 +23,8 @@ async fn signup_returns_created_user_and_access_token() {
     let body = json_body(response).await;
     assert_eq!(body["user"]["email"], "person@example.com");
     assert_eq!(body["user"]["name"], "Person Example");
-    assert!(body["user"]["id"].as_i64().unwrap_or_default() > 0);
+    let user_id = body["user"]["id"].as_str().unwrap();
+    assert!(uuid::Uuid::parse_str(user_id).is_ok());
     assert!(body["access_token"].as_str().is_some());
 }
 
@@ -61,7 +62,7 @@ async fn signup_rejects_duplicate_email_after_normalization() {
 }
 
 #[tokio::test]
-async fn login_and_me_return_the_authenticated_user() {
+async fn login_returns_the_authenticated_user_and_access_token() {
     let app = TestApp::new().await;
 
     let signup_response = app
@@ -90,20 +91,9 @@ async fn login_and_me_return_the_authenticated_user() {
     assert_eq!(login_response.status(), StatusCode::OK);
 
     let login_body = json_body(login_response).await;
-    let access_token = login_body["access_token"]
-        .as_str()
-        .expect("expected login access token")
-        .to_owned();
 
     assert_eq!(login_body["user"], signup_user);
-
-    let me_response = app.get_with_bearer("/api/auth/me", &access_token).await;
-
-    assert_eq!(me_response.status(), StatusCode::OK);
-
-    let me_body = json_body(me_response).await;
-    assert_eq!(me_body["user"], signup_user);
-    assert!(me_body["access_token"].is_null());
+    assert!(login_body["access_token"].as_str().is_some());
 }
 
 #[tokio::test]
