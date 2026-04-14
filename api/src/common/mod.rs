@@ -1,4 +1,4 @@
-pub(crate) mod authorization;
+pub(crate) mod auth;
 pub(crate) mod error;
 pub(crate) mod request;
 

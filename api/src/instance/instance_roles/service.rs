@@ -13,7 +13,7 @@ use uuid::Uuid as NativeUuid;
 use super::types::{InstanceRoleResponse, RoleRequest};
 use crate::{
     common::{
-        authorization::{
+        auth::{
             validate_permissions, PermissionRule, ADMIN_ROLE_NAME,
             DEFAULT_ROLE_COLOR, INSTANCE_SUBJECTS,
         },
