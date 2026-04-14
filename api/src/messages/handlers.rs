@@ -11,16 +11,19 @@ use std::{path::PathBuf, sync::Arc};
 use super::{service, types::CreateMessageRequest};
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
+    channels,
     common::{
         request::{multipart_file, parse_uuid},
         ApiError, AppResult,
     },
+    pub_sub::PubSubService,
 };
 
 #[derive(Clone, Debug)]
 pub(super) struct ChatState {
     database: DatabaseConnection,
     jwt_secret: Arc<str>,
+    pub_sub_service: PubSubService,
     upload_root: Arc<PathBuf>,
 }
 
@@ -28,10 +31,12 @@ impl ChatState {
     pub(super) fn new(
         database: DatabaseConnection,
         jwt_secret: String,
+        pub_sub_service: PubSubService,
     ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
+            pub_sub_service,
             upload_root: Arc::new(service::upload_root()),
         }
     }
@@ -105,6 +110,12 @@ pub(super) async fn create_message(
         payload,
     )
     .await?;
+    if let Err(error) =
+        broadcast_message(&chat_state, server_id, channel_id, user_id, &message)
+            .await
+    {
+        tracing::warn!("failed to broadcast created message: {error}");
+    }
 
     Ok(Json(serde_json::json!({ "message": message })))
 }
@@ -133,6 +144,18 @@ pub(super) async fn upload_message_image(
         file.map(|file| file.bytes).unwrap_or_default(),
     )
     .await?;
+    if let Err(error) = broadcast_image_upload(
+        &chat_state,
+        server_id,
+        channel_id,
+        user_id,
+        &path.message_id,
+        &path.image_id,
+    )
+    .await
+    {
+        tracing::warn!("failed to broadcast uploaded message image: {error}");
+    }
 
     Ok((
         StatusCode::CREATED,
@@ -174,4 +197,69 @@ pub(super) async fn get_message_image(
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("chat route failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+}
+
+async fn broadcast_message(
+    chat_state: &ChatState,
+    server_id: sea_orm::prelude::Uuid,
+    channel_id: sea_orm::prelude::Uuid,
+    sender_id: sea_orm::prelude::Uuid,
+    message: &crate::messages::types::MessageResponse,
+) -> AppResult<()> {
+    let body = serde_json::json!({
+        "type": "message",
+        "message": message,
+    });
+
+    broadcast_to_channel_members(
+        chat_state, server_id, channel_id, sender_id, body,
+    )
+    .await
+}
+
+async fn broadcast_image_upload(
+    chat_state: &ChatState,
+    server_id: sea_orm::prelude::Uuid,
+    channel_id: sea_orm::prelude::Uuid,
+    sender_id: sea_orm::prelude::Uuid,
+    message_id: &str,
+    image_id: &str,
+) -> AppResult<()> {
+    let body = serde_json::json!({
+        "type": "image",
+        "isPlaceholder": false,
+        "messageId": message_id,
+        "imageId": image_id,
+    });
+
+    broadcast_to_channel_members(
+        chat_state, server_id, channel_id, sender_id, body,
+    )
+    .await
+}
+
+async fn broadcast_to_channel_members(
+    chat_state: &ChatState,
+    server_id: sea_orm::prelude::Uuid,
+    channel_id: sea_orm::prelude::Uuid,
+    sender_id: sea_orm::prelude::Uuid,
+    body: serde_json::Value,
+) -> AppResult<()> {
+    let members =
+        channels::get_channel_member_user_ids(&chat_state.database, channel_id)
+            .await?;
+
+    for member_id in members {
+        if member_id == sender_id {
+            continue;
+        }
+
+        let topic = format!("new-message-{server_id}-{channel_id}-{member_id}");
+        chat_state
+            .pub_sub_service
+            .publish(&topic, body.clone())
+            .await?;
+    }
+
+    Ok(())
 }

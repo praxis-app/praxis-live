@@ -11,11 +11,12 @@ use super::handlers::{
     get_users_eligible_for_server, is_anonymous_users_enabled, join_server,
     remove_server_members, update_server, update_server_config, ServersState,
 };
-use crate::channels;
+use crate::{channels, pub_sub::PubSubService};
 
 pub(crate) fn router(
     database: DatabaseConnection,
     jwt_secret: String,
+    pub_sub_service: PubSubService,
 ) -> Router {
     let servers_router = Router::new()
         .route("/servers", get(get_servers))
@@ -47,6 +48,6 @@ pub(crate) fn router(
 
     servers_router.nest(
         "/servers/{serverId}/channels",
-        channels::router(database, jwt_secret),
+        channels::router(database, jwt_secret, pub_sub_service),
     )
 }

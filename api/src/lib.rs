@@ -7,6 +7,7 @@ mod common;
 mod health;
 mod instance;
 mod messages;
+mod pub_sub;
 mod servers;
 mod users;
 mod view;
@@ -35,7 +36,8 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let app =
         build_router(database, jwt_secret).layer(TraceLayer::new_for_http());
 
-    let server_port = env::var("SERVER_PORT")
+    let server_port = env::var("VITE_SERVER_PORT")
+        .or_else(|_| env::var("SERVER_PORT"))
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(3100);
@@ -54,13 +56,24 @@ pub fn build_router(
     jwt_secret: impl Into<String>,
 ) -> Router {
     let jwt_secret = jwt_secret.into();
+    let pub_sub_service = pub_sub::PubSubService::from_env();
+
+    let ws = Router::new().route(
+        "/ws",
+        get(pub_sub::websocket_handler).with_state(pub_sub::PubSubState::new(
+            database.clone(),
+            jwt_secret.clone(),
+            pub_sub_service.clone(),
+        )),
+    );
+
     let api = Router::new()
         .route("/health", get(health::health))
         .merge(auth::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
-        .merge(servers::router(database, jwt_secret));
+        .merge(servers::router(database, jwt_secret, pub_sub_service));
 
-    view::attach(Router::new().nest("/api", api))
+    view::attach(ws.nest("/api", api))
 }
 
 pub async fn connect_database_from_env(

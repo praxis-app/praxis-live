@@ -8,10 +8,12 @@ use super::handlers::{
     create_message, get_channel_feed, get_message_image, upload_message_image,
     ChatState,
 };
+use crate::pub_sub::PubSubService;
 
 pub(crate) fn router(
     database: DatabaseConnection,
     jwt_secret: String,
+    pub_sub_service: PubSubService,
 ) -> Router {
     Router::new()
         .route("/{channelId}/feed", get(get_channel_feed))
@@ -24,5 +26,5 @@ pub(crate) fn router(
             "/{channelId}/messages/{messageId}/images/{imageId}/upload",
             post(upload_message_image),
         )
-        .with_state(ChatState::new(database, jwt_secret))
+        .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
 }

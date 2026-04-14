@@ -4,13 +4,15 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-axum = { workspace = true, features = ["multipart"] }
+axum = { workspace = true, features = ["multipart", "ws"] }
+dashmap.workspace = true
 dotenv.workspace = true
 entity = { path = "../entity" }
 jsonwebtoken.workspace = true
 migrations = { path = "../migrations" }
 mime_guess.workspace = true
 password-auth.workspace = true
+redis = { workspace = true, features = ["aio", "tokio-comp"] }
 sea-orm.workspace = true
 sea-orm-migration.workspace = true
 serde.workspace = true

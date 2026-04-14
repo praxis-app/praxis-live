@@ -176,6 +176,19 @@ pub(crate) async fn ensure_channel_membership(
     }
 }
 
+pub(crate) async fn get_channel_member_user_ids(
+    database: &DatabaseConnection,
+    channel_id: Uuid,
+) -> AppResult<Vec<Uuid>> {
+    let members = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(members.into_iter().map(|member| member.user_id).collect())
+}
+
 pub(crate) async fn add_member_to_all_server_channels<C>(
     database: &C,
     server_id: Uuid,

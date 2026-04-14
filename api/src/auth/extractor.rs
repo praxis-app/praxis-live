@@ -28,18 +28,24 @@ where
             ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
         })?;
 
-        decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(state.jwt_secret().as_bytes()),
-            &Validation::default(),
-        )
-        .ok()
-        .and_then(|claims| claims.claims.sub.parse::<Uuid>().ok())
-        .map(Self)
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
-        })
+        authenticate_token(token, state.jwt_secret()).map(Self)
     }
+}
+
+pub(crate) fn authenticate_token(
+    token: &str,
+    jwt_secret: &str,
+) -> Result<Uuid, ApiError> {
+    decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &Validation::default(),
+    )
+    .ok()
+    .and_then(|claims| claims.claims.sub.parse::<Uuid>().ok())
+    .ok_or_else(|| {
+        ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
+    })
 }
 
 fn bearer_token(parts: &Parts) -> Option<&str> {
