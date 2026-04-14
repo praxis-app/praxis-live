@@ -4,7 +4,7 @@ use sea_orm::DbErr;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-use crate::common::auth::PermissionRule;
+use crate::common::roles::PermissionRule;
 
 #[derive(Debug, Clone)]
 pub(crate) struct UserRecord {
