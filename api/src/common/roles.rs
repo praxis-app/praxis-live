@@ -7,16 +7,6 @@ use crate::common::{ApiError, AppResult};
 
 pub(crate) const ABILITY_ACTIONS: &[&str] =
     &["delete", "create", "read", "update", "manage"];
-pub(crate) const SERVER_SUBJECTS: &[&str] = &[
-    "ServerConfig",
-    "Channel",
-    "Invite",
-    "Message",
-    "ServerRole",
-    "all",
-];
-pub(crate) const INSTANCE_SUBJECTS: &[&str] =
-    &["InstanceConfig", "InstanceRole", "Server", "all"];
 pub(crate) const ADMIN_ROLE_NAME: &str = "admin";
 pub(crate) const DEFAULT_ROLE_COLOR: &str = "#f44336";
 

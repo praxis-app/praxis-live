@@ -15,12 +15,21 @@ use crate::{
     common::{
         roles::{
             validate_permissions, PermissionMap, PermissionRule,
-            ADMIN_ROLE_NAME, DEFAULT_ROLE_COLOR, SERVER_SUBJECTS,
+            ADMIN_ROLE_NAME, DEFAULT_ROLE_COLOR,
         },
         ApiError, AppResult,
     },
     servers::{self, types::UserResponse},
 };
+
+const SERVER_SUBJECTS: &[&str] = &[
+    "ServerConfig",
+    "Channel",
+    "Invite",
+    "Message",
+    "ServerRole",
+    "all",
+];
 
 pub(crate) async fn get_server_role(
     database: &DatabaseConnection,

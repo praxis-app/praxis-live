@@ -15,12 +15,15 @@ use crate::{
     common::{
         roles::{
             validate_permissions, PermissionRule, ADMIN_ROLE_NAME,
-            DEFAULT_ROLE_COLOR, INSTANCE_SUBJECTS,
+            DEFAULT_ROLE_COLOR,
         },
         ApiError, AppResult,
     },
     servers::types::UserResponse,
 };
+
+const INSTANCE_SUBJECTS: &[&str] =
+    &["InstanceConfig", "InstanceRole", "Server", "all"];
 
 pub(crate) async fn get_instance_role(
     database: &DatabaseConnection,
