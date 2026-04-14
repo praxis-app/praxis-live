@@ -10,7 +10,7 @@ use super::{
 use crate::{
     channels,
     common::{ApiError, AppResult},
-    servers,
+    instance, servers,
     users::{self, CreateUserError, UserRecord},
 };
 
@@ -38,6 +38,7 @@ pub(super) async fn signup(
     database: &DatabaseConnection,
     payload: SignupRequest,
 ) -> AppResult<UserRecord> {
+    let is_first_user = users::is_first_user(database).await?;
     let signup = validate_signup(payload)?;
     let password_hash = password_auth::generate_hash(signup.password);
     let user =
@@ -60,6 +61,22 @@ pub(super) async fn signup(
     )
     .await
     .map_err(internal_error)?;
+
+    if is_first_user {
+        instance::instance_roles::service::create_admin_instance_role(
+            &transaction,
+            user.id,
+        )
+        .await
+        .map_err(internal_error)?;
+        servers::server_roles::service::create_admin_server_role(
+            &transaction,
+            default_server_id,
+            user.id,
+        )
+        .await
+        .map_err(internal_error)?;
+    }
 
     transaction.commit().await.map_err(internal_error)?;
 

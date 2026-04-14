@@ -184,6 +184,12 @@ pub(crate) async fn create_server(
 
     ensure_server_config(database, server.id).await?;
     add_server_members(database, server.id, &[current_user_id]).await?;
+    super::server_roles::service::create_admin_server_role(
+        database,
+        server.id,
+        current_user_id,
+    )
+    .await?;
     channel_api::create_general_channel(database, server.id).await?;
 
     if request.is_default_server.unwrap_or(false) {

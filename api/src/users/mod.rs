@@ -5,4 +5,4 @@ mod service;
 
 pub(crate) use models::{CreateUserError, PublicUser, UserRecord};
 pub(crate) use routes::router;
-pub(crate) use service::{authenticate, create_user};
+pub(crate) use service::{authenticate, create_user, is_first_user};

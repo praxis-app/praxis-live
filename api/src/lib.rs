@@ -71,6 +71,7 @@ pub fn build_router(
         .route("/health", get(health::health))
         .merge(auth::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
+        .merge(instance::router(database.clone(), jwt_secret.clone()))
         .merge(servers::router(database, jwt_secret, pub_sub_service));
 
     view::attach(ws.nest("/api", api))

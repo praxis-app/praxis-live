@@ -11,6 +11,7 @@ use super::handlers::{
     get_users_eligible_for_server, is_anonymous_users_enabled, join_server,
     remove_server_members, update_server, update_server_config, ServersState,
 };
+use super::server_roles;
 use crate::{channels, pub_sub::PubSubService};
 
 pub(crate) fn router(
@@ -46,8 +47,13 @@ pub(crate) fn router(
         )
         .with_state(ServersState::new(database.clone(), jwt_secret.clone()));
 
-    servers_router.nest(
-        "/servers/{serverId}/channels",
-        channels::router(database, jwt_secret, pub_sub_service),
-    )
+    servers_router
+        .nest(
+            "/servers/{serverId}/roles",
+            server_roles::router(database.clone(), jwt_secret.clone()),
+        )
+        .nest(
+            "/servers/{serverId}/channels",
+            channels::router(database, jwt_secret, pub_sub_service),
+        )
 }

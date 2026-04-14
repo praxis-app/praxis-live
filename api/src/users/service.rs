@@ -12,7 +12,7 @@ use super::models::{
 };
 use crate::{
     common::{ApiError, AppResult},
-    servers,
+    instance, servers,
 };
 
 pub(crate) async fn create_user(
@@ -85,15 +85,16 @@ pub(crate) async fn get_current_user(
         name: user.name,
         anonymous: false,
 
-        // TODO: Implement permissions
         permissions: CurrentUserPermissions {
-            instance: [
-                "read:Server",
-                "create:Server",
-                "update:Server",
-                "delete:Server",
-            ],
-            servers: serde_json::json!({}),
+            instance:
+                instance::instance_roles::service::get_permissions_by_user(
+                    database, user_id,
+                )
+                .await?,
+            servers: servers::server_roles::service::get_permissions_by_user(
+                database, user_id,
+            )
+            .await?,
         },
         profile_picture: None,
         current_server: serde_json::json!(current_server),
