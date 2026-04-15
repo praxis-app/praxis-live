@@ -19,8 +19,6 @@ use crate::{
     common::{ApiError, AppResult},
 };
 
-const UUID_PATTERN: &str = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
-
 #[derive(Clone, Debug)]
 pub(crate) struct PubSubState {
     database: DatabaseConnection,
@@ -383,10 +381,6 @@ fn parse_uuid_parts(parts: &[&str]) -> Option<Uuid> {
     }
 
     let value = parts.join("-");
-    if value.len() != UUID_PATTERN.len() {
-        return None;
-    }
-
     value.parse::<Uuid>().ok()
 }
 
