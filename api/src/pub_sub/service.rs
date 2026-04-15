@@ -50,11 +50,11 @@ impl HasJwtSecret for PubSubState {
 
 #[derive(Clone, Debug)]
 pub(crate) struct PubSubService {
-    inner: Arc<PubSubServiceInner>,
+    registry: Arc<PubSubRegistry>,
 }
 
 #[derive(Debug)]
-struct PubSubServiceInner {
+struct PubSubRegistry {
     store: SubscriptionStore,
     subscribers: DashMap<Uuid, mpsc::UnboundedSender<Message>>,
     socket_channels: DashMap<Uuid, HashSet<String>>,
@@ -67,7 +67,7 @@ impl PubSubService {
 
     fn new(store: SubscriptionStore) -> Self {
         Self {
-            inner: Arc::new(PubSubServiceInner {
+            registry: Arc::new(PubSubRegistry {
                 store,
                 subscribers: DashMap::new(),
                 socket_channels: DashMap::new(),
@@ -80,17 +80,20 @@ impl PubSubService {
         socket_id: Uuid,
         sender: mpsc::UnboundedSender<Message>,
     ) {
-        self.inner.subscribers.insert(socket_id, sender);
-        self.inner.socket_channels.insert(socket_id, HashSet::new());
+        self.registry.subscribers.insert(socket_id, sender);
+
+        self.registry
+            .socket_channels
+            .insert(socket_id, HashSet::new());
     }
 
     async fn subscribe(&self, socket_id: Uuid, channel: &str) -> AppResult<()> {
-        self.inner
+        self.registry
             .store
             .add_member(channel_cache_key(channel), socket_id.to_string())
             .await?;
 
-        self.inner
+        self.registry
             .socket_channels
             .entry(socket_id)
             .or_default()
@@ -104,13 +107,13 @@ impl PubSubService {
         socket_id: Uuid,
         channel: &str,
     ) -> AppResult<()> {
-        self.inner
+        self.registry
             .store
             .remove_member(channel_cache_key(channel), &socket_id.to_string())
             .await?;
 
         if let Some(mut channels) =
-            self.inner.socket_channels.get_mut(&socket_id)
+            self.registry.socket_channels.get_mut(&socket_id)
         {
             channels.remove(channel);
         }
@@ -119,17 +122,17 @@ impl PubSubService {
     }
 
     async fn disconnect(&self, socket_id: Uuid) {
-        self.inner.subscribers.remove(&socket_id);
+        self.registry.subscribers.remove(&socket_id);
 
         let Some((_socket_id, channels)) =
-            self.inner.socket_channels.remove(&socket_id)
+            self.registry.socket_channels.remove(&socket_id)
         else {
             return;
         };
 
         for channel in channels {
             if let Err(error) = self
-                .inner
+                .registry
                 .store
                 .remove_member(
                     channel_cache_key(&channel),
@@ -150,14 +153,18 @@ impl PubSubService {
         body: serde_json::Value,
     ) -> AppResult<()> {
         let message = response_message(channel, Some(body), None)?;
-        let subscriber_ids =
-            self.inner.store.members(channel_cache_key(channel)).await?;
+
+        let subscriber_ids = self
+            .registry
+            .store
+            .members(channel_cache_key(channel))
+            .await?;
 
         for subscriber_id in subscriber_ids {
             let Ok(subscriber_id) = subscriber_id.parse::<Uuid>() else {
                 continue;
             };
-            let Some(sender) = self.inner.subscribers.get(&subscriber_id)
+            let Some(sender) = self.registry.subscribers.get(&subscriber_id)
             else {
                 continue;
             };
@@ -317,7 +324,7 @@ fn send_socket_error(
     code: &'static str,
     message: &'static str,
 ) {
-    let Some(sender) = service.inner.subscribers.get(&socket_id) else {
+    let Some(sender) = service.registry.subscribers.get(&socket_id) else {
         return;
     };
     let Ok(message) =
