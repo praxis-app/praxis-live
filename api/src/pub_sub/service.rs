@@ -35,9 +35,9 @@ impl PubSubState {
         service: PubSubService,
     ) -> Self {
         Self {
+            service,
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
-            service,
         }
     }
 }
