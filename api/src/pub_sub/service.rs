@@ -150,8 +150,25 @@ impl PubSubService {
         channel: &str,
         body: serde_json::Value,
     ) -> AppResult<()> {
-        let message = response_message(channel, Some(body), None)?;
+        self.publish_message(channel, Some(body), None).await
+    }
 
+    async fn publish_from_socket(
+        &self,
+        channel: &str,
+        body: Option<serde_json::Value>,
+        socket_id: Uuid,
+    ) -> AppResult<()> {
+        self.publish_message(channel, body, Some(socket_id)).await
+    }
+
+    async fn publish_message(
+        &self,
+        channel: &str,
+        body: Option<serde_json::Value>,
+        publisher_id: Option<Uuid>,
+    ) -> AppResult<()> {
+        let message = response_message(channel, body, None)?;
         let subscriber_ids = self
             .registry
             .store
@@ -162,6 +179,9 @@ impl PubSubService {
             let Ok(subscriber_id) = subscriber_id.parse::<Uuid>() else {
                 continue;
             };
+            if Some(subscriber_id) == publisher_id {
+                continue;
+            }
             let Some(sender) = self.registry.subscribers.get(&subscriber_id)
             else {
                 continue;
@@ -300,14 +320,12 @@ async fn handle_inbound_message(
             }
         }
         PubSubRequestKind::Publish => {
-            if let Some(body) = request.body {
-                if let Err(error) =
-                    state.service.publish(&request.channel, body).await
-                {
-                    tracing::warn!(
-                        "failed to publish websocket message: {error}"
-                    );
-                }
+            if let Err(error) = state
+                .service
+                .publish_from_socket(&request.channel, request.body, socket_id)
+                .await
+            {
+                tracing::warn!("failed to publish websocket message: {error}");
             }
         }
     }
