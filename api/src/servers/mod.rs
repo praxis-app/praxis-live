@@ -1,8 +1,9 @@
 mod handlers;
 mod routes;
 mod server_configs;
+pub(crate) mod server_roles;
 pub(crate) mod service;
-mod types;
+pub(crate) mod types;
 
 pub(crate) use routes::router;
 pub(crate) use service::{

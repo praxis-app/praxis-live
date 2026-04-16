@@ -2,6 +2,9 @@ use entity::users;
 use sea_orm::prelude::Uuid;
 use sea_orm::DbErr;
 use serde::Serialize;
+use std::collections::BTreeMap;
+
+use crate::common::roles::PermissionRule;
 
 #[derive(Debug, Clone)]
 pub(crate) struct UserRecord {
@@ -59,8 +62,8 @@ pub(crate) struct CurrentUserResponse {
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct CurrentUserPermissions {
-    pub(crate) instance: [&'static str; 4],
-    pub(crate) servers: serde_json::Value,
+    pub(crate) instance: Vec<PermissionRule>,
+    pub(crate) servers: BTreeMap<String, Vec<PermissionRule>>,
 }
 
 #[derive(Debug, Clone, Serialize)]

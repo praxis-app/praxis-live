@@ -35,8 +35,8 @@ impl ChatState {
     ) -> Self {
         Self {
             database,
-            jwt_secret: Arc::<str>::from(jwt_secret),
             pub_sub_service,
+            jwt_secret: Arc::<str>::from(jwt_secret),
             upload_root: Arc::new(service::upload_root()),
         }
     }
