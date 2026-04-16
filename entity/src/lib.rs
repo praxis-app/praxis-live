@@ -4,6 +4,7 @@ pub mod instance_configs;
 pub mod instance_role_members;
 pub mod instance_role_permissions;
 pub mod instance_roles;
+pub mod invites;
 pub mod message_images;
 pub mod messages;
 pub mod server_configs;

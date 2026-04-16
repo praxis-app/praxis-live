@@ -163,6 +163,18 @@ pub(crate) async fn get_default_server(
     shape_server(database, server, default_server_id, true, true).await
 }
 
+pub(crate) async fn get_server_by_invite_token(
+    database: &DatabaseConnection,
+    invite_token: &str,
+) -> AppResult<ServerResponse> {
+    let invite =
+        crate::invites::service::get_invite_by_token(database, invite_token)
+            .await?;
+    let default_server_id = default_server_id(database).await?;
+    let server = get_server(database, invite.server_id).await?;
+    shape_server(database, server, default_server_id, true, true).await
+}
+
 pub(crate) async fn create_server(
     database: &DatabaseConnection,
     request: ServerRequest,
@@ -399,9 +411,21 @@ pub(crate) async fn join_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Uuid,
-    _invite_token: &str,
+    invite_token: &str,
 ) -> AppResult<()> {
-    add_server_members(database, server_id, &[user_id]).await
+    let invite =
+        crate::invites::service::get_invite_by_token(database, invite_token)
+            .await?;
+    if invite.server_id != server_id {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "Invalid invite token.",
+        ));
+    }
+
+    add_server_members(database, server_id, &[user_id]).await?;
+    crate::invites::service::redeem_invite(database, invite_token).await?;
+    Ok(())
 }
 
 async fn shape_server(
