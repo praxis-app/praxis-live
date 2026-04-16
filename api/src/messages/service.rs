@@ -254,7 +254,11 @@ pub(crate) async fn get_message_image(
 }
 
 pub(crate) fn upload_root() -> PathBuf {
-    std::env::temp_dir().join("praxis-live-chat-uploads")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("content")
 }
 
 fn resolve_upload_path(upload_root: &Path, storage_key: &str) -> PathBuf {

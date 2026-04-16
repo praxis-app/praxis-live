@@ -35,6 +35,7 @@ WORKDIR /app
 
 COPY --from=backend-builder /app/target/release/praxis-live ./
 COPY --from=frontend-builder /app/view/dist ./static
+COPY content ./content
 
 ENV FRONTEND_DIST_DIR=/app/static
 
