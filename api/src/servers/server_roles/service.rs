@@ -186,6 +186,9 @@ where
             },
             PermissionRule {
                 subject: "Invite".to_owned(),
+
+                // TODO: Remove redundant `create` once the frontend treats `manage`
+                // as satisfying narrower invite permission checks
                 action: vec!["create".to_owned(), "manage".to_owned()],
             },
             PermissionRule {
