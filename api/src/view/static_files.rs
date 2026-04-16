@@ -19,7 +19,10 @@ pub(crate) fn attach(app: Router) -> Router {
     let index_path = frontend_dist.join("index.html");
 
     if frontend_dist.is_dir() && index_path.is_file() {
-        tracing::info!("Serving frontend assets from {}", frontend_dist.display());
+        tracing::info!(
+            "Serving frontend assets from {}",
+            frontend_dist.display()
+        );
 
         app.fallback({
             let frontend_dist = frontend_dist.clone();
@@ -48,7 +51,9 @@ async fn frontend_fallback(uri: Uri, frontend_dist: PathBuf) -> Response {
         return StatusCode::NOT_FOUND.into_response();
     }
 
-    let Some(candidate_path) = frontend_request_path(&frontend_dist, request_path) else {
+    let Some(candidate_path) =
+        frontend_request_path(&frontend_dist, request_path)
+    else {
         return StatusCode::BAD_REQUEST.into_response();
     };
 
@@ -66,7 +71,10 @@ async fn frontend_fallback(uri: Uri, frontend_dist: PathBuf) -> Response {
     serve_file(frontend_dist.join("index.html"), StatusCode::OK).await
 }
 
-fn frontend_request_path(frontend_dist: &Path, request_path: &str) -> Option<PathBuf> {
+fn frontend_request_path(
+    frontend_dist: &Path,
+    request_path: &str,
+) -> Option<PathBuf> {
     let mut resolved = frontend_dist.to_path_buf();
     let trimmed_path = request_path.trim_start_matches('/');
 
@@ -79,7 +87,9 @@ fn frontend_request_path(frontend_dist: &Path, request_path: &str) -> Option<Pat
         match component {
             Component::Normal(segment) => resolved.push(segment),
             Component::CurDir => {}
-            Component::RootDir | Component::ParentDir | Component::Prefix(_) => return None,
+            Component::RootDir
+            | Component::ParentDir
+            | Component::Prefix(_) => return None,
         }
     }
 
@@ -106,7 +116,10 @@ async fn serve_file(path: PathBuf, status: StatusCode) -> Response {
             }),
         Err(error) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("failed to read frontend asset {}: {error}", path.display()),
+            format!(
+                "failed to read frontend asset {}: {error}",
+                path.display()
+            ),
         )
             .into_response(),
     }

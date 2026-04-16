@@ -13,14 +13,15 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(Users::Id)
-                            .big_integer()
+                            .uuid()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Users::Email).string().not_null())
                     .col(ColumnDef::new(Users::Name).string().not_null())
-                    .col(ColumnDef::new(Users::PasswordHash).string().not_null())
+                    .col(
+                        ColumnDef::new(Users::PasswordHash).string().not_null(),
+                    )
                     .index(
                         Index::create()
                             .name("users-email-key")

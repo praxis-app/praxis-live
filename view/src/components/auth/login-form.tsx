@@ -1,67 +1,129 @@
-import type { SyntheticEvent } from "react";
-import { AuthField } from "@/components/auth/auth-field";
-import { Spinner } from "@/components/ui/spinner";
+// TODO: Add show password toggle
 
-type LoginFormProps = {
-  email: string;
-  password: string;
-  isPending: boolean;
-  disabled?: boolean;
-  onEmailChange: (value: string) => void;
-  onPasswordChange: (value: string) => void;
-  onSubmit: () => void;
-};
+import { api } from '@/client/api-client';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  LocalStorageKeys,
+  NavigationPaths,
+} from '@/constants/shared.constants';
+import { handleError } from '@/lib/error.utils';
+import { t } from '@/lib/shared.utils';
+import { useAuthStore } from '@/store/auth.store';
+import {
+  EMAIL_MAX_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from '@/constants/user.constants';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import * as zod from 'zod';
 
-function LoginForm({
-  email,
-  password,
-  isPending,
-  disabled,
-  onEmailChange,
-  onPasswordChange,
-  onSubmit,
-}: LoginFormProps) {
-  function handleSubmit(event: SyntheticEvent<HTMLFormElement, SubmitEvent>) {
-    event.preventDefault();
-    onSubmit();
-  }
+const loginFormSchema = zod.object({
+  email: zod
+    .email({
+      message: t('auth.errors.invalidEmail'),
+    })
+    .max(EMAIL_MAX_LENGTH, {
+      message: t('auth.errors.longEmail'),
+    }),
+  password: zod
+    .string()
+    .min(PASSWORD_MIN_LENGTH, {
+      message: t('auth.errors.passwordTooShort'),
+    })
+    .max(PASSWORD_MAX_LENGTH, {
+      message: t('auth.errors.passwordTooLong'),
+    }),
+});
+
+export const LoginForm = () => {
+  const { setIsLoggedIn, setAccessToken } = useAuthStore();
+
+  const form = useForm<zod.infer<typeof loginFormSchema>>({
+    resolver: zodResolver(loginFormSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const { mutate: login, isPending: isLoginPending } = useMutation({
+    mutationFn: api.login,
+    onSuccess({ access_token }) {
+      localStorage.setItem(LocalStorageKeys.AccessToken, access_token);
+      localStorage.removeItem(LocalStorageKeys.InviteToken);
+      setAccessToken(access_token);
+      navigate(NavigationPaths.Home);
+      setIsLoggedIn(true);
+    },
+    onError(error: Error) {
+      handleError(error);
+    },
+  });
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <AuthField
-        autoComplete="email"
-        label="Email"
-        onChange={(event) => onEmailChange(event.target.value)}
-        placeholder="you@example.com"
-        type="email"
-        value={email}
-      />
-      <AuthField
-        autoComplete="current-password"
-        label="Password"
-        onChange={(event) => onPasswordChange(event.target.value)}
-        placeholder="Enter your password"
-        type="password"
-        value={password}
-      />
-      <div className="flex justify-end pt-1">
-        <button
-          className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md bg-foreground px-4 text-sm font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={disabled}
-          type="submit"
-        >
-          {isPending ? (
-            <span className="flex items-center gap-2">
-              <Spinner className="text-background" />
-              Signing in...
-            </span>
-          ) : (
-            "Log in"
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit((fv) => login(fv))}
+        className="space-y-4 pb-4"
+      >
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('auth.labels.email')}</FormLabel>
+              <FormControl>
+                <Input
+                  type="email"
+                  placeholder={t('auth.placeholders.email')}
+                  autoComplete="email"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
-        </button>
-      </div>
-    </form>
-  );
-}
+        />
 
-export { LoginForm };
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('auth.labels.password')}</FormLabel>
+              <FormControl>
+                <Input
+                  type="password"
+                  placeholder={t('auth.prompts.createPassword')}
+                  autoComplete="current-password"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit" className="w-full" disabled={isLoginPending}>
+          {t('auth.actions.signIn')}
+        </Button>
+      </form>
+    </Form>
+  );
+};
