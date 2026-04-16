@@ -19,15 +19,15 @@ export class ChatPage {
   }
 
   async attachImage() {
-    const pixelPng = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    const visibleTestPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAAyklEQVR4nO3OyxHCQBADUcdAKI7Y+TkIOFEFht35SZo9uKsDeNtjsbZuwLUbZPUFer7bj1O5DRKbXCClaQjaj7PFNAO1mAyQ3mSDxCYXSGnygmSmAEhjioEEpjCIbcqAqKYkiGfKg0imEohhqoLgJgAIa8KAgCYYCGVCgiAmMKhuwoOKJgqoYmKB0iYiKGfighImOihqUoBCJhHIb9KBnCYpyGNSg0xTA2hu6gFNTG2gkakT9NfUDPo19YMupiVAn6YhaIVukNVyoBfIKmT1NebvTwAAAABJRU5ErkJggg==",
       "base64"
     );
 
     await this.page.getByTestId("image-input").setInputFiles({
-      name: "pixel.png",
+      name: "visible-chat-image.png",
       mimeType: "image/png",
-      buffer: pixelPng,
+      buffer: visibleTestPng,
     });
 
     await expect(this.page.getByTestId("attached-image-preview")).toBeVisible();
