@@ -40,23 +40,36 @@ pub(super) async fn signup(
 ) -> AppResult<UserRecord> {
     let is_first_user = users::is_first_user(database).await?;
     let signup = validate_signup(payload)?;
+    let invite = match signup.invite_token.as_deref() {
+        Some(invite_token) => Some(
+            crate::invites::service::get_invite_by_token(
+                database,
+                invite_token,
+            )
+            .await?,
+        ),
+        None => None,
+    };
     let password_hash = password_auth::generate_hash(signup.password);
     let user =
         users::create_user(database, signup.email, signup.name, password_hash)
             .await
             .map_err(map_create_user_error)?;
 
-    let default_server_id = servers::default_server_id(database)
-        .await
-        .map_err(internal_error)?;
+    let server_id = match &invite {
+        Some(invite) => invite.server_id,
+        None => servers::default_server_id(database)
+            .await
+            .map_err(internal_error)?,
+    };
     let transaction = database.begin().await.map_err(internal_error)?;
 
-    servers::add_member_to_server(&transaction, default_server_id, user.id)
+    servers::add_member_to_server(&transaction, server_id, user.id)
         .await
         .map_err(internal_error)?;
     channels::add_member_to_all_server_channels(
         &transaction,
-        default_server_id,
+        server_id,
         user.id,
     )
     .await
@@ -71,7 +84,7 @@ pub(super) async fn signup(
         .map_err(internal_error)?;
         servers::server_roles::service::create_admin_server_role(
             &transaction,
-            default_server_id,
+            server_id,
             user.id,
         )
         .await
@@ -79,6 +92,10 @@ pub(super) async fn signup(
     }
 
     transaction.commit().await.map_err(internal_error)?;
+
+    if let Some(invite_token) = signup.invite_token.as_deref() {
+        crate::invites::service::redeem_invite(database, invite_token).await?;
+    }
 
     Ok(user)
 }

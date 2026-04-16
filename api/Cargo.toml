@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 axum = { workspace = true, features = ["multipart", "ws"] }
 casbin.workspace = true
+chrono.workspace = true
 dashmap.workspace = true
 dotenv.workspace = true
 entity = { path = "../entity" }

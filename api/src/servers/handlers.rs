@@ -73,9 +73,11 @@ pub(super) async fn get_server_by_slug(
 
 pub(super) async fn get_server_by_invite_token(
     State(state): State<ServersState>,
-    Path(_invite_token): Path<String>,
+    Path(invite_token): Path<String>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server = service::get_default_server(&state.database).await?;
+    let server =
+        service::get_server_by_invite_token(&state.database, &invite_token)
+            .await?;
     Ok(Json(serde_json::json!({ "server": server })))
 }
 

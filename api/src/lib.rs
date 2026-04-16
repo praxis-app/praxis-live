@@ -6,6 +6,7 @@ mod channels;
 mod common;
 mod health;
 mod instance;
+mod invites;
 mod messages;
 mod pub_sub;
 mod servers;
@@ -70,6 +71,7 @@ pub fn build_router(
     let api = Router::new()
         .route("/health", get(health::health))
         .merge(auth::router(database.clone(), jwt_secret.clone()))
+        .merge(invites::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
         .merge(instance::router(database.clone(), jwt_secret.clone()))
         .merge(servers::router(database, jwt_secret, pub_sub_service));
