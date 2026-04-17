@@ -7,6 +7,7 @@ mod common;
 mod health;
 mod instance;
 mod invites;
+mod logging;
 mod messages;
 mod pub_sub;
 mod servers;
@@ -22,15 +23,7 @@ use tower_http::trace::TraceLayer;
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     dotenv::dotenv().ok();
-
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| {
-                    "api=info,praxis_live=info,tower_http=debug".into()
-                }),
-        )
-        .init();
+    let _logging_guard = logging::init()?;
 
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
