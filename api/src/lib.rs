@@ -87,8 +87,13 @@ pub async fn connect_database(
     let database = Database::connect(options).await?;
 
     if run_migrations {
-        tracing::info!("Running database migrations.");
-        migrations::Migrator::up(&database, None).await?;
+        let pending_migrations =
+            migrations::Migrator::get_pending_migrations(&database).await?;
+
+        if !pending_migrations.is_empty() {
+            tracing::info!("Running database migrations.");
+            migrations::Migrator::up(&database, None).await?;
+        }
     }
 
     instance::initialize(&database)
