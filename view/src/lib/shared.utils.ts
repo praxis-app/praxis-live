@@ -69,7 +69,7 @@ export const throttle = <TThis, TArgs extends unknown[], TReturn>(
 export const getWebSocketURL = () =>
   import.meta.env.DEV
     ? `ws://${window.location.hostname}:${import.meta.env.VITE_SERVER_PORT}/ws`
-    : `wss://${window.location.host}/ws`;
+    : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
 /**
  * Utility function for conditionally combining and merging CSS class names.
