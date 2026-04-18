@@ -97,7 +97,8 @@ pub(crate) async fn get_users_eligible_for_instance_role(
     let users = query.all(database).await.map_err(internal_error)?;
     let user_ids: Vec<Uuid> = users.iter().map(|user| user.id).collect();
     let profile_pictures =
-        users_service::get_user_profile_pictures_map(database, &user_ids).await?;
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
 
     Ok(users
         .into_iter()
@@ -281,7 +282,8 @@ async fn get_role_members(
         .await
         .map_err(internal_error)?;
     let profile_pictures =
-        users_service::get_user_profile_pictures_map(database, &user_ids).await?;
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
     Ok(users
         .into_iter()
         .map(|user| {
