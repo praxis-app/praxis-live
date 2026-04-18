@@ -10,7 +10,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use super::{models::UpdateUserProfileRequest, service};
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret, MaybeAuthenticatedUser},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     common::{
         request::{multipart_file, parse_uuid},
         ApiError, AppResult,
@@ -116,7 +116,7 @@ pub(super) struct UserImagePath {
 pub(super) async fn get_user_image(
     State(state): State<UsersState>,
     Path(path): Path<UserImagePath>,
-    MaybeAuthenticatedUser(current_user_id): MaybeAuthenticatedUser,
+    AuthenticatedUserOptional(current_user_id): AuthenticatedUserOptional,
 ) -> AppResult<Response<Body>> {
     let user_id = parse_uuid(&path.user_id, "userId")?;
     let image_id = parse_uuid(&path.image_id, "imageId")?;

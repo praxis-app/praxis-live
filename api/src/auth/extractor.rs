@@ -13,7 +13,7 @@ pub(crate) trait HasJwtSecret {
 }
 
 pub(crate) struct AuthenticatedUser(pub(crate) Uuid);
-pub(crate) struct MaybeAuthenticatedUser(pub(crate) Option<Uuid>);
+pub(crate) struct AuthenticatedUserOptional(pub(crate) Option<Uuid>);
 
 impl<S> FromRequestParts<S> for AuthenticatedUser
 where
@@ -33,7 +33,7 @@ where
     }
 }
 
-impl<S> FromRequestParts<S> for MaybeAuthenticatedUser
+impl<S> FromRequestParts<S> for AuthenticatedUserOptional
 where
     S: HasJwtSecret + Send + Sync,
 {
