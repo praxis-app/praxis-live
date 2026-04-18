@@ -10,7 +10,7 @@ use uuid::Uuid as NativeUuid;
 use super::types::{InviteRequest, InviteResponse, InviteUserResponse};
 use crate::{
     common::{ApiError, AppResult},
-    servers, users as user_api,
+    servers, users as users_service,
 };
 
 const INVITES_PAGE_SIZE: usize = 20;
@@ -153,7 +153,7 @@ pub(crate) async fn shape_invite(
         })?;
 
     let profile_picture =
-        user_api::get_user_profile_picture(database, user.id).await?;
+        users_service::get_user_profile_picture(database, user.id).await?;
 
     Ok(InviteResponse {
         id: invite.id.to_string(),

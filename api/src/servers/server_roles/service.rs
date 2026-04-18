@@ -20,7 +20,7 @@ use crate::{
         ApiError, AppResult,
     },
     servers::{self, types::UserResponse},
-    users as user_api,
+    users as users_service,
 };
 
 const SERVER_SUBJECTS: &[&str] = &[
@@ -132,7 +132,7 @@ pub(crate) async fn get_users_eligible_for_server_role(
     let users = query.all(database).await.map_err(internal_error)?;
     let user_ids: Vec<Uuid> = users.iter().map(|user| user.id).collect();
     let profile_pictures =
-        user_api::get_user_profile_pictures_map(database, &user_ids).await?;
+        users_service::get_user_profile_pictures_map(database, &user_ids).await?;
     Ok(users
         .into_iter()
         .map(|user| {
@@ -329,7 +329,7 @@ async fn get_role_members(
         .await
         .map_err(internal_error)?;
     let profile_pictures =
-        user_api::get_user_profile_pictures_map(database, &user_ids).await?;
+        users_service::get_user_profile_pictures_map(database, &user_ids).await?;
     Ok(users
         .into_iter()
         .map(|user| {
@@ -452,7 +452,7 @@ fn validate_role_request(request: RoleRequest) -> AppResult<(String, String)> {
 
 fn shape_user(
     user: users::Model,
-    profile_picture: Option<user_api::ImageReference>,
+    profile_picture: Option<users_service::ImageReference>,
 ) -> UserResponse {
     UserResponse {
         id: user.id.to_string(),

@@ -14,7 +14,7 @@ use super::types::{
 use crate::{
     channels,
     common::{ApiError, AppResult},
-    users as user_api,
+    users as users_service,
 };
 
 const MAX_IMAGE_COUNT: usize = 8;
@@ -48,7 +48,8 @@ pub(crate) async fn get_feed(
         .await
         .map_err(internal_error)?;
     let profile_pictures =
-        user_api::get_user_profile_pictures_map(database, &user_ids).await?;
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
     let images = message_images::Entity::find()
         .filter(message_images::Column::MessageId.is_in(message_ids))
         .order_by_asc(message_images::Column::CreatedAt)
@@ -127,7 +128,7 @@ pub(crate) async fn create_message(
             id: user.id.to_string(),
             name: user.name,
             display_name: user.display_name,
-            profile_picture: user_api::get_user_profile_picture(
+            profile_picture: users_service::get_user_profile_picture(
                 database, user_id,
             )
             .await?,
