@@ -9,15 +9,15 @@ use uuid::Uuid as NativeUuid;
 
 use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
 use crate::common::{ApiError, AppResult};
-use crate::servers as server_api;
+use crate::servers as servers_service;
 
 pub(crate) async fn get_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<ChannelResponse>> {
-    server_api::ensure_server(database, server_id).await?;
+    servers_service::ensure_server(database, server_id).await?;
 
-    let server = server_api::load_server(database, server_id).await?;
+    let server = servers_service::load_server(database, server_id).await?;
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
         .order_by_asc(channels::Column::CreatedAt)
@@ -36,9 +36,9 @@ pub(crate) async fn get_joined_channels(
     server_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<Vec<ChannelResponse>> {
-    server_api::ensure_server(database, server_id).await?;
+    servers_service::ensure_server(database, server_id).await?;
 
-    let server = server_api::load_server(database, server_id).await?;
+    let server = servers_service::load_server(database, server_id).await?;
     let memberships = channel_members::Entity::find()
         .filter(channel_members::Column::UserId.eq(user_id))
         .all(database)
@@ -73,7 +73,7 @@ pub(crate) async fn get_channel_with_server(
     server_id: Uuid,
     channel_id: Uuid,
 ) -> AppResult<ChannelResponse> {
-    let server = server_api::load_server(database, server_id).await?;
+    let server = servers_service::load_server(database, server_id).await?;
     let channel = get_channel(database, server_id, channel_id).await?;
     Ok(shape_channel(channel, &server))
 }
@@ -83,7 +83,7 @@ pub(crate) async fn create_channel(
     server_id: Uuid,
     request: ChannelRequest,
 ) -> AppResult<ChannelResponse> {
-    let server = server_api::load_server(database, server_id).await?;
+    let server = servers_service::load_server(database, server_id).await?;
     let (name, description) = validate_channel_request(request)?;
 
     let channel = channels::ActiveModel {

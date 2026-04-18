@@ -14,6 +14,7 @@ use super::types::{
 use crate::{
     channels,
     common::{ApiError, AppResult},
+    users as users_service,
 };
 
 const MAX_IMAGE_COUNT: usize = 8;
@@ -42,10 +43,13 @@ pub(crate) async fn get_feed(
         messages.iter().map(|message| message.id).collect();
 
     let users = users::Entity::find()
-        .filter(users::Column::Id.is_in(user_ids))
+        .filter(users::Column::Id.is_in(user_ids.clone()))
         .all(database)
         .await
         .map_err(internal_error)?;
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
     let images = message_images::Entity::find()
         .filter(message_images::Column::MessageId.is_in(message_ids))
         .order_by_asc(message_images::Column::CreatedAt)
@@ -60,6 +64,7 @@ pub(crate) async fn get_feed(
             message: shape_message(
                 &message,
                 users.iter().find(|user| user.id == message.user_id),
+                &profile_pictures,
                 images.iter().filter(|image| image.message_id == message.id),
             ),
         })
@@ -122,7 +127,11 @@ pub(crate) async fn create_message(
         user: Some(MessageUser {
             id: user.id.to_string(),
             name: user.name,
-            profile_picture: None,
+            display_name: user.display_name,
+            profile_picture: users_service::get_user_profile_picture(
+                database, user_id,
+            )
+            .await?,
         }),
         user_id: Some(user.id.to_string()),
         bot_id: None,
@@ -268,6 +277,10 @@ fn resolve_upload_path(upload_root: &Path, storage_key: &str) -> PathBuf {
 fn shape_message<'a>(
     message: &messages::Model,
     user: Option<&users::Model>,
+    profile_pictures: &std::collections::BTreeMap<
+        Uuid,
+        crate::users::UserImageRef,
+    >,
     images: impl Iterator<Item = &'a message_images::Model>,
 ) -> MessageResponse {
     MessageResponse {
@@ -279,7 +292,8 @@ fn shape_message<'a>(
         user: user.map(|user| MessageUser {
             id: user.id.to_string(),
             name: user.name.clone(),
-            profile_picture: None,
+            display_name: user.display_name.clone(),
+            profile_picture: profile_pictures.get(&user.id).cloned(),
         }),
         user_id: Some(message.user_id.to_string()),
         bot_id: None,

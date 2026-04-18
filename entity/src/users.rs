@@ -7,10 +7,21 @@ pub struct Model {
     pub id: Uuid,
     pub email: String,
     pub name: String,
+    pub display_name: Option<String>,
+    pub bio: Option<String>,
     pub password_hash: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(has_many = "super::user_images::Entity")]
+    UserImages,
+}
+
+impl Related<super::user_images::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserImages.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

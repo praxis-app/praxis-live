@@ -1,19 +1,26 @@
 use axum::http::StatusCode;
-use entity::users;
+use entity::{channel_members, server_members, user_images, users};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr,
-    EntityTrait, PaginatorTrait, QueryFilter, Set, SqlErr,
+    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, Set,
+    SqlErr,
 };
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
 
 use super::models::{
     CreateUserError, CurrentUserPermissions, CurrentUserResponse,
+    StoredUserImage, UpdateUserProfileRequest, UserImageRef,
     UserProfileResponse, UserRecord,
 };
 use crate::{
     common::{ApiError, AppResult},
     instance, servers,
 };
+
+const PROFILE_PICTURE_KIND: &str = "profile-picture";
+const COVER_PHOTO_KIND: &str = "cover-photo";
 
 pub(crate) async fn create_user(
     database: &DatabaseConnection,
@@ -83,8 +90,8 @@ pub(crate) async fn get_current_user(
     Ok(CurrentUserResponse {
         id: user.id.to_string(),
         name: user.name,
+        display_name: user.display_name,
         anonymous: false,
-
         permissions: CurrentUserPermissions {
             instance:
                 instance::instance_roles::service::get_permissions_by_user(
@@ -96,7 +103,7 @@ pub(crate) async fn get_current_user(
             )
             .await?,
         },
-        profile_picture: None,
+        profile_picture: get_user_profile_picture(database, user_id).await?,
         current_server: serde_json::json!(current_server),
         servers_count: servers.len(),
     })
@@ -127,9 +134,364 @@ pub(crate) async fn get_user_profile(
     Ok(UserProfileResponse {
         id: user.id.to_string(),
         name: user.name,
-        profile_picture: None,
-        cover_photo: None,
+        display_name: user.display_name,
+        bio: user.bio,
+        profile_picture: get_user_profile_picture(database, user_id).await?,
+        cover_photo: get_user_cover_photo(database, user_id).await?,
     })
+}
+
+pub(crate) async fn update_user_profile(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    request: UpdateUserProfileRequest,
+) -> AppResult<()> {
+    let user = users::Entity::find_by_id(user_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "User not found.")
+        })?;
+
+    let mut active = user.into_active_model();
+    if let Some(name) = request.name {
+        active.name = Set(validate_name(&name)?);
+    }
+    if let Some(display_name) = request.display_name {
+        active.display_name = Set(normalize_optional_text(display_name, 30)?);
+    }
+    if let Some(bio) = request.bio {
+        active.bio = Set(normalize_optional_text(bio, 500)?);
+    }
+
+    active.update(database).await.map_err(internal_error)?;
+    Ok(())
+}
+
+pub(crate) async fn get_user_profile_picture(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<Option<UserImageRef>> {
+    get_latest_user_image(database, user_id, PROFILE_PICTURE_KIND).await
+}
+
+pub(crate) async fn get_user_cover_photo(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<Option<UserImageRef>> {
+    get_latest_user_image(database, user_id, COVER_PHOTO_KIND).await
+}
+
+pub(crate) async fn get_user_profile_pictures_map(
+    database: &DatabaseConnection,
+    user_ids: &[Uuid],
+) -> AppResult<BTreeMap<Uuid, UserImageRef>> {
+    if user_ids.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let images = user_images::Entity::find()
+        .filter(user_images::Column::UserId.is_in(user_ids.iter().copied()))
+        .filter(user_images::Column::Kind.eq(PROFILE_PICTURE_KIND))
+        .order_by_asc(user_images::Column::UserId)
+        .order_by_desc(user_images::Column::CreatedAt)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    let mut profile_pictures = BTreeMap::new();
+    for image in images {
+        profile_pictures
+            .entry(image.user_id)
+            .or_insert_with(|| shape_image_reference(&image));
+    }
+
+    Ok(profile_pictures)
+}
+
+pub(crate) async fn store_user_image(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    user_id: Uuid,
+    kind: &str,
+    content_type: Option<String>,
+    bytes: Vec<u8>,
+) -> AppResult<UserImageRef> {
+    if bytes.is_empty() {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "No image uploaded",
+        ));
+    }
+
+    let kind = match kind {
+        PROFILE_PICTURE_KIND | COVER_PHOTO_KIND => kind,
+        _ => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "Unsupported image kind.",
+            ))
+        }
+    };
+
+    users::Entity::find_by_id(user_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "User not found.")
+        })?;
+
+    let image = user_images::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        user_id: Set(user_id),
+        kind: Set(kind.to_owned()),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)?;
+
+    let storage_key = format!("user-images/{}", image.id);
+    let destination = upload_root.join(&storage_key);
+    if let Some(parent) = destination.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(internal_error)?;
+    }
+    tokio::fs::write(&destination, bytes)
+        .await
+        .map_err(internal_error)?;
+
+    let mut active = image.into_active_model();
+    active.storage_key = Set(Some(storage_key));
+    active.content_type = Set(content_type);
+    let image = active.update(database).await.map_err(internal_error)?;
+
+    Ok(shape_image_reference(&image))
+}
+
+pub(crate) async fn get_user_image(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    current_user_id: Option<Uuid>,
+    user_id: Uuid,
+    image_id: Uuid,
+) -> AppResult<StoredUserImage> {
+    authorize_user_image_access(database, current_user_id, user_id, image_id)
+        .await?;
+
+    let image = user_images::Entity::find_by_id(image_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
+        })?;
+
+    if image.user_id != user_id {
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."));
+    }
+
+    let storage_key = image.storage_key.ok_or_else(|| {
+        ApiError::new(StatusCode::NOT_FOUND, "Image not uploaded yet.")
+    })?;
+    let bytes = tokio::fs::read(upload_root.join(storage_key))
+        .await
+        .map_err(internal_error)?;
+
+    Ok(StoredUserImage {
+        content_type: image.content_type,
+        bytes,
+    })
+}
+
+pub(crate) async fn upload_user_profile_picture(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    user_id: Uuid,
+    content_type: Option<String>,
+    bytes: Vec<u8>,
+) -> AppResult<UserImageRef> {
+    store_user_image(
+        database,
+        upload_root,
+        user_id,
+        PROFILE_PICTURE_KIND,
+        content_type,
+        bytes,
+    )
+    .await
+}
+
+pub(crate) async fn upload_user_cover_photo(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    user_id: Uuid,
+    content_type: Option<String>,
+    bytes: Vec<u8>,
+) -> AppResult<UserImageRef> {
+    store_user_image(
+        database,
+        upload_root,
+        user_id,
+        COVER_PHOTO_KIND,
+        content_type,
+        bytes,
+    )
+    .await
+}
+
+pub(crate) async fn has_shared_channel(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    other_user_id: Uuid,
+) -> AppResult<bool> {
+    let memberships = channel_members::Entity::find()
+        .filter(channel_members::Column::UserId.eq(user_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let channel_ids: Vec<Uuid> = memberships
+        .into_iter()
+        .map(|item| item.channel_id)
+        .collect();
+
+    if channel_ids.is_empty() {
+        return Ok(false);
+    }
+
+    let shared = channel_members::Entity::find()
+        .filter(channel_members::Column::UserId.eq(other_user_id))
+        .filter(channel_members::Column::ChannelId.is_in(channel_ids))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(shared.is_some())
+}
+
+pub(crate) async fn is_default_server_member(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<bool> {
+    let default_server_id =
+        servers::service::default_server_id(database).await?;
+    let membership = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(default_server_id))
+        .filter(server_members::Column::UserId.eq(user_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(membership.is_some())
+}
+
+pub(crate) fn upload_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("content")
+}
+
+async fn authorize_user_image_access(
+    database: &DatabaseConnection,
+    current_user_id: Option<Uuid>,
+    user_id: Uuid,
+    image_id: Uuid,
+) -> AppResult<()> {
+    let profile_picture = get_user_profile_picture(database, user_id).await?;
+    if profile_picture
+        .as_ref()
+        .is_some_and(|image| image.id == image_id.to_string())
+    {
+        let allowed = current_user_id == Some(user_id)
+            || is_default_server_member(database, user_id).await?;
+        return if allowed {
+            Ok(())
+        } else {
+            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+        };
+    }
+
+    let cover_photo = get_user_cover_photo(database, user_id).await?;
+    if cover_photo
+        .as_ref()
+        .is_some_and(|image| image.id == image_id.to_string())
+    {
+        let allowed = if current_user_id == Some(user_id) {
+            true
+        } else if let Some(current_user_id) = current_user_id {
+            has_shared_channel(database, current_user_id, user_id).await?
+        } else {
+            false
+        };
+        return if allowed {
+            Ok(())
+        } else {
+            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+        };
+    }
+
+    Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."))
+}
+
+fn shape_image_reference(image: &user_images::Model) -> UserImageRef {
+    UserImageRef {
+        id: image.id.to_string(),
+        created_at: image.created_at.to_rfc3339(),
+    }
+}
+
+async fn get_latest_user_image(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    kind: &str,
+) -> AppResult<Option<UserImageRef>> {
+    user_images::Entity::find()
+        .filter(user_images::Column::UserId.eq(user_id))
+        .filter(user_images::Column::Kind.eq(kind))
+        .order_by_desc(user_images::Column::CreatedAt)
+        .one(database)
+        .await
+        .map_err(internal_error)
+        .map(|image| image.as_ref().map(shape_image_reference))
+}
+
+fn validate_name(name: &str) -> AppResult<String> {
+    let normalized = name.trim().to_owned();
+    let valid = (3..=15).contains(&normalized.chars().count())
+        && normalized.chars().all(|ch| {
+            ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_'
+        });
+
+    if valid {
+        Ok(normalized)
+    } else {
+        Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "Name must be 3-15 characters using lowercase letters, numbers, or underscores.",
+        ))
+    }
+}
+
+fn normalize_optional_text(
+    value: String,
+    max_len: usize,
+) -> AppResult<Option<String>> {
+    let normalized = value.trim().to_owned();
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+    if normalized.chars().count() > max_len {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "Profile field is too long.",
+        ));
+    }
+    Ok(Some(normalized))
 }
 
 fn map_create_user_error(error: DbErr) -> CreateUserError {

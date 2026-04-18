@@ -12,9 +12,10 @@ use uuid::Uuid as NativeUuid;
 use super::types::{
     serialize_timestamp, ServerRequest, ServerResponse, UserResponse,
 };
-use crate::channels as channel_api;
+use crate::channels as channels_service;
 use crate::common::{ApiError, AppResult};
 use crate::instance;
+use crate::users as users_service;
 
 pub(crate) use super::server_configs::{
     ensure_server_config, get_server_config, is_anonymous_users_enabled,
@@ -202,7 +203,7 @@ pub(crate) async fn create_server(
         current_user_id,
     )
     .await?;
-    channel_api::create_general_channel(database, server.id).await?;
+    channels_service::create_general_channel(database, server.id).await?;
 
     if request.is_default_server.unwrap_or(false) {
         set_default_server(database, server.id).await?;
@@ -281,12 +282,21 @@ pub(crate) async fn get_server_members(
     }
 
     let users = users::Entity::find()
-        .filter(users::Column::Id.is_in(user_ids))
+        .filter(users::Column::Id.is_in(user_ids.clone()))
         .all(database)
         .await
         .map_err(internal_error)?;
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
 
-    Ok(users.into_iter().map(shape_user).collect())
+    Ok(users
+        .into_iter()
+        .map(|user| {
+            let user_id = user.id;
+            shape_user(user, profile_pictures.get(&user_id).cloned())
+        })
+        .collect())
 }
 
 pub(crate) async fn get_users_eligible_for_server(
@@ -310,7 +320,18 @@ pub(crate) async fn get_users_eligible_for_server(
     }
 
     let users = query.all(database).await.map_err(internal_error)?;
-    Ok(users.into_iter().map(shape_user).collect())
+    let user_ids: Vec<Uuid> = users.iter().map(|user| user.id).collect();
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
+
+    Ok(users
+        .into_iter()
+        .map(|user| {
+            let user_id = user.id;
+            shape_user(user, profile_pictures.get(&user_id).cloned())
+        })
+        .collect())
 }
 
 pub(crate) async fn add_server_members(
@@ -331,7 +352,7 @@ pub(crate) async fn add_server_members(
         }
 
         add_member_to_server(database, server_id, *user_id).await?;
-        channel_api::add_member_to_all_server_channels(
+        channels_service::add_member_to_all_server_channels(
             database, server_id, *user_id,
         )
         .await?;
@@ -436,7 +457,7 @@ async fn shape_server(
     include_member_count: bool,
 ) -> AppResult<ServerResponse> {
     let general_channel_id = if include_general_channel {
-        channel_api::general_channel_id(database, server.id)
+        channels_service::general_channel_id(database, server.id)
             .await?
             .map(|id| id.to_string())
     } else {
@@ -468,12 +489,15 @@ async fn shape_server(
     })
 }
 
-fn shape_user(user: users::Model) -> UserResponse {
+fn shape_user(
+    user: users::Model,
+    profile_picture: Option<users_service::UserImageRef>,
+) -> UserResponse {
     UserResponse {
         id: user.id.to_string(),
         name: user.name,
-        display_name: None,
-        profile_picture: None,
+        display_name: user.display_name,
+        profile_picture,
     }
 }
 
@@ -540,7 +564,7 @@ pub(crate) async fn create_initial_server(
         .map_err(internal_error)?
     {
         ensure_server_config(database, server.id).await?;
-        channel_api::create_general_channel(database, server.id).await?;
+        channels_service::create_general_channel(database, server.id).await?;
         return Ok(server);
     }
 
@@ -555,7 +579,7 @@ pub(crate) async fn create_initial_server(
     .map_err(map_write_error)?;
 
     ensure_server_config(database, server.id).await?;
-    channel_api::create_general_channel(database, server.id).await?;
+    channels_service::create_general_channel(database, server.id).await?;
 
     Ok(server)
 }

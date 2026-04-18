@@ -1,14 +1,20 @@
 use axum::{
-    extract::{Path, State},
+    body::Body,
+    extract::{Multipart, Path, State},
+    http::{header, Response, StatusCode},
     response::Json,
 };
 use sea_orm::DatabaseConnection;
-use std::sync::Arc;
+use serde::Deserialize;
+use std::{path::PathBuf, sync::Arc};
 
-use super::service;
+use super::{models::UpdateUserProfileRequest, service};
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
-    common::{request::parse_uuid, AppResult},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
+    common::{
+        request::{multipart_file, parse_uuid},
+        ApiError, AppResult,
+    },
     servers,
 };
 
@@ -16,6 +22,7 @@ use crate::{
 pub(super) struct UsersState {
     database: DatabaseConnection,
     jwt_secret: Arc<str>,
+    upload_root: Arc<PathBuf>,
 }
 
 impl UsersState {
@@ -26,6 +33,7 @@ impl UsersState {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
+            upload_root: Arc::new(service::upload_root()),
         }
     }
 }
@@ -70,4 +78,96 @@ pub(super) async fn get_user_profile(
     let user = service::get_user_profile(&state.database, user_id).await?;
 
     Ok(Json(serde_json::json!({ "user": user })))
+}
+
+pub(super) async fn update_user_profile(
+    State(state): State<UsersState>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    Json(payload): Json<UpdateUserProfileRequest>,
+) -> AppResult<StatusCode> {
+    service::update_user_profile(&state.database, user_id, payload).await?;
+    Ok(StatusCode::OK)
+}
+
+pub(super) async fn upload_user_profile_picture(
+    State(state): State<UsersState>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    multipart: Multipart,
+) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+    let file = multipart_file(multipart, "file").await?;
+    let image = service::upload_user_profile_picture(
+        &state.database,
+        &state.upload_root,
+        user_id,
+        file.as_ref().and_then(|file| file.content_type.clone()),
+        file.map(|file| file.bytes).unwrap_or_default(),
+    )
+    .await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({ "image": image })),
+    ))
+}
+
+pub(super) async fn upload_user_cover_photo(
+    State(state): State<UsersState>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    multipart: Multipart,
+) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+    let file = multipart_file(multipart, "file").await?;
+    let image = service::upload_user_cover_photo(
+        &state.database,
+        &state.upload_root,
+        user_id,
+        file.as_ref().and_then(|file| file.content_type.clone()),
+        file.map(|file| file.bytes).unwrap_or_default(),
+    )
+    .await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({ "image": image })),
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct UserImagePath {
+    #[serde(rename = "userId")]
+    user_id: String,
+    #[serde(rename = "imageId")]
+    image_id: String,
+}
+
+pub(super) async fn get_user_image(
+    State(state): State<UsersState>,
+    Path(path): Path<UserImagePath>,
+    AuthenticatedUserOptional(current_user_id): AuthenticatedUserOptional,
+) -> AppResult<Response<Body>> {
+    let user_id = parse_uuid(&path.user_id, "userId")?;
+    let image_id = parse_uuid(&path.image_id, "imageId")?;
+    let image = service::get_user_image(
+        &state.database,
+        &state.upload_root,
+        current_user_id,
+        user_id,
+        image_id,
+    )
+    .await?;
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            image
+                .content_type
+                .unwrap_or_else(|| "application/octet-stream".to_owned()),
+        )
+        .body(Body::from(image.bytes))
+        .map_err(internal_error)
+}
+
+fn internal_error(error: impl std::fmt::Display) -> ApiError {
+    tracing::error!("user route failed: {error}");
+    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }
