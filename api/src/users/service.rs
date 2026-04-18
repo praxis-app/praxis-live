@@ -11,7 +11,8 @@ use uuid::Uuid as NativeUuid;
 
 use super::models::{
     CreateUserError, CurrentUserPermissions, CurrentUserResponse,
-    UpdateUserProfileRequest, UserImageRef, UserProfileResponse, UserRecord,
+    StoredUserImage, UpdateUserProfileRequest, UserImageRef,
+    UserProfileResponse, UserRecord,
 };
 use crate::{
     common::{ApiError, AppResult},
@@ -274,9 +275,13 @@ pub(crate) async fn store_user_image(
 pub(crate) async fn get_user_image(
     database: &DatabaseConnection,
     upload_root: &Path,
+    current_user_id: Option<Uuid>,
     user_id: Uuid,
     image_id: Uuid,
-) -> AppResult<(Option<String>, Vec<u8>)> {
+) -> AppResult<StoredUserImage> {
+    authorize_user_image_access(database, current_user_id, user_id, image_id)
+        .await?;
+
     let image = user_images::Entity::find_by_id(image_id)
         .one(database)
         .await
@@ -296,7 +301,46 @@ pub(crate) async fn get_user_image(
         .await
         .map_err(internal_error)?;
 
-    Ok((image.content_type, bytes))
+    Ok(StoredUserImage {
+        content_type: image.content_type,
+        bytes,
+    })
+}
+
+pub(crate) async fn upload_user_profile_picture(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    user_id: Uuid,
+    content_type: Option<String>,
+    bytes: Vec<u8>,
+) -> AppResult<UserImageRef> {
+    store_user_image(
+        database,
+        upload_root,
+        user_id,
+        PROFILE_PICTURE_KIND,
+        content_type,
+        bytes,
+    )
+    .await
+}
+
+pub(crate) async fn upload_user_cover_photo(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    user_id: Uuid,
+    content_type: Option<String>,
+    bytes: Vec<u8>,
+) -> AppResult<UserImageRef> {
+    store_user_image(
+        database,
+        upload_root,
+        user_id,
+        COVER_PHOTO_KIND,
+        content_type,
+        bytes,
+    )
+    .await
 }
 
 pub(crate) async fn has_shared_channel(
@@ -350,6 +394,48 @@ pub(crate) fn upload_root() -> PathBuf {
         .map(Path::to_path_buf)
         .unwrap_or_else(|| PathBuf::from("."))
         .join("content")
+}
+
+async fn authorize_user_image_access(
+    database: &DatabaseConnection,
+    current_user_id: Option<Uuid>,
+    user_id: Uuid,
+    image_id: Uuid,
+) -> AppResult<()> {
+    let profile_picture = get_user_profile_picture(database, user_id).await?;
+    if profile_picture
+        .as_ref()
+        .is_some_and(|image| image.id == image_id.to_string())
+    {
+        let allowed = current_user_id == Some(user_id)
+            || is_default_server_member(database, user_id).await?;
+        return if allowed {
+            Ok(())
+        } else {
+            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+        };
+    }
+
+    let cover_photo = get_user_cover_photo(database, user_id).await?;
+    if cover_photo
+        .as_ref()
+        .is_some_and(|image| image.id == image_id.to_string())
+    {
+        let allowed = if current_user_id == Some(user_id) {
+            true
+        } else if let Some(current_user_id) = current_user_id {
+            has_shared_channel(database, current_user_id, user_id).await?
+        } else {
+            false
+        };
+        return if allowed {
+            Ok(())
+        } else {
+            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+        };
+    }
+
+    Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."))
 }
 
 fn shape_image_reference(image: &user_images::Model) -> UserImageRef {

@@ -59,6 +59,12 @@ pub(crate) struct UserImageRef {
     pub(crate) created_at: String,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct StoredUserImage {
+    pub(crate) content_type: Option<String>,
+    pub(crate) bytes: Vec<u8>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CurrentUserResponse {

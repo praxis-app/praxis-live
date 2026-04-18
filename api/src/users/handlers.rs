@@ -94,7 +94,20 @@ pub(super) async fn upload_user_profile_picture(
     AuthenticatedUser(user_id): AuthenticatedUser,
     multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
-    upload_user_image(state, user_id, "profile-picture", multipart).await
+    let file = multipart_file(multipart, "file").await?;
+    let image = service::upload_user_profile_picture(
+        &state.database,
+        &state.upload_root,
+        user_id,
+        file.as_ref().and_then(|file| file.content_type.clone()),
+        file.map(|file| file.bytes).unwrap_or_default(),
+    )
+    .await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({ "image": image })),
+    ))
 }
 
 pub(super) async fn upload_user_cover_photo(
@@ -102,7 +115,20 @@ pub(super) async fn upload_user_cover_photo(
     AuthenticatedUser(user_id): AuthenticatedUser,
     multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
-    upload_user_image(state, user_id, "cover-photo", multipart).await
+    let file = multipart_file(multipart, "file").await?;
+    let image = service::upload_user_cover_photo(
+        &state.database,
+        &state.upload_root,
+        user_id,
+        file.as_ref().and_then(|file| file.content_type.clone()),
+        file.map(|file| file.bytes).unwrap_or_default(),
+    )
+    .await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({ "image": image })),
+    ))
 }
 
 #[derive(Debug, Deserialize)]
@@ -120,16 +146,10 @@ pub(super) async fn get_user_image(
 ) -> AppResult<Response<Body>> {
     let user_id = parse_uuid(&path.user_id, "userId")?;
     let image_id = parse_uuid(&path.image_id, "imageId")?;
-    authorize_user_image_access(
-        &state.database,
-        current_user_id,
-        user_id,
-        image_id,
-    )
-    .await?;
-    let (content_type, bytes) = service::get_user_image(
+    let image = service::get_user_image(
         &state.database,
         &state.upload_root,
+        current_user_id,
         user_id,
         image_id,
     )
@@ -139,78 +159,12 @@ pub(super) async fn get_user_image(
         .status(StatusCode::OK)
         .header(
             header::CONTENT_TYPE,
-            content_type
+            image
+                .content_type
                 .unwrap_or_else(|| "application/octet-stream".to_owned()),
         )
-        .body(Body::from(bytes))
+        .body(Body::from(image.bytes))
         .map_err(internal_error)
-}
-
-async fn upload_user_image(
-    state: UsersState,
-    user_id: sea_orm::prelude::Uuid,
-    kind: &str,
-    multipart: Multipart,
-) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
-    let file = multipart_file(multipart, "file").await?;
-    let image = service::store_user_image(
-        &state.database,
-        &state.upload_root,
-        user_id,
-        kind,
-        file.as_ref().and_then(|file| file.content_type.clone()),
-        file.map(|file| file.bytes).unwrap_or_default(),
-    )
-    .await?;
-
-    Ok((
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "image": image })),
-    ))
-}
-
-async fn authorize_user_image_access(
-    database: &DatabaseConnection,
-    current_user_id: Option<sea_orm::prelude::Uuid>,
-    user_id: sea_orm::prelude::Uuid,
-    image_id: sea_orm::prelude::Uuid,
-) -> AppResult<()> {
-    let profile_picture =
-        service::get_user_profile_picture(database, user_id).await?;
-    if profile_picture
-        .as_ref()
-        .is_some_and(|image| image.id == image_id.to_string())
-    {
-        let allowed = current_user_id == Some(user_id)
-            || service::is_default_server_member(database, user_id).await?;
-        return if allowed {
-            Ok(())
-        } else {
-            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-        };
-    }
-
-    let cover_photo = service::get_user_cover_photo(database, user_id).await?;
-    if cover_photo
-        .as_ref()
-        .is_some_and(|image| image.id == image_id.to_string())
-    {
-        let allowed = if current_user_id == Some(user_id) {
-            true
-        } else if let Some(current_user_id) = current_user_id {
-            service::has_shared_channel(database, current_user_id, user_id)
-                .await?
-        } else {
-            false
-        };
-        return if allowed {
-            Ok(())
-        } else {
-            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-        };
-    }
-
-    Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."))
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
