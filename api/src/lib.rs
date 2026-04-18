@@ -14,11 +14,17 @@ mod servers;
 mod users;
 mod view;
 
-use axum::{routing::get, Router};
+use axum::{
+    extract::MatchedPath,
+    http::{Request, Response},
+    routing::get,
+    Router,
+};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
-use std::{env, error::Error, io, net::SocketAddr};
-use tower_http::trace::TraceLayer;
+use std::{env, error::Error, io, net::SocketAddr, time::Duration};
+use tower_http::trace::{DefaultOnRequest, TraceLayer};
+use tracing::{Level, Span};
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -27,8 +33,13 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
-    let app =
-        build_router(database, jwt_secret).layer(TraceLayer::new_for_http());
+    let app = build_router(database, jwt_secret).layer(
+        TraceLayer::new_for_http()
+            .make_span_with(make_request_span)
+            .on_request(DefaultOnRequest::new().level(Level::DEBUG))
+            .on_response(log_response)
+            .on_failure(()),
+    );
 
     let server_port = env::var("VITE_SERVER_PORT")
         .or_else(|_| env::var("SERVER_PORT"))
@@ -138,4 +149,43 @@ fn required_env(name: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         )
         .into()
     })
+}
+
+fn make_request_span<B>(request: &Request<B>) -> Span {
+    let route = request
+        .extensions()
+        .get::<MatchedPath>()
+        .map(MatchedPath::as_str)
+        .unwrap_or_else(|| request.uri().path());
+
+    tracing::info_span!(
+        "request",
+        method = %request.method(),
+        route,
+    )
+}
+
+fn log_response<B>(response: &Response<B>, latency: Duration, _: &Span) {
+    let status = response.status();
+    let latency_ms = latency.as_millis();
+
+    if status.is_server_error() {
+        tracing::error!(
+            %status,
+            latency_ms,
+            "request failed",
+        );
+    } else if status.is_client_error() {
+        tracing::warn!(
+            %status,
+            latency_ms,
+            "request completed",
+        );
+    } else {
+        tracing::info!(
+            %status,
+            latency_ms,
+            "request completed",
+        );
+    }
 }

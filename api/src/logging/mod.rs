@@ -10,10 +10,10 @@ pub(crate) fn init() -> Result<WorkerGuard, Box<dyn Error + Send + Sync>> {
     fs::create_dir_all(logs_dir)?;
 
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        EnvFilter::new("api=info,praxis_live=info,tower_http=debug")
+        EnvFilter::new("api=info,praxis_live=info,tower_http=info")
     });
 
-    let stdout_layer = fmt::layer().pretty();
+    let stdout_layer = fmt::layer().compact();
 
     let file_appender = rolling::daily(logs_dir, "praxis-live.log");
     let (file_writer, guard) = non_blocking(file_appender);
