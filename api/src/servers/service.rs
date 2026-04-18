@@ -491,7 +491,7 @@ async fn shape_server(
 
 fn shape_user(
     user: users::Model,
-    profile_picture: Option<users_service::ImageReference>,
+    profile_picture: Option<users_service::UserImageRef>,
 ) -> UserResponse {
     UserResponse {
         id: user.id.to_string(),

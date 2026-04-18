@@ -54,7 +54,7 @@ pub(crate) enum CreateUserError {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ImageReference {
+pub(crate) struct UserImageRef {
     pub(crate) id: String,
     pub(crate) created_at: String,
 }
@@ -67,7 +67,7 @@ pub(crate) struct CurrentUserResponse {
     pub(crate) display_name: Option<String>,
     pub(crate) anonymous: bool,
     pub(crate) permissions: CurrentUserPermissions,
-    pub(crate) profile_picture: Option<ImageReference>,
+    pub(crate) profile_picture: Option<UserImageRef>,
     pub(crate) current_server: serde_json::Value,
     pub(crate) servers_count: usize,
 }
@@ -85,8 +85,8 @@ pub(crate) struct UserProfileResponse {
     pub(crate) name: String,
     pub(crate) display_name: Option<String>,
     pub(crate) bio: Option<String>,
-    pub(crate) profile_picture: Option<ImageReference>,
-    pub(crate) cover_photo: Option<ImageReference>,
+    pub(crate) profile_picture: Option<UserImageRef>,
+    pub(crate) cover_photo: Option<UserImageRef>,
 }
 
 #[derive(Debug, serde::Deserialize)]

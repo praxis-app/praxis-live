@@ -279,7 +279,7 @@ fn shape_message<'a>(
     user: Option<&users::Model>,
     profile_pictures: &std::collections::BTreeMap<
         Uuid,
-        crate::users::ImageReference,
+        crate::users::UserImageRef,
     >,
     images: impl Iterator<Item = &'a message_images::Model>,
 ) -> MessageResponse {

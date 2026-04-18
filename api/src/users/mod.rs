@@ -4,7 +4,7 @@ mod routes;
 mod service;
 
 pub(crate) use models::{
-    CreateUserError, ImageReference, PublicUser, UserRecord,
+    CreateUserError, PublicUser, UserImageRef, UserRecord,
 };
 pub(crate) use routes::router;
 pub(crate) use service::{

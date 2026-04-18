@@ -23,7 +23,7 @@ pub(crate) struct MessageUser {
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) display_name: Option<String>,
-    pub(crate) profile_picture: Option<crate::users::ImageReference>,
+    pub(crate) profile_picture: Option<crate::users::UserImageRef>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -11,7 +11,7 @@ use uuid::Uuid as NativeUuid;
 
 use super::models::{
     CreateUserError, CurrentUserPermissions, CurrentUserResponse,
-    ImageReference, UpdateUserProfileRequest, UserProfileResponse, UserRecord,
+    UpdateUserProfileRequest, UserImageRef, UserProfileResponse, UserRecord,
 };
 use crate::{
     common::{ApiError, AppResult},
@@ -171,21 +171,21 @@ pub(crate) async fn update_user_profile(
 pub(crate) async fn get_user_profile_picture(
     database: &DatabaseConnection,
     user_id: Uuid,
-) -> AppResult<Option<ImageReference>> {
+) -> AppResult<Option<UserImageRef>> {
     get_latest_user_image(database, user_id, PROFILE_PICTURE_KIND).await
 }
 
 pub(crate) async fn get_user_cover_photo(
     database: &DatabaseConnection,
     user_id: Uuid,
-) -> AppResult<Option<ImageReference>> {
+) -> AppResult<Option<UserImageRef>> {
     get_latest_user_image(database, user_id, COVER_PHOTO_KIND).await
 }
 
 pub(crate) async fn get_user_profile_pictures_map(
     database: &DatabaseConnection,
     user_ids: &[Uuid],
-) -> AppResult<BTreeMap<Uuid, ImageReference>> {
+) -> AppResult<BTreeMap<Uuid, UserImageRef>> {
     if user_ids.is_empty() {
         return Ok(BTreeMap::new());
     }
@@ -216,7 +216,7 @@ pub(crate) async fn store_user_image(
     kind: &str,
     content_type: Option<String>,
     bytes: Vec<u8>,
-) -> AppResult<ImageReference> {
+) -> AppResult<UserImageRef> {
     if bytes.is_empty() {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -352,8 +352,8 @@ pub(crate) fn upload_root() -> PathBuf {
         .join("content")
 }
 
-fn shape_image_reference(image: &user_images::Model) -> ImageReference {
-    ImageReference {
+fn shape_image_reference(image: &user_images::Model) -> UserImageRef {
+    UserImageRef {
         id: image.id.to_string(),
         created_at: image.created_at.to_rfc3339(),
     }
@@ -363,7 +363,7 @@ async fn get_latest_user_image(
     database: &DatabaseConnection,
     user_id: Uuid,
     kind: &str,
-) -> AppResult<Option<ImageReference>> {
+) -> AppResult<Option<UserImageRef>> {
     user_images::Entity::find()
         .filter(user_images::Column::UserId.eq(user_id))
         .filter(user_images::Column::Kind.eq(kind))
