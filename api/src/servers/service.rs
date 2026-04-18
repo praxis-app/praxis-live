@@ -15,6 +15,7 @@ use super::types::{
 use crate::channels as channel_api;
 use crate::common::{ApiError, AppResult};
 use crate::instance;
+use crate::users as user_api;
 
 pub(crate) use super::server_configs::{
     ensure_server_config, get_server_config, is_anonymous_users_enabled,
@@ -281,12 +282,20 @@ pub(crate) async fn get_server_members(
     }
 
     let users = users::Entity::find()
-        .filter(users::Column::Id.is_in(user_ids))
+        .filter(users::Column::Id.is_in(user_ids.clone()))
         .all(database)
         .await
         .map_err(internal_error)?;
+    let profile_pictures =
+        user_api::get_user_profile_pictures_map(database, &user_ids).await?;
 
-    Ok(users.into_iter().map(shape_user).collect())
+    Ok(users
+        .into_iter()
+        .map(|user| {
+            let user_id = user.id;
+            shape_user(user, profile_pictures.get(&user_id).cloned())
+        })
+        .collect())
 }
 
 pub(crate) async fn get_users_eligible_for_server(
@@ -310,7 +319,17 @@ pub(crate) async fn get_users_eligible_for_server(
     }
 
     let users = query.all(database).await.map_err(internal_error)?;
-    Ok(users.into_iter().map(shape_user).collect())
+    let user_ids: Vec<Uuid> = users.iter().map(|user| user.id).collect();
+    let profile_pictures =
+        user_api::get_user_profile_pictures_map(database, &user_ids).await?;
+
+    Ok(users
+        .into_iter()
+        .map(|user| {
+            let user_id = user.id;
+            shape_user(user, profile_pictures.get(&user_id).cloned())
+        })
+        .collect())
 }
 
 pub(crate) async fn add_server_members(
@@ -468,12 +487,15 @@ async fn shape_server(
     })
 }
 
-fn shape_user(user: users::Model) -> UserResponse {
+fn shape_user(
+    user: users::Model,
+    profile_picture: Option<user_api::ImageReference>,
+) -> UserResponse {
     UserResponse {
         id: user.id.to_string(),
         name: user.name,
-        display_name: None,
-        profile_picture: None,
+        display_name: user.display_name,
+        profile_picture,
     }
 }
 

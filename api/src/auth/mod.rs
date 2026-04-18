@@ -5,6 +5,6 @@ mod service;
 mod types;
 
 pub(crate) use extractor::{
-    authenticate_token, AuthenticatedUser, HasJwtSecret,
+    authenticate_token, AuthenticatedUser, HasJwtSecret, MaybeAuthenticatedUser,
 };
 pub(crate) use routes::router;

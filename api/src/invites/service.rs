@@ -10,7 +10,7 @@ use uuid::Uuid as NativeUuid;
 use super::types::{InviteRequest, InviteResponse, InviteUserResponse};
 use crate::{
     common::{ApiError, AppResult},
-    servers,
+    servers, users as user_api,
 };
 
 const INVITES_PAGE_SIZE: usize = 20;
@@ -152,6 +152,9 @@ pub(crate) async fn shape_invite(
             ApiError::new(StatusCode::NOT_FOUND, "User not found.")
         })?;
 
+    let profile_picture =
+        user_api::get_user_profile_picture(database, user.id).await?;
+
     Ok(InviteResponse {
         id: invite.id.to_string(),
         token: invite.token,
@@ -160,8 +163,8 @@ pub(crate) async fn shape_invite(
         user: InviteUserResponse {
             id: user.id.to_string(),
             name: user.name,
-            display_name: None,
-            profile_picture: None,
+            display_name: user.display_name,
+            profile_picture,
         },
         expires_at: invite.expires_at.map(|value| value.to_rfc3339()),
         created_at: invite.created_at.to_rfc3339(),

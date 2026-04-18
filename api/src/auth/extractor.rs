@@ -13,6 +13,7 @@ pub(crate) trait HasJwtSecret {
 }
 
 pub(crate) struct AuthenticatedUser(pub(crate) Uuid);
+pub(crate) struct MaybeAuthenticatedUser(pub(crate) Option<Uuid>);
 
 impl<S> FromRequestParts<S> for AuthenticatedUser
 where
@@ -29,6 +30,27 @@ where
         })?;
 
         authenticate_token(token, state.jwt_secret()).map(Self)
+    }
+}
+
+impl<S> FromRequestParts<S> for MaybeAuthenticatedUser
+where
+    S: HasJwtSecret + Send + Sync,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let Some(token) = bearer_token(parts) else {
+            return Ok(Self(None));
+        };
+
+        match authenticate_token(token, state.jwt_secret()) {
+            Ok(user_id) => Ok(Self(Some(user_id))),
+            Err(_) => Ok(Self(None)),
+        }
     }
 }
 

@@ -11,6 +11,7 @@ pub(crate) struct UserRecord {
     pub(crate) id: Uuid,
     pub(crate) email: String,
     pub(crate) name: String,
+    pub(crate) display_name: Option<String>,
     pub(crate) password_hash: String,
 }
 
@@ -20,6 +21,7 @@ pub(crate) struct PublicUser {
     id: Uuid,
     email: String,
     name: String,
+    display_name: Option<String>,
 }
 
 impl From<UserRecord> for PublicUser {
@@ -28,6 +30,7 @@ impl From<UserRecord> for PublicUser {
             id: user.id,
             email: user.email,
             name: user.name,
+            display_name: user.display_name,
         }
     }
 }
@@ -38,6 +41,7 @@ impl From<users::Model> for UserRecord {
             id: user.id,
             email: user.email,
             name: user.name,
+            display_name: user.display_name,
             password_hash: user.password_hash,
         }
     }
@@ -50,12 +54,20 @@ pub(crate) enum CreateUserError {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ImageReference {
+    pub(crate) id: String,
+    pub(crate) created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CurrentUserResponse {
     pub(crate) id: String,
     pub(crate) name: String,
+    pub(crate) display_name: Option<String>,
     pub(crate) anonymous: bool,
     pub(crate) permissions: CurrentUserPermissions,
-    pub(crate) profile_picture: Option<serde_json::Value>,
+    pub(crate) profile_picture: Option<ImageReference>,
     pub(crate) current_server: serde_json::Value,
     pub(crate) servers_count: usize,
 }
@@ -71,6 +83,16 @@ pub(crate) struct CurrentUserPermissions {
 pub(crate) struct UserProfileResponse {
     pub(crate) id: String,
     pub(crate) name: String,
-    pub(crate) profile_picture: Option<serde_json::Value>,
-    pub(crate) cover_photo: Option<serde_json::Value>,
+    pub(crate) display_name: Option<String>,
+    pub(crate) bio: Option<String>,
+    pub(crate) profile_picture: Option<ImageReference>,
+    pub(crate) cover_photo: Option<ImageReference>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UpdateUserProfileRequest {
+    pub(crate) name: Option<String>,
+    pub(crate) display_name: Option<String>,
+    pub(crate) bio: Option<String>,
 }

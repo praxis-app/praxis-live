@@ -1,6 +1,8 @@
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
+use crate::users::ImageReference;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ServerRequest {
@@ -45,7 +47,7 @@ pub(crate) struct UserResponse {
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) display_name: Option<String>,
-    pub(crate) profile_picture: Option<serde_json::Value>,
+    pub(crate) profile_picture: Option<ImageReference>,
 }
 
 #[derive(Debug, Deserialize)]
