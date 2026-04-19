@@ -27,8 +27,14 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
-    let app =
-        build_router(database, jwt_secret).layer(TraceLayer::new_for_http());
+
+    let app = build_router(database, jwt_secret).layer(
+        TraceLayer::new_for_http()
+            .make_span_with(logging::make_request_span)
+            .on_request(logging::log_request_start())
+            .on_response(logging::log_response)
+            .on_failure(()),
+    );
 
     let server_port = env::var("VITE_SERVER_PORT")
         .or_else(|_| env::var("SERVER_PORT"))
