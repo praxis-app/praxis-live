@@ -9,6 +9,8 @@ mod instance;
 mod invites;
 mod logging;
 mod messages;
+mod poll_actions;
+mod polls;
 mod pub_sub;
 mod servers;
 mod users;
