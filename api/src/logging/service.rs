@@ -18,11 +18,19 @@ pub(crate) fn init() -> Result<WorkerGuard, Box<dyn Error + Send + Sync>> {
         EnvFilter::new("api=info,praxis_live=info,tower_http=info")
     });
 
-    let stdout_layer = fmt::layer().compact();
-
     let file_appender = rolling::daily(logs_dir, "praxis-live.log");
     let (file_writer, guard) = non_blocking(file_appender);
-    let file_layer = fmt::layer().with_ansi(false).with_writer(file_writer);
+
+    let file_layer = fmt::layer()
+        .with_ansi(false)
+        .with_target(false)
+        .with_writer(file_writer);
+
+    let stdout_layer = fmt::layer()
+        .pretty()
+        .with_target(false)
+        .with_file(false)
+        .with_line_number(false);
 
     tracing_subscriber::registry()
         .with(env_filter)
