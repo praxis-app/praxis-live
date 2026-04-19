@@ -71,19 +71,18 @@ pub(crate) fn log_response<B>(
         tracing::error!(
             %status,
             latency_ms,
-            "request failed",
+
         );
     } else if status.is_client_error() {
         tracing::warn!(
             %status,
             latency_ms,
-            "request completed",
+
         );
     } else {
         tracing::info!(
             %status,
             latency_ms,
-            "request completed",
         );
     }
 }
