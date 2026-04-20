@@ -527,7 +527,7 @@ fn has_consent(
     if config
         .closing_at
         .map(|closing_at| Utc::now().fixed_offset() < closing_at)
-        .unwrap_or(true)
+        .unwrap_or(false)
     {
         return Ok(false);
     }
