@@ -4,18 +4,20 @@ use axum::{
     http::{header, Response, StatusCode},
     response::Json,
 };
+use chrono::{DateTime, FixedOffset};
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{service, types::CreateMessageRequest};
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     channels,
     common::{
         request::{multipart_file, parse_uuid},
         ApiError, AppResult,
     },
+    polls,
     pub_sub::PubSubService,
 };
 
@@ -78,18 +80,57 @@ pub(super) async fn get_channel_feed(
     State(chat_state): State<ChatState>,
     Path(path): Path<ChannelPath>,
     Query(query): Query<FeedQuery>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
     let limit = query.limit.unwrap_or(50).min(100);
-    let feed = service::get_feed(
+    let offset = query.offset.unwrap_or(0);
+    let fetch_limit = offset.saturating_add(limit);
+    let mut feed = service::get_feed(
         &chat_state.database,
         server_id,
         channel_id,
-        query.offset.unwrap_or(0),
-        limit,
+        0,
+        fetch_limit,
     )
     .await?;
+    let polls = polls::service::get_inline_polls(
+        &chat_state.database,
+        server_id,
+        channel_id,
+        0,
+        fetch_limit,
+        user_id,
+    )
+    .await?;
+
+    let mut feed = feed
+        .drain(..)
+        .map(serde_json::to_value)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(internal_error)?;
+    for poll in polls {
+        let mut value = serde_json::to_value(poll).map_err(internal_error)?;
+        if let Some(object) = value.as_object_mut() {
+            object.insert(
+                "type".to_owned(),
+                serde_json::Value::String("poll".to_owned()),
+            );
+        }
+        feed.push(value);
+    }
+
+    feed.sort_by(|left, right| {
+        timestamp_millis(right)
+            .cmp(&timestamp_millis(left))
+            .then_with(|| id_string(right).cmp(&id_string(left)))
+    });
+    let feed = feed
+        .into_iter()
+        .skip(offset as usize)
+        .take(limit as usize)
+        .collect::<Vec<_>>();
 
     Ok(Json(serde_json::json!({ "feed": feed })))
 }
@@ -197,6 +238,25 @@ pub(super) async fn get_message_image(
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("chat route failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+}
+
+fn timestamp_millis(value: &serde_json::Value) -> i64 {
+    value
+        .get("createdAt")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|timestamp| {
+            DateTime::<FixedOffset>::parse_from_rfc3339(timestamp).ok()
+        })
+        .map(|timestamp| timestamp.timestamp_millis())
+        .unwrap_or_default()
+}
+
+fn id_string(value: &serde_json::Value) -> String {
+    value
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_owned()
 }
 
 async fn broadcast_message(

@@ -8,7 +8,7 @@ use super::handlers::{
     create_channel, delete_channel, get_channel, get_channels,
     get_joined_channels, update_channel, ChannelsState,
 };
-use crate::{messages, pub_sub::PubSubService};
+use crate::{messages, polls, pub_sub::PubSubService};
 
 pub(crate) fn router(
     database: DatabaseConnection,
@@ -24,9 +24,11 @@ pub(crate) fn router(
         .route("/{channelId}", delete(delete_channel))
         .with_state(ChannelsState::new(database.clone(), jwt_secret.clone()));
 
-    channels_router.merge(messages::router(
-        database,
-        jwt_secret,
-        pub_sub_service,
-    ))
+    channels_router
+        .merge(messages::router(
+            database.clone(),
+            jwt_secret.clone(),
+            pub_sub_service.clone(),
+        ))
+        .merge(polls::router(database, jwt_secret, pub_sub_service))
 }
