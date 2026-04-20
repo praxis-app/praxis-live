@@ -15,6 +15,7 @@ mod pub_sub;
 mod servers;
 mod users;
 mod view;
+mod votes;
 
 use axum::{routing::get, Router};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};

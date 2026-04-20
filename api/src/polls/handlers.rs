@@ -8,10 +8,7 @@ use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
-use super::{
-    service,
-    types::{CreatePollRequest, VoteRequest},
-};
+use super::{service, types::CreatePollRequest};
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
     channels,
@@ -23,8 +20,8 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-pub(super) struct PollsState {
-    database: DatabaseConnection,
+pub(crate) struct PollsState {
+    pub(crate) database: DatabaseConnection,
     jwt_secret: Arc<str>,
     pub_sub_service: PubSubService,
     upload_root: Arc<PathBuf>,
@@ -70,18 +67,6 @@ pub(super) struct PollPath {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct VotePath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-    #[serde(rename = "voteId")]
-    vote_id: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub(super) struct PollImagePath {
     #[serde(rename = "serverId")]
     server_id: String,
@@ -91,18 +76,6 @@ pub(super) struct PollImagePath {
     poll_id: String,
     #[serde(rename = "imageId")]
     image_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct PollOptionPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-    #[serde(rename = "pollOptionId")]
-    poll_option_id: String,
 }
 
 pub(super) async fn create_poll(
@@ -204,95 +177,6 @@ pub(super) async fn get_poll_image(
         )
         .body(Body::from(image.bytes))
         .map_err(internal_error)
-}
-
-pub(super) async fn get_voters_by_poll_option(
-    State(state): State<PollsState>,
-    Path(path): Path<PollOptionPath>,
-) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-    let poll_option_id = parse_uuid(&path.poll_option_id, "pollOptionId")?;
-
-    let voters = service::get_voters_by_poll_option(
-        &state.database,
-        server_id,
-        channel_id,
-        poll_id,
-        poll_option_id,
-    )
-    .await?;
-
-    Ok(Json(serde_json::json!({ "voters": voters })))
-}
-
-pub(super) async fn create_vote(
-    State(state): State<PollsState>,
-    Path(path): Path<PollPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
-    Json(payload): Json<VoteRequest>,
-) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-    let vote = service::create_vote(
-        &state.database,
-        server_id,
-        channel_id,
-        poll_id,
-        user_id,
-        payload,
-    )
-    .await?;
-
-    Ok(Json(serde_json::json!({ "vote": vote })))
-}
-
-pub(super) async fn update_vote(
-    State(state): State<PollsState>,
-    Path(path): Path<VotePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
-    Json(payload): Json<VoteRequest>,
-) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-    let vote_id = parse_uuid(&path.vote_id, "voteId")?;
-    let response = service::update_vote(
-        &state.database,
-        server_id,
-        channel_id,
-        poll_id,
-        vote_id,
-        user_id,
-        payload,
-    )
-    .await?;
-
-    Ok(Json(serde_json::json!(response)))
-}
-
-pub(super) async fn delete_vote(
-    State(state): State<PollsState>,
-    Path(path): Path<VotePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-    let vote_id = parse_uuid(&path.vote_id, "voteId")?;
-    service::delete_vote(
-        &state.database,
-        server_id,
-        channel_id,
-        poll_id,
-        vote_id,
-        user_id,
-    )
-    .await?;
-
-    Ok(Json(serde_json::json!({})))
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

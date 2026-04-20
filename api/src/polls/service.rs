@@ -6,25 +6,23 @@ use entity::{
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, Set,
+    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    CreatePollRequest, CreateVoteResponse, PollConfigResponse,
-    PollImageResponse, PollOptionResponse, PollOptionVoterResponse,
-    PollResponse, PollUserResponse, StoredPollImage, UpdateVoteResponse,
-    VoteRequest, VoteResponse,
+    CreatePollRequest, PollConfigResponse, PollImageResponse,
+    PollOptionResponse, PollResponse, PollUserResponse, StoredPollImage,
 };
 use crate::{
     channels,
-    common::{request::parse_uuid, ApiError, AppResult},
+    common::{ApiError, AppResult},
     messages::types::serialize_timestamp,
     poll_actions::{self, types::CreatePollActionRequest},
     servers::server_configs,
     users as users_service,
+    votes::service as vote_service,
 };
 
 const MAX_IMAGE_COUNT: usize = 8;
@@ -151,195 +149,6 @@ pub(crate) async fn get_inline_polls(
     Ok(responses)
 }
 
-pub(crate) async fn create_vote(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
-    user_id: Uuid,
-    request: VoteRequest,
-) -> AppResult<CreateVoteResponse> {
-    let poll = validate_vote_request(
-        database, server_id, channel_id, poll_id, &request,
-    )
-    .await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
-
-    if votes::Entity::find()
-        .filter(votes::Column::PollId.eq(poll_id))
-        .filter(votes::Column::UserId.eq(user_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .is_some()
-    {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "You have already voted on this poll.",
-        ));
-    }
-
-    let poll_option_ids = parse_poll_option_ids(&request)?;
-    validate_poll_option_ids(database, poll_id, &poll_option_ids).await?;
-    let vote = votes::ActiveModel {
-        id: Set(NativeUuid::new_v4()),
-        poll_id: Set(poll_id),
-        user_id: Set(user_id),
-        vote_type: Set(request.vote_type.clone()),
-        ..Default::default()
-    }
-    .insert(database)
-    .await
-    .map_err(internal_error)?;
-
-    save_poll_option_selections(database, vote.id, &poll_option_ids).await?;
-    let is_ratifying_vote =
-        synchronize_ratification_after_vote(database, &poll).await?;
-
-    Ok(CreateVoteResponse {
-        id: vote.id.to_string(),
-        poll_id: vote.poll_id.to_string(),
-        user_id: vote.user_id.to_string(),
-        vote_type: vote.vote_type,
-        poll_option_ids: (!poll_option_ids.is_empty())
-            .then(|| poll_option_ids.iter().map(ToString::to_string).collect()),
-        is_ratifying_vote,
-    })
-}
-
-pub(crate) async fn update_vote(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
-    vote_id: Uuid,
-    user_id: Uuid,
-    request: VoteRequest,
-) -> AppResult<UpdateVoteResponse> {
-    let poll = validate_vote_request(
-        database, server_id, channel_id, poll_id, &request,
-    )
-    .await?;
-    let vote = votes::Entity::find_by_id(vote_id)
-        .filter(votes::Column::PollId.eq(poll_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Vote not found.")
-        })?;
-    if vote.user_id != user_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
-
-    let poll_option_ids = parse_poll_option_ids(&request)?;
-    validate_poll_option_ids(database, poll_id, &poll_option_ids).await?;
-    let mut active = vote.into_active_model();
-    active.vote_type = Set(request.vote_type);
-    active.update(database).await.map_err(internal_error)?;
-
-    poll_option_selections::Entity::delete_many()
-        .filter(poll_option_selections::Column::VoteId.eq(vote_id))
-        .exec(database)
-        .await
-        .map_err(internal_error)?;
-    save_poll_option_selections(database, vote_id, &poll_option_ids).await?;
-
-    let is_ratifying_vote =
-        synchronize_ratification_after_vote(database, &poll).await?;
-    Ok(UpdateVoteResponse { is_ratifying_vote })
-}
-
-pub(crate) async fn delete_vote(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
-    vote_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()> {
-    let poll = load_poll(database, server_id, channel_id, poll_id).await?;
-    if poll.stage != "voting" {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll is no longer accepting votes.",
-        ));
-    }
-
-    let vote = votes::Entity::find_by_id(vote_id)
-        .filter(votes::Column::PollId.eq(poll_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Vote not found.")
-        })?;
-    if vote.user_id != user_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
-    votes::Entity::delete_by_id(vote_id)
-        .exec(database)
-        .await
-        .map_err(internal_error)?;
-    Ok(())
-}
-
-pub(crate) async fn get_voters_by_poll_option(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
-    poll_option_id: Uuid,
-) -> AppResult<Vec<PollOptionVoterResponse>> {
-    load_poll(database, server_id, channel_id, poll_id).await?;
-    let option = poll_options::Entity::find_by_id(poll_option_id)
-        .filter(poll_options::Column::PollId.eq(poll_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Poll option not found.")
-        })?;
-
-    let selections = poll_option_selections::Entity::find()
-        .filter(poll_option_selections::Column::PollOptionId.eq(option.id))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    let vote_ids: Vec<Uuid> = selections
-        .iter()
-        .map(|selection| selection.vote_id)
-        .collect();
-    if vote_ids.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let votes = votes::Entity::find()
-        .filter(votes::Column::Id.is_in(vote_ids))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    let user_ids: Vec<Uuid> = votes.iter().map(|vote| vote.user_id).collect();
-    let users = users::Entity::find()
-        .filter(users::Column::Id.is_in(user_ids.clone()))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    let profile_pictures =
-        users_service::get_user_profile_pictures_map(database, &user_ids)
-            .await?;
-
-    Ok(users
-        .into_iter()
-        .map(|user| PollOptionVoterResponse {
-            id: user.id.to_string(),
-            name: user.name,
-            display_name: user.display_name,
-            profile_picture: profile_pictures.get(&user.id).cloned(),
-        })
-        .collect())
-}
-
 pub(crate) async fn store_poll_image(
     database: &DatabaseConnection,
     upload_root: &Path,
@@ -428,69 +237,6 @@ pub(crate) fn upload_root() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from(".uploads"))
 }
 
-async fn validate_vote_request(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
-    request: &VoteRequest,
-) -> AppResult<polls::Model> {
-    let poll = load_poll(database, server_id, channel_id, poll_id).await?;
-    if poll.stage != "voting" {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll is no longer accepting votes.",
-        ));
-    }
-    if poll.poll_type == "proposal" {
-        validate_vote_type(request.vote_type.as_deref())?;
-    } else if request
-        .poll_option_ids
-        .as_ref()
-        .map(Vec::is_empty)
-        .unwrap_or(true)
-    {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "At least one poll option must be selected.",
-        ));
-    }
-    Ok(poll)
-}
-
-async fn save_poll_option_selections(
-    database: &DatabaseConnection,
-    vote_id: Uuid,
-    poll_option_ids: &[Uuid],
-) -> AppResult<()> {
-    for poll_option_id in poll_option_ids {
-        poll_option_selections::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            vote_id: Set(vote_id),
-            poll_option_id: Set(*poll_option_id),
-            ..Default::default()
-        }
-        .insert(database)
-        .await
-        .map_err(internal_error)?;
-    }
-    Ok(())
-}
-
-async fn synchronize_ratification_after_vote(
-    database: &DatabaseConnection,
-    poll: &polls::Model,
-) -> AppResult<bool> {
-    if poll.poll_type != "proposal"
-        || !is_poll_ratifiable(database, poll.id).await?
-    {
-        return Ok(false);
-    }
-    ratify_poll(database, poll.id).await?;
-    poll_actions::service::implement_poll_action(database, poll.id).await?;
-    Ok(true)
-}
-
 pub(crate) async fn is_poll_ratifiable(
     database: &DatabaseConnection,
     poll_id: Uuid,
@@ -550,7 +296,7 @@ pub(crate) async fn ratify_poll(
     Ok(())
 }
 
-async fn load_poll(
+pub(crate) async fn load_poll(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -623,13 +369,13 @@ async fn shape_poll(
 
     let shaped_votes = votes
         .iter()
-        .map(|vote| shape_vote(vote, &selections))
+        .map(|vote| vote_service::shape_vote(vote, &selections))
         .collect::<Vec<_>>();
     let my_vote = current_user_id.and_then(|user_id| {
         votes
             .iter()
             .find(|vote| vote.user_id == user_id)
-            .map(|vote| shape_vote(vote, &selections))
+            .map(|vote| vote_service::shape_vote(vote, &selections))
     });
 
     Ok(PollResponse {
@@ -690,23 +436,6 @@ fn shape_poll_image(image: &poll_images::Model) -> PollImageResponse {
         id: image.id.to_string(),
         is_placeholder: image.storage_key.is_none(),
         created_at: serialize_timestamp(image.created_at),
-    }
-}
-
-fn shape_vote(
-    vote: &votes::Model,
-    selections: &[poll_option_selections::Model],
-) -> VoteResponse {
-    let poll_option_ids = selections
-        .iter()
-        .filter(|selection| selection.vote_id == vote.id)
-        .map(|selection| selection.poll_option_id.to_string())
-        .collect::<Vec<_>>();
-    VoteResponse {
-        id: vote.id.to_string(),
-        vote_type: vote.vote_type.clone(),
-        poll_option_ids: (!poll_option_ids.is_empty())
-            .then_some(poll_option_ids),
     }
 }
 
@@ -961,53 +690,6 @@ fn validate_action(
         }
     }
     Ok(())
-}
-
-fn validate_vote_type(vote_type: Option<&str>) -> AppResult<()> {
-    if matches!(vote_type, Some("agree" | "disagree" | "abstain" | "block")) {
-        Ok(())
-    } else {
-        Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Invalid vote type.",
-        ))
-    }
-}
-
-fn parse_poll_option_ids(request: &VoteRequest) -> AppResult<Vec<Uuid>> {
-    request
-        .poll_option_ids
-        .as_deref()
-        .unwrap_or(&[])
-        .iter()
-        .map(|id| parse_uuid(id, "pollOptionId"))
-        .collect()
-}
-
-async fn validate_poll_option_ids(
-    database: &DatabaseConnection,
-    poll_id: Uuid,
-    poll_option_ids: &[Uuid],
-) -> AppResult<()> {
-    if poll_option_ids.is_empty() {
-        return Ok(());
-    }
-
-    let count = poll_options::Entity::find()
-        .filter(poll_options::Column::PollId.eq(poll_id))
-        .filter(poll_options::Column::Id.is_in(poll_option_ids.to_vec()))
-        .count(database)
-        .await
-        .map_err(internal_error)?;
-
-    if count as usize == poll_option_ids.len() {
-        Ok(())
-    } else {
-        Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll option is invalid.",
-        ))
-    }
 }
 
 fn sanitize_text(value: &str) -> String {
