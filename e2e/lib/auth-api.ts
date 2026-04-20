@@ -7,12 +7,14 @@ import { ACCESS_TOKEN_KEY, createTestUser, type TestUser } from "./test-data";
 
 export type AuthenticatedUser = {
   accessToken: string;
+  userId: string;
   user: TestUser;
 };
 
 type SignupResponse = {
   access_token?: string | null;
   user?: {
+    id: string;
     email: string;
     name: string;
   } | null;
@@ -33,10 +35,12 @@ export async function signUpViaApi(
   await expect(response).toBeOK();
   const body = (await response.json()) as SignupResponse;
   expect(body.access_token).toBeTruthy();
+  expect(body.user?.id).toBeTruthy();
   expect(body.user?.email).toBe(user.email);
 
   return {
     accessToken: body.access_token ?? "",
+    userId: body.user?.id ?? "",
     user,
   };
 }
