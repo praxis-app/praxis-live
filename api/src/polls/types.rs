@@ -8,6 +8,7 @@ use crate::votes::types::VoteResponse;
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CreatePollRequest {
     pub(crate) body: Option<String>,
+    #[serde(default = "default_poll_type")]
     pub(crate) poll_type: String,
     pub(crate) action: Option<CreatePollActionRequest>,
     pub(crate) options: Option<Vec<String>>,
@@ -15,6 +16,10 @@ pub(crate) struct CreatePollRequest {
     pub(crate) closing_at: Option<DateTimeWithTimeZone>,
     #[serde(default)]
     pub(crate) image_count: usize,
+}
+
+fn default_poll_type() -> String {
+    "proposal".to_owned()
 }
 
 #[derive(Debug, Clone, Serialize)]

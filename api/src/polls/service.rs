@@ -378,28 +378,36 @@ async fn shape_poll(
             .map(|vote| vote_service::shape_vote(vote, &selections))
     });
 
+    let is_proposal = poll.poll_type == "proposal";
+
     Ok(PollResponse {
         id: poll.id.to_string(),
         body: poll.body,
         poll_type: poll.poll_type.clone(),
         stage: poll.stage,
-        action: if poll.poll_type == "proposal" {
+        action: if is_proposal {
             poll_actions::service::shape_poll_action(database, poll.id).await?
         } else {
             None
         },
         config: shape_poll_config(config),
-        options: options
-            .into_iter()
-            .map(|option| PollOptionResponse {
-                id: option.id.to_string(),
-                vote_count: selections
-                    .iter()
-                    .filter(|selection| selection.poll_option_id == option.id)
-                    .count(),
-                text: option.text,
-            })
-            .collect(),
+        options: if is_proposal {
+            vec![]
+        } else {
+            options
+                .into_iter()
+                .map(|option| PollOptionResponse {
+                    id: option.id.to_string(),
+                    vote_count: selections
+                        .iter()
+                        .filter(|selection| {
+                            selection.poll_option_id == option.id
+                        })
+                        .count(),
+                    text: option.text,
+                })
+                .collect()
+        },
         images: images.iter().map(shape_poll_image).collect(),
         user: PollUserResponse {
             id: user.id.to_string(),
@@ -407,10 +415,14 @@ async fn shape_poll(
             display_name: user.display_name,
             profile_picture,
         },
-        agreement_vote_count: votes
-            .iter()
-            .filter(|vote| vote.vote_type.as_deref() == Some("agree"))
-            .count(),
+        agreement_vote_count: if is_proposal {
+            votes
+                .iter()
+                .filter(|vote| vote.vote_type.as_deref() == Some("agree"))
+                .count()
+        } else {
+            0
+        },
         votes: shaped_votes,
         my_vote,
         member_count: get_poll_member_count(database, poll.id).await?,
@@ -693,7 +705,29 @@ fn validate_action(
 }
 
 fn sanitize_text(value: &str) -> String {
-    value.trim().to_owned()
+    let mut sanitized = String::with_capacity(value.len());
+    let mut characters = value.trim().chars().peekable();
+    while let Some(character) = characters.next() {
+        if character != '<' {
+            sanitized.push(character);
+            continue;
+        }
+
+        let mut possible_tag = String::from("<");
+        let mut found_tag_end = false;
+        for character in characters.by_ref() {
+            possible_tag.push(character);
+            if character == '>' {
+                found_tag_end = true;
+                break;
+            }
+        }
+
+        if !found_tag_end {
+            sanitized.push_str(&possible_tag);
+        }
+    }
+    sanitized
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
