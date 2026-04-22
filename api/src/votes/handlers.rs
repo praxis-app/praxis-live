@@ -1,12 +1,12 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::Json,
 };
 use serde::Deserialize;
 
 use super::{service, types::VoteRequest};
 use crate::{
-    auth::AuthenticatedUser,
+    auth::{AuthenticatedUser, AuthenticatedUserOptional},
     common::{request::parse_uuid, AppResult},
     polls::handlers::PollsState,
 };
@@ -45,9 +45,17 @@ pub(crate) struct PollOptionPath {
     poll_option_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PollOptionQuery {
+    invite_token: Option<String>,
+}
+
 pub(crate) async fn get_voters_by_poll_option(
     State(state): State<PollsState>,
     Path(path): Path<PollOptionPath>,
+    Query(query): Query<PollOptionQuery>,
+    AuthenticatedUserOptional(current_user_id): AuthenticatedUserOptional,
 ) -> AppResult<Json<serde_json::Value>> {
     let server_id = parse_uuid(&path.server_id, "serverId")?;
     let channel_id = parse_uuid(&path.channel_id, "channelId")?;
@@ -60,6 +68,8 @@ pub(crate) async fn get_voters_by_poll_option(
         channel_id,
         poll_id,
         poll_option_id,
+        current_user_id,
+        query.invite_token.as_deref(),
     )
     .await?;
 

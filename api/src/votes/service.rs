@@ -15,7 +15,7 @@ use super::types::{
 use crate::{
     channels,
     common::{request::parse_uuid, ApiError, AppResult},
-    poll_actions,
+    invites, poll_actions,
     polls::service as polls_service,
     users as users_service,
 };
@@ -161,6 +161,8 @@ pub(crate) async fn get_voters_by_poll_option(
     channel_id: Uuid,
     poll_id: Uuid,
     poll_option_id: Uuid,
+    current_user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<Vec<PollOptionVoterResponse>> {
     polls_service::load_poll(database, server_id, channel_id, poll_id).await?;
     let option = poll_options::Entity::find_by_id(poll_option_id)
@@ -171,6 +173,16 @@ pub(crate) async fn get_voters_by_poll_option(
         .ok_or_else(|| {
             ApiError::new(StatusCode::NOT_FOUND, "Poll option not found.")
         })?;
+
+    ensure_can_read_poll_option(
+        database,
+        server_id,
+        channel_id,
+        poll_id,
+        current_user_id,
+        invite_token,
+    )
+    .await?;
 
     let selections = poll_option_selections::Entity::find()
         .filter(poll_option_selections::Column::PollOptionId.eq(option.id))
@@ -209,6 +221,44 @@ pub(crate) async fn get_voters_by_poll_option(
             profile_picture: profile_pictures.get(&user.id).cloned(),
         })
         .collect())
+}
+
+async fn ensure_can_read_poll_option(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    poll_id: Uuid,
+    current_user_id: Option<Uuid>,
+    invite_token: Option<&str>,
+) -> AppResult<()> {
+    if let Some(user_id) = current_user_id {
+        return channels::ensure_channel_membership(
+            database, channel_id, user_id,
+        )
+        .await;
+    }
+
+    if polls_service::is_public_channel_poll(
+        database, server_id, channel_id, poll_id,
+    )
+    .await?
+    {
+        return Ok(());
+    }
+
+    if let Some(invite_token) = invite_token {
+        if invites::service::is_valid_invite_for_server(
+            database,
+            invite_token,
+            server_id,
+        )
+        .await?
+        {
+            return Ok(());
+        }
+    }
+
+    Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
 }
 
 pub(crate) fn shape_vote(

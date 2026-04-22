@@ -20,7 +20,7 @@ use crate::{
     common::{ApiError, AppResult},
     messages::types::serialize_timestamp,
     poll_actions::{self, types::CreatePollActionRequest},
-    servers::server_configs,
+    servers::{self, server_configs},
     users as users_service,
     votes::service as vote_service,
 };
@@ -294,6 +294,17 @@ pub(crate) async fn ratify_poll(
     active.stage = Set("ratified".to_owned());
     active.update(database).await.map_err(internal_error)?;
     Ok(())
+}
+
+pub(crate) async fn is_public_channel_poll(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    poll_id: Uuid,
+) -> AppResult<bool> {
+    load_poll(database, server_id, channel_id, poll_id).await?;
+    let default_server_id = servers::default_server_id(database).await?;
+    Ok(default_server_id == server_id)
 }
 
 pub(crate) async fn load_poll(
