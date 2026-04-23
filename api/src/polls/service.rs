@@ -29,8 +29,12 @@ use crate::{
 
 const MAX_IMAGE_COUNT: usize = 8;
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
+
 const PROPOSAL_SYNC_BATCH_SIZE: usize = 20;
 const PROPOSAL_SYNC_INTERVAL_SECONDS: u64 = 60 * 5;
+
+const POLL_CLOSURE_BATCH_SIZE: usize = 20;
+const POLL_CLOSURE_INTERVAL_SECONDS: u64 = 60 * 5;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct ProposalSyncSummary {
@@ -45,6 +49,13 @@ enum ProposalSyncAction {
     None,
     Ratify,
     Close,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct ExpiredPollClosureSummary {
+    processed: usize,
+    closed: usize,
+    failed: usize,
 }
 
 pub(crate) fn spawn_proposal_synchronizer(database: DatabaseConnection) {
@@ -70,6 +81,34 @@ pub(crate) fn spawn_proposal_synchronizer(database: DatabaseConnection) {
                 Ok(_) => {}
                 Err(error) => {
                     tracing::warn!("Failed to synchronize proposals: {error}");
+                }
+            }
+        }
+    });
+}
+
+pub(crate) fn spawn_expired_poll_closer(database: DatabaseConnection) {
+    tokio::spawn(async move {
+        let mut interval = time::interval(std::time::Duration::from_secs(
+            POLL_CLOSURE_INTERVAL_SECONDS,
+        ));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+
+            match close_expired_polls(&database).await {
+                Ok(summary) if summary.processed > 0 => {
+                    tracing::info!(
+                        processed = summary.processed,
+                        closed = summary.closed,
+                        failed = summary.failed,
+                        "Closed expired polls."
+                    );
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!("Failed to close expired polls: {error}");
                 }
             }
         }
@@ -392,6 +431,64 @@ async fn synchronize_proposals(
                     tracing::warn!(
                         poll_id = %poll.id,
                         "Failed to synchronize proposal: {error}"
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(summary)
+}
+
+async fn close_expired_polls(
+    database: &DatabaseConnection,
+) -> AppResult<ExpiredPollClosureSummary> {
+    let configs = poll_configs::Entity::find()
+        .filter(poll_configs::Column::ClosingAt.is_not_null())
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    if configs.is_empty() {
+        return Ok(ExpiredPollClosureSummary::default());
+    }
+
+    let now = Utc::now().fixed_offset();
+    let poll_ids = configs
+        .into_iter()
+        .filter_map(|config| {
+            config
+                .closing_at
+                .filter(|closing_at| *closing_at <= now)
+                .map(|_| config.poll_id)
+        })
+        .collect::<Vec<_>>();
+    if poll_ids.is_empty() {
+        return Ok(ExpiredPollClosureSummary::default());
+    }
+
+    let expired_polls = polls::Entity::find()
+        .filter(polls::Column::Id.is_in(poll_ids))
+        .filter(polls::Column::PollType.eq("poll"))
+        .filter(polls::Column::Stage.eq("voting"))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    if expired_polls.is_empty() {
+        return Ok(ExpiredPollClosureSummary::default());
+    }
+
+    let mut summary = ExpiredPollClosureSummary::default();
+    for batch in expired_polls.chunks(POLL_CLOSURE_BATCH_SIZE) {
+        for poll in batch {
+            summary.processed += 1;
+
+            match close_poll(database, poll.id).await {
+                Ok(()) => summary.closed += 1,
+                Err(error) => {
+                    summary.failed += 1;
+                    tracing::warn!(
+                        poll_id = %poll.id,
+                        "Failed to close expired poll: {error}"
                     );
                 }
             }
