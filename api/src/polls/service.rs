@@ -8,7 +8,9 @@ use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
     EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
 };
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use tokio::time::{self, MissedTickBehavior};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
@@ -27,6 +29,52 @@ use crate::{
 
 const MAX_IMAGE_COUNT: usize = 8;
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
+const PROPOSAL_SYNC_BATCH_SIZE: usize = 20;
+const PROPOSAL_SYNC_INTERVAL_SECONDS: u64 = 60 * 5;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct ProposalSyncSummary {
+    processed: usize,
+    ratified: usize,
+    closed: usize,
+    failed: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ProposalSyncAction {
+    None,
+    Ratify,
+    Close,
+}
+
+pub(crate) fn spawn_proposal_synchronizer(database: DatabaseConnection) {
+    tokio::spawn(async move {
+        let mut interval = time::interval(std::time::Duration::from_secs(
+            PROPOSAL_SYNC_INTERVAL_SECONDS,
+        ));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+
+            match synchronize_proposals(&database).await {
+                Ok(summary) if summary.processed > 0 => {
+                    tracing::info!(
+                        processed = summary.processed,
+                        ratified = summary.ratified,
+                        closed = summary.closed,
+                        failed = summary.failed,
+                        "Synchronized proposals."
+                    );
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!("Failed to synchronize proposals: {error}");
+                }
+            }
+        }
+    });
+}
 
 pub(crate) async fn create_poll(
     database: &DatabaseConnection,
@@ -294,6 +342,63 @@ pub(crate) async fn ratify_poll(
     active.stage = Set("ratified".to_owned());
     active.update(database).await.map_err(internal_error)?;
     Ok(())
+}
+
+async fn synchronize_proposals(
+    database: &DatabaseConnection,
+) -> AppResult<ProposalSyncSummary> {
+    let configs = poll_configs::Entity::find()
+        .filter(poll_configs::Column::ClosingAt.is_not_null())
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    if configs.is_empty() {
+        return Ok(ProposalSyncSummary::default());
+    }
+
+    let configs_by_poll_id = configs
+        .into_iter()
+        .map(|config| (config.poll_id, config))
+        .collect::<HashMap<_, _>>();
+    let poll_ids = configs_by_poll_id.keys().copied().collect::<Vec<_>>();
+    let proposals = polls::Entity::find()
+        .filter(polls::Column::Id.is_in(poll_ids))
+        .filter(polls::Column::PollType.eq("proposal"))
+        .filter(polls::Column::Stage.eq("voting"))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    if proposals.is_empty() {
+        return Ok(ProposalSyncSummary::default());
+    }
+
+    let mut summary = ProposalSyncSummary::default();
+    for batch in proposals.chunks(PROPOSAL_SYNC_BATCH_SIZE) {
+        for poll in batch {
+            summary.processed += 1;
+
+            let Some(config) = configs_by_poll_id.get(&poll.id) else {
+                summary.failed += 1;
+                tracing::warn!(poll_id = %poll.id, "Poll config missing.");
+                continue;
+            };
+
+            match synchronize_proposal(database, poll, config).await {
+                Ok(ProposalSyncAction::Ratify) => summary.ratified += 1,
+                Ok(ProposalSyncAction::Close) => summary.closed += 1,
+                Ok(ProposalSyncAction::None) => {}
+                Err(error) => {
+                    summary.failed += 1;
+                    tracing::warn!(
+                        poll_id = %poll.id,
+                        "Failed to synchronize proposal: {error}"
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(summary)
 }
 
 pub(crate) async fn is_public_channel_poll(
@@ -590,6 +695,69 @@ fn required(value: Option<i32>) -> AppResult<i32> {
 
 fn get_required_count(member_count: usize, threshold: i32) -> usize {
     ((member_count as f64) * (threshold as f64 * 0.01)).ceil() as usize
+}
+
+async fn synchronize_proposal(
+    database: &DatabaseConnection,
+    poll: &polls::Model,
+    config: &poll_configs::Model,
+) -> AppResult<ProposalSyncAction> {
+    let action = proposal_sync_action(
+        config.closing_at,
+        is_poll_ratifiable(database, poll.id).await?,
+        Utc::now().fixed_offset(),
+    );
+
+    match action {
+        ProposalSyncAction::None => Ok(action),
+        ProposalSyncAction::Ratify => {
+            ratify_poll(database, poll.id).await?;
+            poll_actions::service::implement_poll_action(database, poll.id)
+                .await?;
+            Ok(action)
+        }
+        ProposalSyncAction::Close => {
+            close_poll(database, poll.id).await?;
+            Ok(action)
+        }
+    }
+}
+
+fn proposal_sync_action(
+    closing_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+    is_ratifiable: bool,
+    now: chrono::DateTime<chrono::FixedOffset>,
+) -> ProposalSyncAction {
+    let Some(closing_at) = closing_at else {
+        return ProposalSyncAction::None;
+    };
+
+    if now < closing_at {
+        return ProposalSyncAction::None;
+    }
+
+    if is_ratifiable {
+        ProposalSyncAction::Ratify
+    } else {
+        ProposalSyncAction::Close
+    }
+}
+
+async fn close_poll(
+    database: &DatabaseConnection,
+    poll_id: Uuid,
+) -> AppResult<()> {
+    let poll = polls::Entity::find_by_id(poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+    let mut active = poll.into_active_model();
+    active.stage = Set("closed".to_owned());
+    active.update(database).await.map_err(internal_error)?;
+    Ok(())
 }
 
 fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
