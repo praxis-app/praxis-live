@@ -17,6 +17,12 @@ pub(super) struct LoginRequest {
     pub(super) password: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct CreateAnonSessionRequest {
+    pub(super) invite_token: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SessionResponse {

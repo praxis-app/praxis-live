@@ -41,6 +41,38 @@ pub(crate) async fn create_user(
     .map_err(map_create_user_error)
 }
 
+pub(crate) async fn create_anon_user(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> Result<UserRecord, CreateUserError> {
+    let user_id = NativeUuid::new_v4();
+    let suffix = user_id.simple().to_string()[..8].to_owned();
+
+    let user = users::ActiveModel {
+        id: Set(user_id),
+        email: Set(format!("anon-{user_id}@anonymous.praxis.local")),
+        name: Set(format!("anon_{suffix}")),
+        password_hash: Set(String::new()),
+        anonymous: Set(true),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map(UserRecord::from)
+    .map_err(map_create_user_error)?;
+
+    crate::servers::service::add_member_to_server(database, server_id, user.id)
+        .await
+        .map_err(api_error_to_create_user_error)?;
+    crate::channels::add_member_to_all_server_channels(
+        database, server_id, user.id,
+    )
+    .await
+    .map_err(api_error_to_create_user_error)?;
+
+    Ok(user)
+}
+
 pub(crate) async fn get_user_by_id(
     database: &DatabaseConnection,
     user_id: Uuid,
@@ -500,6 +532,10 @@ fn map_create_user_error(error: DbErr) -> CreateUserError {
     }
 
     CreateUserError::Database(error)
+}
+
+fn api_error_to_create_user_error(error: ApiError) -> CreateUserError {
+    CreateUserError::Database(DbErr::Custom(error.to_string()))
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

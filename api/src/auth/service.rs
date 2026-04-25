@@ -100,6 +100,37 @@ pub(super) async fn signup(
     Ok(user)
 }
 
+pub(super) async fn create_anon_session(
+    database: &DatabaseConnection,
+    invite_token: Option<String>,
+) -> AppResult<UserRecord> {
+    let invite_token = invite_token.ok_or_else(|| {
+        ApiError::new(StatusCode::FORBIDDEN, "You need an invite to sign up.")
+    })?;
+    let invite =
+        crate::invites::service::get_invite_by_token(database, &invite_token)
+            .await
+            .map_err(|_| {
+                ApiError::new(StatusCode::FORBIDDEN, "Invalid invite token.")
+            })?;
+
+    if !servers::service::is_anonymous_users_enabled(database, invite.server_id)
+        .await?
+    {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "Anonymous users are not enabled for this server.",
+        ));
+    }
+
+    let user = users::create_anon_user(database, invite.server_id)
+        .await
+        .map_err(map_create_user_error)?;
+    crate::invites::service::redeem_invite(database, &invite_token).await?;
+
+    Ok(user)
+}
+
 pub(super) fn validate_signup(
     mut input: SignupRequest,
 ) -> AppResult<SignupRequest> {

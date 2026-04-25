@@ -23,6 +23,7 @@ pub(crate) struct PublicUser {
     email: String,
     name: String,
     display_name: Option<String>,
+    anonymous: bool,
 }
 
 impl From<UserRecord> for PublicUser {
@@ -32,6 +33,7 @@ impl From<UserRecord> for PublicUser {
             email: user.email,
             name: user.name,
             display_name: user.display_name,
+            anonymous: user.anonymous,
         }
     }
 }
