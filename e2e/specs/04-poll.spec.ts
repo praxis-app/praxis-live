@@ -110,7 +110,7 @@ test('authenticated user can create and vote in a poll', async ({
   await expect(page.getByText('1 vote').first()).toBeVisible();
 });
 
-test('authenticated user sees a poll close after it is expired and swept', async ({
+test('authenticated user sees a poll close after its closing time passes', async ({
   context,
   page,
   request,
