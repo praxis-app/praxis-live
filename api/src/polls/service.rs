@@ -61,7 +61,10 @@ struct ExpiredPollClosureSummary {
 pub(crate) fn spawn_proposal_synchronizer(database: DatabaseConnection) {
     tokio::spawn(async move {
         let mut interval = time::interval(std::time::Duration::from_secs(
-            PROPOSAL_SYNC_INTERVAL_SECONDS,
+            configured_interval_seconds(
+                "PROPOSAL_SYNC_INTERVAL_SECONDS",
+                PROPOSAL_SYNC_INTERVAL_SECONDS,
+            ),
         ));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
@@ -90,7 +93,10 @@ pub(crate) fn spawn_proposal_synchronizer(database: DatabaseConnection) {
 pub(crate) fn spawn_expired_poll_closer(database: DatabaseConnection) {
     tokio::spawn(async move {
         let mut interval = time::interval(std::time::Duration::from_secs(
-            POLL_CLOSURE_INTERVAL_SECONDS,
+            configured_interval_seconds(
+                "POLL_CLOSURE_INTERVAL_SECONDS",
+                POLL_CLOSURE_INTERVAL_SECONDS,
+            ),
         ));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
@@ -792,6 +798,14 @@ fn required(value: Option<i32>) -> AppResult<i32> {
 
 fn get_required_count(member_count: usize, threshold: i32) -> usize {
     ((member_count as f64) * (threshold as f64 * 0.01)).ceil() as usize
+}
+
+fn configured_interval_seconds(env_key: &str, default: u64) -> u64 {
+    std::env::var(env_key)
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(default)
 }
 
 async fn synchronize_proposal(
