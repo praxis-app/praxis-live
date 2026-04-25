@@ -10,6 +10,7 @@ pub struct Model {
     pub display_name: Option<String>,
     pub bio: Option<String>,
     pub password_hash: String,
+    pub anonymous: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

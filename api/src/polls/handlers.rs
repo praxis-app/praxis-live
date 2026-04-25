@@ -179,6 +179,30 @@ pub(super) async fn get_poll_image(
         .map_err(internal_error)
 }
 
+pub(super) async fn delete_poll(
+    State(state): State<PollsState>,
+    Path(path): Path<PollPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+) -> AppResult<Json<serde_json::Value>> {
+    let server_id = parse_uuid(&path.server_id, "serverId")?;
+    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
+    let poll_id = parse_uuid(&path.poll_id, "pollId")?;
+
+    let result = service::delete_poll(
+        &state.database,
+        &state.upload_root,
+        server_id,
+        channel_id,
+        poll_id,
+        user_id,
+    )
+    .await?;
+
+    Ok(Json(
+        serde_json::json!({ "affected": result.rows_affected }),
+    ))
+}
+
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("poll route failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")

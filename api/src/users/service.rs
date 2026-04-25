@@ -91,7 +91,7 @@ pub(crate) async fn get_current_user(
         id: user.id.to_string(),
         name: user.name,
         display_name: user.display_name,
-        anonymous: false,
+        anonymous: user.anonymous,
         permissions: CurrentUserPermissions {
             instance:
                 instance::instance_roles::service::get_permissions_by_user(

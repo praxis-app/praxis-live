@@ -13,6 +13,7 @@ pub(crate) struct UserRecord {
     pub(crate) name: String,
     pub(crate) display_name: Option<String>,
     pub(crate) password_hash: String,
+    pub(crate) anonymous: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,6 +44,7 @@ impl From<users::Model> for UserRecord {
             name: user.name,
             display_name: user.display_name,
             password_hash: user.password_hash,
+            anonymous: user.anonymous,
         }
     }
 }

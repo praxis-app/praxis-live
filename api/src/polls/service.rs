@@ -6,7 +6,8 @@ use entity::{
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
+    DeleteResult, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
+    QuerySelect, Set,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -138,6 +139,7 @@ pub(crate) async fn create_poll(
         .map(sanitize_text)
         .filter(|value| !value.is_empty());
     let is_proposal = request.poll_type == "proposal";
+    ensure_allowed_to_create_proposal(database, user_id, &request).await?;
     let server_config =
         server_configs::service::ensure_server_config(database, server_id)
             .await?;
@@ -322,6 +324,40 @@ pub(crate) async fn get_poll_image(
         content_type: image.content_type,
         bytes,
     })
+}
+
+pub(crate) async fn delete_poll(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    server_id: Uuid,
+    channel_id: Uuid,
+    poll_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<DeleteResult> {
+    let poll = load_poll(database, server_id, channel_id, poll_id).await?;
+    channels::ensure_channel_membership(database, channel_id, user_id).await?;
+    if poll.user_id != user_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
+    }
+
+    let images = poll_images::Entity::find()
+        .filter(poll_images::Column::PollId.eq(poll_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    for storage_key in
+        images.iter().filter_map(|image| image.storage_key.as_ref())
+    {
+        tokio::fs::remove_file(upload_root.join(storage_key))
+            .await
+            .map_err(internal_error)?;
+    }
+
+    polls::Entity::delete_by_id(poll_id)
+        .exec(database)
+        .await
+        .map_err(internal_error)
 }
 
 pub(crate) fn upload_root() -> PathBuf {
@@ -668,6 +704,41 @@ fn shape_poll_image(image: &poll_images::Model) -> PollImageResponse {
         is_placeholder: image.storage_key.is_none(),
         created_at: serialize_timestamp(image.created_at),
     }
+}
+
+async fn ensure_allowed_to_create_proposal(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    request: &CreatePollRequest,
+) -> AppResult<()> {
+    if request.poll_type != "proposal" {
+        return Ok(());
+    }
+    if request
+        .action
+        .as_ref()
+        .map(|action| action.action_type.as_str())
+        == Some("test")
+    {
+        return Ok(());
+    }
+
+    let user = users::Entity::find_by_id(user_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
+        })?;
+
+    if user.anonymous {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "Only registered users can create non-test proposals.",
+        ));
+    }
+
+    Ok(())
 }
 
 async fn get_poll_member_count(
