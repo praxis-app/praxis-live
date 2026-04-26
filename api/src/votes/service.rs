@@ -23,20 +23,14 @@ use crate::{
 
 pub(crate) async fn create_vote(
     database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
+    poll: polls::Model,
     user_id: Uuid,
     request: VoteRequest,
 ) -> AppResult<CreateVoteResponse> {
-    let poll = validate_vote_request(
-        database, server_id, channel_id, poll_id, user_id, &request,
-    )
-    .await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
+    validate_vote_request(&poll, &request)?;
 
     if vote_entities::Entity::find()
-        .filter(vote_entities::Column::PollId.eq(poll_id))
+        .filter(vote_entities::Column::PollId.eq(poll.id))
         .filter(vote_entities::Column::UserId.eq(user_id))
         .one(database)
         .await
@@ -50,10 +44,10 @@ pub(crate) async fn create_vote(
     }
 
     let poll_option_ids = parse_poll_option_ids(&request)?;
-    validate_poll_option_ids(database, poll_id, &poll_option_ids).await?;
+    validate_poll_option_ids(database, poll.id, &poll_option_ids).await?;
     let vote = vote_entities::ActiveModel {
         id: Set(NativeUuid::new_v4()),
-        poll_id: Set(poll_id),
+        poll_id: Set(poll.id),
         user_id: Set(user_id),
         vote_type: Set(request.vote_type.clone()),
         ..Default::default()
@@ -79,19 +73,14 @@ pub(crate) async fn create_vote(
 
 pub(crate) async fn update_vote(
     database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
+    poll: polls::Model,
     vote_id: Uuid,
     user_id: Uuid,
     request: VoteRequest,
 ) -> AppResult<UpdateVoteResponse> {
-    let poll = validate_vote_request(
-        database, server_id, channel_id, poll_id, user_id, &request,
-    )
-    .await?;
+    validate_vote_request(&poll, &request)?;
     let vote = vote_entities::Entity::find_by_id(vote_id)
-        .filter(vote_entities::Column::PollId.eq(poll_id))
+        .filter(vote_entities::Column::PollId.eq(poll.id))
         .one(database)
         .await
         .map_err(internal_error)?
@@ -103,7 +92,7 @@ pub(crate) async fn update_vote(
     }
 
     let poll_option_ids = parse_poll_option_ids(&request)?;
-    validate_poll_option_ids(database, poll_id, &poll_option_ids).await?;
+    validate_poll_option_ids(database, poll.id, &poll_option_ids).await?;
     let mut active = vote.into_active_model();
     active.vote_type = Set(request.vote_type);
     active.update(database).await.map_err(internal_error)?;
@@ -122,23 +111,10 @@ pub(crate) async fn update_vote(
 
 pub(crate) async fn delete_vote(
     database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
     poll_id: Uuid,
     vote_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
-    let poll =
-        polls_service::load_poll(database, server_id, channel_id, poll_id)
-            .await?;
-    if poll.stage != "voting" {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll is no longer accepting votes.",
-        ));
-    }
-    ensure_anonymous_can_vote_on_poll(database, user_id, &poll).await?;
-
     let vote = vote_entities::Entity::find_by_id(vote_id)
         .filter(vote_entities::Column::PollId.eq(poll_id))
         .one(database)
@@ -159,35 +135,11 @@ pub(crate) async fn delete_vote(
 
 pub(crate) async fn get_voters_by_poll_option(
     database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
+    _poll_id: Uuid,
     poll_option_id: Uuid,
-    current_user_id: Option<Uuid>,
-    invite_token: Option<&str>,
 ) -> AppResult<Vec<PollOptionVoterResponse>> {
-    polls_service::load_poll(database, server_id, channel_id, poll_id).await?;
-    let option = poll_options::Entity::find_by_id(poll_option_id)
-        .filter(poll_options::Column::PollId.eq(poll_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Poll option not found.")
-        })?;
-
-    ensure_can_read_poll_option(
-        database,
-        server_id,
-        channel_id,
-        poll_id,
-        current_user_id,
-        invite_token,
-    )
-    .await?;
-
     let selections = poll_option_selections::Entity::find()
-        .filter(poll_option_selections::Column::PollOptionId.eq(option.id))
+        .filter(poll_option_selections::Column::PollOptionId.eq(poll_option_id))
         .all(database)
         .await
         .map_err(internal_error)?;
@@ -225,7 +177,7 @@ pub(crate) async fn get_voters_by_poll_option(
         .collect())
 }
 
-async fn ensure_can_read_poll_option(
+pub(crate) async fn ensure_can_read_poll_option(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -263,6 +215,23 @@ async fn ensure_can_read_poll_option(
     Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
 }
 
+pub(crate) async fn ensure_poll_option_exists(
+    database: &DatabaseConnection,
+    poll_id: Uuid,
+    poll_option_id: Uuid,
+) -> AppResult<()> {
+    poll_options::Entity::find_by_id(poll_option_id)
+        .filter(poll_options::Column::PollId.eq(poll_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll option not found.")
+        })?;
+
+    Ok(())
+}
+
 pub(crate) fn shape_vote(
     vote: &vote_entities::Model,
     selections: &[poll_option_selections::Model],
@@ -280,26 +249,12 @@ pub(crate) fn shape_vote(
     }
 }
 
-async fn validate_vote_request(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
-    user_id: Uuid,
+fn validate_vote_request(
+    poll: &polls::Model,
     request: &VoteRequest,
-) -> AppResult<polls::Model> {
-    let poll =
-        polls_service::load_poll(database, server_id, channel_id, poll_id)
-            .await?;
-    if poll.stage != "voting" {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll is no longer accepting votes.",
-        ));
-    }
+) -> AppResult<()> {
     if poll.poll_type == "proposal" {
         validate_vote_type(request.vote_type.as_deref())?;
-        ensure_anonymous_can_vote_on_poll(database, user_id, &poll).await?;
     } else if request
         .poll_option_ids
         .as_ref()
@@ -311,10 +266,10 @@ async fn validate_vote_request(
             "At least one poll option must be selected.",
         ));
     }
-    Ok(poll)
+    Ok(())
 }
 
-async fn ensure_anonymous_can_vote_on_poll(
+pub(crate) async fn ensure_anonymous_can_vote_on_poll(
     database: &DatabaseConnection,
     user_id: Uuid,
     poll: &polls::Model,

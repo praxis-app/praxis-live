@@ -130,8 +130,6 @@ pub(crate) async fn create_poll(
     request: CreatePollRequest,
 ) -> AppResult<PollResponse> {
     validate_create_poll(&request)?;
-    channels::get_channel(database, server_id, channel_id).await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
 
     let body = request
         .body
@@ -247,11 +245,8 @@ pub(crate) async fn get_inline_polls(
 pub(crate) async fn store_poll_image(
     database: &DatabaseConnection,
     upload_root: &Path,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
+    poll: &polls::Model,
     image_id: Uuid,
-    user_id: Uuid,
     content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<PollImageResponse> {
@@ -262,14 +257,8 @@ pub(crate) async fn store_poll_image(
         ));
     }
 
-    let poll = load_poll(database, server_id, channel_id, poll_id).await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
-    if poll.user_id != user_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
-
     let image = poll_images::Entity::find_by_id(image_id)
-        .filter(poll_images::Column::PollId.eq(poll_id))
+        .filter(poll_images::Column::PollId.eq(poll.id))
         .one(database)
         .await
         .map_err(internal_error)?
@@ -329,19 +318,10 @@ pub(crate) async fn get_poll_image(
 pub(crate) async fn delete_poll(
     database: &DatabaseConnection,
     upload_root: &Path,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
-    user_id: Uuid,
+    poll: &polls::Model,
 ) -> AppResult<DeleteResult> {
-    let poll = load_poll(database, server_id, channel_id, poll_id).await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
-    if poll.user_id != user_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
-
     let images = poll_images::Entity::find()
-        .filter(poll_images::Column::PollId.eq(poll_id))
+        .filter(poll_images::Column::PollId.eq(poll.id))
         .all(database)
         .await
         .map_err(internal_error)?;
@@ -354,7 +334,7 @@ pub(crate) async fn delete_poll(
             .map_err(internal_error)?;
     }
 
-    polls::Entity::delete_by_id(poll_id)
+    polls::Entity::delete_by_id(poll.id)
         .exec(database)
         .await
         .map_err(internal_error)

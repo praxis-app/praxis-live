@@ -8,9 +8,15 @@ use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
-use super::{service, types::CreatePollRequest};
+use super::{
+    extractors::{
+        ChannelWriteContext, PollDeleteContext, PollImageUploadContext,
+    },
+    service,
+    types::CreatePollRequest,
+};
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::HasJwtSecret,
     channels,
     common::{
         request::{multipart_file, parse_uuid},
@@ -49,24 +55,6 @@ impl HasJwtSecret for PollsState {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct ChannelPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct PollPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub(super) struct PollImagePath {
     #[serde(rename = "serverId")]
     server_id: String,
@@ -80,23 +68,26 @@ pub(super) struct PollImagePath {
 
 pub(super) async fn create_poll(
     State(state): State<PollsState>,
-    Path(path): Path<ChannelPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ChannelWriteContext,
     Json(payload): Json<CreatePollRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
     let poll = service::create_poll(
         &state.database,
-        server_id,
-        channel_id,
-        user_id,
+        context.server_id,
+        context.channel_id,
+        context.user_id,
         payload,
     )
     .await?;
 
-    if let Err(error) =
-        broadcast_poll(&state, server_id, channel_id, user_id, &poll).await
+    if let Err(error) = broadcast_poll(
+        &state,
+        context.server_id,
+        context.channel_id,
+        context.user_id,
+        &poll,
+    )
+    .await
     {
         tracing::warn!("failed to broadcast created poll: {error}");
     }
@@ -106,24 +97,16 @@ pub(super) async fn create_poll(
 
 pub(super) async fn upload_poll_image(
     State(state): State<PollsState>,
-    Path(path): Path<PollImagePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: PollImageUploadContext,
     multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-    let image_id = parse_uuid(&path.image_id, "imageId")?;
     let file = multipart_file(multipart, "file").await?;
 
     let image = service::store_poll_image(
         &state.database,
         &state.upload_root,
-        server_id,
-        channel_id,
-        poll_id,
-        image_id,
-        user_id,
+        &context.poll,
+        context.image_id,
         file.as_ref().and_then(|file| file.content_type.clone()),
         file.map(|file| file.bytes).unwrap_or_default(),
     )
@@ -131,11 +114,11 @@ pub(super) async fn upload_poll_image(
 
     if let Err(error) = broadcast_poll_image_upload(
         &state,
-        server_id,
-        channel_id,
-        user_id,
-        &path.poll_id,
-        &path.image_id,
+        context.server_id,
+        context.channel_id,
+        context.user_id,
+        &context.poll.id.to_string(),
+        &context.image_id.to_string(),
     )
     .await
     {
@@ -181,20 +164,12 @@ pub(super) async fn get_poll_image(
 
 pub(super) async fn delete_poll(
     State(state): State<PollsState>,
-    Path(path): Path<PollPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: PollDeleteContext,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-
     let result = service::delete_poll(
         &state.database,
         &state.upload_root,
-        server_id,
-        channel_id,
-        poll_id,
-        user_id,
+        &context.poll,
     )
     .await?;
 

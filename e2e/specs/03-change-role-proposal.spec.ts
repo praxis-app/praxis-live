@@ -106,8 +106,11 @@ test('user can create and ratify a proposal to change a role', async ({
   await createProposalResponse;
 
   await expect(dialog).toBeHidden();
-  await expect(page.getByText(proposalBody)).toBeVisible();
-  await expect(page.getByText('Voting')).toBeVisible();
+  const proposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${proposalBody}`,
+  });
+  await expect(proposal).toBeVisible();
+  await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
 
   const voteResponse = page.waitForResponse(
     (response) =>
@@ -115,10 +118,10 @@ test('user can create and ratify a proposal to change a role', async ({
       response.url().includes('/votes') &&
       response.status() === 200,
   );
-  await page.getByRole('button', { name: 'Agree', exact: true }).click();
+  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
   await voteResponse;
 
-  await expect(page.getByText('Ratified', { exact: true })).toBeVisible();
+  await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
 
   const changedRole = await getServerRole(
     request,

@@ -73,14 +73,11 @@ pub(crate) async fn get_feed(
 
 pub(crate) async fn create_message(
     database: &DatabaseConnection,
-    server_id: Uuid,
     channel_id: Uuid,
     user_id: Uuid,
     request: CreateMessageRequest,
 ) -> AppResult<MessageResponse> {
     validate_create_message(&request)?;
-    channels::get_channel(database, server_id, channel_id).await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
 
     let body = request
         .body
@@ -144,11 +141,8 @@ pub(crate) async fn create_message(
 pub(crate) async fn store_message_image(
     database: &DatabaseConnection,
     upload_root: &Path,
-    server_id: Uuid,
-    channel_id: Uuid,
-    message_id: Uuid,
+    message: &messages::Model,
     image_id: Uuid,
-    user_id: Uuid,
     content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<ImageResponse> {
@@ -159,25 +153,6 @@ pub(crate) async fn store_message_image(
         ));
     }
 
-    let message = messages::Entity::find_by_id(message_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Message not found.")
-        })?;
-
-    if message.channel_id != channel_id {
-        return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
-    }
-
-    channels::get_channel(database, server_id, channel_id).await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
-
-    if message.user_id != user_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
-
     let image = message_images::Entity::find_by_id(image_id)
         .one(database)
         .await
@@ -186,7 +161,7 @@ pub(crate) async fn store_message_image(
             ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
         })?;
 
-    if image.message_id != message_id {
+    if image.message_id != message.id {
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."));
     }
 
@@ -260,6 +235,29 @@ pub(crate) async fn get_message_image(
         content_type: image.content_type,
         bytes,
     })
+}
+
+pub(crate) async fn load_message(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    message_id: Uuid,
+) -> AppResult<messages::Model> {
+    let message = messages::Entity::find_by_id(message_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Message not found.")
+        })?;
+
+    if message.channel_id != channel_id {
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
+    }
+
+    channels::get_channel(database, server_id, channel_id).await?;
+
+    Ok(message)
 }
 
 pub(crate) fn upload_root() -> PathBuf {
