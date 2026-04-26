@@ -1,4 +1,4 @@
-use sea_orm::prelude::DateTimeWithTimeZone;
+use sea_orm::prelude::{DateTimeWithTimeZone, Uuid};
 use serde::{Deserialize, Serialize};
 
 use crate::poll_actions::types::{CreatePollActionRequest, PollActionResponse};
@@ -7,18 +7,18 @@ use crate::votes::types::VoteResponse;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollPath {
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-    pub(crate) poll_id: String,
+    pub(crate) server_id: Uuid,
+    pub(crate) channel_id: Uuid,
+    pub(crate) poll_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollImagePath {
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-    pub(crate) poll_id: String,
-    pub(crate) image_id: String,
+    pub(crate) server_id: Uuid,
+    pub(crate) channel_id: Uuid,
+    pub(crate) poll_id: Uuid,
+    pub(crate) image_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]

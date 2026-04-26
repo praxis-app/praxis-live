@@ -12,13 +12,6 @@ pub(crate) struct ChannelPath {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ChannelRoutePath {
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct ChannelRequest {
     pub(crate) name: String,
     pub(crate) description: Option<String>,

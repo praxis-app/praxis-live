@@ -17,10 +17,7 @@ use super::{
 use crate::{
     auth::{AuthenticatedUserOptional, HasJwtSecret},
     channels::{self, extractors::ChannelWriteContext},
-    common::{
-        request::{multipart_file, parse_uuid},
-        ApiError, AppResult,
-    },
+    common::{request::multipart_file, ApiError, AppResult},
     polls,
     pub_sub::PubSubService,
 };
@@ -68,27 +65,25 @@ pub(super) struct FeedQuery {
 
 pub(super) async fn get_channel_feed(
     State(chat_state): State<ChatState>,
-    Path(path): Path<channels::types::ChannelRoutePath>,
+    Path(path): Path<channels::types::ChannelPath>,
     Query(query): Query<FeedQuery>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
     let limit = query.limit.unwrap_or(50).min(100);
     let offset = query.offset.unwrap_or(0);
     let fetch_limit = offset.saturating_add(limit);
     let mut feed = service::get_feed(
         &chat_state.database,
-        server_id,
-        channel_id,
+        path.server_id,
+        path.channel_id,
         0,
         fetch_limit,
     )
     .await?;
     let polls = polls::service::get_inline_polls(
         &chat_state.database,
-        server_id,
-        channel_id,
+        path.server_id,
+        path.channel_id,
         0,
         fetch_limit,
         user_id,
@@ -191,18 +186,13 @@ pub(super) async fn get_message_image(
     State(chat_state): State<ChatState>,
     Path(path): Path<MessageImagePath>,
 ) -> AppResult<Response<Body>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let message_id = parse_uuid(&path.message_id, "messageId")?;
-    let image_id = parse_uuid(&path.image_id, "imageId")?;
-
     let image = service::get_message_image(
         &chat_state.database,
         &chat_state.upload_root,
-        server_id,
-        channel_id,
-        message_id,
-        image_id,
+        path.server_id,
+        path.channel_id,
+        path.message_id,
+        path.image_id,
     )
     .await?;
 

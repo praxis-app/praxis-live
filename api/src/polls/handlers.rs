@@ -15,10 +15,7 @@ use super::{
 use crate::{
     auth::HasJwtSecret,
     channels::{self, extractors::ChannelWriteContext},
-    common::{
-        request::{multipart_file, parse_uuid},
-        ApiError, AppResult,
-    },
+    common::{request::multipart_file, ApiError, AppResult},
     pub_sub::PubSubService,
 };
 
@@ -126,18 +123,13 @@ pub(super) async fn get_poll_image(
     State(state): State<PollsState>,
     Path(path): Path<PollImagePath>,
 ) -> AppResult<Response<Body>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-    let image_id = parse_uuid(&path.image_id, "imageId")?;
-
     let image = service::get_poll_image(
         &state.database,
         &state.upload_root,
-        server_id,
-        channel_id,
-        poll_id,
-        image_id,
+        path.server_id,
+        path.channel_id,
+        path.poll_id,
+        path.image_id,
     )
     .await?;
 

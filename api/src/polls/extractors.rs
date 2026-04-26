@@ -10,11 +10,7 @@ use super::{
     service,
     types::{PollImagePath, PollPath},
 };
-use crate::{
-    auth::AuthenticatedUser,
-    channels,
-    common::{request::parse_uuid, ApiError},
-};
+use crate::{auth::AuthenticatedUser, channels, common::ApiError};
 
 pub(super) struct PollImageUploadContext {
     pub(super) server_id: Uuid,
@@ -49,20 +45,20 @@ impl FromRequestParts<PollsState> for PollImageUploadContext {
                 })?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
-        let server_id = parse_uuid(&path.server_id, "serverId")?;
-        let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-        let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-        let image_id = parse_uuid(&path.image_id, "imageId")?;
-        let poll =
-            service::load_poll(&state.database, server_id, channel_id, poll_id)
-                .await?;
+        let poll = service::load_poll(
+            &state.database,
+            path.server_id,
+            path.channel_id,
+            path.poll_id,
+        )
+        .await?;
 
-        ensure_poll_owner(state, channel_id, user_id, &poll).await?;
+        ensure_poll_owner(state, path.channel_id, user_id, &poll).await?;
 
         Ok(Self {
-            server_id,
-            channel_id,
-            image_id,
+            server_id: path.server_id,
+            channel_id: path.channel_id,
+            image_id: path.image_id,
             user_id,
             poll,
         })
@@ -83,18 +79,19 @@ impl FromRequestParts<PollsState> for PollDeleteContext {
             })?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
-        let server_id = parse_uuid(&path.server_id, "serverId")?;
-        let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-        let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-        let poll =
-            service::load_poll(&state.database, server_id, channel_id, poll_id)
-                .await?;
+        let poll = service::load_poll(
+            &state.database,
+            path.server_id,
+            path.channel_id,
+            path.poll_id,
+        )
+        .await?;
 
-        ensure_poll_owner(state, channel_id, user_id, &poll).await?;
+        ensure_poll_owner(state, path.channel_id, user_id, &poll).await?;
 
         Ok(Self {
-            server_id,
-            channel_id,
+            server_id: path.server_id,
+            channel_id: path.channel_id,
             user_id,
             poll,
         })

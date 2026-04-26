@@ -4,10 +4,10 @@ use axum::{
 };
 use sea_orm::{prelude::Uuid, DatabaseConnection};
 
-use super::types::ChannelRoutePath;
+use super::types::ChannelPath;
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
-    common::{request::parse_uuid, ApiError},
+    common::ApiError,
 };
 
 pub(crate) trait HasDatabase {
@@ -30,27 +30,26 @@ where
         parts: &mut Parts,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let Path(path) =
-            Path::<ChannelRoutePath>::from_request_parts(parts, state)
-                .await
-                .map_err(|_| {
-                    ApiError::new(
-                        StatusCode::BAD_REQUEST,
-                        "Invalid route path.",
-                    )
-                })?;
+        let Path(path) = Path::<ChannelPath>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| {
+                ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
+            })?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
-        let server_id = parse_uuid(&path.server_id, "serverId")?;
-        let channel_id = parse_uuid(&path.channel_id, "channelId")?;
 
-        super::get_channel(state.database(), server_id, channel_id).await?;
-        super::ensure_channel_membership(state.database(), channel_id, user_id)
+        super::get_channel(state.database(), path.server_id, path.channel_id)
             .await?;
+        super::ensure_channel_membership(
+            state.database(),
+            path.channel_id,
+            user_id,
+        )
+        .await?;
 
         Ok(Self {
-            server_id,
-            channel_id,
+            server_id: path.server_id,
+            channel_id: path.channel_id,
             user_id,
         })
     }

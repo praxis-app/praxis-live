@@ -6,11 +6,7 @@ use entity::messages;
 use sea_orm::prelude::Uuid;
 
 use super::{handlers::ChatState, service, types::MessageImagePath};
-use crate::{
-    auth::AuthenticatedUser,
-    channels,
-    common::{request::parse_uuid, ApiError},
-};
+use crate::{auth::AuthenticatedUser, channels, common::ApiError};
 
 pub(super) struct MessageImageUploadContext {
     pub(super) server_id: Uuid,
@@ -38,21 +34,17 @@ impl FromRequestParts<ChatState> for MessageImageUploadContext {
                 })?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
-        let server_id = parse_uuid(&path.server_id, "serverId")?;
-        let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-        let message_id = parse_uuid(&path.message_id, "messageId")?;
-        let image_id = parse_uuid(&path.image_id, "imageId")?;
         let message = service::load_message(
             &state.database,
-            server_id,
-            channel_id,
-            message_id,
+            path.server_id,
+            path.channel_id,
+            path.message_id,
         )
         .await?;
 
         channels::ensure_channel_membership(
             &state.database,
-            channel_id,
+            path.channel_id,
             user_id,
         )
         .await?;
@@ -61,9 +53,9 @@ impl FromRequestParts<ChatState> for MessageImageUploadContext {
         }
 
         Ok(Self {
-            server_id,
-            channel_id,
-            image_id,
+            server_id: path.server_id,
+            channel_id: path.channel_id,
+            image_id: path.image_id,
             user_id,
             message,
         })

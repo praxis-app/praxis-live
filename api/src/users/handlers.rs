@@ -138,14 +138,12 @@ pub(super) async fn get_user_image(
     Path(path): Path<UserImagePath>,
     AuthenticatedUserOptional(current_user_id): AuthenticatedUserOptional,
 ) -> AppResult<Response<Body>> {
-    let user_id = parse_uuid(&path.user_id, "userId")?;
-    let image_id = parse_uuid(&path.image_id, "imageId")?;
     let image = service::get_user_image(
         &state.database,
         &state.upload_root,
         current_user_id,
-        user_id,
-        image_id,
+        path.user_id,
+        path.image_id,
     )
     .await?;
 

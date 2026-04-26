@@ -9,7 +9,7 @@ use serde::Deserialize;
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional},
     channels,
-    common::{request::parse_uuid, ApiError},
+    common::ApiError,
     polls::{handlers::PollsState, service as polls_service, types::PollPath},
     votes::{
         service,
@@ -83,7 +83,6 @@ impl FromRequestParts<PollsState> for VoteMutationContext {
             })?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
-        let vote_id = parse_uuid(&path.vote_id, "voteId")?;
         let route = load_vote_route_context(
             state,
             path.server_id,
@@ -93,7 +92,10 @@ impl FromRequestParts<PollsState> for VoteMutationContext {
         )
         .await?;
 
-        Ok(Self { route, vote_id })
+        Ok(Self {
+            route,
+            vote_id: path.vote_id,
+        })
     }
 }
 
@@ -125,51 +127,43 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
         let AuthenticatedUserOptional(current_user_id) =
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
 
-        let server_id = parse_uuid(&path.server_id, "serverId")?;
-        let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-        let poll_id = parse_uuid(&path.poll_id, "pollId")?;
-        let poll_option_id = parse_uuid(&path.poll_option_id, "pollOptionId")?;
-
         polls_service::load_poll(
             &state.database,
-            server_id,
-            channel_id,
-            poll_id,
+            path.server_id,
+            path.channel_id,
+            path.poll_id,
         )
         .await?;
         service::ensure_poll_option_exists(
             &state.database,
-            poll_id,
-            poll_option_id,
+            path.poll_id,
+            path.poll_option_id,
         )
         .await?;
         service::ensure_can_read_poll_option(
             &state.database,
-            server_id,
-            channel_id,
-            poll_id,
+            path.server_id,
+            path.channel_id,
+            path.poll_id,
             current_user_id,
             query.invite_token.as_deref(),
         )
         .await?;
 
         Ok(Self {
-            poll_id,
-            poll_option_id,
+            poll_id: path.poll_id,
+            poll_option_id: path.poll_option_id,
         })
     }
 }
 
 async fn load_vote_route_context(
     state: &PollsState,
-    server_id: String,
-    channel_id: String,
-    poll_id: String,
+    server_id: Uuid,
+    channel_id: Uuid,
+    poll_id: Uuid,
     user_id: Uuid,
 ) -> Result<VoteRouteContext, ApiError> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
-    let channel_id = parse_uuid(&channel_id, "channelId")?;
-    let poll_id = parse_uuid(&poll_id, "pollId")?;
     let poll = polls_service::load_poll(
         &state.database,
         server_id,

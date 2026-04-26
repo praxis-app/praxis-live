@@ -72,8 +72,8 @@ pub(crate) struct StoredUserImage {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UserImagePath {
-    pub(crate) user_id: String,
-    pub(crate) image_id: String,
+    pub(crate) user_id: Uuid,
+    pub(crate) image_id: Uuid,
 }
 
 #[derive(Debug, Clone, Serialize)]

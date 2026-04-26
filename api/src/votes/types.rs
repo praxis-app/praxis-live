@@ -1,21 +1,22 @@
+use sea_orm::prelude::Uuid;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct VotePath {
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-    pub(crate) poll_id: String,
-    pub(crate) vote_id: String,
+    pub(crate) server_id: Uuid,
+    pub(crate) channel_id: Uuid,
+    pub(crate) poll_id: Uuid,
+    pub(crate) vote_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollOptionPath {
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-    pub(crate) poll_id: String,
-    pub(crate) poll_option_id: String,
+    pub(crate) server_id: Uuid,
+    pub(crate) channel_id: Uuid,
+    pub(crate) poll_id: Uuid,
+    pub(crate) poll_option_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
