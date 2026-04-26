@@ -258,9 +258,7 @@ test('anonymous user can create only allowed chat polls', async ({
       response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
       response.status() === 200,
   );
-  await proposalDialog
-    .getByRole('button', { name: 'Create proposal' })
-    .click();
+  await proposalDialog.getByRole('button', { name: 'Create proposal' }).click();
   await proposalResponse;
   await expect(proposalDialog).toBeHidden();
   await expect(page.getByText(proposalBody)).toBeVisible();

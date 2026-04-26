@@ -1,7 +1,10 @@
 import { LocalStorageKeys } from '@/constants/shared.constants';
 import { getWebSocketURL } from '@/lib/shared.utils';
 import { useAuthStore } from '@/store/auth.store';
-import { type PubSubMessage, type SubscriptionOptions } from '@/types/shared.types';
+import {
+  type PubSubMessage,
+  type SubscriptionOptions,
+} from '@/types/shared.types';
 import { useEffect } from 'react';
 import useWebSocket from 'react-use-websocket';
 

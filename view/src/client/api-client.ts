@@ -1,7 +1,11 @@
 // API client for server endpoints
 
 import { LocalStorageKeys } from '@/constants/shared.constants';
-import { type AuthRes, type LoginReq, type SignUpReq } from '@/types/auth.types';
+import {
+  type AuthRes,
+  type LoginReq,
+  type SignUpReq,
+} from '@/types/auth.types';
 import {
   type ChannelRes,
   type CreateChannelReq,
@@ -23,7 +27,10 @@ import {
   type UpdateInstanceRolePermissionsReq,
   type UpdateServerRolePermissionsReq,
 } from '@/types/role.types';
-import { type ServerConfigReq, type ServerConfigRes } from '@/types/server-config.types';
+import {
+  type ServerConfigReq,
+  type ServerConfigRes,
+} from '@/types/server-config.types';
 import { type ServerReq, type ServerRes } from '@/types/server.types';
 import {
   type CurrentUserRes,
@@ -38,7 +45,11 @@ import {
   type UpdateVoteReq,
   type UpdateVoteRes,
 } from '@/types/vote.types';
-import axios, { type AxiosInstance, type AxiosResponse, type Method } from 'axios';
+import axios, {
+  type AxiosInstance,
+  type AxiosResponse,
+  type Method,
+} from 'axios';
 
 class ApiClient {
   private axiosInstance: AxiosInstance;

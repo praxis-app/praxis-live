@@ -9,14 +9,8 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { type PollConfigRes } from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
-import {
-  getProgressPercentage,
-  getRequiredCount,
-} from '@/lib/poll.utils';
-import {
-  sortConsensusVotesByType,
-  type WithVoteType,
-} from '@/lib/vote.utils';
+import { getProgressPercentage, getRequiredCount } from '@/lib/poll.utils';
+import { sortConsensusVotesByType, type WithVoteType } from '@/lib/vote.utils';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';

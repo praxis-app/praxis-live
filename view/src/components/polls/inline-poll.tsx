@@ -14,7 +14,11 @@ import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
 import { timeAgo, timeFromNow } from '@/lib/time.utils';
-import { type ChannelRes, type FeedItemRes, type FeedQuery } from '@/types/channel.types';
+import {
+  type ChannelRes,
+  type FeedItemRes,
+  type FeedQuery,
+} from '@/types/channel.types';
 import { type PollOptionRes, type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
 import { zodResolver } from '@hookform/resolvers/zod';

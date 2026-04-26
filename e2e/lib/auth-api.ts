@@ -2,8 +2,8 @@ import {
   expect,
   type APIRequestContext,
   type BrowserContext,
-} from "@playwright/test";
-import { ACCESS_TOKEN_KEY, createTestUser, type TestUser } from "./test-data";
+} from '@playwright/test';
+import { ACCESS_TOKEN_KEY, createTestUser, type TestUser } from './test-data';
 
 export type AuthenticatedUser = {
   accessToken: string;
@@ -48,9 +48,9 @@ type InviteResponse = {
 
 export async function signUpViaApi(
   request: APIRequestContext,
-  user: TestUser = createTestUser()
+  user: TestUser = createTestUser(),
 ): Promise<AuthenticatedUser> {
-  const response = await request.post("/api/auth/signup", {
+  const response = await request.post('/api/auth/signup', {
     data: {
       name: user.name,
       email: user.email,
@@ -65,28 +65,28 @@ export async function signUpViaApi(
   expect(body.user?.email).toBe(user.email);
 
   return {
-    accessToken: body.access_token ?? "",
-    userId: body.user?.id ?? "",
+    accessToken: body.access_token ?? '',
+    userId: body.user?.id ?? '',
     user,
   };
 }
 
 export async function seedAuthenticatedSession(
   context: BrowserContext,
-  accessToken: string
+  accessToken: string,
 ) {
   await context.addInitScript(
     ([key, token]) => {
       window.localStorage.setItem(key, token);
     },
-    [ACCESS_TOKEN_KEY, accessToken]
+    [ACCESS_TOKEN_KEY, accessToken],
   );
 }
 
 export async function createAuthenticatedUser(
   request: APIRequestContext,
   context: BrowserContext,
-  user: TestUser = createTestUser()
+  user: TestUser = createTestUser(),
 ) {
   const authenticatedUser = await signUpViaApi(request, user);
   await seedAuthenticatedSession(context, authenticatedUser.accessToken);
@@ -97,12 +97,12 @@ export async function createAuthenticatedUser(
 export async function setupAnonymousInvite(
   request: APIRequestContext,
   context: BrowserContext,
-  adminLabel: string
+  adminLabel: string,
 ): Promise<AnonymousAuthSetup> {
   const admin = await createAuthenticatedUser(
     request,
     context,
-    createTestUser(adminLabel)
+    createTestUser(adminLabel),
   );
   const server = await getDefaultServer(request, admin);
   await enableAnonymousUsers(request, admin, server.id);
@@ -112,9 +112,9 @@ export async function setupAnonymousInvite(
   await context.addInitScript(
     ([accessTokenKey, inviteTokenValue]) => {
       window.localStorage.removeItem(accessTokenKey);
-      window.localStorage.setItem("invite-token", inviteTokenValue);
+      window.localStorage.setItem('invite-token', inviteTokenValue);
     },
-    [ACCESS_TOKEN_KEY, inviteToken]
+    [ACCESS_TOKEN_KEY, inviteToken],
   );
 
   return { admin, server, inviteToken };
@@ -123,10 +123,10 @@ export async function setupAnonymousInvite(
 export async function setupAnonymousSession(
   request: APIRequestContext,
   context: BrowserContext,
-  adminLabel: string
+  adminLabel: string,
 ) {
   const anonymous = await setupAnonymousInvite(request, context, adminLabel);
-  const response = await request.post("/api/auth/anon", {
+  const response = await request.post('/api/auth/anon', {
     data: { inviteToken: anonymous.inviteToken },
   });
 
@@ -136,10 +136,10 @@ export async function setupAnonymousSession(
 
   await context.addInitScript(
     ([accessTokenKey, accessToken]) => {
-      window.localStorage.removeItem("invite-token");
+      window.localStorage.removeItem('invite-token');
       window.localStorage.setItem(accessTokenKey, accessToken);
     },
-    [ACCESS_TOKEN_KEY, body.access_token ?? ""]
+    [ACCESS_TOKEN_KEY, body.access_token ?? ''],
   );
 
   return anonymous;
@@ -147,9 +147,9 @@ export async function setupAnonymousSession(
 
 async function getDefaultServer(
   request: APIRequestContext,
-  user: AuthenticatedUser
+  user: AuthenticatedUser,
 ) {
-  const response = await request.get("/api/servers/default", {
+  const response = await request.get('/api/servers/default', {
     headers: authorizationHeaders(user),
   });
 
@@ -160,7 +160,7 @@ async function getDefaultServer(
 async function enableAnonymousUsers(
   request: APIRequestContext,
   user: AuthenticatedUser,
-  serverId: string
+  serverId: string,
 ) {
   const response = await request.put(`/api/servers/${serverId}/configs`, {
     headers: authorizationHeaders(user),
@@ -173,7 +173,7 @@ async function enableAnonymousUsers(
 async function createInvite(
   request: APIRequestContext,
   user: AuthenticatedUser,
-  serverId: string
+  serverId: string,
 ) {
   const response = await request.post(`/api/servers/${serverId}/invites`, {
     headers: authorizationHeaders(user),

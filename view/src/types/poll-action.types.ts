@@ -2,7 +2,10 @@ import {
   POLL_ACTION_TYPE,
   ROLE_ATTRIBUTE_CHANGE_TYPE,
 } from '@/constants/poll-action.constants';
-import { type AbilityAction, type ServerAbilitySubject } from '@/types/role.types';
+import {
+  type AbilityAction,
+  type ServerAbilitySubject,
+} from '@/types/role.types';
 import { type UserRes } from './user.types';
 
 export type PollActionType = (typeof POLL_ACTION_TYPE)[number];
