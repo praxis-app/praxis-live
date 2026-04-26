@@ -35,7 +35,7 @@ export class ChatPage {
 
   async expectAttachedImage() {
     await expect(
-      this.page.getByRole("img", { name: "Attached image" })
+      this.page.getByRole("img", { name: "Attached image" }).first()
     ).toBeVisible();
   }
 

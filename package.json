@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test:api:integration": "cargo test -p api --test http_routes --",
     "test:e2e": "tsx ./e2e/run-e2e.ts",
-    "test:e2e:headed": "PLAYWRIGHT_SLOW_MO=750 tsx ./e2e/run-e2e.ts --headed",
+    "test:e2e:headed": "PLAYWRIGHT_SLOW_MO=500 tsx ./e2e/run-e2e.ts --headed",
     "test:e2e:install": "npx playwright install chromium"
   },
   "dependencies": {
