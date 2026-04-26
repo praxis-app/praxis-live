@@ -55,26 +55,41 @@ pub(crate) async fn create_poll_action_role(
         .transpose()?;
 
     let role_to_update = if let Some(server_role_id) = server_role_id {
-        server_roles::Entity::find_by_id(server_role_id)
-            .one(database)
-            .await
-            .map_err(internal_error)?
+        Some(
+            server_roles::Entity::find_by_id(server_role_id)
+                .one(database)
+                .await
+                .map_err(internal_error)?
+                .ok_or_else(|| {
+                    ApiError::new(
+                        StatusCode::NOT_FOUND,
+                        "Server role not found.",
+                    )
+                })?,
+        )
     } else {
         None
     };
 
     let name = request.name.map(|value| value.trim().to_owned());
     let color = request.color.map(|value| value.trim().to_owned());
+
+    let prev_name = name
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .and_then(|_| role_to_update.as_ref().map(|role| role.name.clone()));
+
+    let prev_color = color
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .and_then(|_| role_to_update.as_ref().map(|role| role.color.clone()));
+
     let role = poll_action_roles::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         poll_action_id: Set(poll_action_id),
         server_role_id: Set(server_role_id),
-        prev_name: Set(name.as_ref().and_then(|_| {
-            role_to_update.as_ref().map(|role| role.name.clone())
-        })),
-        prev_color: Set(color.as_ref().and_then(|_| {
-            role_to_update.as_ref().map(|role| role.color.clone())
-        })),
+        prev_name: Set(prev_name),
+        prev_color: Set(prev_color),
         name: Set(name),
         color: Set(color),
         ..Default::default()

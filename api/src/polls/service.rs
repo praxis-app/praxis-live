@@ -1023,6 +1023,14 @@ fn validate_action(
     }
     if action.action_type == "change-role" {
         let role = action.server_role.as_ref().expect("checked above");
+
+        if role.server_role_to_update_id.is_none() {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Polls to change server roles must include a server role to update.",
+            ));
+        }
+
         let has_change = role.name.is_some()
             || role.color.is_some()
             || role
