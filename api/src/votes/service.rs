@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
 use entity::{
-    poll_option_selections, poll_options, polls, users, votes as vote_entities,
+    poll_actions as poll_action_entities, poll_option_selections, poll_options,
+    polls, users, votes as vote_entities,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
@@ -29,7 +30,7 @@ pub(crate) async fn create_vote(
     request: VoteRequest,
 ) -> AppResult<CreateVoteResponse> {
     let poll = validate_vote_request(
-        database, server_id, channel_id, poll_id, &request,
+        database, server_id, channel_id, poll_id, user_id, &request,
     )
     .await?;
     channels::ensure_channel_membership(database, channel_id, user_id).await?;
@@ -86,7 +87,7 @@ pub(crate) async fn update_vote(
     request: VoteRequest,
 ) -> AppResult<UpdateVoteResponse> {
     let poll = validate_vote_request(
-        database, server_id, channel_id, poll_id, &request,
+        database, server_id, channel_id, poll_id, user_id, &request,
     )
     .await?;
     let vote = vote_entities::Entity::find_by_id(vote_id)
@@ -136,6 +137,7 @@ pub(crate) async fn delete_vote(
             "Poll is no longer accepting votes.",
         ));
     }
+    ensure_anonymous_can_vote_on_poll(database, user_id, &poll).await?;
 
     let vote = vote_entities::Entity::find_by_id(vote_id)
         .filter(vote_entities::Column::PollId.eq(poll_id))
@@ -283,6 +285,7 @@ async fn validate_vote_request(
     server_id: Uuid,
     channel_id: Uuid,
     poll_id: Uuid,
+    user_id: Uuid,
     request: &VoteRequest,
 ) -> AppResult<polls::Model> {
     let poll =
@@ -296,6 +299,7 @@ async fn validate_vote_request(
     }
     if poll.poll_type == "proposal" {
         validate_vote_type(request.vote_type.as_deref())?;
+        ensure_anonymous_can_vote_on_poll(database, user_id, &poll).await?;
     } else if request
         .poll_option_ids
         .as_ref()
@@ -308,6 +312,42 @@ async fn validate_vote_request(
         ));
     }
     Ok(poll)
+}
+
+async fn ensure_anonymous_can_vote_on_poll(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    poll: &polls::Model,
+) -> AppResult<()> {
+    if poll.poll_type != "proposal" {
+        return Ok(());
+    }
+
+    let user = users::Entity::find_by_id(user_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
+        })?;
+    if !user.anonymous {
+        return Ok(());
+    }
+
+    let action = poll_action_entities::Entity::find()
+        .filter(poll_action_entities::Column::PollId.eq(poll.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    if action.as_ref().map(|action| action.action_type.as_str()) == Some("test")
+    {
+        return Ok(());
+    }
+
+    Err(ApiError::new(
+        StatusCode::FORBIDDEN,
+        "Only registered users can vote on non-test proposals.",
+    ))
 }
 
 async fn save_poll_option_selections(
