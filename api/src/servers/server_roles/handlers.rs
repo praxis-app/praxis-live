@@ -14,6 +14,7 @@ use super::{
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
     common::{ApiError, AppResult},
+    servers::types::ServerPath,
 };
 
 #[derive(Clone, Debug)]
@@ -38,12 +39,6 @@ impl HasJwtSecret for ServerRolesState {
     fn jwt_secret(&self) -> &str {
         &self.jwt_secret
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ServerPath {
-    server_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]

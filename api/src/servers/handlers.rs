@@ -4,14 +4,13 @@ use axum::{
     response::Json,
 };
 use sea_orm::{prelude::Uuid, DatabaseConnection};
-use serde::Deserialize;
 use std::sync::Arc;
 
 use super::{
     service,
     types::{
         JoinServerRequest, ServerConfigRequest, ServerMembersRequest,
-        ServerRequest,
+        ServerPath, ServerRequest,
     },
 };
 use crate::{
@@ -41,12 +40,6 @@ impl HasJwtSecret for ServersState {
     fn jwt_secret(&self) -> &str {
         &self.jwt_secret
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ServerPath {
-    server_id: Uuid,
 }
 
 pub(super) async fn get_servers(
