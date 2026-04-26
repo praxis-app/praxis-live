@@ -5,7 +5,6 @@ use axum::{
     response::Json,
 };
 use sea_orm::DatabaseConnection;
-use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
@@ -13,7 +12,7 @@ use super::{
         ChannelWriteContext, PollDeleteContext, PollImageUploadContext,
     },
     service,
-    types::CreatePollRequest,
+    types::{CreatePollRequest, PollImagePath},
 };
 use crate::{
     auth::HasJwtSecret,
@@ -52,18 +51,6 @@ impl HasJwtSecret for PollsState {
     fn jwt_secret(&self) -> &str {
         &self.jwt_secret
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct PollImagePath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-    #[serde(rename = "imageId")]
-    image_id: String,
 }
 
 pub(super) async fn create_poll(

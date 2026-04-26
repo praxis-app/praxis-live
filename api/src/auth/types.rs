@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 use crate::users::PublicUser;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct SignupRequest {
     pub(super) email: String,
     pub(super) name: String,
     pub(super) password: String,
-    #[serde(rename = "inviteToken")]
     pub(super) invite_token: Option<String>,
 }
 

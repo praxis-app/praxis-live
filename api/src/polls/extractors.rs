@@ -4,44 +4,17 @@ use axum::{
 };
 use entity::polls;
 use sea_orm::prelude::Uuid;
-use serde::Deserialize;
 
-use super::{handlers::PollsState, service};
+use super::{
+    handlers::PollsState,
+    service,
+    types::{ChannelPath, PollImagePath, PollPath},
+};
 use crate::{
     auth::AuthenticatedUser,
     channels,
     common::{request::parse_uuid, ApiError},
 };
-
-#[derive(Debug, Deserialize)]
-struct ChannelPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PollPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PollImagePath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-    #[serde(rename = "imageId")]
-    image_id: String,
-}
 
 pub(super) struct ChannelWriteContext {
     pub(super) server_id: Uuid,

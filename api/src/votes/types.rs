@@ -2,6 +2,24 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct VotePath {
+    pub(crate) server_id: String,
+    pub(crate) channel_id: String,
+    pub(crate) poll_id: String,
+    pub(crate) vote_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PollOptionPath {
+    pub(crate) server_id: String,
+    pub(crate) channel_id: String,
+    pub(crate) poll_id: String,
+    pub(crate) poll_option_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct VoteRequest {
     pub(crate) vote_type: Option<String>,
     pub(crate) poll_option_ids: Option<Vec<String>>,

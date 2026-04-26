@@ -1,7 +1,7 @@
 use entity::users;
 use sea_orm::prelude::Uuid;
 use sea_orm::DbErr;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use crate::common::roles::PermissionRule;
@@ -67,6 +67,13 @@ pub(crate) struct UserImageRef {
 pub(crate) struct StoredUserImage {
     pub(crate) content_type: Option<String>,
     pub(crate) bytes: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UserImagePath {
+    pub(crate) user_id: String,
+    pub(crate) image_id: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

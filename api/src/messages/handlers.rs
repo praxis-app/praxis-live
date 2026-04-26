@@ -12,7 +12,7 @@ use std::{path::PathBuf, sync::Arc};
 use super::{
     extractors::{ChannelWriteContext, MessageImageUploadContext},
     service,
-    types::CreateMessageRequest,
+    types::{ChannelPath, CreateMessageRequest, MessageImagePath},
 };
 use crate::{
     auth::{AuthenticatedUserOptional, HasJwtSecret},
@@ -52,26 +52,6 @@ impl HasJwtSecret for ChatState {
     fn jwt_secret(&self) -> &str {
         &self.jwt_secret
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ChannelPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct MessageImagePath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "messageId")]
-    message_id: String,
-    #[serde(rename = "imageId")]
-    image_id: String,
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,4 +1,18 @@
+use sea_orm::prelude::Uuid;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChannelPath {
+    pub(crate) server_id: Uuid,
+    pub(crate) channel_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ServerPath {
+    pub(crate) server_id: Uuid,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

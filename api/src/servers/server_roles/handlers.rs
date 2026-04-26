@@ -50,16 +50,14 @@ pub(super) struct ServerPath {
 #[serde(rename_all = "camelCase")]
 pub(super) struct ServerRolePath {
     server_id: Uuid,
-    #[serde(rename = "serverRoleId")]
-    role_id: Uuid,
+    server_role_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct ServerRoleMemberPath {
     server_id: Uuid,
-    #[serde(rename = "serverRoleId")]
-    role_id: Uuid,
+    server_role_id: Uuid,
     user_id: Uuid,
 }
 
@@ -68,9 +66,12 @@ pub(super) async fn get_server_role(
     Path(path): Path<ServerRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_role =
-        service::get_server_role(&state.database, path.server_id, path.role_id)
-            .await?;
+    let server_role = service::get_server_role(
+        &state.database,
+        path.server_id,
+        path.server_role_id,
+    )
+    .await?;
     Ok(Json(serde_json::json!({ "serverRole": server_role })))
 }
 
@@ -92,7 +93,7 @@ pub(super) async fn get_users_eligible_for_server_role(
     let users = service::get_users_eligible_for_server_role(
         &state.database,
         path.server_id,
-        path.role_id,
+        path.server_role_id,
     )
     .await?;
     Ok(Json(serde_json::json!({ "users": users })))
@@ -119,7 +120,7 @@ pub(super) async fn update_server_role(
     service::update_server_role(
         &state.database,
         path.server_id,
-        path.role_id,
+        path.server_role_id,
         payload,
     )
     .await?;
@@ -135,7 +136,7 @@ pub(super) async fn update_server_role_permissions(
     service::update_server_role_permissions(
         &state.database,
         path.server_id,
-        path.role_id,
+        path.server_role_id,
         payload.permissions,
     )
     .await?;
@@ -152,7 +153,7 @@ pub(super) async fn add_server_role_members(
     service::add_server_role_members(
         &state.database,
         path.server_id,
-        path.role_id,
+        path.server_role_id,
         &user_ids,
     )
     .await?;
@@ -167,7 +168,7 @@ pub(super) async fn remove_server_role_member(
     service::remove_server_role_member(
         &state.database,
         path.server_id,
-        path.role_id,
+        path.server_role_id,
         path.user_id,
     )
     .await?;
@@ -179,8 +180,12 @@ pub(super) async fn delete_server_role(
     Path(path): Path<ServerRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    service::delete_server_role(&state.database, path.server_id, path.role_id)
-        .await?;
+    service::delete_server_role(
+        &state.database,
+        path.server_id,
+        path.server_role_id,
+    )
+    .await?;
     Ok(Json(serde_json::json!({})))
 }
 

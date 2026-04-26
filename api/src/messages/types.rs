@@ -3,6 +3,22 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ChannelPath {
+    pub(crate) server_id: String,
+    pub(crate) channel_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MessageImagePath {
+    pub(crate) server_id: String,
+    pub(crate) channel_id: String,
+    pub(crate) message_id: String,
+    pub(crate) image_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CreateMessageRequest {
     pub(crate) body: Option<String>,
     pub(crate) image_count: usize,

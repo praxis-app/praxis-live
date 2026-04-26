@@ -10,43 +10,12 @@ use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional},
     channels,
     common::{request::parse_uuid, ApiError},
-    polls::{handlers::PollsState, service as polls_service},
-    votes::service,
+    polls::{handlers::PollsState, service as polls_service, types::PollPath},
+    votes::{
+        service,
+        types::{PollOptionPath, VotePath},
+    },
 };
-
-#[derive(Debug, Deserialize)]
-struct PollPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct VotePath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-    #[serde(rename = "voteId")]
-    vote_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PollOptionPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "pollId")]
-    poll_id: String,
-    #[serde(rename = "pollOptionId")]
-    poll_option_id: String,
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

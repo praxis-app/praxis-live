@@ -2,11 +2,13 @@ use axum::{
     extract::{Path, State},
     response::Json,
 };
-use sea_orm::{prelude::Uuid, DatabaseConnection};
-use serde::Deserialize;
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
-use super::{service, types::InviteRequest};
+use super::{
+    service,
+    types::{InvitePath, InviteRequest, ServerPath},
+};
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
     common::AppResult,
@@ -34,20 +36,6 @@ impl HasJwtSecret for InvitesState {
     fn jwt_secret(&self) -> &str {
         &self.jwt_secret
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct InvitePath {
-    #[serde(rename = "serverId")]
-    server_id: Uuid,
-    #[serde(rename = "inviteId")]
-    invite_id: Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ServerPath {
-    server_id: Uuid,
 }
 
 pub(super) async fn is_valid_invite(

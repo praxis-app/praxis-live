@@ -3,10 +3,12 @@ use axum::{
     response::Json,
 };
 use sea_orm::DatabaseConnection;
-use serde::Deserialize;
 use std::sync::Arc;
 
-use super::{service, types::ChannelRequest};
+use super::{
+    service,
+    types::{ChannelPath, ChannelRequest, ServerPath},
+};
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
     common::AppResult,
@@ -34,20 +36,6 @@ impl HasJwtSecret for ChannelsState {
     fn jwt_secret(&self) -> &str {
         &self.jwt_secret
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ChannelPath {
-    #[serde(rename = "serverId")]
-    server_id: sea_orm::prelude::Uuid,
-    #[serde(rename = "channelId")]
-    channel_id: sea_orm::prelude::Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ServerPath {
-    server_id: sea_orm::prelude::Uuid,
 }
 
 pub(super) async fn create_channel(
