@@ -4,6 +4,8 @@ import {
   type BrowserContext,
 } from '@playwright/test';
 import { ACCESS_TOKEN_KEY, createTestUser, type TestUser } from './data';
+import { createInvite } from './invites';
+import { enableAnonymousUsers, getDefaultServer } from './servers';
 
 export type AuthenticatedUser = {
   accessToken: string;
@@ -37,12 +39,6 @@ type ServerResponse = {
   server: {
     id: string;
     generalChannelId: string;
-  };
-};
-
-type InviteResponse = {
-  invite: {
-    token: string;
   };
 };
 
@@ -145,46 +141,7 @@ export async function setupAnonymousSession(
   return anonymous;
 }
 
-async function getDefaultServer(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-) {
-  const response = await request.get('/api/servers/default', {
-    headers: authorizationHeaders(user),
-  });
-
-  await expect(response).toBeOK();
-  return ((await response.json()) as ServerResponse).server;
-}
-
-async function enableAnonymousUsers(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-) {
-  const response = await request.put(`/api/servers/${serverId}/configs`, {
-    headers: authorizationHeaders(user),
-    data: { anonymousUsersEnabled: true },
-  });
-
-  await expect(response).toBeOK();
-}
-
-async function createInvite(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-) {
-  const response = await request.post(`/api/servers/${serverId}/invites`, {
-    headers: authorizationHeaders(user),
-    data: {},
-  });
-
-  await expect(response).toBeOK();
-  return ((await response.json()) as InviteResponse).invite.token;
-}
-
-function authorizationHeaders(user: AuthenticatedUser) {
+export function authorizationHeaders(user: AuthenticatedUser) {
   return {
     Authorization: `Bearer ${user.accessToken}`,
   };
