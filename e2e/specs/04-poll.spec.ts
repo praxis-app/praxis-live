@@ -8,8 +8,8 @@ import {
   createAuthenticatedUser,
   setupAnonymousSession,
   type AuthenticatedUser,
-} from '../lib/auth-api';
-import { createTestUser } from '../lib/test-data';
+} from '../lib/auth';
+import { createTestUser } from '../lib/data';
 import { ChatPage } from '../pages/chat.page';
 
 type ServerResponse = {

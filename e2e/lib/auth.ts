@@ -3,7 +3,7 @@ import {
   type APIRequestContext,
   type BrowserContext,
 } from '@playwright/test';
-import { ACCESS_TOKEN_KEY, createTestUser, type TestUser } from './test-data';
+import { ACCESS_TOKEN_KEY, createTestUser, type TestUser } from './data';
 
 export type AuthenticatedUser = {
   accessToken: string;

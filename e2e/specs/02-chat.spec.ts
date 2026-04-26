@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { createAuthenticatedUser, setupAnonymousInvite } from '../lib/auth-api';
-import { createTestMessage, createTestUser } from '../lib/test-data';
+import { createAuthenticatedUser, setupAnonymousInvite } from '../lib/auth';
+import { createTestMessage, createTestUser } from '../lib/data';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
 

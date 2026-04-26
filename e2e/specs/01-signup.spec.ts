@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { createTestUser } from '../lib/test-data';
+import { createTestUser } from '../lib/data';
 import { AuthPage } from '../pages/auth.page';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';

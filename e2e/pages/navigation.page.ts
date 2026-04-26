@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
-import { ACCESS_TOKEN_KEY } from '../lib/test-data';
-import type { TestUser } from '../lib/test-data';
+import { ACCESS_TOKEN_KEY } from '../lib/data';
+import type { TestUser } from '../lib/data';
 
 export class NavigationPage {
   constructor(private readonly page: Page) {}
