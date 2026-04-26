@@ -10,13 +10,13 @@ use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    extractors::{ChannelWriteContext, MessageImageUploadContext},
+    extractors::MessageImageUploadContext,
     service,
-    types::{ChannelPath, CreateMessageRequest, MessageImagePath},
+    types::{CreateMessageRequest, MessageImagePath},
 };
 use crate::{
     auth::{AuthenticatedUserOptional, HasJwtSecret},
-    channels,
+    channels::{self, extractors::ChannelWriteContext},
     common::{
         request::{multipart_file, parse_uuid},
         ApiError, AppResult,
@@ -54,6 +54,12 @@ impl HasJwtSecret for ChatState {
     }
 }
 
+impl channels::extractors::HasDatabase for ChatState {
+    fn database(&self) -> &DatabaseConnection {
+        &self.database
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub(super) struct FeedQuery {
     offset: Option<u64>,
@@ -62,7 +68,7 @@ pub(super) struct FeedQuery {
 
 pub(super) async fn get_channel_feed(
     State(chat_state): State<ChatState>,
-    Path(path): Path<ChannelPath>,
+    Path(path): Path<channels::types::ChannelRoutePath>,
     Query(query): Query<FeedQuery>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Json<serde_json::Value>> {

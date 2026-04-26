@@ -8,15 +8,13 @@ use sea_orm::DatabaseConnection;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    extractors::{
-        ChannelWriteContext, PollDeleteContext, PollImageUploadContext,
-    },
+    extractors::{PollDeleteContext, PollImageUploadContext},
     service,
     types::{CreatePollRequest, PollImagePath},
 };
 use crate::{
     auth::HasJwtSecret,
-    channels,
+    channels::{self, extractors::ChannelWriteContext},
     common::{
         request::{multipart_file, parse_uuid},
         ApiError, AppResult,
@@ -50,6 +48,12 @@ impl PollsState {
 impl HasJwtSecret for PollsState {
     fn jwt_secret(&self) -> &str {
         &self.jwt_secret
+    }
+}
+
+impl channels::extractors::HasDatabase for PollsState {
+    fn database(&self) -> &DatabaseConnection {
+        &self.database
     }
 }
 

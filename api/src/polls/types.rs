@@ -6,13 +6,6 @@ use crate::votes::types::VoteResponse;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ChannelPath {
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct PollPath {
     pub(crate) server_id: String,
     pub(crate) channel_id: String,

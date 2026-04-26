@@ -3,13 +3,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ChannelPath {
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct MessageImagePath {
     pub(crate) server_id: String,
     pub(crate) channel_id: String,
