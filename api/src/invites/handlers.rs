@@ -2,14 +2,14 @@ use axum::{
     extract::{Path, State},
     response::Json,
 };
-use sea_orm::DatabaseConnection;
+use sea_orm::{prelude::Uuid, DatabaseConnection};
 use serde::Deserialize;
 use std::sync::Arc;
 
 use super::{service, types::InviteRequest};
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
-    common::{request::parse_uuid, AppResult},
+    common::AppResult,
 };
 
 #[derive(Clone, Debug)]
@@ -39,9 +39,15 @@ impl HasJwtSecret for InvitesState {
 #[derive(Debug, Deserialize)]
 pub(super) struct InvitePath {
     #[serde(rename = "serverId")]
-    server_id: String,
+    server_id: Uuid,
     #[serde(rename = "inviteId")]
-    invite_id: String,
+    invite_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ServerPath {
+    server_id: Uuid,
 }
 
 pub(super) async fn is_valid_invite(
@@ -57,25 +63,27 @@ pub(super) async fn is_valid_invite(
 
 pub(super) async fn get_invites(
     State(state): State<InvitesState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     let invites =
-        service::get_valid_invites(&state.database, server_id).await?;
+        service::get_valid_invites(&state.database, path.server_id).await?;
     Ok(Json(serde_json::json!({ "invites": invites })))
 }
 
 pub(super) async fn create_invite(
     State(state): State<InvitesState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<InviteRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
-    let invite =
-        service::create_invite(&state.database, server_id, user_id, payload)
-            .await?;
+    let invite = service::create_invite(
+        &state.database,
+        path.server_id,
+        user_id,
+        payload,
+    )
+    .await?;
     Ok(Json(serde_json::json!({ "invite": invite })))
 }
 
@@ -84,8 +92,7 @@ pub(super) async fn delete_invite(
     Path(path): Path<InvitePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let invite_id = parse_uuid(&path.invite_id, "inviteId")?;
-    service::delete_invite(&state.database, server_id, invite_id).await?;
+    service::delete_invite(&state.database, path.server_id, path.invite_id)
+        .await?;
     Ok(Json(serde_json::json!({})))
 }
