@@ -48,18 +48,14 @@ impl FromRequestParts<PollsState> for VoteRouteContext {
     ) -> Result<Self, Self::Rejection> {
         let Path(path) = Path::<PollPath>::from_request_parts(parts, state)
             .await
-            .map_err(|_| {
-                ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
-            })?;
-        let AuthenticatedUser(user_id) =
-            AuthenticatedUser::from_request_parts(parts, state).await?;
+            .map_err(|_| invalid_route_path())?;
 
-        load_vote_route_context(
+        load_authenticated_vote_route_context(
+            parts,
             state,
             path.server_id,
             path.channel_id,
             path.poll_id,
-            user_id,
         )
         .await
     }
@@ -74,17 +70,13 @@ impl FromRequestParts<PollsState> for VoteMutationContext {
     ) -> Result<Self, Self::Rejection> {
         let Path(path) = Path::<VotePath>::from_request_parts(parts, state)
             .await
-            .map_err(|_| {
-                ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
-            })?;
-        let AuthenticatedUser(user_id) =
-            AuthenticatedUser::from_request_parts(parts, state).await?;
-        let route = load_vote_route_context(
+            .map_err(|_| invalid_route_path())?;
+        let route = load_authenticated_vote_route_context(
+            parts,
             state,
             path.server_id,
             path.channel_id,
             path.poll_id,
-            user_id,
         )
         .await?;
 
@@ -151,6 +143,24 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
             poll_option_id: path.poll_option_id,
         })
     }
+}
+
+async fn load_authenticated_vote_route_context(
+    parts: &mut Parts,
+    state: &PollsState,
+    server_id: Uuid,
+    channel_id: Uuid,
+    poll_id: Uuid,
+) -> Result<VoteRouteContext, ApiError> {
+    let AuthenticatedUser(user_id) =
+        AuthenticatedUser::from_request_parts(parts, state).await?;
+
+    load_vote_route_context(state, server_id, channel_id, poll_id, user_id)
+        .await
+}
+
+fn invalid_route_path() -> ApiError {
+    ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
 }
 
 async fn load_vote_route_context(
