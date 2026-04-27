@@ -17,6 +17,7 @@ use crate::{
             validate_permissions, PermissionRule, ADMIN_ROLE_NAME,
             DEFAULT_ROLE_COLOR,
         },
+        text::sanitize_text,
         ApiError, AppResult,
     },
     servers::types::UserResponse,
@@ -385,8 +386,8 @@ async fn load_instance_role(
 }
 
 fn validate_role_request(request: RoleRequest) -> AppResult<(String, String)> {
-    let name = request.name.trim().to_owned();
-    let color = request.color.trim().to_owned();
+    let name = sanitize_text(&request.name);
+    let color = sanitize_text(&request.color);
     if !(2..=30).contains(&name.chars().count()) {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,

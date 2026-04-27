@@ -13,7 +13,7 @@ use super::types::{
 };
 use crate::{
     channels,
-    common::{ApiError, AppResult},
+    common::{text::sanitize_text, ApiError, AppResult},
     users as users_service,
 };
 
@@ -81,7 +81,7 @@ pub(crate) async fn create_message(
 
     let body = request
         .body
-        .map(|value| value.trim().to_owned())
+        .map(|value| sanitize_text(&value))
         .filter(|value| !value.is_empty());
 
     let message = messages::ActiveModel {
@@ -323,7 +323,7 @@ fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
     let has_body = request
         .body
         .as_ref()
-        .map(|body| !body.trim().is_empty())
+        .map(|body| !sanitize_text(body).is_empty())
         .unwrap_or(false);
 
     if has_body || request.image_count > 0 {

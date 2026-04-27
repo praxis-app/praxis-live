@@ -8,7 +8,7 @@ use sea_orm::{
 use uuid::Uuid as NativeUuid;
 
 use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
-use crate::common::{ApiError, AppResult};
+use crate::common::{text::sanitize_text, ApiError, AppResult};
 use crate::servers as servers_service;
 
 pub(crate) async fn get_channels(
@@ -316,7 +316,7 @@ fn shape_channel(
 fn validate_channel_request(
     request: ChannelRequest,
 ) -> AppResult<(String, Option<String>)> {
-    let name = request.name.trim().to_ascii_lowercase();
+    let name = sanitize_text(&request.name).to_ascii_lowercase();
     if !(2..=30).contains(&name.chars().count()) {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -326,7 +326,7 @@ fn validate_channel_request(
 
     let description = request
         .description
-        .map(|value| value.trim().to_owned())
+        .map(|value| sanitize_text(&value))
         .filter(|value| !value.is_empty());
 
     if description

@@ -15,7 +15,7 @@ use super::models::{
     UserProfileResponse, UserRecord,
 };
 use crate::{
-    common::{ApiError, AppResult},
+    common::{text::sanitize_text, ApiError, AppResult},
     instance, servers,
 };
 
@@ -493,7 +493,7 @@ async fn get_latest_user_image(
 }
 
 fn validate_name(name: &str) -> AppResult<String> {
-    let normalized = name.trim().to_owned();
+    let normalized = sanitize_text(name);
     let valid = (3..=15).contains(&normalized.chars().count())
         && normalized.chars().all(|ch| {
             ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_'
@@ -513,7 +513,7 @@ fn normalize_optional_text(
     value: String,
     max_len: usize,
 ) -> AppResult<Option<String>> {
-    let normalized = value.trim().to_owned();
+    let normalized = sanitize_text(&value);
     if normalized.is_empty() {
         return Ok(None);
     }
