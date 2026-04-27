@@ -33,9 +33,9 @@ pub(crate) async fn create_user(
 ) -> Result<UserRecord, CreateUserError> {
     users::ActiveModel {
         id: Set(NativeUuid::new_v4()),
-        email: Set(normalize_text(&email)),
+        email: Set(Some(normalize_text(&email))),
         name: Set(name),
-        password_hash: Set(password_hash),
+        password: Set(Some(password_hash)),
         ..Default::default()
     }
     .insert(database)
@@ -53,9 +53,9 @@ pub(crate) async fn create_anon_user(
 
     let user = users::ActiveModel {
         id: Set(user_id),
-        email: Set(format!("anon-{user_id}@anonymous.praxis.local")),
+        email: Set(None),
         name: Set(format!("anon_{suffix}")),
-        password_hash: Set(String::new()),
+        password: Set(Some(String::new())),
         anonymous: Set(true),
         ..Default::default()
     }
@@ -92,7 +92,7 @@ pub(crate) async fn authenticate(
     password: String,
 ) -> Result<Option<UserRecord>, DbErr> {
     let user = users::Entity::find()
-        .filter(users::Column::Email.eq(email))
+        .filter(users::Column::Email.eq(Some(email)))
         .one(database)
         .await?;
 
@@ -100,11 +100,11 @@ pub(crate) async fn authenticate(
         return Ok(None);
     };
 
-    Ok(
-        password_auth::verify_password(password, &user.password_hash)
-            .ok()
-            .map(|()| user),
-    )
+    Ok(user
+        .password_hash
+        .as_deref()
+        .and_then(|hash| password_auth::verify_password(password, hash).ok())
+        .map(|()| user))
 }
 
 pub(crate) async fn get_current_user(

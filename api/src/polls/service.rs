@@ -21,7 +21,7 @@ use super::types::{
 };
 use crate::{
     channels,
-    common::{text::sanitize_text, ApiError, AppResult},
+    common::{encryption, text::sanitize_text, ApiError, AppResult},
     messages::types::serialize_timestamp,
     poll_actions::{self, types::CreatePollActionRequest},
     servers::{self, server_configs},
@@ -151,9 +151,24 @@ pub(crate) async fn create_poll(
         })
     });
 
+    let encrypted = match body.as_deref() {
+        Some(body) => {
+            let (key, unwrapped_key) =
+                channels::get_unwrapped_channel_key(database, channel_id)
+                    .await?;
+            Some((key.id, encryption::encrypt_text(body, &unwrapped_key)?))
+        }
+        None => None,
+    };
+
     let poll = polls::ActiveModel {
         id: Set(NativeUuid::new_v4()),
-        body: Set(body.clone()),
+        key_id: Set(encrypted.as_ref().map(|(key_id, _)| *key_id)),
+        ciphertext: Set(encrypted
+            .as_ref()
+            .map(|(_, value)| value.ciphertext.clone())),
+        iv: Set(encrypted.as_ref().map(|(_, value)| value.iv.clone())),
+        tag: Set(encrypted.as_ref().map(|(_, value)| value.tag.clone())),
         poll_type: Set(poll_type),
         user_id: Set(user_id),
         channel_id: Set(channel_id),
@@ -621,7 +636,7 @@ async fn shape_poll(
 
     Ok(PollResponse {
         id: poll.id.to_string(),
-        body: poll.body,
+        body: decrypt_poll_body(database, &poll).await?,
         poll_type: poll.poll_type.to_string(),
         stage: poll.stage.to_string(),
         action: if is_proposal {
@@ -690,6 +705,25 @@ fn shape_poll_image(image: &poll_images::Model) -> PollImageResponse {
         is_placeholder: image.storage_key.is_none(),
         created_at: serialize_timestamp(image.created_at),
     }
+}
+
+async fn decrypt_poll_body(
+    database: &DatabaseConnection,
+    poll: &polls::Model,
+) -> AppResult<Option<String>> {
+    let (Some(ciphertext), Some(iv), Some(tag), Some(key_id)) = (
+        poll.ciphertext.as_ref(),
+        poll.iv.as_ref(),
+        poll.tag.as_ref(),
+        poll.key_id,
+    ) else {
+        return Ok(None);
+    };
+    let key_map =
+        channels::get_unwrapped_channel_key_map(database, vec![key_id]).await?;
+    Ok(key_map.get(&key_id).and_then(|key| {
+        encryption::decrypt_text(ciphertext, iv, tag, key).ok()
+    }))
 }
 
 async fn ensure_allowed_to_create_proposal(

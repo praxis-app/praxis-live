@@ -7,7 +7,10 @@ use crate::enums::{PollStage, PollType};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub body: Option<String>,
+    pub ciphertext: Option<Vec<u8>>,
+    pub iv: Option<Vec<u8>>,
+    pub tag: Option<Vec<u8>>,
+    pub key_id: Option<Uuid>,
     pub stage: PollStage,
     pub poll_type: PollType,
     pub user_id: Uuid,

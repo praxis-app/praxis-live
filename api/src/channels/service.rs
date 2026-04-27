@@ -1,14 +1,17 @@
 use axum::http::StatusCode;
-use entity::{channel_members, channels, server_members, servers};
+use entity::{
+    channel_keys, channel_members, channels, server_members, servers,
+};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
     DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter,
     QueryOrder, Set,
 };
+use std::collections::HashMap;
 use uuid::Uuid as NativeUuid;
 
 use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
-use crate::common::{text::sanitize_text, ApiError, AppResult};
+use crate::common::{encryption, text::sanitize_text, ApiError, AppResult};
 use crate::servers as servers_service;
 
 pub(crate) async fn get_channels(
@@ -96,6 +99,7 @@ pub(crate) async fn create_channel(
     .insert(database)
     .await
     .map_err(internal_error)?;
+    create_channel_key(database, channel.id).await?;
 
     let server_members = server_members::Entity::find()
         .filter(server_members::Column::ServerId.eq(server_id))
@@ -264,6 +268,7 @@ pub(crate) async fn create_general_channel(
     .insert(database)
     .await
     .map_err(internal_error)?;
+    create_channel_key(database, channel.id).await?;
 
     let members = server_members::Entity::find()
         .filter(server_members::Column::ServerId.eq(server_id))
@@ -296,6 +301,73 @@ pub(crate) async fn general_channel_id(
         .await
         .map_err(internal_error)?;
     Ok(channel.map(|channel| channel.id))
+}
+
+pub(crate) async fn get_unwrapped_channel_key(
+    database: &DatabaseConnection,
+    channel_id: Uuid,
+) -> AppResult<(channel_keys::Model, Vec<u8>)> {
+    let key = channel_keys::Entity::find()
+        .filter(channel_keys::Column::ChannelId.eq(channel_id))
+        .order_by_desc(channel_keys::Column::CreatedAt)
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    let key = match key {
+        Some(key) => key,
+        None => create_channel_key(database, channel_id).await?,
+    };
+    let unwrapped =
+        encryption::unwrap_channel_key(&key.wrapped_key, &key.iv, &key.tag)?;
+    Ok((key, unwrapped))
+}
+
+pub(crate) async fn get_unwrapped_channel_key_map(
+    database: &DatabaseConnection,
+    key_ids: Vec<Uuid>,
+) -> AppResult<HashMap<Uuid, Vec<u8>>> {
+    if key_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let keys = channel_keys::Entity::find()
+        .filter(channel_keys::Column::Id.is_in(key_ids))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let mut result = HashMap::with_capacity(keys.len());
+
+    for key in keys {
+        result.insert(
+            key.id,
+            encryption::unwrap_channel_key(
+                &key.wrapped_key,
+                &key.iv,
+                &key.tag,
+            )?,
+        );
+    }
+
+    Ok(result)
+}
+
+async fn create_channel_key(
+    database: &DatabaseConnection,
+    channel_id: Uuid,
+) -> AppResult<channel_keys::Model> {
+    let encrypted = encryption::generate_channel_key()?;
+    channel_keys::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        wrapped_key: Set(encrypted.ciphertext),
+        iv: Set(encrypted.iv),
+        tag: Set(encrypted.tag),
+        channel_id: Set(channel_id),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)
 }
 
 fn shape_channel(

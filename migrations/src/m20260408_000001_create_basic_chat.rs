@@ -13,6 +13,12 @@ impl MigrationTrait for Migration {
             &["consent", "consensus", "majority-vote"],
         )
         .await?;
+        create_enum_type(
+            manager,
+            "message_commandstatus_enum",
+            &["processing", "completed", "failed"],
+        )
+        .await?;
 
         manager
             .create_table(
@@ -315,6 +321,10 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(
+                        ColumnDef::new(ChannelMembers::LastMessageReadId)
+                            .uuid(),
+                    )
+                    .col(
                         ColumnDef::new(ChannelMembers::ChannelId)
                             .uuid()
                             .not_null(),
@@ -326,6 +336,12 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(ChannelMembers::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(ChannelMembers::UpdatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
@@ -363,6 +379,89 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
+                    .table(ChannelKeys::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(ChannelKeys::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(ChannelKeys::WrappedKey)
+                            .binary()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ChannelKeys::Iv).binary().not_null())
+                    .col(ColumnDef::new(ChannelKeys::Tag).binary().not_null())
+                    .col(
+                        ColumnDef::new(ChannelKeys::ChannelId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ChannelKeys::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(ChannelKeys::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("channel-keys-channel-id-fkey")
+                            .from(ChannelKeys::Table, ChannelKeys::ChannelId)
+                            .to(Channels::Table, Channels::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(Bots::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Bots::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Bots::Name).string().not_null())
+                    .col(ColumnDef::new(Bots::DisplayName).string())
+                    .col(ColumnDef::new(Bots::Description).string())
+                    .col(
+                        ColumnDef::new(Bots::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Bots::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .index(
+                        Index::create()
+                            .name("bots-name-key")
+                            .col(Bots::Name)
+                            .unique(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
                     .table(Messages::Table)
                     .if_not_exists()
                     .col(
@@ -373,7 +472,19 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Messages::ChannelId).uuid().not_null())
                     .col(ColumnDef::new(Messages::UserId).uuid().not_null())
-                    .col(ColumnDef::new(Messages::Body).text())
+                    .col(ColumnDef::new(Messages::Ciphertext).binary())
+                    .col(ColumnDef::new(Messages::Iv).binary())
+                    .col(ColumnDef::new(Messages::Tag).binary())
+                    .col(ColumnDef::new(Messages::BotId).uuid())
+                    .col(ColumnDef::new(Messages::CommandStatus).enumeration(
+                        Alias::new("message_commandstatus_enum"),
+                        [
+                            Alias::new("processing"),
+                            Alias::new("completed"),
+                            Alias::new("failed"),
+                        ],
+                    ))
+                    .col(ColumnDef::new(Messages::KeyId).uuid())
                     .col(
                         ColumnDef::new(Messages::CreatedAt)
                             .timestamp_with_time_zone()
@@ -462,6 +573,12 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(Messages::Table).to_owned())
             .await?;
         manager
+            .drop_table(Table::drop().table(Bots::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(ChannelKeys::Table).to_owned())
+            .await?;
+        manager
             .drop_table(Table::drop().table(ChannelMembers::Table).to_owned())
             .await?;
         manager
@@ -480,6 +597,7 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(Servers::Table).to_owned())
             .await?;
 
+        drop_enum_type(manager, "message_commandstatus_enum").await?;
         drop_enum_type(manager, "server_configs_decision_making_model_enum")
             .await
     }
@@ -580,9 +698,34 @@ enum Channels {
 enum ChannelMembers {
     Table,
     Id,
+    LastMessageReadId,
     ChannelId,
     UserId,
     CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum ChannelKeys {
+    Table,
+    Id,
+    WrappedKey,
+    Iv,
+    Tag,
+    ChannelId,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum Bots {
+    Table,
+    Id,
+    Name,
+    DisplayName,
+    Description,
+    CreatedAt,
+    UpdatedAt,
 }
 
 #[derive(DeriveIden)]
@@ -591,7 +734,12 @@ enum Messages {
     Id,
     ChannelId,
     UserId,
-    Body,
+    Ciphertext,
+    Iv,
+    Tag,
+    BotId,
+    CommandStatus,
+    KeyId,
     CreatedAt,
     UpdatedAt,
 }

@@ -6,35 +6,12 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Users::Table)
-                    .add_column(
-                        ColumnDef::new(Users::Anonymous)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .to_owned(),
-            )
-            .await
+        let _ = manager;
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Users::Table)
-                    .drop_column(Users::Anonymous)
-                    .to_owned(),
-            )
-            .await
+        let _ = manager;
+        Ok(())
     }
-}
-
-#[derive(DeriveIden)]
-enum Users {
-    Table,
-    Anonymous,
 }

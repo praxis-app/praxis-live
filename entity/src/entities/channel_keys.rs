@@ -1,13 +1,14 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "channel_members")]
+#[sea_orm(table_name = "channel_keys")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub last_message_read_id: Option<Uuid>,
+    pub wrapped_key: Vec<u8>,
+    pub iv: Vec<u8>,
+    pub tag: Vec<u8>,
     pub channel_id: Uuid,
-    pub user_id: Uuid,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -22,25 +23,11 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Channel,
-    #[sea_orm(
-        belongs_to = "super::users::Entity",
-        from = "Column::UserId",
-        to = "super::users::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    User,
 }
 
 impl Related<super::channels::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Channel.def()
-    }
-}
-
-impl Related<super::users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::User.def()
     }
 }
 

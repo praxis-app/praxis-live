@@ -57,6 +57,7 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "casbin",
  "chrono",
  "dashmap",
@@ -68,6 +69,7 @@ dependencies = [
  "mime_guess",
  "password-auth",
  "redis",
+ "ring",
  "sea-orm",
  "sea-orm-migration",
  "serde",

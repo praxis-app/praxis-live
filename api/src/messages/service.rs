@@ -13,7 +13,7 @@ use super::types::{
 };
 use crate::{
     channels,
-    common::{text::sanitize_text, ApiError, AppResult},
+    common::{encryption, text::sanitize_text, ApiError, AppResult},
     users as users_service,
 };
 
@@ -56,6 +56,12 @@ pub(crate) async fn get_feed(
         .all(database)
         .await
         .map_err(internal_error)?;
+    let key_ids = messages
+        .iter()
+        .filter_map(|message| message.key_id)
+        .collect::<Vec<_>>();
+    let key_map =
+        channels::get_unwrapped_channel_key_map(database, key_ids).await?;
 
     Ok(messages
         .into_iter()
@@ -66,6 +72,7 @@ pub(crate) async fn get_feed(
                 users.iter().find(|user| user.id == message.user_id),
                 &profile_pictures,
                 images.iter().filter(|image| image.message_id == message.id),
+                decrypt_message_body(&message, &key_map),
             ),
         })
         .collect())
@@ -84,11 +91,26 @@ pub(crate) async fn create_message(
         .map(|value| sanitize_text(&value))
         .filter(|value| !value.is_empty());
 
+    let encrypted = match body.as_deref() {
+        Some(body) => {
+            let (key, unwrapped_key) =
+                channels::get_unwrapped_channel_key(database, channel_id)
+                    .await?;
+            Some((key.id, encryption::encrypt_text(body, &unwrapped_key)?))
+        }
+        None => None,
+    };
+
     let message = messages::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         channel_id: Set(channel_id),
         user_id: Set(user_id),
-        body: Set(body),
+        key_id: Set(encrypted.as_ref().map(|(key_id, _)| *key_id)),
+        ciphertext: Set(encrypted
+            .as_ref()
+            .map(|(_, value)| value.ciphertext.clone())),
+        iv: Set(encrypted.as_ref().map(|(_, value)| value.iv.clone())),
+        tag: Set(encrypted.as_ref().map(|(_, value)| value.tag.clone())),
         ..Default::default()
     }
     .insert(database)
@@ -119,7 +141,7 @@ pub(crate) async fn create_message(
 
     Ok(MessageResponse {
         id: message.id.to_string(),
-        body: message.body,
+        body,
         images: shaped_images,
         user: Some(MessageUser {
             id: user.id.to_string(),
@@ -280,10 +302,11 @@ fn shape_message<'a>(
         crate::users::UserImageRef,
     >,
     images: impl Iterator<Item = &'a message_images::Model>,
+    body: Option<String>,
 ) -> MessageResponse {
     MessageResponse {
         id: message.id.to_string(),
-        body: message.body.clone(),
+        body,
         images: images
             .map(|image| shape_image(image, image.storage_key.is_none()))
             .collect(),
@@ -310,6 +333,22 @@ fn shape_image(
         is_placeholder: is_placeholder.then_some(true),
         created_at: serialize_timestamp(image.created_at),
     }
+}
+
+fn decrypt_message_body(
+    message: &messages::Model,
+    key_map: &std::collections::HashMap<Uuid, Vec<u8>>,
+) -> Option<String> {
+    let (Some(ciphertext), Some(iv), Some(tag), Some(key_id)) = (
+        message.ciphertext.as_ref(),
+        message.iv.as_ref(),
+        message.tag.as_ref(),
+        message.key_id,
+    ) else {
+        return None;
+    };
+    let key = key_map.get(&key_id)?;
+    encryption::decrypt_text(ciphertext, iv, tag, key).ok()
 }
 
 fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {

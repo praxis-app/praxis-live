@@ -8,5 +8,6 @@ pub(crate) use routes::router;
 pub(crate) use service::{
     add_member_to_all_server_channels, create_general_channel,
     ensure_channel_membership, general_channel_id, get_channel,
-    get_channel_member_user_ids,
+    get_channel_member_user_ids, get_unwrapped_channel_key,
+    get_unwrapped_channel_key_map,
 };

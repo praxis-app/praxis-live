@@ -5,9 +5,14 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
+    pub ciphertext: Option<Vec<u8>>,
+    pub iv: Option<Vec<u8>>,
+    pub tag: Option<Vec<u8>>,
     pub channel_id: Uuid,
     pub user_id: Uuid,
-    pub body: Option<String>,
+    pub bot_id: Option<Uuid>,
+    pub command_status: Option<String>,
+    pub key_id: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

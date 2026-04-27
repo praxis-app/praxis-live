@@ -153,7 +153,10 @@ async fn create_polls(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
                 .table(Polls::Table)
                 .if_not_exists()
                 .col(ColumnDef::new(Polls::Id).uuid().not_null().primary_key())
-                .col(ColumnDef::new(Polls::Body).text())
+                .col(ColumnDef::new(Polls::Ciphertext).binary())
+                .col(ColumnDef::new(Polls::Iv).binary())
+                .col(ColumnDef::new(Polls::Tag).binary())
+                .col(ColumnDef::new(Polls::KeyId).uuid())
                 .col(
                     ColumnDef::new(Polls::Stage)
                         .enumeration(
@@ -731,7 +734,10 @@ async fn drop_enum_type(
 enum Polls {
     Table,
     Id,
-    Body,
+    Ciphertext,
+    Iv,
+    Tag,
+    KeyId,
     Stage,
     PollType,
     UserId,

@@ -9,10 +9,10 @@ use crate::common::roles::PermissionRule;
 #[derive(Debug, Clone)]
 pub(crate) struct UserRecord {
     pub(crate) id: Uuid,
-    pub(crate) email: String,
+    pub(crate) email: Option<String>,
     pub(crate) name: String,
     pub(crate) display_name: Option<String>,
-    pub(crate) password_hash: String,
+    pub(crate) password_hash: Option<String>,
     pub(crate) anonymous: bool,
 }
 
@@ -20,7 +20,7 @@ pub(crate) struct UserRecord {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PublicUser {
     id: Uuid,
-    email: String,
+    email: Option<String>,
     name: String,
     display_name: Option<String>,
     anonymous: bool,
@@ -45,7 +45,7 @@ impl From<users::Model> for UserRecord {
             email: user.email,
             name: user.name,
             display_name: user.display_name,
-            password_hash: user.password_hash,
+            password_hash: user.password,
             anonymous: user.anonymous,
         }
     }
