@@ -1,5 +1,5 @@
 use axum::{
-    routing::{delete, get, post, put},
+    routing::{delete, get, post},
     Router,
 };
 use sea_orm::DatabaseConnection;
@@ -29,14 +29,6 @@ pub(crate) fn router(
             "/{channelId}/polls/{pollId}/options/{pollOptionId}/voters",
             get(votes::handlers::get_voters_by_poll_option),
         )
-        .route(
-            "/{channelId}/polls/{pollId}/votes",
-            post(votes::handlers::create_vote),
-        )
-        .route(
-            "/{channelId}/polls/{pollId}/votes/{voteId}",
-            put(votes::handlers::update_vote)
-                .delete(votes::handlers::delete_vote),
-        )
+        .nest("/{channelId}/polls/{pollId}/votes", votes::routes::router())
         .with_state(PollsState::new(database, jwt_secret, pub_sub_service))
 }
