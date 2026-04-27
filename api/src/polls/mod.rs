@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod routes;
 
 pub(super) mod extractors;

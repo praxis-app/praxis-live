@@ -21,9 +21,6 @@ pub(super) struct PollImageUploadContext {
 }
 
 pub(super) struct PollDeleteContext {
-    pub(super) server_id: Uuid,
-    pub(super) channel_id: Uuid,
-    pub(super) user_id: Uuid,
     pub(super) poll: polls::Model,
 }
 
@@ -89,12 +86,7 @@ impl FromRequestParts<PollsState> for PollDeleteContext {
 
         ensure_poll_owner(state, path.channel_id, user_id, &poll).await?;
 
-        Ok(Self {
-            server_id: path.server_id,
-            channel_id: path.channel_id,
-            user_id,
-            poll,
-        })
+        Ok(Self { poll })
     }
 }
 
