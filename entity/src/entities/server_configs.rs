@@ -1,12 +1,14 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::ServerDecisionMakingModel;
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "server_configs")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub server_id: Uuid,
-    pub decision_making_model: String,
+    pub decision_making_model: ServerDecisionMakingModel,
     pub disagreements_limit: i32,
     pub abstains_limit: i32,
     pub agreement_threshold: i32,

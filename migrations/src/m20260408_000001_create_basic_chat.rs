@@ -1,5 +1,5 @@
-use sea_orm::sea_query::Expr;
-use sea_orm_migration::prelude::*;
+use sea_orm::{sea_query::Expr, DbBackend};
+use sea_orm_migration::prelude::{sea_query::extension::postgres::Type, *};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -7,6 +7,13 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        create_enum_type(
+            manager,
+            "server_configs_decision_making_model_enum",
+            &["consent", "consensus", "majority-vote"],
+        )
+        .await?;
+
         manager
             .create_table(
                 Table::create()
@@ -123,7 +130,16 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(ServerConfigs::DecisionMakingModel)
-                            .string()
+                            .enumeration(
+                                Alias::new(
+                                    "server_configs_decision_making_model_enum",
+                                ),
+                                [
+                                    Alias::new("consent"),
+                                    Alias::new("consensus"),
+                                    Alias::new("majority-vote"),
+                                ],
+                            )
                             .not_null()
                             .default("consensus"),
                     )
@@ -462,8 +478,43 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .drop_table(Table::drop().table(Servers::Table).to_owned())
+            .await?;
+
+        drop_enum_type(manager, "server_configs_decision_making_model_enum")
             .await
     }
+}
+
+async fn create_enum_type(
+    manager: &SchemaManager<'_>,
+    name: &str,
+    values: &[&str],
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() == DbBackend::Postgres {
+        manager
+            .create_type(
+                Type::create()
+                    .as_enum(Alias::new(name))
+                    .values(values.iter().copied().map(Alias::new))
+                    .to_owned(),
+            )
+            .await?;
+    }
+
+    Ok(())
+}
+
+async fn drop_enum_type(
+    manager: &SchemaManager<'_>,
+    name: &str,
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() == DbBackend::Postgres {
+        manager
+            .drop_type(Type::drop().name(Alias::new(name)).to_owned())
+            .await?;
+    }
+
+    Ok(())
 }
 
 #[derive(DeriveIden)]

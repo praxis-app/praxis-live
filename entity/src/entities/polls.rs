@@ -1,13 +1,15 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::{PollStage, PollType};
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "polls")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub body: Option<String>,
-    pub stage: String,
-    pub poll_type: String,
+    pub stage: PollStage,
+    pub poll_type: PollType,
     pub user_id: Uuid,
     pub channel_id: Uuid,
     pub created_at: DateTimeWithTimeZone,

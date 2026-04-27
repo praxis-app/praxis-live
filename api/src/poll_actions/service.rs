@@ -1,8 +1,14 @@
 use axum::http::StatusCode;
 use entity::{
-    channels, poll_action_permissions, poll_action_role_members,
-    poll_action_roles, poll_actions, polls, server_role_members,
-    server_role_permissions, server_roles, users,
+    channels,
+    enums::{
+        PollActionPermissionAbilityAction, PollActionPermissionChangeType,
+        PollActionPermissionSubject, PollActionRoleMemberChangeType,
+        PollActionType, ServerAbilitySubject, ServerRoleAbilityAction,
+    },
+    poll_action_permissions, poll_action_role_members, poll_action_roles,
+    poll_actions, polls, server_role_members, server_role_permissions,
+    server_roles, users,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
@@ -29,7 +35,7 @@ pub(crate) async fn create_poll_action(
     let action = poll_actions::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         poll_id: Set(poll_id),
-        action_type: Set(request.action_type),
+        action_type: Set(parse_poll_action_type(&request.action_type)?),
         ..Default::default()
     }
     .insert(database)
@@ -104,9 +110,15 @@ pub(crate) async fn create_poll_action_role(
                 poll_action_permissions::ActiveModel {
                     id: Set(NativeUuid::new_v4()),
                     poll_action_role_id: Set(role.id),
-                    subject: Set(permission.subject.clone()),
-                    action: Set(action.action),
-                    change_type: Set(action.change_type),
+                    subject: Set(parse_poll_action_permission_subject(
+                        &permission.subject,
+                    )?),
+                    action: Set(parse_poll_action_permission_action(
+                        &action.action,
+                    )?),
+                    change_type: Set(parse_poll_action_permission_change_type(
+                        &action.change_type,
+                    )?),
                     ..Default::default()
                 }
                 .insert(database)
@@ -122,7 +134,9 @@ pub(crate) async fn create_poll_action_role(
                 id: Set(NativeUuid::new_v4()),
                 poll_action_role_id: Set(role.id),
                 user_id: Set(parse_uuid(&member.user_id, "userId")?),
-                change_type: Set(member.change_type),
+                change_type: Set(parse_poll_action_role_member_change_type(
+                    &member.change_type,
+                )?),
                 ..Default::default()
             }
             .insert(database)
@@ -183,7 +197,7 @@ pub(crate) async fn shape_poll_action(
     };
     Ok(Some(PollActionResponse {
         id: action.id.to_string(),
-        action_type: action.action_type,
+        action_type: action.action_type.to_string(),
         server_role,
     }))
 }
@@ -305,11 +319,11 @@ async fn apply_permission_changes(
                 )
                 .filter(
                     server_role_permissions::Column::Subject
-                        .eq(permission.subject),
+                        .eq(ServerAbilitySubject::from(permission.subject)),
                 )
                 .filter(
                     server_role_permissions::Column::Action
-                        .eq(permission.action),
+                        .eq(ServerRoleAbilityAction::from(permission.action)),
                 )
                 .exec(database)
                 .await
@@ -318,8 +332,8 @@ async fn apply_permission_changes(
             add_role_permission(
                 database,
                 role_id,
-                permission.subject,
-                permission.action,
+                permission.subject.into(),
+                permission.action.into(),
             )
             .await?;
         }
@@ -345,8 +359,8 @@ async fn copy_action_permissions(
             add_role_permission(
                 database,
                 role_id,
-                permission.subject,
-                permission.action,
+                permission.subject.into(),
+                permission.action.into(),
             )
             .await?;
         }
@@ -357,13 +371,13 @@ async fn copy_action_permissions(
 async fn add_role_permission(
     database: &DatabaseConnection,
     role_id: Uuid,
-    subject: String,
-    action: String,
+    subject: ServerAbilitySubject,
+    action: ServerRoleAbilityAction,
 ) -> AppResult<()> {
     if server_role_permissions::Entity::find()
         .filter(server_role_permissions::Column::ServerRoleId.eq(role_id))
-        .filter(server_role_permissions::Column::Subject.eq(subject.clone()))
-        .filter(server_role_permissions::Column::Action.eq(action.clone()))
+        .filter(server_role_permissions::Column::Subject.eq(subject))
+        .filter(server_role_permissions::Column::Action.eq(action))
         .one(database)
         .await
         .map_err(internal_error)?
@@ -472,7 +486,7 @@ async fn shape_poll_action_role(
             .filter_map(|member| {
                 users.iter().find(|user| user.id == member.user_id).map(
                     |user| PollActionServerRoleMemberResponse {
-                        change_type: member.change_type,
+                        change_type: member.change_type.to_string(),
                         user: PollActionUserResponse {
                             id: user.id.to_string(),
                             name: user.name.clone(),
@@ -488,9 +502,9 @@ async fn shape_poll_action_role(
         permissions: permissions
             .into_iter()
             .map(|permission| PollActionPermissionResponse {
-                subject: permission.subject,
-                action: permission.action,
-                change_type: permission.change_type,
+                subject: permission.subject.to_string(),
+                action: permission.action.to_string(),
+                change_type: permission.change_type.to_string(),
             })
             .collect(),
     })
@@ -499,4 +513,51 @@ async fn shape_poll_action_role(
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("poll action request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+}
+
+fn parse_poll_action_type(value: &str) -> AppResult<PollActionType> {
+    value.parse().map_err(|_| {
+        ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Poll action type is invalid.",
+        )
+    })
+}
+
+fn parse_poll_action_permission_subject(
+    value: &str,
+) -> AppResult<PollActionPermissionSubject> {
+    value.parse().map_err(|_| {
+        ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "Subject is invalid.")
+    })
+}
+
+fn parse_poll_action_permission_action(
+    value: &str,
+) -> AppResult<PollActionPermissionAbilityAction> {
+    value.parse().map_err(|_| {
+        ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "Action is invalid.")
+    })
+}
+
+fn parse_poll_action_permission_change_type(
+    value: &str,
+) -> AppResult<PollActionPermissionChangeType> {
+    value.parse().map_err(|_| {
+        ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Change type is invalid.",
+        )
+    })
+}
+
+fn parse_poll_action_role_member_change_type(
+    value: &str,
+) -> AppResult<PollActionRoleMemberChangeType> {
+    value.parse().map_err(|_| {
+        ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Change type is invalid.",
+        )
+    })
 }

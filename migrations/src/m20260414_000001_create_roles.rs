@@ -1,5 +1,5 @@
-use sea_orm::sea_query::Expr;
-use sea_orm_migration::prelude::*;
+use sea_orm::{sea_query::Expr, DbBackend};
+use sea_orm_migration::prelude::{sea_query::extension::postgres::Type, *};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -7,6 +7,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        create_role_enum_types(manager).await?;
         create_instance_roles(manager).await?;
         create_instance_role_permissions(manager).await?;
         create_instance_role_members(manager).await?;
@@ -45,8 +46,54 @@ impl MigrationTrait for Migration {
         manager
             .drop_table(Table::drop().table(InstanceRoles::Table).to_owned())
             .await?;
+        drop_role_enum_types(manager).await?;
         Ok(())
     }
+}
+
+async fn create_role_enum_types(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    create_enum_type(
+        manager,
+        "instance_role_permissions_action_enum",
+        &["delete", "create", "read", "update", "manage"],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "instance_role_permissions_subject_enum",
+        &["InstanceConfig", "InstanceRole", "Server", "all"],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "server_role_permissions_action_enum",
+        &["delete", "create", "read", "update", "manage"],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "server_role_permissions_subject_enum",
+        &[
+            "ServerConfig",
+            "Channel",
+            "Invite",
+            "Message",
+            "ServerRole",
+            "all",
+        ],
+    )
+    .await
+}
+
+async fn drop_role_enum_types(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    drop_enum_type(manager, "server_role_permissions_subject_enum").await?;
+    drop_enum_type(manager, "server_role_permissions_action_enum").await?;
+    drop_enum_type(manager, "instance_role_permissions_subject_enum").await?;
+    drop_enum_type(manager, "instance_role_permissions_action_enum").await
 }
 
 async fn create_instance_roles(
@@ -99,12 +146,31 @@ async fn create_instance_role_permissions(
                 )
                 .col(
                     ColumnDef::new(InstanceRolePermissions::Subject)
-                        .string()
+                        .enumeration(
+                            Alias::new(
+                                "instance_role_permissions_subject_enum",
+                            ),
+                            [
+                                Alias::new("InstanceConfig"),
+                                Alias::new("InstanceRole"),
+                                Alias::new("Server"),
+                                Alias::new("all"),
+                            ],
+                        )
                         .not_null(),
                 )
                 .col(
                     ColumnDef::new(InstanceRolePermissions::Action)
-                        .string()
+                        .enumeration(
+                            Alias::new("instance_role_permissions_action_enum"),
+                            [
+                                Alias::new("delete"),
+                                Alias::new("create"),
+                                Alias::new("read"),
+                                Alias::new("update"),
+                                Alias::new("manage"),
+                            ],
+                        )
                         .not_null(),
                 )
                 .col(timestamp(InstanceRolePermissions::CreatedAt))
@@ -253,12 +319,31 @@ async fn create_server_role_permissions(
                 )
                 .col(
                     ColumnDef::new(ServerRolePermissions::Subject)
-                        .string()
+                        .enumeration(
+                            Alias::new("server_role_permissions_subject_enum"),
+                            [
+                                Alias::new("ServerConfig"),
+                                Alias::new("Channel"),
+                                Alias::new("Invite"),
+                                Alias::new("Message"),
+                                Alias::new("ServerRole"),
+                                Alias::new("all"),
+                            ],
+                        )
                         .not_null(),
                 )
                 .col(
                     ColumnDef::new(ServerRolePermissions::Action)
-                        .string()
+                        .enumeration(
+                            Alias::new("server_role_permissions_action_enum"),
+                            [
+                                Alias::new("delete"),
+                                Alias::new("create"),
+                                Alias::new("read"),
+                                Alias::new("update"),
+                                Alias::new("manage"),
+                            ],
+                        )
                         .not_null(),
                 )
                 .col(timestamp(ServerRolePermissions::CreatedAt))
@@ -354,6 +439,38 @@ where
         .not_null()
         .default(Expr::current_timestamp())
         .to_owned()
+}
+
+async fn create_enum_type(
+    manager: &SchemaManager<'_>,
+    name: &str,
+    values: &[&str],
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() == DbBackend::Postgres {
+        manager
+            .create_type(
+                Type::create()
+                    .as_enum(Alias::new(name))
+                    .values(values.iter().copied().map(Alias::new))
+                    .to_owned(),
+            )
+            .await?;
+    }
+
+    Ok(())
+}
+
+async fn drop_enum_type(
+    manager: &SchemaManager<'_>,
+    name: &str,
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() == DbBackend::Postgres {
+        manager
+            .drop_type(Type::drop().name(Alias::new(name)).to_owned())
+            .await?;
+    }
+
+    Ok(())
 }
 
 #[derive(DeriveIden)]

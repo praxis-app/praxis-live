@@ -1,12 +1,21 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::PollDecisionMakingModel;
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "poll_actions")]
+#[sea_orm(table_name = "poll_configs")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub poll_id: Uuid,
-    pub action_type: String,
+    pub decision_making_model: Option<PollDecisionMakingModel>,
+    pub disagreements_limit: Option<i32>,
+    pub abstains_limit: Option<i32>,
+    pub agreement_threshold: Option<i32>,
+    pub quorum_enabled: Option<bool>,
+    pub quorum_threshold: Option<i32>,
+    pub multiple_choice: Option<bool>,
+    pub closing_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -21,19 +30,11 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Poll,
-    #[sea_orm(has_one = "super::poll_action_roles::Entity")]
-    ServerRole,
 }
 
 impl Related<super::polls::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Poll.def()
-    }
-}
-
-impl Related<super::poll_action_roles::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::ServerRole.def()
     }
 }
 

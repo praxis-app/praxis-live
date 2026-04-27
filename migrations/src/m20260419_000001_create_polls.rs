@@ -1,5 +1,5 @@
-use sea_orm::sea_query::Expr;
-use sea_orm_migration::prelude::*;
+use sea_orm::{sea_query::Expr, DbBackend};
+use sea_orm_migration::prelude::{sea_query::extension::postgres::Type, *};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -7,6 +7,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        create_poll_enum_types(manager).await?;
         create_polls(manager).await?;
         create_poll_configs(manager).await?;
         create_poll_options(manager).await?;
@@ -56,8 +57,93 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .drop_table(Table::drop().table(Polls::Table).to_owned())
-            .await
+            .await?;
+        drop_poll_enum_types(manager).await
     }
+}
+
+async fn create_poll_enum_types(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    create_enum_type(
+        manager,
+        "polls_stage_enum",
+        &["voting", "ratified", "revision", "closed"],
+    )
+    .await?;
+    create_enum_type(manager, "polls_poll_type_enum", &["proposal", "poll"])
+        .await?;
+    create_enum_type(
+        manager,
+        "poll_configs_decision_making_model_enum",
+        &["consent", "consensus", "majority-vote"],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "poll_actions_action_type_enum",
+        &[
+            "general",
+            "change-settings",
+            "change-role",
+            "create-role",
+            "plan-event",
+            "test",
+        ],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "poll_action_permissions_action_enum",
+        &["delete", "create", "read", "update", "manage"],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "poll_action_permissions_subject_enum",
+        &[
+            "ServerConfig",
+            "Channel",
+            "Invite",
+            "Message",
+            "ServerRole",
+            "all",
+        ],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "poll_action_permissions_change_type_enum",
+        &["add", "remove"],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "poll_action_role_members_change_type_enum",
+        &["add", "remove"],
+    )
+    .await?;
+    create_enum_type(
+        manager,
+        "votes_vote_type_enum",
+        &["agree", "disagree", "abstain", "block"],
+    )
+    .await
+}
+
+async fn drop_poll_enum_types(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    drop_enum_type(manager, "votes_vote_type_enum").await?;
+    drop_enum_type(manager, "poll_action_role_members_change_type_enum")
+        .await?;
+    drop_enum_type(manager, "poll_action_permissions_change_type_enum").await?;
+    drop_enum_type(manager, "poll_action_permissions_subject_enum").await?;
+    drop_enum_type(manager, "poll_action_permissions_action_enum").await?;
+    drop_enum_type(manager, "poll_actions_action_type_enum").await?;
+    drop_enum_type(manager, "poll_configs_decision_making_model_enum").await?;
+    drop_enum_type(manager, "polls_poll_type_enum").await?;
+    drop_enum_type(manager, "polls_stage_enum").await
 }
 
 async fn create_polls(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
@@ -70,13 +156,24 @@ async fn create_polls(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
                 .col(ColumnDef::new(Polls::Body).text())
                 .col(
                     ColumnDef::new(Polls::Stage)
-                        .string()
+                        .enumeration(
+                            Alias::new("polls_stage_enum"),
+                            [
+                                Alias::new("voting"),
+                                Alias::new("ratified"),
+                                Alias::new("revision"),
+                                Alias::new("closed"),
+                            ],
+                        )
                         .not_null()
                         .default("voting"),
                 )
                 .col(
                     ColumnDef::new(Polls::PollType)
-                        .string()
+                        .enumeration(
+                            Alias::new("polls_poll_type_enum"),
+                            [Alias::new("proposal"), Alias::new("poll")],
+                        )
                         .not_null()
                         .default("proposal"),
                 )
@@ -118,7 +215,20 @@ async fn create_poll_configs(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
                         .primary_key(),
                 )
                 .col(ColumnDef::new(PollConfigs::PollId).uuid().not_null())
-                .col(ColumnDef::new(PollConfigs::DecisionMakingModel).string())
+                .col(
+                    ColumnDef::new(PollConfigs::DecisionMakingModel)
+                        .enumeration(
+                            Alias::new(
+                                "poll_configs_decision_making_model_enum",
+                            ),
+                            [
+                                Alias::new("consent"),
+                                Alias::new("consensus"),
+                                Alias::new("majority-vote"),
+                            ],
+                        )
+                        .default("consensus"),
+                )
                 .col(ColumnDef::new(PollConfigs::DisagreementsLimit).integer())
                 .col(ColumnDef::new(PollConfigs::AbstainsLimit).integer())
                 .col(ColumnDef::new(PollConfigs::AgreementThreshold).integer())
@@ -193,7 +303,19 @@ async fn create_poll_actions(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
                 )
                 .col(ColumnDef::new(PollActions::PollId).uuid().not_null())
                 .col(
-                    ColumnDef::new(PollActions::ActionType).string().not_null(),
+                    ColumnDef::new(PollActions::ActionType)
+                        .enumeration(
+                            Alias::new("poll_actions_action_type_enum"),
+                            [
+                                Alias::new("general"),
+                                Alias::new("change-settings"),
+                                Alias::new("change-role"),
+                                Alias::new("create-role"),
+                                Alias::new("plan-event"),
+                                Alias::new("test"),
+                            ],
+                        )
+                        .not_null(),
                 )
                 .col(timestamp(PollActions::CreatedAt))
                 .col(timestamp(PollActions::UpdatedAt))
@@ -296,17 +418,41 @@ async fn create_poll_action_permissions(
                 )
                 .col(
                     ColumnDef::new(PollActionPermissions::Subject)
-                        .string()
+                        .enumeration(
+                            Alias::new("poll_action_permissions_subject_enum"),
+                            [
+                                Alias::new("ServerConfig"),
+                                Alias::new("Channel"),
+                                Alias::new("Invite"),
+                                Alias::new("Message"),
+                                Alias::new("ServerRole"),
+                                Alias::new("all"),
+                            ],
+                        )
                         .not_null(),
                 )
                 .col(
                     ColumnDef::new(PollActionPermissions::Action)
-                        .string()
+                        .enumeration(
+                            Alias::new("poll_action_permissions_action_enum"),
+                            [
+                                Alias::new("delete"),
+                                Alias::new("create"),
+                                Alias::new("read"),
+                                Alias::new("update"),
+                                Alias::new("manage"),
+                            ],
+                        )
                         .not_null(),
                 )
                 .col(
                     ColumnDef::new(PollActionPermissions::ChangeType)
-                        .string()
+                        .enumeration(
+                            Alias::new(
+                                "poll_action_permissions_change_type_enum",
+                            ),
+                            [Alias::new("add"), Alias::new("remove")],
+                        )
                         .not_null(),
                 )
                 .col(timestamp(PollActionPermissions::CreatedAt))
@@ -361,7 +507,12 @@ async fn create_poll_action_role_members(
                 )
                 .col(
                     ColumnDef::new(PollActionRoleMembers::ChangeType)
-                        .string()
+                        .enumeration(
+                            Alias::new(
+                                "poll_action_role_members_change_type_enum",
+                            ),
+                            [Alias::new("add"), Alias::new("remove")],
+                        )
                         .not_null(),
                 )
                 .col(timestamp(PollActionRoleMembers::CreatedAt))
@@ -402,7 +553,15 @@ async fn create_votes(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
                 .col(ColumnDef::new(Votes::Id).uuid().not_null().primary_key())
                 .col(ColumnDef::new(Votes::PollId).uuid().not_null())
                 .col(ColumnDef::new(Votes::UserId).uuid().not_null())
-                .col(ColumnDef::new(Votes::VoteType).string())
+                .col(ColumnDef::new(Votes::VoteType).enumeration(
+                    Alias::new("votes_vote_type_enum"),
+                    [
+                        Alias::new("agree"),
+                        Alias::new("disagree"),
+                        Alias::new("abstain"),
+                        Alias::new("block"),
+                    ],
+                ))
                 .col(timestamp(Votes::CreatedAt))
                 .col(timestamp(Votes::UpdatedAt))
                 .foreign_key(
@@ -534,6 +693,38 @@ where
         .not_null()
         .default(Expr::current_timestamp())
         .take()
+}
+
+async fn create_enum_type(
+    manager: &SchemaManager<'_>,
+    name: &str,
+    values: &[&str],
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() == DbBackend::Postgres {
+        manager
+            .create_type(
+                Type::create()
+                    .as_enum(Alias::new(name))
+                    .values(values.iter().copied().map(Alias::new))
+                    .to_owned(),
+            )
+            .await?;
+    }
+
+    Ok(())
+}
+
+async fn drop_enum_type(
+    manager: &SchemaManager<'_>,
+    name: &str,
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() == DbBackend::Postgres {
+        manager
+            .drop_type(Type::drop().name(Alias::new(name)).to_owned())
+            .await?;
+    }
+
+    Ok(())
 }
 
 #[derive(DeriveIden)]

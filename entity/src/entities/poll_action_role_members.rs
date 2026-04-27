@@ -1,13 +1,15 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::PollActionRoleMemberChangeType;
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "votes")]
+#[sea_orm(table_name = "poll_action_role_members")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub poll_id: Uuid,
+    pub poll_action_role_id: Uuid,
     pub user_id: Uuid,
-    pub vote_type: Option<String>,
+    pub change_type: PollActionRoleMemberChangeType,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -15,13 +17,13 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::polls::Entity",
-        from = "Column::PollId",
-        to = "super::polls::Column::Id",
+        belongs_to = "super::poll_action_roles::Entity",
+        from = "Column::PollActionRoleId",
+        to = "super::poll_action_roles::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
     )]
-    Poll,
+    PollActionRole,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::UserId",
@@ -30,25 +32,17 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
-    #[sea_orm(has_many = "super::poll_option_selections::Entity")]
-    Selections,
 }
 
-impl Related<super::polls::Entity> for Entity {
+impl Related<super::poll_action_roles::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Poll.def()
+        Relation::PollActionRole.def()
     }
 }
 
 impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
-    }
-}
-
-impl Related<super::poll_option_selections::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Selections.def()
     }
 }
 

@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use entity::server_configs;
+use entity::{enums::ServerDecisionMakingModel, server_configs};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
     EntityTrait, IntoActiveModel, QueryFilter, Set,
@@ -40,7 +40,8 @@ pub(crate) async fn update_server_config(
         active.anonymous_users_enabled = Set(value);
     }
     if let Some(value) = request.decision_making_model {
-        active.decision_making_model = Set(value);
+        active.decision_making_model =
+            Set(parse_decision_making_model(&value)?);
     }
     if let Some(value) = request.disagreements_limit {
         active.disagreements_limit = Set(value);
@@ -93,7 +94,7 @@ pub(crate) async fn ensure_server_config(
 fn shape_server_config(config: server_configs::Model) -> ServerConfigResponse {
     ServerConfigResponse {
         anonymous_users_enabled: config.anonymous_users_enabled,
-        decision_making_model: config.decision_making_model,
+        decision_making_model: config.decision_making_model.to_string(),
         disagreements_limit: config.disagreements_limit,
         abstains_limit: config.abstains_limit,
         agreement_threshold: config.agreement_threshold,
@@ -104,16 +105,22 @@ fn shape_server_config(config: server_configs::Model) -> ServerConfigResponse {
     }
 }
 
+fn parse_decision_making_model(
+    value: &str,
+) -> AppResult<ServerDecisionMakingModel> {
+    value.parse().map_err(|_| {
+        ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Decision making model is invalid.",
+        )
+    })
+}
+
 fn validate_server_config_request(
     request: &ServerConfigRequest,
 ) -> AppResult<()> {
     if let Some(model) = request.decision_making_model.as_deref() {
-        if !matches!(model, "consent" | "consensus" | "majority-vote") {
-            return Err(ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Decision making model is invalid.",
-            ));
-        }
+        parse_decision_making_model(model)?;
     }
 
     validate_range(request.disagreements_limit, 0, 10, "disagreementsLimit")?;

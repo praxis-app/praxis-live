@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use entity::{
+    enums::{ServerAbilitySubject, ServerRoleAbilityAction},
     server_role_members, server_role_permissions, server_roles, users,
 };
 use sea_orm::{
@@ -347,9 +348,11 @@ fn group_permissions(
 ) -> Vec<PermissionRule> {
     let mut grouped: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for permission in permissions {
-        let actions = grouped.entry(permission.subject).or_default();
-        if !actions.contains(&permission.action) {
-            actions.push(permission.action);
+        let actions =
+            grouped.entry(permission.subject.to_string()).or_default();
+        let action = permission.action.to_string();
+        if !actions.contains(&action) {
+            actions.push(action);
         }
     }
     grouped
@@ -377,8 +380,8 @@ where
             server_role_permissions::ActiveModel {
                 id: Set(NativeUuid::new_v4()),
                 server_role_id: Set(role_id),
-                subject: Set(permission.subject.clone()),
-                action: Set(action.clone()),
+                subject: Set(parse_server_subject(&permission.subject)?),
+                action: Set(parse_server_action(action)?),
                 ..Default::default()
             }
             .insert(database)
@@ -387,6 +390,18 @@ where
         }
     }
     Ok(())
+}
+
+fn parse_server_subject(value: &str) -> AppResult<ServerAbilitySubject> {
+    value.parse().map_err(|_| {
+        ApiError::new(StatusCode::BAD_REQUEST, "Permission subject is invalid.")
+    })
+}
+
+fn parse_server_action(value: &str) -> AppResult<ServerRoleAbilityAction> {
+    value.parse().map_err(|_| {
+        ApiError::new(StatusCode::BAD_REQUEST, "Permission action is invalid.")
+    })
 }
 
 async fn add_member<C>(

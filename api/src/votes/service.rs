@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use entity::{
-    poll_actions as poll_action_entities, poll_option_selections, poll_options,
-    polls, users, votes as vote_entities,
+    enums::VoteType, poll_actions as poll_action_entities,
+    poll_option_selections, poll_options, polls, users, votes as vote_entities,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
@@ -49,7 +49,7 @@ pub(crate) async fn create_vote(
         id: Set(NativeUuid::new_v4()),
         poll_id: Set(poll.id),
         user_id: Set(user_id),
-        vote_type: Set(request.vote_type.clone()),
+        vote_type: Set(parse_vote_type_value(request.vote_type.as_deref())?),
         ..Default::default()
     }
     .insert(database)
@@ -64,7 +64,7 @@ pub(crate) async fn create_vote(
         id: vote.id.to_string(),
         poll_id: vote.poll_id.to_string(),
         user_id: vote.user_id.to_string(),
-        vote_type: vote.vote_type,
+        vote_type: vote.vote_type.map(|value| value.to_string()),
         poll_option_ids: (!poll_option_ids.is_empty())
             .then(|| poll_option_ids.iter().map(ToString::to_string).collect()),
         is_ratifying_vote,
@@ -94,7 +94,8 @@ pub(crate) async fn update_vote(
     let poll_option_ids = parse_poll_option_ids(&request)?;
     validate_poll_option_ids(database, poll.id, &poll_option_ids).await?;
     let mut active = vote.into_active_model();
-    active.vote_type = Set(request.vote_type);
+    active.vote_type =
+        Set(parse_vote_type_value(request.vote_type.as_deref())?);
     active.update(database).await.map_err(internal_error)?;
 
     poll_option_selections::Entity::delete_many()
@@ -243,7 +244,7 @@ pub(crate) fn shape_vote(
         .collect::<Vec<_>>();
     VoteResponse {
         id: vote.id.to_string(),
-        vote_type: vote.vote_type.clone(),
+        vote_type: vote.vote_type.map(|value| value.to_string()),
         poll_option_ids: (!poll_option_ids.is_empty())
             .then_some(poll_option_ids),
     }
@@ -339,14 +340,29 @@ async fn synchronize_ratification_after_vote(
 }
 
 fn validate_vote_type(vote_type: Option<&str>) -> AppResult<()> {
-    if matches!(vote_type, Some("agree" | "disagree" | "abstain" | "block")) {
-        Ok(())
-    } else {
-        Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Invalid vote type.",
-        ))
-    }
+    parse_vote_type_value(vote_type).and_then(|value| {
+        value.map(|_| ()).ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Invalid vote type.",
+            )
+        })
+    })
+}
+
+fn parse_vote_type_value(
+    vote_type: Option<&str>,
+) -> AppResult<Option<VoteType>> {
+    vote_type
+        .map(|value| {
+            value.parse().map_err(|_| {
+                ApiError::new(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "Invalid vote type.",
+                )
+            })
+        })
+        .transpose()
 }
 
 fn parse_poll_option_ids(request: &VoteRequest) -> AppResult<Vec<Uuid>> {

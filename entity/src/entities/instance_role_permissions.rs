@@ -1,14 +1,15 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::{InstanceAbilitySubject, InstanceRoleAbilityAction};
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "poll_action_permissions")]
+#[sea_orm(table_name = "instance_role_permissions")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub poll_action_role_id: Uuid,
-    pub subject: String,
-    pub action: String,
-    pub change_type: String,
+    pub instance_role_id: Uuid,
+    pub subject: InstanceAbilitySubject,
+    pub action: InstanceRoleAbilityAction,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -16,18 +17,18 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::poll_action_roles::Entity",
-        from = "Column::PollActionRoleId",
-        to = "super::poll_action_roles::Column::Id",
+        belongs_to = "super::instance_roles::Entity",
+        from = "Column::InstanceRoleId",
+        to = "super::instance_roles::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
     )]
-    PollActionRole,
+    InstanceRole,
 }
 
-impl Related<super::poll_action_roles::Entity> for Entity {
+impl Related<super::instance_roles::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::PollActionRole.def()
+        Relation::InstanceRole.def()
     }
 }
 

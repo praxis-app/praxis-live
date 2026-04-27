@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{
+    enums::{PollDecisionMakingModel, PollStage, PollType, VoteType},
     poll_configs, poll_images, poll_option_selections, poll_options, polls,
     users, votes,
 };
@@ -136,7 +137,8 @@ pub(crate) async fn create_poll(
         .as_deref()
         .map(sanitize_text)
         .filter(|value| !value.is_empty());
-    let is_proposal = request.poll_type == "proposal";
+    let poll_type = parse_poll_type(&request.poll_type)?;
+    let is_proposal = poll_type == PollType::Proposal;
     ensure_allowed_to_create_proposal(database, user_id, &request).await?;
     let server_config =
         server_configs::service::ensure_server_config(database, server_id)
@@ -152,7 +154,7 @@ pub(crate) async fn create_poll(
     let poll = polls::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         body: Set(body.clone()),
-        poll_type: Set(request.poll_type.clone()),
+        poll_type: Set(poll_type),
         user_id: Set(user_id),
         channel_id: Set(channel_id),
         ..Default::default()
@@ -165,7 +167,7 @@ pub(crate) async fn create_poll(
         id: Set(NativeUuid::new_v4()),
         poll_id: Set(poll.id),
         decision_making_model: Set(is_proposal
-            .then_some(server_config.decision_making_model)),
+            .then_some(server_config.decision_making_model.into())),
         disagreements_limit: Set(is_proposal
             .then_some(server_config.disagreements_limit)),
         abstains_limit: Set(is_proposal.then_some(server_config.abstains_limit)),
@@ -378,13 +380,15 @@ pub(crate) async fn is_poll_ratifiable(
         .map_err(internal_error)?;
     let member_count = get_poll_member_count(database, poll_id).await?;
 
-    match config.decision_making_model.as_deref() {
-        Some("consensus") => has_consensus(&votes, &config, member_count),
-        Some("consent") => has_consent(&votes, &config),
-        Some("majority-vote") => {
+    match config.decision_making_model {
+        Some(PollDecisionMakingModel::Consensus) => {
+            has_consensus(&votes, &config, member_count)
+        }
+        Some(PollDecisionMakingModel::Consent) => has_consent(&votes, &config),
+        Some(PollDecisionMakingModel::MajorityVote) => {
             has_majority_vote(&votes, &config, member_count)
         }
-        _ => Ok(false),
+        None => Ok(false),
     }
 }
 
@@ -400,7 +404,7 @@ pub(crate) async fn ratify_poll(
             ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
         })?;
     let mut active = poll.into_active_model();
-    active.stage = Set("ratified".to_owned());
+    active.stage = Set(PollStage::Ratified);
     active.update(database).await.map_err(internal_error)?;
     Ok(())
 }
@@ -424,8 +428,8 @@ async fn synchronize_proposals(
     let poll_ids = configs_by_poll_id.keys().copied().collect::<Vec<_>>();
     let proposals = polls::Entity::find()
         .filter(polls::Column::Id.is_in(poll_ids))
-        .filter(polls::Column::PollType.eq("proposal"))
-        .filter(polls::Column::Stage.eq("voting"))
+        .filter(polls::Column::PollType.eq(PollType::Proposal))
+        .filter(polls::Column::Stage.eq(PollStage::Voting))
         .all(database)
         .await
         .map_err(internal_error)?;
@@ -490,8 +494,8 @@ async fn close_expired_polls(
 
     let expired_polls = polls::Entity::find()
         .filter(polls::Column::Id.is_in(poll_ids))
-        .filter(polls::Column::PollType.eq("poll"))
-        .filter(polls::Column::Stage.eq("voting"))
+        .filter(polls::Column::PollType.eq(PollType::Poll))
+        .filter(polls::Column::Stage.eq(PollStage::Voting))
         .all(database)
         .await
         .map_err(internal_error)?;
@@ -618,8 +622,8 @@ async fn shape_poll(
     Ok(PollResponse {
         id: poll.id.to_string(),
         body: poll.body,
-        poll_type: poll.poll_type.clone(),
-        stage: poll.stage,
+        poll_type: poll.poll_type.to_string(),
+        stage: poll.stage.to_string(),
         action: if is_proposal {
             poll_actions::service::shape_poll_action(database, poll.id).await?
         } else {
@@ -653,7 +657,7 @@ async fn shape_poll(
         agreement_vote_count: if is_proposal {
             votes
                 .iter()
-                .filter(|vote| vote.vote_type.as_deref() == Some("agree"))
+                .filter(|vote| vote.vote_type == Some(VoteType::Agree))
                 .count()
         } else {
             0
@@ -667,7 +671,9 @@ async fn shape_poll(
 
 fn shape_poll_config(config: poll_configs::Model) -> PollConfigResponse {
     PollConfigResponse {
-        decision_making_model: config.decision_making_model,
+        decision_making_model: config
+            .decision_making_model
+            .map(|value| value.to_string()),
         agreement_threshold: config.agreement_threshold,
         quorum_enabled: config.quorum_enabled,
         quorum_threshold: config.quorum_threshold,
@@ -827,11 +833,11 @@ fn count_votes(votes: &[votes::Model]) -> (usize, usize, usize, usize) {
     let mut abstains = 0;
     let mut blocks = 0;
     for vote in votes {
-        match vote.vote_type.as_deref() {
-            Some("agree") => agreements += 1,
-            Some("disagree") => disagreements += 1,
-            Some("abstain") => abstains += 1,
-            Some("block") => blocks += 1,
+        match vote.vote_type {
+            Some(VoteType::Agree) => agreements += 1,
+            Some(VoteType::Disagree) => disagreements += 1,
+            Some(VoteType::Abstain) => abstains += 1,
+            Some(VoteType::Block) => blocks += 1,
             _ => {}
         }
     }
@@ -917,18 +923,13 @@ async fn close_poll(
             ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
         })?;
     let mut active = poll.into_active_model();
-    active.stage = Set("closed".to_owned());
+    active.stage = Set(PollStage::Closed);
     active.update(database).await.map_err(internal_error)?;
     Ok(())
 }
 
 fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
-    if !matches!(request.poll_type.as_str(), "proposal" | "poll") {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll type is invalid.",
-        ));
-    }
+    parse_poll_type(&request.poll_type)?;
     if request.image_count > MAX_IMAGE_COUNT {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -984,6 +985,12 @@ fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
     }
 
     Ok(())
+}
+
+fn parse_poll_type(value: &str) -> AppResult<PollType> {
+    value.parse().map_err(|_| {
+        ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "Poll type is invalid.")
+    })
 }
 
 fn validate_action(
