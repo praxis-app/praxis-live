@@ -34,6 +34,10 @@ pub struct TestApp {
 impl TestApp {
     pub async fn new() -> Self {
         load_dotenv();
+        env::set_var(
+            "CHANNEL_KEY_MASTER",
+            "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+        );
 
         let admin_database_url = admin_database_url()
             .expect("expected a local Postgres admin connection string");

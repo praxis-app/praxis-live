@@ -28,6 +28,21 @@ pub(crate) async fn is_valid_invite(
     Ok(invite.as_ref().is_some_and(validate_invite))
 }
 
+pub(crate) async fn is_valid_invite_for_server(
+    database: &DatabaseConnection,
+    token: &str,
+    server_id: Uuid,
+) -> AppResult<bool> {
+    let invite = invites::Entity::find()
+        .filter(invites::Column::Token.eq(token))
+        .filter(invites::Column::ServerId.eq(server_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(invite.as_ref().is_some_and(validate_invite))
+}
+
 pub(crate) async fn get_invite_by_token(
     database: &DatabaseConnection,
     token: &str,

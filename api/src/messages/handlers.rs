@@ -4,24 +4,27 @@ use axum::{
     http::{header, Response, StatusCode},
     response::Json,
 };
+use chrono::{DateTime, FixedOffset};
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
-use super::{service, types::CreateMessageRequest};
+use super::{
+    extractors::MessageImageUploadContext,
+    service,
+    types::{CreateMessageRequest, MessageImagePath},
+};
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
-    channels,
-    common::{
-        request::{multipart_file, parse_uuid},
-        ApiError, AppResult,
-    },
+    auth::{AuthenticatedUserOptional, HasJwtSecret},
+    channels::{self, extractors::ChannelWriteContext},
+    common::{request::multipart_file, ApiError, AppResult},
+    polls,
     pub_sub::PubSubService,
 };
 
 #[derive(Clone, Debug)]
 pub(super) struct ChatState {
-    database: DatabaseConnection,
+    pub(super) database: DatabaseConnection,
     jwt_secret: Arc<str>,
     pub_sub_service: PubSubService,
     upload_root: Arc<PathBuf>,
@@ -48,24 +51,10 @@ impl HasJwtSecret for ChatState {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub(super) struct ChannelPath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct MessageImagePath {
-    #[serde(rename = "serverId")]
-    server_id: String,
-    #[serde(rename = "channelId")]
-    channel_id: String,
-    #[serde(rename = "messageId")]
-    message_id: String,
-    #[serde(rename = "imageId")]
-    image_id: String,
+impl channels::extractors::HasDatabase for ChatState {
+    fn database(&self) -> &DatabaseConnection {
+        &self.database
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,43 +65,81 @@ pub(super) struct FeedQuery {
 
 pub(super) async fn get_channel_feed(
     State(chat_state): State<ChatState>,
-    Path(path): Path<ChannelPath>,
+    Path(path): Path<channels::types::ChannelPath>,
     Query(query): Query<FeedQuery>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
     let limit = query.limit.unwrap_or(50).min(100);
-    let feed = service::get_feed(
+    let offset = query.offset.unwrap_or(0);
+    let fetch_limit = offset.saturating_add(limit);
+    let mut feed = service::get_feed(
         &chat_state.database,
-        server_id,
-        channel_id,
-        query.offset.unwrap_or(0),
-        limit,
+        path.server_id,
+        path.channel_id,
+        0,
+        fetch_limit,
     )
     .await?;
+    let polls = polls::service::get_inline_polls(
+        &chat_state.database,
+        path.server_id,
+        path.channel_id,
+        0,
+        fetch_limit,
+        user_id,
+    )
+    .await?;
+
+    let mut feed = feed
+        .drain(..)
+        .map(serde_json::to_value)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(internal_error)?;
+    for poll in polls {
+        let mut value = serde_json::to_value(poll).map_err(internal_error)?;
+        if let Some(object) = value.as_object_mut() {
+            object.insert(
+                "type".to_owned(),
+                serde_json::Value::String("poll".to_owned()),
+            );
+        }
+        feed.push(value);
+    }
+
+    feed.sort_by(|left, right| {
+        timestamp_millis(right)
+            .cmp(&timestamp_millis(left))
+            .then_with(|| id_string(right).cmp(&id_string(left)))
+    });
+    let feed = feed
+        .into_iter()
+        .skip(offset as usize)
+        .take(limit as usize)
+        .collect::<Vec<_>>();
 
     Ok(Json(serde_json::json!({ "feed": feed })))
 }
 
 pub(super) async fn create_message(
     State(chat_state): State<ChatState>,
-    Path(path): Path<ChannelPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ChannelWriteContext,
     Json(payload): Json<CreateMessageRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
     let message = service::create_message(
         &chat_state.database,
-        server_id,
-        channel_id,
-        user_id,
+        context.channel_id,
+        context.user_id,
         payload,
     )
     .await?;
-    if let Err(error) =
-        broadcast_message(&chat_state, server_id, channel_id, user_id, &message)
-            .await
+    if let Err(error) = broadcast_message(
+        &chat_state,
+        context.server_id,
+        context.channel_id,
+        context.user_id,
+        &message,
+    )
+    .await
     {
         tracing::warn!("failed to broadcast created message: {error}");
     }
@@ -122,35 +149,27 @@ pub(super) async fn create_message(
 
 pub(super) async fn upload_message_image(
     State(chat_state): State<ChatState>,
-    Path(path): Path<MessageImagePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: MessageImageUploadContext,
     multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let message_id = parse_uuid(&path.message_id, "messageId")?;
-    let image_id = parse_uuid(&path.image_id, "imageId")?;
     let file = multipart_file(multipart, "file").await?;
 
     let image = service::store_message_image(
         &chat_state.database,
         &chat_state.upload_root,
-        server_id,
-        channel_id,
-        message_id,
-        image_id,
-        user_id,
+        &context.message,
+        context.image_id,
         file.as_ref().and_then(|file| file.content_type.clone()),
         file.map(|file| file.bytes).unwrap_or_default(),
     )
     .await?;
     if let Err(error) = broadcast_image_upload(
         &chat_state,
-        server_id,
-        channel_id,
-        user_id,
-        &path.message_id,
-        &path.image_id,
+        context.server_id,
+        context.channel_id,
+        context.user_id,
+        &context.message.id.to_string(),
+        &context.image_id.to_string(),
     )
     .await
     {
@@ -167,18 +186,13 @@ pub(super) async fn get_message_image(
     State(chat_state): State<ChatState>,
     Path(path): Path<MessageImagePath>,
 ) -> AppResult<Response<Body>> {
-    let server_id = parse_uuid(&path.server_id, "serverId")?;
-    let channel_id = parse_uuid(&path.channel_id, "channelId")?;
-    let message_id = parse_uuid(&path.message_id, "messageId")?;
-    let image_id = parse_uuid(&path.image_id, "imageId")?;
-
     let image = service::get_message_image(
         &chat_state.database,
         &chat_state.upload_root,
-        server_id,
-        channel_id,
-        message_id,
-        image_id,
+        path.server_id,
+        path.channel_id,
+        path.message_id,
+        path.image_id,
     )
     .await?;
 
@@ -197,6 +211,25 @@ pub(super) async fn get_message_image(
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("chat route failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+}
+
+fn timestamp_millis(value: &serde_json::Value) -> i64 {
+    value
+        .get("createdAt")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|timestamp| {
+            DateTime::<FixedOffset>::parse_from_rfc3339(timestamp).ok()
+        })
+        .map(|timestamp| timestamp.timestamp_millis())
+        .unwrap_or_default()
+}
+
+fn id_string(value: &serde_json::Value) -> String {
+    value
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_owned()
 }
 
 async fn broadcast_message(

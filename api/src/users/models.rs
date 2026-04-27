@@ -1,7 +1,7 @@
 use entity::users;
 use sea_orm::prelude::Uuid;
 use sea_orm::DbErr;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use crate::common::roles::PermissionRule;
@@ -9,19 +9,21 @@ use crate::common::roles::PermissionRule;
 #[derive(Debug, Clone)]
 pub(crate) struct UserRecord {
     pub(crate) id: Uuid,
-    pub(crate) email: String,
+    pub(crate) email: Option<String>,
     pub(crate) name: String,
     pub(crate) display_name: Option<String>,
-    pub(crate) password_hash: String,
+    pub(crate) password_hash: Option<String>,
+    pub(crate) anonymous: bool,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PublicUser {
     id: Uuid,
-    email: String,
+    email: Option<String>,
     name: String,
     display_name: Option<String>,
+    anonymous: bool,
 }
 
 impl From<UserRecord> for PublicUser {
@@ -31,6 +33,7 @@ impl From<UserRecord> for PublicUser {
             email: user.email,
             name: user.name,
             display_name: user.display_name,
+            anonymous: user.anonymous,
         }
     }
 }
@@ -42,7 +45,8 @@ impl From<users::Model> for UserRecord {
             email: user.email,
             name: user.name,
             display_name: user.display_name,
-            password_hash: user.password_hash,
+            password_hash: user.password,
+            anonymous: user.anonymous,
         }
     }
 }
@@ -63,6 +67,13 @@ pub(crate) struct UserImageRef {
 pub(crate) struct StoredUserImage {
     pub(crate) content_type: Option<String>,
     pub(crate) bytes: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UserImagePath {
+    pub(crate) user_id: Uuid,
+    pub(crate) image_id: Uuid,
 }
 
 #[derive(Debug, Clone, Serialize)]

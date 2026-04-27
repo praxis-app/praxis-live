@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     channels,
-    common::{ApiError, AppResult},
+    common::{text::normalize_text, ApiError, AppResult},
     instance, servers,
     users::{self, CreateUserError, UserRecord},
 };
@@ -100,11 +100,42 @@ pub(super) async fn signup(
     Ok(user)
 }
 
+pub(super) async fn create_anon_session(
+    database: &DatabaseConnection,
+    invite_token: Option<String>,
+) -> AppResult<UserRecord> {
+    let invite_token = invite_token.ok_or_else(|| {
+        ApiError::new(StatusCode::FORBIDDEN, "You need an invite to sign up.")
+    })?;
+    let invite =
+        crate::invites::service::get_invite_by_token(database, &invite_token)
+            .await
+            .map_err(|_| {
+                ApiError::new(StatusCode::FORBIDDEN, "Invalid invite token.")
+            })?;
+
+    if !servers::service::is_anonymous_users_enabled(database, invite.server_id)
+        .await?
+    {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "Anonymous users are not enabled for this server.",
+        ));
+    }
+
+    let user = users::create_anon_user(database, invite.server_id)
+        .await
+        .map_err(map_create_user_error)?;
+    crate::invites::service::redeem_invite(database, &invite_token).await?;
+
+    Ok(user)
+}
+
 pub(super) fn validate_signup(
     mut input: SignupRequest,
 ) -> AppResult<SignupRequest> {
     input.name = input.name.trim().to_owned();
-    input.email = normalize_email(&input.email);
+    input.email = normalize_text(&input.email);
 
     if input.name.chars().count() < 2 {
         return Err(ApiError::new(
@@ -133,7 +164,7 @@ pub(super) fn validate_signup(
 pub(super) fn validate_login(
     mut input: LoginRequest,
 ) -> AppResult<LoginRequest> {
-    input.email = normalize_email(&input.email);
+    input.email = normalize_text(&input.email);
 
     if !looks_like_email(&input.email) {
         return Err(ApiError::new(
@@ -172,10 +203,6 @@ fn current_unix_timestamp() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
-}
-
-fn normalize_email(value: &str) -> String {
-    value.trim().to_ascii_lowercase()
 }
 
 fn looks_like_email(value: &str) -> bool {

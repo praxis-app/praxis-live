@@ -1,7 +1,15 @@
-use sea_orm::prelude::DateTimeWithTimeZone;
+use sea_orm::prelude::{DateTimeWithTimeZone, Uuid};
 use serde::{Deserialize, Serialize};
 
+pub(crate) use crate::servers::types::ServerPath;
 use crate::users::UserImageRef;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InvitePath {
+    pub(crate) server_id: Uuid,
+    pub(crate) invite_id: Uuid,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

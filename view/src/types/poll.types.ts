@@ -1,5 +1,8 @@
 import { type ImageRes } from '@/types/image.types';
-import { type CreatePollActionReq, type PollActionRes } from '@/types/poll-action.types';
+import {
+  type CreatePollActionReq,
+  type PollActionRes,
+} from '@/types/poll-action.types';
 import { type UserRes } from '@/types/user.types';
 import { type VoteRes } from '@/types/vote.types';
 import {

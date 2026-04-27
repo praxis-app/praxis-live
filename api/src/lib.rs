@@ -9,10 +9,13 @@ mod instance;
 mod invites;
 mod logging;
 mod messages;
+mod poll_actions;
+mod polls;
 mod pub_sub;
 mod servers;
 mod users;
 mod view;
+mod votes;
 
 use axum::{routing::get, Router};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
@@ -27,6 +30,9 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
+
+    polls::service::spawn_proposal_synchronizer(database.clone());
+    polls::service::spawn_expired_poll_closer(database.clone());
 
     let app = build_router(database, jwt_secret).layer(
         TraceLayer::new_for_http()

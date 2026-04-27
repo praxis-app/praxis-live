@@ -1,5 +1,14 @@
-use sea_orm::prelude::DateTimeWithTimeZone;
+use sea_orm::prelude::{DateTimeWithTimeZone, Uuid};
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MessageImagePath {
+    pub(crate) server_id: Uuid,
+    pub(crate) channel_id: Uuid,
+    pub(crate) message_id: Uuid,
+    pub(crate) image_id: Uuid,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

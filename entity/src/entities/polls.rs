@@ -1,13 +1,20 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::{PollStage, PollType};
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "messages")]
+#[sea_orm(table_name = "polls")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub channel_id: Uuid,
+    pub ciphertext: Option<Vec<u8>>,
+    pub iv: Option<Vec<u8>>,
+    pub tag: Option<Vec<u8>>,
+    pub key_id: Option<Uuid>,
+    pub stage: PollStage,
+    pub poll_type: PollType,
     pub user_id: Uuid,
-    pub body: Option<String>,
+    pub channel_id: Uuid,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -30,7 +37,15 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
-    #[sea_orm(has_many = "super::message_images::Entity")]
+    #[sea_orm(has_one = "super::poll_configs::Entity")]
+    Config,
+    #[sea_orm(has_one = "super::poll_actions::Entity")]
+    Action,
+    #[sea_orm(has_many = "super::poll_options::Entity")]
+    Options,
+    #[sea_orm(has_many = "super::votes::Entity")]
+    Votes,
+    #[sea_orm(has_many = "super::poll_images::Entity")]
     Images,
 }
 
@@ -46,7 +61,31 @@ impl Related<super::users::Entity> for Entity {
     }
 }
 
-impl Related<super::message_images::Entity> for Entity {
+impl Related<super::poll_configs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Config.def()
+    }
+}
+
+impl Related<super::poll_actions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Action.def()
+    }
+}
+
+impl Related<super::poll_options::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Options.def()
+    }
+}
+
+impl Related<super::votes::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Votes.def()
+    }
+}
+
+impl Related<super::poll_images::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Images.def()
     }

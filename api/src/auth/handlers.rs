@@ -4,10 +4,12 @@ use std::sync::Arc;
 
 use super::{
     service::{
-        internal_error, issue_access_token, signup as signup_user,
-        validate_login,
+        create_anon_session as create_anon_session_user, internal_error,
+        issue_access_token, signup as signup_user, validate_login,
     },
-    types::{LoginRequest, SessionResponse, SignupRequest},
+    types::{
+        CreateAnonSessionRequest, LoginRequest, SessionResponse, SignupRequest,
+    },
 };
 use crate::{
     common::{ApiError, AppResult},
@@ -64,6 +66,21 @@ pub(super) async fn login(
                 )
             })?;
 
+    let access_token = issue_access_token(&auth_state, user.id)?;
+
+    Ok(Json(SessionResponse {
+        user: Some(user.into()),
+        access_token: Some(access_token),
+    }))
+}
+
+pub(super) async fn create_anon_session(
+    State(auth_state): State<AuthState>,
+    Json(payload): Json<CreateAnonSessionRequest>,
+) -> AppResult<Json<SessionResponse>> {
+    let user =
+        create_anon_session_user(&auth_state.database, payload.invite_token)
+            .await?;
     let access_token = issue_access_token(&auth_state, user.id)?;
 
     Ok(Json(SessionResponse {

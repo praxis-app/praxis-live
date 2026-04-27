@@ -15,7 +15,10 @@ use super::models::{
     UserProfileResponse, UserRecord,
 };
 use crate::{
-    common::{ApiError, AppResult},
+    common::{
+        text::{normalize_text, sanitize_text},
+        ApiError, AppResult,
+    },
     instance, servers,
 };
 
@@ -30,15 +33,47 @@ pub(crate) async fn create_user(
 ) -> Result<UserRecord, CreateUserError> {
     users::ActiveModel {
         id: Set(NativeUuid::new_v4()),
-        email: Set(email),
+        email: Set(Some(normalize_text(&email))),
         name: Set(name),
-        password_hash: Set(password_hash),
+        password: Set(Some(password_hash)),
         ..Default::default()
     }
     .insert(database)
     .await
     .map(Into::into)
     .map_err(map_create_user_error)
+}
+
+pub(crate) async fn create_anon_user(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> Result<UserRecord, CreateUserError> {
+    let user_id = NativeUuid::new_v4();
+    let suffix = user_id.simple().to_string()[..8].to_owned();
+
+    let user = users::ActiveModel {
+        id: Set(user_id),
+        email: Set(None),
+        name: Set(format!("anon_{suffix}")),
+        password: Set(Some(String::new())),
+        anonymous: Set(true),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map(UserRecord::from)
+    .map_err(map_create_user_error)?;
+
+    crate::servers::service::add_member_to_server(database, server_id, user.id)
+        .await
+        .map_err(api_error_to_create_user_error)?;
+    crate::channels::add_member_to_all_server_channels(
+        database, server_id, user.id,
+    )
+    .await
+    .map_err(api_error_to_create_user_error)?;
+
+    Ok(user)
 }
 
 pub(crate) async fn get_user_by_id(
@@ -57,7 +92,7 @@ pub(crate) async fn authenticate(
     password: String,
 ) -> Result<Option<UserRecord>, DbErr> {
     let user = users::Entity::find()
-        .filter(users::Column::Email.eq(email))
+        .filter(users::Column::Email.eq(Some(email)))
         .one(database)
         .await?;
 
@@ -65,11 +100,11 @@ pub(crate) async fn authenticate(
         return Ok(None);
     };
 
-    Ok(
-        password_auth::verify_password(password, &user.password_hash)
-            .ok()
-            .map(|()| user),
-    )
+    Ok(user
+        .password_hash
+        .as_deref()
+        .and_then(|hash| password_auth::verify_password(password, hash).ok())
+        .map(|()| user))
 }
 
 pub(crate) async fn get_current_user(
@@ -91,7 +126,7 @@ pub(crate) async fn get_current_user(
         id: user.id.to_string(),
         name: user.name,
         display_name: user.display_name,
-        anonymous: false,
+        anonymous: user.anonymous,
         permissions: CurrentUserPermissions {
             instance:
                 instance::instance_roles::service::get_permissions_by_user(
@@ -461,7 +496,7 @@ async fn get_latest_user_image(
 }
 
 fn validate_name(name: &str) -> AppResult<String> {
-    let normalized = name.trim().to_owned();
+    let normalized = sanitize_text(name);
     let valid = (3..=15).contains(&normalized.chars().count())
         && normalized.chars().all(|ch| {
             ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_'
@@ -481,7 +516,7 @@ fn normalize_optional_text(
     value: String,
     max_len: usize,
 ) -> AppResult<Option<String>> {
-    let normalized = value.trim().to_owned();
+    let normalized = sanitize_text(&value);
     if normalized.is_empty() {
         return Ok(None);
     }
@@ -500,6 +535,10 @@ fn map_create_user_error(error: DbErr) -> CreateUserError {
     }
 
     CreateUserError::Database(error)
+}
+
+fn api_error_to_create_user_error(error: ApiError) -> CreateUserError {
+    CreateUserError::Database(DbErr::Custom(error.to_string()))
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

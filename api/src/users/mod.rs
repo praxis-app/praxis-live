@@ -8,6 +8,6 @@ pub(crate) use models::{
 };
 pub(crate) use routes::router;
 pub(crate) use service::{
-    authenticate, create_user, get_user_profile_picture,
+    authenticate, create_anon_user, create_user, get_user_profile_picture,
     get_user_profile_pictures_map, is_first_user,
 };

@@ -17,10 +17,38 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Users::Email).string().not_null())
                     .col(ColumnDef::new(Users::Name).string().not_null())
+                    .col(ColumnDef::new(Users::DisplayName).string())
+                    .col(ColumnDef::new(Users::Email).string())
+                    .col(ColumnDef::new(Users::Password).string())
+                    .col(ColumnDef::new(Users::Bio).string())
                     .col(
-                        ColumnDef::new(Users::PasswordHash).string().not_null(),
+                        ColumnDef::new(Users::Anonymous)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Users::Locked)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Users::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(
+                                sea_orm::sea_query::Expr::current_timestamp(),
+                            ),
+                    )
+                    .col(
+                        ColumnDef::new(Users::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(
+                                sea_orm::sea_query::Expr::current_timestamp(),
+                            ),
                     )
                     .index(
                         Index::create()
@@ -44,7 +72,13 @@ impl MigrationTrait for Migration {
 enum Users {
     Table,
     Id,
-    Email,
     Name,
-    PasswordHash,
+    DisplayName,
+    Email,
+    Password,
+    Bio,
+    Anonymous,
+    Locked,
+    CreatedAt,
+    UpdatedAt,
 }

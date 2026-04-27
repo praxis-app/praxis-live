@@ -10,12 +10,12 @@ use super::{
     service,
     types::{
         JoinServerRequest, ServerConfigRequest, ServerMembersRequest,
-        ServerRequest,
+        ServerPath, ServerRequest,
     },
 };
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
-    common::{request::parse_uuid, ApiError, AppResult},
+    common::{ApiError, AppResult},
 };
 
 #[derive(Clone, Debug)]
@@ -52,12 +52,12 @@ pub(super) async fn get_servers(
 
 pub(super) async fn get_server_by_id(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     let server =
-        service::get_server_by_id(&state.database, server_id, false).await?;
+        service::get_server_by_id(&state.database, path.server_id, false)
+            .await?;
     Ok(Json(serde_json::json!({ "server": server })))
 }
 
@@ -100,83 +100,79 @@ pub(super) async fn create_server(
 
 pub(super) async fn update_server(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ServerRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     let server =
-        service::update_server(&state.database, server_id, payload).await?;
+        service::update_server(&state.database, path.server_id, payload)
+            .await?;
     Ok(Json(serde_json::json!({ "server": server })))
 }
 
 pub(super) async fn delete_server(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
-    service::delete_server(&state.database, server_id).await?;
+    service::delete_server(&state.database, path.server_id).await?;
     Ok(Json(serde_json::json!({})))
 }
 
 pub(super) async fn get_server_members(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
-    let users = service::get_server_members(&state.database, server_id).await?;
+    let users =
+        service::get_server_members(&state.database, path.server_id).await?;
     Ok(Json(serde_json::json!({ "users": users })))
 }
 
 pub(super) async fn get_users_eligible_for_server(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     let users =
-        service::get_users_eligible_for_server(&state.database, server_id)
+        service::get_users_eligible_for_server(&state.database, path.server_id)
             .await?;
     Ok(Json(serde_json::json!({ "users": users })))
 }
 
 pub(super) async fn add_server_members(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ServerMembersRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     let user_ids = parse_user_ids(&payload.user_ids)?;
-    service::add_server_members(&state.database, server_id, &user_ids).await?;
+    service::add_server_members(&state.database, path.server_id, &user_ids)
+        .await?;
     Ok(Json(serde_json::json!({})))
 }
 
 pub(super) async fn remove_server_members(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ServerMembersRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     let user_ids = parse_user_ids(&payload.user_ids)?;
-    service::remove_server_members(&state.database, server_id, &user_ids)
+    service::remove_server_members(&state.database, path.server_id, &user_ids)
         .await?;
     Ok(Json(serde_json::json!({})))
 }
 
 pub(super) async fn join_server(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<JoinServerRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     service::join_server(
         &state.database,
-        server_id,
+        path.server_id,
         user_id,
         &payload.invite_token,
     )
@@ -186,22 +182,21 @@ pub(super) async fn join_server(
 
 pub(super) async fn get_server_config(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     let server_config =
-        service::get_server_config(&state.database, server_id).await?;
+        service::get_server_config(&state.database, path.server_id).await?;
     Ok(Json(serde_json::json!({ "serverConfig": server_config })))
 }
 
 pub(super) async fn is_anonymous_users_enabled(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
     let anonymous_users_enabled =
-        service::is_anonymous_users_enabled(&state.database, server_id).await?;
+        service::is_anonymous_users_enabled(&state.database, path.server_id)
+            .await?;
     Ok(Json(
         serde_json::json!({ "anonymousUsersEnabled": anonymous_users_enabled }),
     ))
@@ -209,12 +204,12 @@ pub(super) async fn is_anonymous_users_enabled(
 
 pub(super) async fn update_server_config(
     State(state): State<ServersState>,
-    Path(server_id): Path<String>,
+    Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ServerConfigRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let server_id = parse_uuid(&server_id, "serverId")?;
-    service::update_server_config(&state.database, server_id, payload).await?;
+    service::update_server_config(&state.database, path.server_id, payload)
+        .await?;
     Ok(Json(serde_json::json!({})))
 }
 

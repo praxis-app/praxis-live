@@ -1,8 +1,8 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
-export const ACCESS_TOKEN_KEY = "access_token";
-export const DEFAULT_SERVER_ID = "11111111-1111-1111-1111-111111111111";
-export const TEST_PASSWORD = "Password123!";
+export const ACCESS_TOKEN_KEY = 'access_token';
+export const DEFAULT_SERVER_ID = '11111111-1111-1111-1111-111111111111';
+export const TEST_PASSWORD = 'Password123!';
 
 export type TestUser = {
   name: string;
@@ -11,7 +11,7 @@ export type TestUser = {
   suffix: string;
 };
 
-export function createTestUser(label = "user"): TestUser {
+export function createTestUser(label = 'user'): TestUser {
   const suffix = randomUUID().slice(0, 8);
 
   return {

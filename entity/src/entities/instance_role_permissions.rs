@@ -1,13 +1,15 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::{InstanceAbilitySubject, InstanceRoleAbilityAction};
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "instance_role_permissions")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub instance_role_id: Uuid,
-    pub subject: String,
-    pub action: String,
+    pub subject: InstanceAbilitySubject,
+    pub action: InstanceRoleAbilityAction,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

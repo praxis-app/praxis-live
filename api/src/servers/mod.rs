@@ -1,6 +1,6 @@
 mod handlers;
 mod routes;
-mod server_configs;
+pub(crate) mod server_configs;
 pub(crate) mod server_roles;
 pub(crate) mod service;
 pub(crate) mod types;

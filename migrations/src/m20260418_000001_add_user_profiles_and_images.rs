@@ -8,16 +8,6 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .alter_table(
-                Table::alter()
-                    .table(Users::Table)
-                    .add_column(ColumnDef::new(Users::DisplayName).string())
-                    .add_column(ColumnDef::new(Users::Bio).text())
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
             .create_table(
                 Table::create()
                     .table(UserImages::Table)
@@ -72,16 +62,6 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .drop_table(Table::drop().table(UserImages::Table).to_owned())
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Users::Table)
-                    .drop_column(Users::DisplayName)
-                    .drop_column(Users::Bio)
-                    .to_owned(),
-            )
             .await
     }
 }
@@ -90,8 +70,6 @@ impl MigrationTrait for Migration {
 enum Users {
     Table,
     Id,
-    DisplayName,
-    Bio,
 }
 
 #[derive(DeriveIden)]

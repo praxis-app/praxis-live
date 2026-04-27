@@ -13,7 +13,7 @@ use super::types::{
 };
 use crate::{
     channels,
-    common::{ApiError, AppResult},
+    common::{encryption, text::sanitize_text, ApiError, AppResult},
     users as users_service,
 };
 
@@ -56,6 +56,12 @@ pub(crate) async fn get_feed(
         .all(database)
         .await
         .map_err(internal_error)?;
+    let key_ids = messages
+        .iter()
+        .filter_map(|message| message.key_id)
+        .collect::<Vec<_>>();
+    let key_map =
+        channels::get_unwrapped_channel_key_map(database, key_ids).await?;
 
     Ok(messages
         .into_iter()
@@ -66,6 +72,7 @@ pub(crate) async fn get_feed(
                 users.iter().find(|user| user.id == message.user_id),
                 &profile_pictures,
                 images.iter().filter(|image| image.message_id == message.id),
+                decrypt_message_body(&message, &key_map),
             ),
         })
         .collect())
@@ -73,25 +80,37 @@ pub(crate) async fn get_feed(
 
 pub(crate) async fn create_message(
     database: &DatabaseConnection,
-    server_id: Uuid,
     channel_id: Uuid,
     user_id: Uuid,
     request: CreateMessageRequest,
 ) -> AppResult<MessageResponse> {
     validate_create_message(&request)?;
-    channels::get_channel(database, server_id, channel_id).await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
 
     let body = request
         .body
-        .map(|value| value.trim().to_owned())
+        .map(|value| sanitize_text(&value))
         .filter(|value| !value.is_empty());
+
+    let encrypted = match body.as_deref() {
+        Some(body) => {
+            let (key, unwrapped_key) =
+                channels::get_unwrapped_channel_key(database, channel_id)
+                    .await?;
+            Some((key.id, encryption::encrypt_text(body, &unwrapped_key)?))
+        }
+        None => None,
+    };
 
     let message = messages::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         channel_id: Set(channel_id),
         user_id: Set(user_id),
-        body: Set(body),
+        key_id: Set(encrypted.as_ref().map(|(key_id, _)| *key_id)),
+        ciphertext: Set(encrypted
+            .as_ref()
+            .map(|(_, value)| value.ciphertext.clone())),
+        iv: Set(encrypted.as_ref().map(|(_, value)| value.iv.clone())),
+        tag: Set(encrypted.as_ref().map(|(_, value)| value.tag.clone())),
         ..Default::default()
     }
     .insert(database)
@@ -122,7 +141,7 @@ pub(crate) async fn create_message(
 
     Ok(MessageResponse {
         id: message.id.to_string(),
-        body: message.body,
+        body,
         images: shaped_images,
         user: Some(MessageUser {
             id: user.id.to_string(),
@@ -144,11 +163,8 @@ pub(crate) async fn create_message(
 pub(crate) async fn store_message_image(
     database: &DatabaseConnection,
     upload_root: &Path,
-    server_id: Uuid,
-    channel_id: Uuid,
-    message_id: Uuid,
+    message: &messages::Model,
     image_id: Uuid,
-    user_id: Uuid,
     content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<ImageResponse> {
@@ -159,25 +175,6 @@ pub(crate) async fn store_message_image(
         ));
     }
 
-    let message = messages::Entity::find_by_id(message_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Message not found.")
-        })?;
-
-    if message.channel_id != channel_id {
-        return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
-    }
-
-    channels::get_channel(database, server_id, channel_id).await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
-
-    if message.user_id != user_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
-
     let image = message_images::Entity::find_by_id(image_id)
         .one(database)
         .await
@@ -186,7 +183,7 @@ pub(crate) async fn store_message_image(
             ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
         })?;
 
-    if image.message_id != message_id {
+    if image.message_id != message.id {
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."));
     }
 
@@ -262,6 +259,29 @@ pub(crate) async fn get_message_image(
     })
 }
 
+pub(crate) async fn load_message(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    message_id: Uuid,
+) -> AppResult<messages::Model> {
+    let message = messages::Entity::find_by_id(message_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Message not found.")
+        })?;
+
+    if message.channel_id != channel_id {
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
+    }
+
+    channels::get_channel(database, server_id, channel_id).await?;
+
+    Ok(message)
+}
+
 pub(crate) fn upload_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -282,10 +302,11 @@ fn shape_message<'a>(
         crate::users::UserImageRef,
     >,
     images: impl Iterator<Item = &'a message_images::Model>,
+    body: Option<String>,
 ) -> MessageResponse {
     MessageResponse {
         id: message.id.to_string(),
-        body: message.body.clone(),
+        body,
         images: images
             .map(|image| shape_image(image, image.storage_key.is_none()))
             .collect(),
@@ -314,6 +335,22 @@ fn shape_image(
     }
 }
 
+fn decrypt_message_body(
+    message: &messages::Model,
+    key_map: &std::collections::HashMap<Uuid, Vec<u8>>,
+) -> Option<String> {
+    let (Some(ciphertext), Some(iv), Some(tag), Some(key_id)) = (
+        message.ciphertext.as_ref(),
+        message.iv.as_ref(),
+        message.tag.as_ref(),
+        message.key_id,
+    ) else {
+        return None;
+    };
+    let key = key_map.get(&key_id)?;
+    encryption::decrypt_text(ciphertext, iv, tag, key).ok()
+}
+
 fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
     if request.image_count > MAX_IMAGE_COUNT {
         return Err(ApiError::new(
@@ -325,7 +362,7 @@ fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
     let has_body = request
         .body
         .as_ref()
-        .map(|body| !body.trim().is_empty())
+        .map(|body| !sanitize_text(body).is_empty())
         .unwrap_or(false);
 
     if has_body || request.image_count > 0 {

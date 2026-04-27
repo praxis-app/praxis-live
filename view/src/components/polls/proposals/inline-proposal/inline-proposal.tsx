@@ -43,8 +43,12 @@ export const InlineProposal = ({ poll, channel, me }: Props) => {
   const truncatedName = truncate(name, 18);
   const formattedDate = timeAgo(createdAt);
 
+  const label = body
+    ? `${t('proposals.labels.consensusProposal')}: ${body}`
+    : t('proposals.labels.consensusProposal');
+
   return (
-    <div className="flex gap-4 pt-4">
+    <article aria-label={label} className="flex gap-4 pt-4">
       <UserProfileDrawer
         name={truncatedName}
         userId={user.id}
@@ -118,6 +122,6 @@ export const InlineProposal = ({ poll, channel, me }: Props) => {
           </div>
         </Card>
       </div>
-    </div>
+    </article>
   );
 };

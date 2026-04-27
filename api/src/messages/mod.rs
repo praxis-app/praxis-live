@@ -1,3 +1,4 @@
+mod extractors;
 mod handlers;
 mod routes;
 mod service;

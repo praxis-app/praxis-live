@@ -1,6 +1,9 @@
 import { api } from '@/client/api-client';
 import { Button } from '@/components/ui/button';
-import { type ServerConfigReq, type ServerConfigRes } from '@/types/server-config.types';
+import {
+  type ServerConfigReq,
+  type ServerConfigRes,
+} from '@/types/server-config.types';
 import { DECISION_MAKING_MODEL } from '@/constants/poll.constants';
 import { ServerConfigErrorKeys } from '@/constants/server-config.constants';
 import { serverConfigSchema } from '@/types/server-config.types';

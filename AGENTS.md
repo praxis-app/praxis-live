@@ -20,6 +20,7 @@ Refer to `README.md` for more information.
 ## Required verifications
 
 - After code changes (not documentation-only), run `cargo fmt --check` and `cargo test` before signaling readiness.
+- After large code changes, run `npm run test:e2e` to verify that the changes work as expected.
 - Fix failures locally and rerun the checks until clean.
 
 ## Git command restrictions

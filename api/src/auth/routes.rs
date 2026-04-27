@@ -1,7 +1,7 @@
 use axum::{routing::post, Router};
 use sea_orm::DatabaseConnection;
 
-use super::handlers::{login, logout, signup, AuthState};
+use super::handlers::{create_anon_session, login, logout, signup, AuthState};
 
 pub(crate) fn router(
     database: DatabaseConnection,
@@ -10,6 +10,7 @@ pub(crate) fn router(
     Router::new()
         .route("/auth/signup", post(signup))
         .route("/auth/login", post(login))
+        .route("/auth/anon", post(create_anon_session))
         .route("/auth/logout", post(logout))
         .with_state(AuthState::new(database, jwt_secret))
 }

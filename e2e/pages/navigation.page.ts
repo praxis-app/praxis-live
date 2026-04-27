@@ -1,7 +1,7 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page } from '@playwright/test';
 
-import { ACCESS_TOKEN_KEY } from "../lib/test-data";
-import type { TestUser } from "../lib/test-data";
+import { ACCESS_TOKEN_KEY } from '../lib/data';
+import type { TestUser } from '../lib/data';
 
 export class NavigationPage {
   constructor(private readonly page: Page) {}
@@ -16,19 +16,19 @@ export class NavigationPage {
         () =>
           this.page.evaluate(
             (storageKey) => window.localStorage.getItem(storageKey),
-            ACCESS_TOKEN_KEY
+            ACCESS_TOKEN_KEY,
           ),
         {
-          message: "access token is persisted",
-        }
+          message: 'access token is persisted',
+        },
       )
       .not.toBeNull();
   }
 
   async logOut() {
     await this.page.getByTitle(/.+/).click();
-    await this.page.getByRole("menuitem", { name: "Log out" }).click();
-    await this.page.getByRole("button", { name: "Log out" }).click();
+    await this.page.getByRole('menuitem', { name: 'Log out' }).click();
+    await this.page.getByRole('button', { name: 'Log out' }).click();
     await expect(this.page).toHaveURL(/\/auth\/login\/?/);
   }
 }

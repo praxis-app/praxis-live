@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 axum = { workspace = true, features = ["multipart", "ws"] }
+base64.workspace = true
 casbin.workspace = true
 chrono.workspace = true
 dashmap.workspace = true
@@ -15,6 +16,7 @@ migrations = { path = "../migrations" }
 mime_guess.workspace = true
 password-auth.workspace = true
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
+ring.workspace = true
 sea-orm.workspace = true
 sea-orm-migration.workspace = true
 serde.workspace = true

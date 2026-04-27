@@ -5,10 +5,12 @@ use axum::{
     response::Json,
 };
 use sea_orm::DatabaseConnection;
-use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
-use super::{models::UpdateUserProfileRequest, service};
+use super::{
+    models::{UpdateUserProfileRequest, UserImagePath},
+    service,
+};
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     common::{
@@ -131,27 +133,17 @@ pub(super) async fn upload_user_cover_photo(
     ))
 }
 
-#[derive(Debug, Deserialize)]
-pub(super) struct UserImagePath {
-    #[serde(rename = "userId")]
-    user_id: String,
-    #[serde(rename = "imageId")]
-    image_id: String,
-}
-
 pub(super) async fn get_user_image(
     State(state): State<UsersState>,
     Path(path): Path<UserImagePath>,
     AuthenticatedUserOptional(current_user_id): AuthenticatedUserOptional,
 ) -> AppResult<Response<Body>> {
-    let user_id = parse_uuid(&path.user_id, "userId")?;
-    let image_id = parse_uuid(&path.image_id, "imageId")?;
     let image = service::get_user_image(
         &state.database,
         &state.upload_root,
         current_user_id,
-        user_id,
-        image_id,
+        path.user_id,
+        path.image_id,
     )
     .await?;
 
