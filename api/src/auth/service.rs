@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     channels,
-    common::{ApiError, AppResult},
+    common::{text::normalize_text, ApiError, AppResult},
     instance, servers,
     users::{self, CreateUserError, UserRecord},
 };
@@ -135,7 +135,7 @@ pub(super) fn validate_signup(
     mut input: SignupRequest,
 ) -> AppResult<SignupRequest> {
     input.name = input.name.trim().to_owned();
-    input.email = normalize_email(&input.email);
+    input.email = normalize_text(&input.email);
 
     if input.name.chars().count() < 2 {
         return Err(ApiError::new(
@@ -164,7 +164,7 @@ pub(super) fn validate_signup(
 pub(super) fn validate_login(
     mut input: LoginRequest,
 ) -> AppResult<LoginRequest> {
-    input.email = normalize_email(&input.email);
+    input.email = normalize_text(&input.email);
 
     if !looks_like_email(&input.email) {
         return Err(ApiError::new(
@@ -203,10 +203,6 @@ fn current_unix_timestamp() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
-}
-
-fn normalize_email(value: &str) -> String {
-    value.trim().to_ascii_lowercase()
 }
 
 fn looks_like_email(value: &str) -> bool {

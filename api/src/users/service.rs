@@ -15,7 +15,10 @@ use super::models::{
     UserProfileResponse, UserRecord,
 };
 use crate::{
-    common::{text::sanitize_text, ApiError, AppResult},
+    common::{
+        text::{normalize_text, sanitize_text},
+        ApiError, AppResult,
+    },
     instance, servers,
 };
 
@@ -30,7 +33,7 @@ pub(crate) async fn create_user(
 ) -> Result<UserRecord, CreateUserError> {
     users::ActiveModel {
         id: Set(NativeUuid::new_v4()),
-        email: Set(email),
+        email: Set(normalize_text(&email)),
         name: Set(name),
         password_hash: Set(password_hash),
         ..Default::default()

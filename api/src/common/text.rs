@@ -23,3 +23,7 @@ pub(crate) fn sanitize_text(value: &str) -> String {
     }
     sanitized
 }
+
+pub(crate) fn normalize_text(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
+}
