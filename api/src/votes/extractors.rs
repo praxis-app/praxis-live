@@ -71,6 +71,7 @@ impl FromRequestParts<PollsState> for VoteMutationContext {
         let Path(path) = Path::<VotePath>::from_request_parts(parts, state)
             .await
             .map_err(|_| invalid_route_path())?;
+
         let route = load_authenticated_vote_route_context(
             parts,
             state,
@@ -103,6 +104,7 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
                         "Invalid route path.",
                     )
                 })?;
+
         let Query(query) =
             Query::<PollOptionQuery>::from_request_parts(parts, state)
                 .await
@@ -112,6 +114,7 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
                         "Invalid query string.",
                     )
                 })?;
+
         let AuthenticatedUserOptional(current_user_id) =
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
 
@@ -159,10 +162,6 @@ async fn load_authenticated_vote_route_context(
         .await
 }
 
-fn invalid_route_path() -> ApiError {
-    ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
-}
-
 async fn load_vote_route_context(
     state: &PollsState,
     server_id: Uuid,
@@ -195,4 +194,8 @@ async fn load_vote_route_context(
         user_id,
         poll,
     })
+}
+
+fn invalid_route_path() -> ApiError {
+    ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
 }
