@@ -26,6 +26,7 @@ content/*
 !.vscode/extensions.json
 playwright-report/
 test-results/
+.fallow
 
 # Docker workspace (persisted agent data)
 /workspace/*
