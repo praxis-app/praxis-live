@@ -17,6 +17,8 @@ pub struct Cli {
 pub enum Commands {
     /// Poll and proposal stats with vote breakdown.
     PollStats(PollStatsArgs),
+    /// Print the current database schema.
+    Schema,
 }
 
 #[derive(Args, Debug)]

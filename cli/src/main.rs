@@ -17,6 +17,10 @@ async fn main() -> Result<()> {
             let database = db::connect_read_only().await?;
             commands::poll_stats::run(&database, args).await?;
         }
+        Commands::Schema => {
+            let database = db::connect_read_only().await?;
+            commands::schema::run(&database).await?;
+        }
     }
 
     Ok(())
