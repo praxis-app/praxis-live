@@ -8,6 +8,7 @@
     "types": "tsc -b",
     "lint": "eslint .",
     "check": "npm run types && npm run lint && npm audit",
+    "cli": "node ./cli/praxis-cli.mjs",
     "preview": "vite preview",
     "test:api:integration": "cargo test -p api --test http_routes --",
     "test:e2e": "tsx ./e2e/run-e2e.ts",
