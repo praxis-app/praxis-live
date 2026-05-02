@@ -32,3 +32,17 @@ Recommended commands:
 - `cargo test -p api --test http_routes`
 
 These commands intentionally run only the `http_routes` integration-test target.
+
+## CLI
+
+The project includes a Rust-based CLI tool for both development and production operations.
+
+```bash
+# Example: view poll and proposal stats
+npm run cli -- poll-stats --days 14
+
+# Example: print database schema
+npm run cli -- schema
+```
+
+See the [CLI README](cli/README.md) for full documentation.
