@@ -5,6 +5,7 @@ import { MessageForm } from '@/components/messages/message-form';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useChannelCall } from '@/hooks/use-channel-call';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
 import { useSubscription } from '@/hooks/use-subscription';
@@ -54,6 +55,10 @@ export const ChannelView = ({ channel }: Props) => {
 
   const { me, isMeSuccess, isAuthError } = useAuthData();
   const { serverId } = useServerData();
+  const { callConfig, isJoining, joinCall, leaveCall } = useChannelCall(
+    serverId,
+    channel?.id,
+  );
 
   const feedQueryKey = ['servers', serverId, 'channels', channel?.id, 'feed'];
 
@@ -267,7 +272,13 @@ export const ChannelView = ({ channel }: Props) => {
       {isDesktop && <LeftNavDesktop me={me} />}
 
       <div className="flex flex-1 flex-col">
-        <ChannelTopNav channel={channel} />
+        <ChannelTopNav
+          channel={channel}
+          callConfig={callConfig}
+          isJoiningCall={isJoining}
+          onJoinCall={joinCall}
+          onLeaveCall={leaveCall}
+        />
 
         <ChannelFeed
           channel={channel}

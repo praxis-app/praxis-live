@@ -16,7 +16,7 @@ services:
       REDIS_HOST: cache
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      LIVEKIT_URL: ws://livekit:${LIVEKIT_PORT}
+      LIVEKIT_URL: ws://${LIVEKIT_HOST}:${LIVEKIT_PORT}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
     depends_on:

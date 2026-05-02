@@ -2,6 +2,7 @@
 // See .docs/prompts/backend/split-api-composition-root.md.
 
 mod auth;
+mod calls;
 mod channels;
 mod common;
 mod health;
@@ -63,6 +64,7 @@ pub fn build_router(
 ) -> Router {
     let jwt_secret = jwt_secret.into();
     let pub_sub_service = pub_sub::PubSubService::from_env();
+    let livekit_config = calls::LiveKitConfig::from_env();
 
     let ws = Router::new().route(
         "/ws",
@@ -79,7 +81,12 @@ pub fn build_router(
         .merge(invites::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
         .merge(instance::router(database.clone(), jwt_secret.clone()))
-        .merge(servers::router(database, jwt_secret, pub_sub_service));
+        .merge(servers::router(
+            database,
+            jwt_secret,
+            pub_sub_service,
+            livekit_config,
+        ));
 
     view::attach(ws.nest("/api", api))
 }

@@ -12,6 +12,7 @@ import {
   type FeedItemRes,
   type UpdateChannelReq,
 } from '@/types/channel.types';
+import { type JoinCallRes } from '@/types/call.types';
 import { type ImageRes } from '@/types/image.types';
 import {
   type InstanceConfigReq,
@@ -206,6 +207,11 @@ class ApiClient {
   deleteChannel = async (serverId: string, channelId: string) => {
     const path = `/servers/${serverId}/channels/${channelId}`;
     return this.executeRequest<void>('delete', path);
+  };
+
+  joinChannelCall = async (serverId: string, channelId: string) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/join`;
+    return this.executeRequest<JoinCallRes>('post', path);
   };
 
   sendMessage = async (

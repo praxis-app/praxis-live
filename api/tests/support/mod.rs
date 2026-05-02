@@ -38,6 +38,9 @@ impl TestApp {
             "CHANNEL_KEY_MASTER",
             "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
         );
+        env::set_var("LIVEKIT_URL", "ws://livekit.test");
+        env::set_var("LIVEKIT_API_KEY", "livekit-test-key");
+        env::set_var("LIVEKIT_API_SECRET", "livekit-test-secret");
 
         let admin_database_url = admin_database_url()
             .expect("expected a local Postgres admin connection string");

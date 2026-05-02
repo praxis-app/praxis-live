@@ -12,12 +12,13 @@ use super::handlers::{
     remove_server_members, update_server, update_server_config, ServersState,
 };
 use super::server_roles;
-use crate::{channels, pub_sub::PubSubService};
+use crate::{calls::LiveKitConfig, channels, pub_sub::PubSubService};
 
 pub(crate) fn router(
     database: DatabaseConnection,
     jwt_secret: String,
     pub_sub_service: PubSubService,
+    livekit: Option<LiveKitConfig>,
 ) -> Router {
     let servers_router = Router::new()
         .route("/servers", get(get_servers))
@@ -54,6 +55,6 @@ pub(crate) fn router(
         )
         .nest(
             "/servers/{serverId}/channels",
-            channels::router(database, jwt_secret, pub_sub_service),
+            channels::router(database, jwt_secret, pub_sub_service, livekit),
         )
 }
