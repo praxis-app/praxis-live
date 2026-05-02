@@ -1,30 +1,34 @@
 # Praxis Live CLI
 
-A general purpose CLI tool with utilities for both development and production operations. The CLI provides utilities for checking statistics, viewing database schemas, and more.
+Read-only developer and operations utilities for Praxis Live. The CLI can inspect decision activity, print database schema details, and list the Axum route surface without starting the API server.
 
 ## Quick start
 
 ```bash
-# from repo root (relies on DB_* vars from your .env)
+# From the repo root. DB commands use DATABASE_URL or DB_* vars from .env.
 npm run cli -- poll-stats --days 14
-# or run the binary directly
+
+# Or run the binary directly.
 cd cli && cargo run -- poll-stats --channel-id d2f7...
 ```
 
-The CLI derives its PostgreSQL connection string from `DATABASE_URL`, or from `DB_USERNAME`, `DB_PASSWORD`, `DB_SCHEMA`, `DB_HOST`, and `DB_PORT`. Every pooled connection sets `SET default_transaction_read_only = on` to guard the production database.
+Database commands derive their PostgreSQL connection string from `DATABASE_URL`, or from `DB_USERNAME`, `DB_PASSWORD`, `DB_SCHEMA`, `DB_HOST`, and `DB_PORT`. Those commands set `SET default_transaction_read_only = on` for the session. Source-inspection commands such as `routes` do not connect to the database.
 
 ## Current subcommands
 
-### Statistics commands
+### Activity
 
 - `poll-stats` – poll/proposal stats with vote breakdown, day-by-day creation trend, and top channels.
-- `routes` – print all Axum API routes extracted from route files, with optional filtering and tree output.
 
-Supports `--days <int>` to control the lookback window.
+Useful flags include `--days <int>`, `--server-id <uuid>`, `--channel-id <uuid>`, `--poll-id <uuid>`, `--top-polls <int>`, and `--top-channels <int>`.
 
-### Database commands
+### Database
 
 - `schema` – prints the current database schema including tables, columns with data types, indexes, constraints, and enums.
+
+### Source Inspection
+
+- `routes` – prints Axum API routes extracted from `api/src/**/routes.rs` and `api/src/lib.rs`, including handler names. Supports `--path <substring>` and `--tree`.
 
 ## Future commands
 
@@ -48,8 +52,6 @@ The CLI is designed to expand with additional utilities for:
 
 - `DATABASE_URL` – full PostgreSQL connection string.
 - `DB_USERNAME`, `DB_PASSWORD`, `DB_SCHEMA`, `DB_HOST`, `DB_PORT` – same variables used by the rest of the Praxis Live stack when `DATABASE_URL` is not set.
-
-Optional vars are surfaced as CLI flags so developers can override per invocation.
 
 ## Sample invocations
 
