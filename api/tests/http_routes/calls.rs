@@ -24,7 +24,7 @@ async fn join_channel_call_returns_livekit_connection_config() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
 
-    assert_eq!(body["livekitUrl"], "ws://livekit.test");
+    assert_eq!(body["livekitUrl"], "ws://livekit.test:7880");
     assert_eq!(body["roomName"], body["call"]["roomName"]);
     assert_eq!(body["call"]["channelId"], channel_id);
     assert_eq!(body["call"]["status"], "starting");
