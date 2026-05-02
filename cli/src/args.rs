@@ -19,6 +19,8 @@ pub enum Commands {
     PollStats(PollStatsArgs),
     /// Print the current database schema.
     Schema,
+    /// Print all Axum API routes extracted from route files.
+    Routes(RoutesArgs),
 }
 
 #[derive(Args, Debug)]
@@ -41,4 +43,14 @@ pub struct PollStatsArgs {
     /// Limit of top channels to display.
     #[arg(long, default_value_t = 5)]
     pub top_channels: i64,
+}
+
+#[derive(Args, Debug)]
+pub struct RoutesArgs {
+    /// Filter routes by path substring.
+    #[arg(long)]
+    pub path: Option<String>,
+    /// Display as nested tree instead of flat list.
+    #[arg(long)]
+    pub tree: bool,
 }

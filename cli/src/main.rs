@@ -21,6 +21,9 @@ async fn main() -> Result<()> {
             let database = db::connect_read_only().await?;
             commands::schema::run(&database).await?;
         }
+        Commands::Routes(args) => {
+            commands::routes::run(args)?;
+        }
     }
 
     Ok(())

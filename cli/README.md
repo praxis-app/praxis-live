@@ -18,6 +18,7 @@ The CLI derives its PostgreSQL connection string from `DATABASE_URL`, or from `D
 ### Statistics commands
 
 - `poll-stats` – poll/proposal stats with vote breakdown, day-by-day creation trend, and top channels.
+- `routes` – print all Axum API routes extracted from route files, with optional filtering and tree output.
 
 Supports `--days <int>` to control the lookback window.
 
@@ -29,7 +30,6 @@ Supports `--days <int>` to control the lookback window.
 
 The CLI is designed to expand with additional utilities for:
 
-- `routes` – print all Axum API routes extracted from route files, with optional filtering and tree output
 - `integrity-check` – detect orphaned images, invalid foreign keys, polls missing config/action, impossible vote states
 - `activity-heatmap` – ASCII day x hour heatmap for messages, polls, and votes
 - `channel-activity` – per-channel totals, unique participants, vote/message ratio, fastest-growing channels
@@ -65,6 +65,10 @@ npm run cli -- poll-stats --days 90 --top-channels 10
 
 # Print database schema
 npm run cli -- schema
+
+# List routes, or focus on one route family
+npm run cli -- routes
+npm run cli -- routes --path /api/servers --tree
 ```
 
 The CLI stays out of the primary workflow; running it is entirely optional but provides quick operational awareness during incident reviews and development tasks.
