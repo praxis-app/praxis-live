@@ -83,7 +83,7 @@ const CallPanel = ({
   ]);
 
   return (
-    <div className="bg-background absolute top-11 right-0 z-30 w-[min(22rem,calc(100vw-1rem))] rounded-md border border-[--color-border] p-3 shadow-lg">
+    <div className="bg-background absolute top-16 -right-7 z-30 w-[min(22rem,calc(100vw-1rem))] rounded-md border border-[--color-border] p-3 shadow-lg">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">Channel call</div>
@@ -96,7 +96,7 @@ const CallPanel = ({
         </div>
       </div>
 
-      <div className="mb-3 grid max-h-[18rem] grid-cols-2 gap-2 overflow-y-auto">
+      <div className="mb-3 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto">
         <TrackLoop tracks={tracks}>
           <ParticipantTile className="bg-muted aspect-video overflow-hidden rounded-md border border-[--color-border]" />
         </TrackLoop>
