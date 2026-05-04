@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { type JoinCallRes } from '@/types/call.types';
 import { Track } from 'livekit-client';
 import {
+  LuListChecks,
+  LuMessageSquare,
   LuMic,
   LuMicOff,
   LuPhone,
@@ -23,6 +25,7 @@ import { toast } from 'sonner';
 
 interface Props {
   callConfig: JoinCallRes | null;
+  channelName: string;
   isJoining: boolean;
   onJoin: () => void;
   onLeave: () => void;
@@ -30,6 +33,7 @@ interface Props {
 
 export const ChannelCallButton = ({
   callConfig,
+  channelName,
   isJoining,
   onJoin,
   onLeave,
@@ -57,22 +61,22 @@ export const ChannelCallButton = ({
       video={false}
       onDisconnected={onLeave}
     >
-      <div className="relative">
-        <Button onClick={onLeave} variant="secondary" size="sm">
-          <LuPhoneOff />
-          Leave
-        </Button>
-        <RoomAudioRenderer />
-        <CallPanel roomName={callConfig.roomName} onLeave={onLeave} />
-      </div>
+      <RoomAudioRenderer />
+      <CallPanel
+        channelName={channelName}
+        roomName={callConfig.roomName}
+        onLeave={onLeave}
+      />
     </LiveKitRoom>
   );
 };
 
 const CallPanel = ({
+  channelName,
   roomName,
   onLeave,
 }: {
+  channelName: string;
   roomName: string;
   onLeave: () => void;
 }) => {
@@ -81,34 +85,72 @@ const CallPanel = ({
   const tracks = useTracks([
     { source: Track.Source.Camera, withPlaceholder: true },
   ]);
+  const tileCount = Math.max(tracks.length, 1);
+  const gridColumnCount = Math.ceil(Math.sqrt(tileCount));
+  const gridRowCount = Math.ceil(tileCount / gridColumnCount);
 
   return (
-    <div className="bg-background absolute top-16 -right-7 z-30 w-[min(22rem,calc(100vw-1rem))] rounded-md border border-[--color-border] p-3 shadow-lg">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="bg-background fixed inset-0 z-50 flex flex-col">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[--color-border] px-3 md:px-6">
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium">Channel call</div>
-          <div className="text-muted-foreground truncate text-xs">
-            {roomName}
+          <div className="truncate text-sm font-semibold md:text-base">
+            Channel call - #{channelName}
+          </div>
+          <div className="text-muted-foreground truncate text-xs md:text-sm">
+            {participants.length} participant
+            {participants.length === 1 ? '' : 's'} -{' '}
+            {String(connectionState).toLowerCase()}
           </div>
         </div>
-        <div className="text-muted-foreground text-xs capitalize">
-          {String(connectionState).toLowerCase()}
-        </div>
-      </div>
 
-      <div className="mb-3 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto">
-        <TrackLoop tracks={tracks}>
-          <ParticipantTile className="bg-muted aspect-video overflow-hidden rounded-md border border-[--color-border]" />
-        </TrackLoop>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-muted-foreground text-xs">
-          {participants.length} participant
-          {participants.length === 1 ? '' : 's'}
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            aria-label="Open call chat"
+            onClick={() => toast('Call chat drawer will be added later.')}
+            variant="ghost"
+            size="sm"
+          >
+            <LuMessageSquare />
+            <span className="hidden sm:inline">Chat</span>
+          </Button>
+          <Button
+            aria-label="Open CDM context"
+            onClick={() => toast('Call CDM drawer will be added later.')}
+            variant="ghost"
+            size="sm"
+          >
+            <LuListChecks />
+            <span className="hidden sm:inline">CDM</span>
+          </Button>
         </div>
-        <CallControls onLeave={onLeave} />
-      </div>
+      </header>
+
+      <main className="flex min-h-0 flex-1 flex-col">
+        <div
+          className="grid min-h-0 flex-1 gap-3 p-3"
+          style={{
+            gridTemplateColumns: `repeat(${gridColumnCount}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${gridRowCount}, minmax(0, 1fr))`,
+          }}
+        >
+          <TrackLoop tracks={tracks}>
+            <ParticipantTile className="bg-muted h-full min-h-0 w-full overflow-hidden rounded-md border border-[--color-border]" />
+          </TrackLoop>
+        </div>
+
+        <div className="border-t border-[--color-border] px-3 py-3">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+            <div className="text-muted-foreground min-w-0 text-xs md:text-sm">
+              <div className="truncate font-medium text-foreground">
+                #{channelName}
+              </div>
+              <div className="truncate">{roomName}</div>
+            </div>
+
+            <CallControls onLeave={onLeave} />
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
