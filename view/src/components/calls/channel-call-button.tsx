@@ -9,10 +9,10 @@ import {
   useTracks,
 } from '@livekit/components-react';
 import { Button } from '@/components/ui/button';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { type JoinCallRes } from '@/types/call.types';
 import { Track } from 'livekit-client';
 import {
-  LuListChecks,
   LuMessageSquare,
   LuMic,
   LuMicOff,
@@ -82,11 +82,12 @@ const CallPanel = ({
 }) => {
   const participants = useParticipants();
   const connectionState = useConnectionState();
+  const isDesktop = useIsDesktop();
   const tracks = useTracks([
     { source: Track.Source.Camera, withPlaceholder: true },
   ]);
   const tileCount = Math.max(tracks.length, 1);
-  const gridColumnCount = Math.ceil(Math.sqrt(tileCount));
+  const gridColumnCount = isDesktop ? Math.ceil(Math.sqrt(tileCount)) : 1;
   const gridRowCount = Math.ceil(tileCount / gridColumnCount);
 
   return (
@@ -105,22 +106,13 @@ const CallPanel = ({
 
         <div className="flex shrink-0 items-center gap-1">
           <Button
-            aria-label="Open call chat"
-            onClick={() => toast('Call chat drawer will be added later.')}
+            aria-label="Open channel chat"
+            onClick={() => toast('Channel chat panel will be added later.')}
             variant="ghost"
             size="sm"
           >
             <LuMessageSquare />
-            <span className="hidden sm:inline">Chat</span>
-          </Button>
-          <Button
-            aria-label="Open CDM context"
-            onClick={() => toast('Call CDM drawer will be added later.')}
-            variant="ghost"
-            size="sm"
-          >
-            <LuListChecks />
-            <span className="hidden sm:inline">CDM</span>
+            <span className="hidden sm:inline">Channel chat</span>
           </Button>
         </div>
       </header>
