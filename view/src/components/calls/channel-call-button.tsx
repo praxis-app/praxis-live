@@ -16,6 +16,7 @@ import {
   LuMessageSquare,
   LuMic,
   LuMicOff,
+  LuMinimize2,
   LuPhone,
   LuPhoneOff,
   LuVideo,
@@ -26,6 +27,7 @@ import { toast } from 'sonner';
 interface Props {
   callConfig: JoinCallRes | null;
   channelName: string;
+  serverName?: string;
   isJoining: boolean;
   onJoin: () => void;
   onLeave: () => void;
@@ -34,6 +36,7 @@ interface Props {
 export const ChannelCallButton = ({
   callConfig,
   channelName,
+  serverName,
   isJoining,
   onJoin,
   onLeave,
@@ -64,7 +67,7 @@ export const ChannelCallButton = ({
       <RoomAudioRenderer />
       <CallPanel
         channelName={channelName}
-        roomName={callConfig.roomName}
+        serverName={serverName}
         onLeave={onLeave}
       />
     </LiveKitRoom>
@@ -73,11 +76,11 @@ export const ChannelCallButton = ({
 
 const CallPanel = ({
   channelName,
-  roomName,
+  serverName,
   onLeave,
 }: {
   channelName: string;
-  roomName: string;
+  serverName?: string;
   onLeave: () => void;
 }) => {
   const participants = useParticipants();
@@ -98,23 +101,13 @@ const CallPanel = ({
             Channel call - #{channelName}
           </div>
           <div className="text-muted-foreground truncate text-xs md:text-sm">
+            {serverName && `${serverName} - `}
             {participants.length} participant
             {participants.length === 1 ? '' : 's'} -{' '}
             {String(connectionState).toLowerCase()}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            aria-label="Open channel chat"
-            onClick={() => toast('Channel chat panel will be added later.')}
-            variant="ghost"
-            size="sm"
-          >
-            <LuMessageSquare />
-            <span className="hidden sm:inline">Channel chat</span>
-          </Button>
-        </div>
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col">
@@ -131,14 +124,7 @@ const CallPanel = ({
         </div>
 
         <div className="border-t border-[--color-border] px-3 py-3">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-            <div className="text-muted-foreground min-w-0 text-xs md:text-sm">
-              <div className="truncate font-medium text-foreground">
-                #{channelName}
-              </div>
-              <div className="truncate">{roomName}</div>
-            </div>
-
+          <div className="flex items-center justify-center">
             <CallControls onLeave={onLeave} />
           </div>
         </div>
@@ -168,12 +154,13 @@ const CallControls = ({ onLeave }: { onLeave: () => void }) => {
   };
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center justify-center gap-2">
       <Button
         aria-label={isMicrophoneEnabled ? 'Mute microphone' : 'Use microphone'}
         onClick={toggleMicrophone}
         variant={isMicrophoneEnabled ? 'secondary' : 'ghost'}
         size="icon"
+        className="size-11 rounded-full"
       >
         {isMicrophoneEnabled ? <LuMic /> : <LuMicOff />}
       </Button>
@@ -182,14 +169,34 @@ const CallControls = ({ onLeave }: { onLeave: () => void }) => {
         onClick={toggleCamera}
         variant={isCameraEnabled ? 'secondary' : 'ghost'}
         size="icon"
+        className="size-11 rounded-full"
       >
         {isCameraEnabled ? <LuVideo /> : <LuVideoOff />}
       </Button>
       <Button
-        aria-label="Leave call"
-        onClick={onLeave}
+        aria-label="Open channel chat"
+        onClick={() => undefined}
         variant="ghost"
         size="icon"
+        className="size-11 rounded-full"
+      >
+        <LuMessageSquare />
+      </Button>
+      <Button
+        aria-label="Minimize call"
+        onClick={() => undefined}
+        variant="ghost"
+        size="icon"
+        className="size-11 rounded-full"
+      >
+        <LuMinimize2 />
+      </Button>
+      <Button
+        aria-label="Leave call"
+        onClick={onLeave}
+        variant="destructive"
+        size="icon"
+        className="size-11 rounded-full"
       >
         <LuPhoneOff />
       </Button>

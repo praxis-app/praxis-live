@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 interface Props {
   channel?: ChannelRes;
   callConfig: JoinCallRes | null;
+  serverName?: string;
   isJoiningCall: boolean;
   onJoinCall: () => void;
   onLeaveCall: () => void;
@@ -25,6 +26,7 @@ interface Props {
 export const ChannelTopNav = ({
   channel,
   callConfig,
+  serverName,
   isJoiningCall,
   onJoinCall,
   onLeaveCall,
@@ -97,6 +99,7 @@ export const ChannelTopNav = ({
           <ChannelCallButton
             callConfig={callConfig}
             channelName={channel.name}
+            serverName={serverName}
             isJoining={isJoiningCall}
             onJoin={onJoinCall}
             onLeave={onLeaveCall}

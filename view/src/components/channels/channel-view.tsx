@@ -54,7 +54,7 @@ export const ChannelView = ({ channel }: Props) => {
   const isDesktop = useIsDesktop();
 
   const { me, isMeSuccess, isAuthError } = useAuthData();
-  const { serverId } = useServerData();
+  const { server, serverId } = useServerData();
   const { callConfig, isJoining, joinCall, leaveCall } = useChannelCall(
     serverId,
     channel?.id,
@@ -275,6 +275,7 @@ export const ChannelView = ({ channel }: Props) => {
         <ChannelTopNav
           channel={channel}
           callConfig={callConfig}
+          serverName={server?.name}
           isJoiningCall={isJoining}
           onJoinCall={joinCall}
           onLeaveCall={leaveCall}
