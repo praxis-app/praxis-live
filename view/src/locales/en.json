@@ -1,22 +1,23 @@
 {
   "actions": {
+    "add": "Add",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "copy": "Copy",
     "create": "Create",
     "delete": "Delete",
+    "disabled": "Disabled",
     "edit": "Edit",
-    "remove": "Remove",
-    "add": "Add",
-    "save": "Save",
-    "submit": "Submit",
+    "enabled": "Enabled",
     "goToHome": "Back to home",
+    "loading": "Loading...",
     "next": "Next",
     "previous": "Previous",
-    "enabled": "Enabled",
-    "disabled": "Disabled",
-    "loading": "Loading...",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "remove": "Remove",
+    "save": "Save",
+    "search": "Search",
+    "submit": "Submit"
   },
 
   "states": {

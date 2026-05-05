@@ -1,5 +1,11 @@
 import { CallPanel } from '@/components/calls/call-panel';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { type JoinCallRes } from '@/types/call.types';
 import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
 import { useTranslation } from 'react-i18next';
@@ -23,18 +29,26 @@ export const ChannelCallButton = ({
   onLeave,
 }: Props) => {
   const { t } = useTranslation();
+  const callLabel = t('calls.actions.call');
 
   if (!callConfig) {
     return (
-      <Button
-        aria-label={t('calls.actions.call')}
-        onClick={onJoin}
-        disabled={isJoining}
-        variant="ghost"
-        size="icon"
-      >
-        <TbVideo className="size-6" />
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label={callLabel}
+              onClick={onJoin}
+              disabled={isJoining}
+              variant="ghost"
+              size="icon"
+            >
+              <TbVideo className="size-6" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{callLabel}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 

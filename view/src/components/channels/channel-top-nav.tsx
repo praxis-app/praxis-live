@@ -3,6 +3,12 @@ import { ChannelDetailsDrawer } from '@/components/channels/channel-details-draw
 import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { NavSheet } from '@/components/nav/nav-sheet';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { truncate } from '@/lib/text.utils';
@@ -43,6 +49,7 @@ export const ChannelTopNav = ({
     channel?.name || '',
     isDesktop ? 23 : 25,
   );
+  const searchLabel = t('actions.search');
 
   return (
     <header className="flex h-[55px] items-center justify-between border-b border-[--color-border] px-2 md:pl-6">
@@ -106,13 +113,21 @@ export const ChannelTopNav = ({
           />
         )}
 
-        <Button
-          onClick={() => toast(t('prompts.inDev'))}
-          variant="ghost"
-          size="icon"
-        >
-          <MdSearch className="size-6" />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={searchLabel}
+                onClick={() => toast(t('prompts.inDev'))}
+                variant="ghost"
+                size="icon"
+              >
+                <MdSearch className="size-6" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{searchLabel}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </header>
   );
