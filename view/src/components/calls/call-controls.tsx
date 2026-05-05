@@ -1,16 +1,16 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/shared.utils';
 import { useLocalParticipant } from '@livekit/components-react';
+import { useTranslation } from 'react-i18next';
 import {
   LuMessageSquare,
   LuMic,
   LuMicOff,
   LuMinimize2,
-  LuPhoneOff,
   LuVideo,
   LuVideoOff,
 } from 'react-icons/lu';
-import { useTranslation } from 'react-i18next';
+import { MdOutlineCallEnd } from 'react-icons/md';
 import { toast } from 'sonner';
 
 interface Props {
@@ -79,15 +79,6 @@ export const CallControls = ({ onLeave }: Props) => {
         {isCameraEnabled ? <LuVideo /> : <LuVideoOff />}
       </Button>
       <Button
-        aria-label={t('calls.labels.openChannelChat')}
-        onClick={() => undefined}
-        variant="ghost"
-        size="icon"
-        className={controlButtonClassName}
-      >
-        <LuMessageSquare />
-      </Button>
-      <Button
         aria-label={t('calls.labels.minimizeCall')}
         onClick={() => undefined}
         variant="ghost"
@@ -97,13 +88,22 @@ export const CallControls = ({ onLeave }: Props) => {
         <LuMinimize2 />
       </Button>
       <Button
+        aria-label={t('calls.labels.openChannelChat')}
+        onClick={() => undefined}
+        variant="ghost"
+        size="icon"
+        className={controlButtonClassName}
+      >
+        <LuMessageSquare />
+      </Button>
+      <Button
         aria-label={t('calls.labels.leaveCall')}
         onClick={onLeave}
         variant="ghost"
         size="icon"
-        className="bg-destructive text-white hover:bg-destructive/85 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:hover:bg-destructive/50 size-11 rounded-full"
+        className="bg-destructive hover:bg-destructive/85 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:hover:bg-destructive/50 size-11 rounded-full text-white"
       >
-        <LuPhoneOff />
+        <MdOutlineCallEnd />
       </Button>
     </div>
   );

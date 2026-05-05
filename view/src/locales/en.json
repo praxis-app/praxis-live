@@ -326,8 +326,7 @@
 
   "calls": {
     "actions": {
-      "call": "Call",
-      "joining": "Joining"
+      "call": "Call"
     },
     "headers": {
       "channelCall": "Call in #{{channelName}}"

@@ -1,12 +1,9 @@
-import { Button } from '@/components/ui/button';
 import { CallPanel } from '@/components/calls/call-panel';
+import { Button } from '@/components/ui/button';
 import { type JoinCallRes } from '@/types/call.types';
-import {
-  LiveKitRoom,
-  RoomAudioRenderer,
-} from '@livekit/components-react';
+import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
 import { useTranslation } from 'react-i18next';
-import { LuPhone } from 'react-icons/lu';
+import { TbVideo } from 'react-icons/tb';
 
 interface Props {
   callConfig: JoinCallRes | null;
@@ -30,13 +27,13 @@ export const ChannelCallButton = ({
   if (!callConfig) {
     return (
       <Button
+        aria-label={t('calls.actions.call')}
         onClick={onJoin}
         disabled={isJoining}
-        variant="secondary"
-        size="sm"
+        variant="ghost"
+        size="icon"
       >
-        <LuPhone />
-        {isJoining ? t('calls.actions.joining') : t('calls.actions.call')}
+        <TbVideo className="size-6" />
       </Button>
     );
   }
