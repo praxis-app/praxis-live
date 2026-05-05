@@ -5,6 +5,7 @@ import {
   LiveKitRoom,
   RoomAudioRenderer,
 } from '@livekit/components-react';
+import { useTranslation } from 'react-i18next';
 import { LuPhone } from 'react-icons/lu';
 
 interface Props {
@@ -24,6 +25,8 @@ export const ChannelCallButton = ({
   onJoin,
   onLeave,
 }: Props) => {
+  const { t } = useTranslation();
+
   if (!callConfig) {
     return (
       <Button
@@ -33,7 +36,7 @@ export const ChannelCallButton = ({
         size="sm"
       >
         <LuPhone />
-        {isJoining ? 'Joining' : 'Call'}
+        {isJoining ? t('calls.actions.joining') : t('calls.actions.call')}
       </Button>
     );
   }

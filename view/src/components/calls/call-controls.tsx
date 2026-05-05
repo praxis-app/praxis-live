@@ -10,6 +10,7 @@ import {
   LuVideo,
   LuVideoOff,
 } from 'react-icons/lu';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 interface Props {
@@ -25,12 +26,13 @@ const activeControlButtonClassName =
 export const CallControls = ({ onLeave }: Props) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } =
     useLocalParticipant();
+  const { t } = useTranslation();
 
   const toggleMicrophone = async () => {
     try {
       await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
     } catch {
-      toast('Unable to use the microphone.');
+      toast(t('calls.errors.microphoneUnavailable'));
     }
   };
 
@@ -38,14 +40,18 @@ export const CallControls = ({ onLeave }: Props) => {
     try {
       await localParticipant.setCameraEnabled(!isCameraEnabled);
     } catch {
-      toast('Unable to use the camera.');
+      toast(t('calls.errors.cameraUnavailable'));
     }
   };
 
   return (
     <div className="flex items-center justify-center gap-2">
       <Button
-        aria-label={isMicrophoneEnabled ? 'Mute microphone' : 'Use microphone'}
+        aria-label={
+          isMicrophoneEnabled
+            ? t('calls.labels.muteMicrophone')
+            : t('calls.labels.useMicrophone')
+        }
         onClick={toggleMicrophone}
         variant="ghost"
         size="icon"
@@ -57,7 +63,11 @@ export const CallControls = ({ onLeave }: Props) => {
         {isMicrophoneEnabled ? <LuMic /> : <LuMicOff />}
       </Button>
       <Button
-        aria-label={isCameraEnabled ? 'Turn camera off' : 'Use camera'}
+        aria-label={
+          isCameraEnabled
+            ? t('calls.labels.turnCameraOff')
+            : t('calls.labels.useCamera')
+        }
         onClick={toggleCamera}
         variant="ghost"
         size="icon"
@@ -69,7 +79,7 @@ export const CallControls = ({ onLeave }: Props) => {
         {isCameraEnabled ? <LuVideo /> : <LuVideoOff />}
       </Button>
       <Button
-        aria-label="Open channel chat"
+        aria-label={t('calls.labels.openChannelChat')}
         onClick={() => undefined}
         variant="ghost"
         size="icon"
@@ -78,7 +88,7 @@ export const CallControls = ({ onLeave }: Props) => {
         <LuMessageSquare />
       </Button>
       <Button
-        aria-label="Minimize call"
+        aria-label={t('calls.labels.minimizeCall')}
         onClick={() => undefined}
         variant="ghost"
         size="icon"
@@ -87,7 +97,7 @@ export const CallControls = ({ onLeave }: Props) => {
         <LuMinimize2 />
       </Button>
       <Button
-        aria-label="Leave call"
+        aria-label={t('calls.labels.leaveCall')}
         onClick={onLeave}
         variant="ghost"
         size="icon"

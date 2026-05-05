@@ -324,6 +324,43 @@
     }
   },
 
+  "calls": {
+    "actions": {
+      "call": "Call",
+      "joining": "Joining"
+    },
+    "headers": {
+      "channelCall": "Channel call - #{{channelName}}"
+    },
+    "labels": {
+      "leaveCall": "Leave call",
+      "minimizeCall": "Minimize call",
+      "muteMicrophone": "Mute microphone",
+      "openChannelChat": "Open channel chat",
+      "participantCount_one": "{{count}} participant",
+      "participantCount_other": "{{count}} participants",
+      "turnCameraOff": "Turn camera off",
+      "useCamera": "Use camera",
+      "useMicrophone": "Use microphone"
+    },
+    "descriptions": {
+      "status": "{{participants}} - {{connectionState}}",
+      "statusWithServer": "{{serverName}} - {{participants}} - {{connectionState}}"
+    },
+    "connectionStates": {
+      "connected": "connected",
+      "connecting": "connecting",
+      "disconnected": "disconnected",
+      "reconnecting": "reconnecting",
+      "signalReconnecting": "reconnecting"
+    },
+    "errors": {
+      "cameraUnavailable": "Unable to use the camera.",
+      "joinFailed": "Unable to join the call.",
+      "microphoneUnavailable": "Unable to use the microphone."
+    }
+  },
+
   "images": {
     "labels": {
       "attachedImage": "Attached image",

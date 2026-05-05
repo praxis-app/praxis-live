@@ -9,6 +9,7 @@ import {
   useTracks,
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
+import { useTranslation } from 'react-i18next';
 import { MdClose } from 'react-icons/md';
 
 interface Props {
@@ -21,25 +22,39 @@ export const CallPanel = ({ channelName, serverName, onLeave }: Props) => {
   const participants = useParticipants();
   const connectionState = useConnectionState();
   const isDesktop = useIsDesktop();
+  const { t } = useTranslation();
+
   const tracks = useTracks([
     { source: Track.Source.Camera, withPlaceholder: true },
   ]);
+
   const tileCount = Math.max(tracks.length, 1);
   const gridColumnCount = isDesktop ? Math.ceil(Math.sqrt(tileCount)) : 1;
   const gridRowCount = Math.ceil(tileCount / gridColumnCount);
 
+  const participantCount = t('calls.labels.participantCount', {
+    count: participants.length,
+  });
+  const connectionStateLabel = t(`calls.connectionStates.${connectionState}`, {
+    defaultValue: String(connectionState).toLowerCase(),
+  });
+
+  const topNavSubHeader = t(
+    serverName
+      ? 'calls.descriptions.statusWithServer'
+      : 'calls.descriptions.status',
+    {
+      connectionState: connectionStateLabel,
+      participants: participantCount,
+      serverName,
+    },
+  );
+
   return (
     <div className="bg-background fixed inset-0 z-50 flex flex-col">
       <TopNav
-        header={`Channel call - #${channelName}`}
-        subheader={
-          <>
-            {serverName && `${serverName} - `}
-            {participants.length} participant
-            {participants.length === 1 ? '' : 's'} -{' '}
-            {String(connectionState).toLowerCase()}
-          </>
-        }
+        header={t('calls.headers.channelCall', { channelName })}
+        subheader={topNavSubHeader}
         onBackClick={onLeave}
         backBtnIcon={<MdClose className="size-6" />}
         showSearch={false}
