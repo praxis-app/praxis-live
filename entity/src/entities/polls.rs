@@ -15,6 +15,7 @@ pub struct Model {
     pub poll_type: PollType,
     pub user_id: Uuid,
     pub channel_id: Uuid,
+    pub call_id: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -37,6 +38,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(
+        belongs_to = "super::calls::Entity",
+        from = "Column::CallId",
+        to = "super::calls::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Call,
     #[sea_orm(has_one = "super::poll_configs::Entity")]
     Config,
     #[sea_orm(has_one = "super::poll_actions::Entity")]
@@ -58,6 +67,12 @@ impl Related<super::channels::Entity> for Entity {
 impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::calls::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Call.def()
     }
 }
 

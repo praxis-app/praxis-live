@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
+import { type CreatePollReq } from '@/types/poll.types';
 import { VotingTimeLimit } from '@/constants/vote.constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,10 +47,11 @@ type CreatePollFormSchema = z.infer<typeof createPollFormSchema>;
 
 interface Props {
   channelId?: string;
+  callId?: string;
   onSuccess: () => void;
 }
 
-export const CreatePollForm = ({ channelId, onSuccess }: Props) => {
+export const CreatePollForm = ({ channelId, callId, onSuccess }: Props) => {
   const { t } = useTranslation();
   const { serverId } = useServerData();
   const queryClient = useQueryClient();
@@ -83,13 +85,17 @@ export const CreatePollForm = ({ channelId, onSuccess }: Props) => {
           ? new Date(Date.now() + values.closingAt * 60 * 1000).toISOString()
           : undefined;
 
-      return api.createPoll(serverId, channelId, {
+      const request: CreatePollReq = {
         body: values.body.trim(),
         pollType: 'poll',
         options: values.options.map((option) => option.value.trim()),
         multipleChoice: values.allowMultipleAnswers,
         closingAt,
-      });
+      };
+
+      return callId
+        ? api.createCallPoll(serverId, channelId, callId, request)
+        : api.createPoll(serverId, channelId, request);
     },
     onSuccess: ({ poll }) => {
       if (!channelId || !serverId) {
@@ -97,7 +103,9 @@ export const CreatePollForm = ({ channelId, onSuccess }: Props) => {
       }
 
       queryClient.setQueryData<FeedQuery>(
-        ['servers', serverId, 'channels', channelId, 'feed'],
+        callId
+          ? ['servers', serverId, 'channels', channelId, 'calls', callId, 'feed']
+          : ['servers', serverId, 'channels', channelId, 'feed'],
         (old) => {
           const newItem: FeedItemRes = {
             ...poll,

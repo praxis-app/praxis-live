@@ -19,18 +19,22 @@ export class ChatPage {
   }
 
   async attachImage() {
+    await this.attachImageIn(this.page.locator('body'));
+  }
+
+  async attachImageIn(scope: Locator) {
     const visibleTestPng = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAAyklEQVR4nO3OyxHCQBADUcdAKI7Y+TkIOFEFht35SZo9uKsDeNtjsbZuwLUbZPUFer7bj1O5DRKbXCClaQjaj7PFNAO1mAyQ3mSDxCYXSGnygmSmAEhjioEEpjCIbcqAqKYkiGfKg0imEohhqoLgJgAIa8KAgCYYCGVCgiAmMKhuwoOKJgqoYmKB0iYiKGfighImOihqUoBCJhHIb9KBnCYpyGNSg0xTA2hu6gFNTG2gkakT9NfUDPo19YMupiVAn6YhaIVukNVyoBfIKmT1NebvTwAAAABJRU5ErkJggg==',
       'base64',
     );
 
-    await this.page.getByTestId('image-input').setInputFiles({
+    await scope.getByTestId('image-input').setInputFiles({
       name: 'visible-chat-image.png',
       mimeType: 'image/png',
       buffer: visibleTestPng,
     });
 
-    await expect(this.page.getByTestId('attached-image-preview')).toBeVisible();
+    await expect(scope.getByTestId('attached-image-preview')).toBeVisible();
   }
 
   async expectAttachedImage() {

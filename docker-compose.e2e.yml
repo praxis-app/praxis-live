@@ -30,11 +30,25 @@ services:
       DB_MIGRATIONS: true
       REDIS_HOST: cache
       REDIS_PORT: 6379
+      LIVEKIT_HOST: 127.0.0.1
+      LIVEKIT_PORT: 37880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
     depends_on:
       database:
         condition: service_healthy
       cache:
         condition: service_started
+      livekit:
+        condition: service_started
 
   cache:
     image: redis:8.4.0
+
+  livekit:
+    image: livekit/livekit-server:latest
+    ports:
+      - '37880:7880'
+      - '37881:7881'
+      - '37882:7882/udp'
+    command: --dev --bind 0.0.0.0

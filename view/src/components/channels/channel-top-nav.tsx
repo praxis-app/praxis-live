@@ -105,7 +105,7 @@ export const ChannelTopNav = ({
         {channel && (
           <ChannelCallButton
             callConfig={callConfig}
-            channelName={channel.name}
+            channel={channel}
             serverName={serverName}
             isJoining={isJoiningCall}
             onJoin={onJoinCall}

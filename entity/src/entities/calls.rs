@@ -1,25 +1,31 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "messages")]
+#[sea_orm(table_name = "calls")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub ciphertext: Option<Vec<u8>>,
-    pub iv: Option<Vec<u8>>,
-    pub tag: Option<Vec<u8>>,
+    pub server_id: Uuid,
     pub channel_id: Uuid,
-    pub call_id: Option<Uuid>,
-    pub user_id: Uuid,
-    pub bot_id: Option<Uuid>,
-    pub command_status: Option<String>,
-    pub key_id: Option<Uuid>,
+    pub livekit_room: String,
+    pub status: String,
+    pub started_by: Uuid,
+    pub ended_by: Option<Uuid>,
+    pub ended_reason: Option<String>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::servers::Entity",
+        from = "Column::ServerId",
+        to = "super::servers::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Server,
     #[sea_orm(
         belongs_to = "super::channels::Entity",
         from = "Column::ChannelId",
@@ -30,22 +36,22 @@ pub enum Relation {
     Channel,
     #[sea_orm(
         belongs_to = "super::users::Entity",
-        from = "Column::UserId",
+        from = "Column::StartedBy",
         to = "super::users::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
     )]
-    User,
-    #[sea_orm(
-        belongs_to = "super::calls::Entity",
-        from = "Column::CallId",
-        to = "super::calls::Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    Call,
-    #[sea_orm(has_many = "super::message_images::Entity")]
-    Images,
+    StartedByUser,
+    #[sea_orm(has_many = "super::messages::Entity")]
+    Messages,
+    #[sea_orm(has_many = "super::polls::Entity")]
+    Polls,
+}
+
+impl Related<super::servers::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Server.def()
+    }
 }
 
 impl Related<super::channels::Entity> for Entity {
@@ -54,21 +60,15 @@ impl Related<super::channels::Entity> for Entity {
     }
 }
 
-impl Related<super::users::Entity> for Entity {
+impl Related<super::messages::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::User.def()
+        Relation::Messages.def()
     }
 }
 
-impl Related<super::calls::Entity> for Entity {
+impl Related<super::polls::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Call.def()
-    }
-}
-
-impl Related<super::message_images::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Images.def()
+        Relation::Polls.def()
     }
 }
 

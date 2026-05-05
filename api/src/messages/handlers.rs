@@ -10,12 +10,13 @@ use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    extractors::MessageImageUploadContext,
+    extractors::{CallMessageImageUploadContext, MessageImageUploadContext},
     service,
-    types::{CreateMessageRequest, MessageImagePath},
+    types::{CallMessageImagePath, CreateMessageRequest, MessageImagePath},
 };
 use crate::{
     auth::{AuthenticatedUserOptional, HasJwtSecret},
+    calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{request::multipart_file, ApiError, AppResult},
     polls,
@@ -120,6 +121,65 @@ pub(super) async fn get_channel_feed(
     Ok(Json(serde_json::json!({ "feed": feed })))
 }
 
+pub(super) async fn get_call_feed(
+    State(chat_state): State<ChatState>,
+    Path(path): Path<crate::calls::types::CallPath>,
+    Query(query): Query<FeedQuery>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+) -> AppResult<Json<serde_json::Value>> {
+    let limit = query.limit.unwrap_or(50).min(100);
+    let offset = query.offset.unwrap_or(0);
+    let fetch_limit = offset.saturating_add(limit);
+    let mut feed = service::get_call_feed(
+        &chat_state.database,
+        path.server_id,
+        path.channel_id,
+        path.call_id,
+        0,
+        fetch_limit,
+    )
+    .await?;
+    let polls = polls::service::get_inline_call_polls(
+        &chat_state.database,
+        path.server_id,
+        path.channel_id,
+        path.call_id,
+        0,
+        fetch_limit,
+        user_id,
+    )
+    .await?;
+
+    let mut feed = feed
+        .drain(..)
+        .map(serde_json::to_value)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(internal_error)?;
+    for poll in polls {
+        let mut value = serde_json::to_value(poll).map_err(internal_error)?;
+        if let Some(object) = value.as_object_mut() {
+            object.insert(
+                "type".to_owned(),
+                serde_json::Value::String("poll".to_owned()),
+            );
+        }
+        feed.push(value);
+    }
+
+    feed.sort_by(|left, right| {
+        timestamp_millis(right)
+            .cmp(&timestamp_millis(left))
+            .then_with(|| id_string(right).cmp(&id_string(left)))
+    });
+    let feed = feed
+        .into_iter()
+        .skip(offset as usize)
+        .take(limit as usize)
+        .collect::<Vec<_>>();
+
+    Ok(Json(serde_json::json!({ "feed": feed })))
+}
+
 pub(super) async fn create_message(
     State(chat_state): State<ChatState>,
     context: ChannelWriteContext,
@@ -142,6 +202,36 @@ pub(super) async fn create_message(
     .await
     {
         tracing::warn!("failed to broadcast created message: {error}");
+    }
+
+    Ok(Json(serde_json::json!({ "message": message })))
+}
+
+pub(super) async fn create_call_message(
+    State(chat_state): State<ChatState>,
+    context: CallWriteContext,
+    Json(payload): Json<CreateMessageRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let message = service::create_call_message(
+        &chat_state.database,
+        context.server_id,
+        context.channel_id,
+        context.call_id,
+        context.user_id,
+        payload,
+    )
+    .await?;
+    if let Err(error) = broadcast_message_to_call(
+        &chat_state,
+        context.server_id,
+        context.channel_id,
+        context.call_id,
+        context.user_id,
+        &message,
+    )
+    .await
+    {
+        tracing::warn!("failed to broadcast created call message: {error}");
     }
 
     Ok(Json(serde_json::json!({ "message": message })))
@@ -182,6 +272,43 @@ pub(super) async fn upload_message_image(
     ))
 }
 
+pub(super) async fn upload_call_message_image(
+    State(chat_state): State<ChatState>,
+    context: CallMessageImageUploadContext,
+    multipart: Multipart,
+) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+    let file = multipart_file(multipart, "file").await?;
+    let image = service::store_message_image(
+        &chat_state.database,
+        &chat_state.upload_root,
+        &context.message,
+        context.image_id,
+        file.as_ref().and_then(|file| file.content_type.clone()),
+        file.map(|file| file.bytes).unwrap_or_default(),
+    )
+    .await?;
+    if let Err(error) = broadcast_call_image_upload(
+        &chat_state,
+        context.server_id,
+        context.channel_id,
+        context.call_id,
+        context.user_id,
+        &context.message.id.to_string(),
+        &context.image_id.to_string(),
+    )
+    .await
+    {
+        tracing::warn!(
+            "failed to broadcast uploaded call message image: {error}"
+        );
+    }
+
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({ "image": image })),
+    ))
+}
+
 pub(super) async fn get_message_image(
     State(chat_state): State<ChatState>,
     Path(path): Path<MessageImagePath>,
@@ -191,6 +318,33 @@ pub(super) async fn get_message_image(
         &chat_state.upload_root,
         path.server_id,
         path.channel_id,
+        path.message_id,
+        path.image_id,
+    )
+    .await?;
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            image
+                .content_type
+                .unwrap_or_else(|| "application/octet-stream".to_owned()),
+        )
+        .body(Body::from(image.bytes))
+        .map_err(internal_error)
+}
+
+pub(super) async fn get_call_message_image(
+    State(chat_state): State<ChatState>,
+    Path(path): Path<CallMessageImagePath>,
+) -> AppResult<Response<Body>> {
+    let image = service::get_call_message_image(
+        &chat_state.database,
+        &chat_state.upload_root,
+        path.server_id,
+        path.channel_id,
+        path.call_id,
         path.message_id,
         path.image_id,
     )
@@ -269,6 +423,76 @@ async fn broadcast_image_upload(
         chat_state, server_id, channel_id, sender_id, body,
     )
     .await
+}
+
+async fn broadcast_message_to_call(
+    chat_state: &ChatState,
+    server_id: sea_orm::prelude::Uuid,
+    channel_id: sea_orm::prelude::Uuid,
+    call_id: sea_orm::prelude::Uuid,
+    sender_id: sea_orm::prelude::Uuid,
+    message: &crate::messages::types::MessageResponse,
+) -> AppResult<()> {
+    let body = serde_json::json!({
+        "type": "message",
+        "message": message,
+    });
+
+    broadcast_to_call_members(
+        chat_state, server_id, channel_id, call_id, sender_id, body,
+    )
+    .await
+}
+
+async fn broadcast_call_image_upload(
+    chat_state: &ChatState,
+    server_id: sea_orm::prelude::Uuid,
+    channel_id: sea_orm::prelude::Uuid,
+    call_id: sea_orm::prelude::Uuid,
+    sender_id: sea_orm::prelude::Uuid,
+    message_id: &str,
+    image_id: &str,
+) -> AppResult<()> {
+    let body = serde_json::json!({
+        "type": "image",
+        "isPlaceholder": false,
+        "messageId": message_id,
+        "imageId": image_id,
+    });
+
+    broadcast_to_call_members(
+        chat_state, server_id, channel_id, call_id, sender_id, body,
+    )
+    .await
+}
+
+async fn broadcast_to_call_members(
+    chat_state: &ChatState,
+    server_id: sea_orm::prelude::Uuid,
+    channel_id: sea_orm::prelude::Uuid,
+    call_id: sea_orm::prelude::Uuid,
+    sender_id: sea_orm::prelude::Uuid,
+    body: serde_json::Value,
+) -> AppResult<()> {
+    let members =
+        channels::get_channel_member_user_ids(&chat_state.database, channel_id)
+            .await?;
+
+    for member_id in members {
+        if member_id == sender_id {
+            continue;
+        }
+
+        let topic = format!(
+            "new-message-{server_id}-{channel_id}-{call_id}-{member_id}"
+        );
+        chat_state
+            .pub_sub_service
+            .publish(&topic, body.clone())
+            .await?;
+    }
+
+    Ok(())
 }
 
 async fn broadcast_to_channel_members(

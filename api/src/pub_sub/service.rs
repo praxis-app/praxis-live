@@ -374,7 +374,7 @@ struct ChannelAccess {
 
 fn channel_access(channel: &str, user_id: Uuid) -> Option<ChannelAccess> {
     let parts: Vec<&str> = channel.split('-').collect();
-    if parts.len() != 17 {
+    if parts.len() != 17 && parts.len() != 22 {
         return None;
     }
 
@@ -385,7 +385,8 @@ fn channel_access(channel: &str, user_id: Uuid) -> Option<ChannelAccess> {
 
     let server_id = parse_uuid_parts(&parts[2..7])?;
     let channel_id = parse_uuid_parts(&parts[7..12])?;
-    let topic_user_id = parse_uuid_parts(&parts[12..17])?;
+    let user_id_start = if parts.len() == 22 { 17 } else { 12 };
+    let topic_user_id = parse_uuid_parts(&parts[user_id_start..])?;
 
     (topic_user_id == user_id).then_some(ChannelAccess {
         server_id,

@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 
 interface Props {
   onLeave: () => void;
+  onOpenChat?: () => void;
 }
 
 interface CallControlTooltipProps {
@@ -42,7 +43,7 @@ const CallControlTooltip = ({ children, label }: CallControlTooltipProps) => (
   </Tooltip>
 );
 
-export const CallControls = ({ onLeave }: Props) => {
+export const CallControls = ({ onLeave, onOpenChat }: Props) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } =
     useLocalParticipant();
 
@@ -123,7 +124,7 @@ export const CallControls = ({ onLeave }: Props) => {
         <CallControlTooltip label={openChannelChatLabel}>
           <Button
             aria-label={openChannelChatLabel}
-            onClick={() => undefined}
+            onClick={onOpenChat}
             variant="ghost"
             size="icon"
             className={controlButtonClassName}

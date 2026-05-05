@@ -7,6 +7,7 @@ mod m20260416_000001_create_invites;
 mod m20260418_000001_add_user_profiles_and_images;
 mod m20260419_000001_create_polls;
 mod m20260420_000001_add_anonymous_users;
+mod m20260505_000001_add_call_conversations;
 
 pub struct Migrator;
 
@@ -21,6 +22,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260418_000001_add_user_profiles_and_images::Migration),
             Box::new(m20260419_000001_create_polls::Migration),
             Box::new(m20260420_000001_add_anonymous_users::Migration),
+            Box::new(m20260505_000001_add_call_conversations::Migration),
         ]
     }
 }

@@ -35,10 +35,11 @@ const formSchema = zod.object({
 
 interface Props {
   channelId?: string;
+  callId?: string;
   onSend?(): void;
 }
 
-export const MessageForm = ({ channelId, onSend }: Props) => {
+export const MessageForm = ({ channelId, callId, onSend }: Props) => {
   const [showMenu, setShowMenu] = useState(false);
   const [isAuthPromptOpen, setIsAuthPromptOpen] = useState(false);
   const [imagesInputKey, setImagesInputKey] = useState<number>();
@@ -64,8 +65,13 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
   const isEmptyBody = !getValues('body') && !formState.dirtyFields.body;
   const isEmpty = isEmptyBody && !images.length;
 
-  const draftKey = `message-draft-${serverId}-${channelId}`;
-  const feedQueryKey = ['servers', serverId, 'channels', channelId, 'feed'];
+  const draftKey = callId
+    ? `message-draft-${serverId}-${channelId}-call-${callId}`
+    : `message-draft-${serverId}-${channelId}`;
+
+  const feedQueryKey = callId
+    ? ['servers', serverId, 'channels', channelId, 'calls', callId, 'feed']
+    : ['servers', serverId, 'channels', channelId, 'feed'];
 
   const sortFeedByDate = (feed: FeedItemRes[]): FeedItemRes[] => {
     return [...feed].sort(
@@ -85,12 +91,20 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
       const currentImages = [...images];
       validateImageInput(currentImages);
 
-      const { message } = await api.sendMessage(
-        serverId,
-        channelId,
-        body,
-        currentImages.length,
-      );
+      const { message } = callId
+        ? await api.sendCallMessage(
+            serverId,
+            channelId,
+            callId,
+            body,
+            currentImages.length,
+          )
+        : await api.sendMessage(
+            serverId,
+            channelId,
+            body,
+            currentImages.length,
+          );
       const messageImages: ImageRes[] = [];
 
       if (currentImages.length && message.images) {
@@ -99,13 +113,22 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
           formData.set('file', currentImages[i]);
 
           const placeholder = message.images[i];
-          const { image } = await api.uploadMessageImage(
-            serverId,
-            channelId,
-            message.id,
-            placeholder.id,
-            formData,
-          );
+          const { image } = callId
+            ? await api.uploadCallMessageImage(
+                serverId,
+                channelId,
+                callId,
+                message.id,
+                placeholder.id,
+                formData,
+              )
+            : await api.uploadMessageImage(
+                serverId,
+                channelId,
+                message.id,
+                placeholder.id,
+                formData,
+              );
           messageImages.push(image);
         }
       }
@@ -401,6 +424,7 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
             showMenu={showMenu}
             setShowMenu={setShowMenu}
             channelId={channelId}
+            callId={callId}
             disabled={isMessageSending}
           />
 

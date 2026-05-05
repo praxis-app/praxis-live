@@ -130,6 +130,41 @@ pub(crate) async fn create_poll(
     user_id: Uuid,
     request: CreatePollRequest,
 ) -> AppResult<PollResponse> {
+    create_poll_for_call(
+        database, server_id, channel_id, None, user_id, request,
+    )
+    .await
+}
+
+pub(crate) async fn create_call_poll(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Uuid,
+    user_id: Uuid,
+    request: CreatePollRequest,
+) -> AppResult<PollResponse> {
+    crate::calls::service::get_call(database, server_id, channel_id, call_id)
+        .await?;
+    create_poll_for_call(
+        database,
+        server_id,
+        channel_id,
+        Some(call_id),
+        user_id,
+        request,
+    )
+    .await
+}
+
+pub(crate) async fn create_poll_for_call(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Option<Uuid>,
+    user_id: Uuid,
+    request: CreatePollRequest,
+) -> AppResult<PollResponse> {
     validate_create_poll(&request)?;
 
     let body = request
@@ -172,6 +207,7 @@ pub(crate) async fn create_poll(
         poll_type: Set(poll_type),
         user_id: Set(user_id),
         channel_id: Set(channel_id),
+        call_id: Set(call_id),
         ..Default::default()
     }
     .insert(database)
@@ -245,6 +281,35 @@ pub(crate) async fn get_inline_polls(
     channels::get_channel(database, server_id, channel_id).await?;
     let polls = polls::Entity::find()
         .filter(polls::Column::ChannelId.eq(channel_id))
+        .filter(polls::Column::CallId.is_null())
+        .order_by_desc(polls::Column::CreatedAt)
+        .offset(offset)
+        .limit(limit)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    let mut responses = Vec::with_capacity(polls.len());
+    for poll in polls {
+        responses.push(shape_poll(database, poll, current_user_id).await?);
+    }
+    Ok(responses)
+}
+
+pub(crate) async fn get_inline_call_polls(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Uuid,
+    offset: u64,
+    limit: u64,
+    current_user_id: Option<Uuid>,
+) -> AppResult<Vec<PollResponse>> {
+    crate::calls::service::get_call(database, server_id, channel_id, call_id)
+        .await?;
+    let polls = polls::Entity::find()
+        .filter(polls::Column::ChannelId.eq(channel_id))
+        .filter(polls::Column::CallId.eq(call_id))
         .order_by_desc(polls::Column::CreatedAt)
         .offset(offset)
         .limit(limit)

@@ -1,24 +1,16 @@
-use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::Json,
-};
+use axum::http::StatusCode;
 use chrono::{Duration, Utc};
-use entity::users;
+use entity::{calls, users};
 use jsonwebtoken::{encode, EncodingKey, Header};
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait,
+    QueryFilter, Set,
+};
 use serde::Serialize;
 use std::env;
 
-use super::{
-    routes::CallsState,
-    types::{CallResponse, ChannelCallPath, JoinCallResponse},
-};
-use crate::{
-    auth::AuthenticatedUser,
-    channels,
-    common::{ApiError, AppResult},
-};
+use super::types::{CallResponse, JoinCallResponse};
+use crate::common::{ApiError, AppResult};
 
 const TOKEN_TTL_MINUTES: i64 = 30;
 
@@ -61,48 +53,82 @@ fn livekit_url_from_env() -> Option<String> {
     Some(format!("ws://{host}:{port}"))
 }
 
-pub(crate) async fn join_call(
-    State(state): State<CallsState>,
-    Path(path): Path<ChannelCallPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
-    let livekit = state.livekit.as_ref().ok_or_else(|| {
-        ApiError::new(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "LiveKit is not configured.",
-        )
-    })?;
-
-    channels::get_channel(&state.database, path.server_id, path.channel_id)
-        .await?;
-    channels::ensure_channel_membership(
-        &state.database,
-        path.channel_id,
-        user_id,
-    )
-    .await?;
-
-    let user = get_user(&state.database, user_id).await?;
-    let room_name = room_name(path.server_id, path.channel_id);
+pub(crate) async fn join_channel_call(
+    database: &DatabaseConnection,
+    livekit: &LiveKitConfig,
+    server_id: uuid::Uuid,
+    channel_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+) -> AppResult<JoinCallResponse> {
+    let user = get_user(database, user_id).await?;
+    let call =
+        get_or_create_channel_call(database, server_id, channel_id, user_id)
+            .await?;
+    let room_name = call.livekit_room.clone();
     let token = create_livekit_token(livekit, &room_name, &user)?;
     let call = CallResponse {
-        id: room_name.clone(),
-        server_id: path.server_id.to_string(),
-        channel_id: path.channel_id.to_string(),
+        id: call.id.to_string(),
+        server_id: call.server_id.to_string(),
+        channel_id: call.channel_id.to_string(),
         room_name: room_name.clone(),
-        status: "starting".to_owned(),
+        status: call.status,
     };
 
-    Ok(Json(serde_json::json!(JoinCallResponse {
-        livekit_url: livekit.url.clone(),
+    Ok(JoinCallResponse {
+        livekit_url: livekit.url.to_owned(),
         room_name,
         token,
         call,
-    })))
+    })
 }
 
 fn room_name(server_id: uuid::Uuid, channel_id: uuid::Uuid) -> String {
     format!("praxis-server-{server_id}-channel-{channel_id}")
+}
+
+pub(crate) async fn get_call(
+    database: &DatabaseConnection,
+    server_id: uuid::Uuid,
+    channel_id: uuid::Uuid,
+    call_id: uuid::Uuid,
+) -> AppResult<calls::Model> {
+    calls::Entity::find_by_id(call_id)
+        .filter(calls::Column::ServerId.eq(server_id))
+        .filter(calls::Column::ChannelId.eq(channel_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Call not found."))
+}
+
+async fn get_or_create_channel_call(
+    database: &DatabaseConnection,
+    server_id: uuid::Uuid,
+    channel_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+) -> AppResult<calls::Model> {
+    if let Some(call) = calls::Entity::find()
+        .filter(calls::Column::ChannelId.eq(channel_id))
+        .filter(calls::Column::Status.is_in(["starting", "active"]))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    {
+        return Ok(call);
+    }
+
+    calls::ActiveModel {
+        id: Set(uuid::Uuid::new_v4()),
+        server_id: Set(server_id),
+        channel_id: Set(channel_id),
+        livekit_room: Set(room_name(server_id, channel_id)),
+        status: Set("starting".to_owned()),
+        started_by: Set(user_id),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)
 }
 
 async fn get_user(

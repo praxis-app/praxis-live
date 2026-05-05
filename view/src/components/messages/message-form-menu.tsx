@@ -25,6 +25,7 @@ interface Props {
   setShowMenu: (show: boolean) => void;
   trigger: ReactNode;
   channelId?: string;
+  callId?: string;
   disabled?: boolean;
 }
 
@@ -33,6 +34,7 @@ export const MessageFormMenu = ({
   showMenu,
   setShowMenu,
   channelId,
+  callId,
   disabled,
 }: Props) => {
   const [showProposalForm, setShowProposalForm] = useState(false);
@@ -98,6 +100,7 @@ export const MessageFormMenu = ({
 
           <CreateProposalForm
             channelId={channelId}
+            callId={callId}
             onSuccess={() => setShowProposalForm(false)}
             onNavigate={handleProposalFormNavigate}
           />
@@ -117,6 +120,7 @@ export const MessageFormMenu = ({
 
           <CreatePollForm
             channelId={channelId}
+            callId={callId}
             onSuccess={() => setShowPollForm(false)}
           />
         </DialogContent>

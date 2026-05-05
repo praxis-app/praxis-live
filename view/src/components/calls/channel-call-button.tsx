@@ -7,13 +7,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { type JoinCallRes } from '@/types/call.types';
+import { type ChannelRes } from '@/types/channel.types';
 import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
 import { useTranslation } from 'react-i18next';
 import { TbVideo } from 'react-icons/tb';
 
 interface Props {
   callConfig: JoinCallRes | null;
-  channelName: string;
+  channel: ChannelRes;
   serverName?: string;
   isJoining: boolean;
   onJoin: () => void;
@@ -22,7 +23,7 @@ interface Props {
 
 export const ChannelCallButton = ({
   callConfig,
-  channelName,
+  channel,
   serverName,
   isJoining,
   onJoin,
@@ -63,7 +64,8 @@ export const ChannelCallButton = ({
     >
       <RoomAudioRenderer />
       <CallPanel
-        channelName={channelName}
+        channel={channel}
+        callConfig={callConfig}
         serverName={serverName}
         onLeave={onLeave}
       />

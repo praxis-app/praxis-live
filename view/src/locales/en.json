@@ -330,13 +330,14 @@
       "call": "Call"
     },
     "headers": {
-      "channelCall": "Call in #{{channelName}}"
+      "channelCall": "Call in #{{channelName}}",
+      "inCallChat": "In-call chat"
     },
     "labels": {
       "leaveCall": "Leave call",
       "minimizeCall": "Minimize call",
       "muteMicrophone": "Mute microphone",
-      "openChannelChat": "Open channel chat",
+      "openChannelChat": "Open call chat",
       "participantCount_one": "{{count}} participant",
       "participantCount_other": "{{count}} participants",
       "turnCameraOff": "Turn camera off",
@@ -345,7 +346,8 @@
     },
     "descriptions": {
       "status": "{{participants}}",
-      "statusWithServer": "Server: {{serverName}} - {{participants}}"
+      "statusWithServer": "Server: {{serverName}} - {{participants}}",
+      "inCallChat": "Messages, proposals, and polls for this call."
     },
     "errors": {
       "cameraUnavailable": "Unable to use the camera.",
