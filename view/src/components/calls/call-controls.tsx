@@ -33,7 +33,7 @@ const controlButtonClassName =
   'size-11 rounded-full bg-secondary text-secondary-foreground/85 hover:bg-secondary/70';
 
 const activeControlButtonClassName =
-  'bg-primary text-primary-foreground hover:bg-primary/90';
+  'bg-primary! text-primary-foreground! hover:bg-primary/90! hover:text-primary-foreground!';
 
 const CallControlTooltip = ({ children, label }: CallControlTooltipProps) => (
   <Tooltip>
