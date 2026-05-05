@@ -4,7 +4,6 @@ import { useIsDesktop } from '@/hooks/use-is-desktop';
 import {
   ParticipantTile,
   TrackLoop,
-  useConnectionState,
   useParticipants,
   useTracks,
 } from '@livekit/components-react';
@@ -20,7 +19,6 @@ interface Props {
 
 export const CallPanel = ({ channelName, serverName, onLeave }: Props) => {
   const participants = useParticipants();
-  const connectionState = useConnectionState();
   const isDesktop = useIsDesktop();
   const { t } = useTranslation();
 
@@ -35,16 +33,12 @@ export const CallPanel = ({ channelName, serverName, onLeave }: Props) => {
   const participantCount = t('calls.labels.participantCount', {
     count: participants.length,
   });
-  const connectionStateLabel = t(`calls.connectionStates.${connectionState}`, {
-    defaultValue: String(connectionState).toLowerCase(),
-  });
 
   const topNavSubHeader = t(
     serverName
       ? 'calls.descriptions.statusWithServer'
       : 'calls.descriptions.status',
     {
-      connectionState: connectionStateLabel,
       participants: participantCount,
       serverName,
     },

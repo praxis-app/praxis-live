@@ -330,7 +330,7 @@
       "joining": "Joining"
     },
     "headers": {
-      "channelCall": "Channel call - #{{channelName}}"
+      "channelCall": "Call in #{{channelName}}"
     },
     "labels": {
       "leaveCall": "Leave call",
@@ -344,15 +344,8 @@
       "useMicrophone": "Use microphone"
     },
     "descriptions": {
-      "status": "{{participants}} - {{connectionState}}",
-      "statusWithServer": "{{serverName}} - {{participants}} - {{connectionState}}"
-    },
-    "connectionStates": {
-      "connected": "connected",
-      "connecting": "connecting",
-      "disconnected": "disconnected",
-      "reconnecting": "reconnecting",
-      "signalReconnecting": "reconnecting"
+      "status": "{{participants}}",
+      "statusWithServer": "Server: {{serverName}} - {{participants}}"
     },
     "errors": {
       "cameraUnavailable": "Unable to use the camera.",
