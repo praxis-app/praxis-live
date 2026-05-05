@@ -63,7 +63,7 @@ export const CallPanel = ({ channelName, serverName, onLeave }: Props) => {
           }}
         >
           <TrackLoop tracks={tracks}>
-            <ParticipantTile className="bg-muted h-full min-h-0 w-full overflow-hidden rounded-md border border-[--color-border] [--lk-speaking-indicator-width:0px] data-[lk-speaking=true]:border-green-500 [&_.lk-track-muted-indicator-microphone]:hidden" />
+            <ParticipantTile className="bg-muted h-full min-h-0 w-full overflow-hidden rounded-md border border-[--color-border] data-[lk-speaking=true]:border-green-500" />
           </TrackLoop>
         </div>
 
