@@ -20,6 +20,12 @@ pub(crate) struct JoinCallResponse {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct StartCallResponse {
+    pub(crate) call: CallResponse,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CallResponse {
     pub(crate) id: String,
     pub(crate) server_id: String,

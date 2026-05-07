@@ -34,6 +34,7 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     polls::service::spawn_proposal_synchronizer(database.clone());
     polls::service::spawn_expired_poll_closer(database.clone());
+    calls::service::spawn_stale_call_cleaner(database.clone());
 
     let app = build_router(database, jwt_secret).layer(
         TraceLayer::new_for_http()

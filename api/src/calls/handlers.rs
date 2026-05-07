@@ -1,8 +1,15 @@
-use axum::{extract::State, http::StatusCode, response::Json};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::Json,
+};
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
-use super::service::{self, LiveKitConfig};
+use super::{
+    service::{self, LiveKitConfig},
+    types::CallPath,
+};
 use crate::{
     auth::HasJwtSecret,
     channels::extractors::{ChannelWriteContext, HasDatabase},
@@ -42,20 +49,14 @@ impl HasDatabase for CallsState {
     }
 }
 
-pub(crate) async fn join_call(
+pub(crate) async fn start_call(
     State(state): State<CallsState>,
     context: ChannelWriteContext,
 ) -> AppResult<Json<serde_json::Value>> {
-    let livekit = state.livekit.as_ref().ok_or_else(|| {
-        ApiError::new(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "LiveKit is not configured.",
-        )
-    })?;
+    let _ = livekit_config(&state)?;
 
-    let response = service::join_channel_call(
+    let response = service::start_channel_call(
         &state.database,
-        livekit,
         context.server_id,
         context.channel_id,
         context.user_id,
@@ -63,4 +64,53 @@ pub(crate) async fn join_call(
     .await?;
 
     Ok(Json(serde_json::json!(response)))
+}
+
+pub(crate) async fn join_call(
+    State(state): State<CallsState>,
+    Path(path): Path<CallPath>,
+    context: ChannelWriteContext,
+) -> AppResult<Json<serde_json::Value>> {
+    let livekit = livekit_config(&state)?;
+
+    let response = service::join_channel_call(
+        &state.database,
+        livekit,
+        context.server_id,
+        context.channel_id,
+        path.call_id,
+        context.user_id,
+    )
+    .await?;
+
+    Ok(Json(serde_json::json!(response)))
+}
+
+pub(crate) async fn leave_call(
+    State(state): State<CallsState>,
+    Path(path): Path<CallPath>,
+    context: ChannelWriteContext,
+) -> AppResult<Json<serde_json::Value>> {
+    let livekit = livekit_config(&state)?;
+
+    let call = service::leave_channel_call(
+        &state.database,
+        livekit,
+        context.server_id,
+        context.channel_id,
+        path.call_id,
+        context.user_id,
+    )
+    .await?;
+
+    Ok(Json(serde_json::json!({ "call": call })))
+}
+
+fn livekit_config(state: &CallsState) -> AppResult<&LiveKitConfig> {
+    state.livekit.as_ref().ok_or_else(|| {
+        ApiError::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "LiveKit is not configured.",
+        )
+    })
 }

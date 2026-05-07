@@ -12,7 +12,7 @@ import {
   type FeedItemRes,
   type UpdateChannelReq,
 } from '@/types/channel.types';
-import { type JoinCallRes } from '@/types/call.types';
+import { type JoinCallRes, type StartCallRes } from '@/types/call.types';
 import { type ImageRes } from '@/types/image.types';
 import {
   type InstanceConfigReq,
@@ -223,8 +223,22 @@ class ApiClient {
   };
 
   joinChannelCall = async (serverId: string, channelId: string) => {
-    const path = `/servers/${serverId}/channels/${channelId}/calls/join`;
+    const startPath = `/servers/${serverId}/channels/${channelId}/calls`;
+    const { call } = await this.executeRequest<StartCallRes>(
+      'post',
+      startPath,
+    );
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${call.id}/join`;
     return this.executeRequest<JoinCallRes>('post', path);
+  };
+
+  leaveChannelCall = async (
+    serverId: string,
+    channelId: string,
+    callId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/leave`;
+    return this.executeRequest<void>('post', path);
   };
 
   sendMessage = async (

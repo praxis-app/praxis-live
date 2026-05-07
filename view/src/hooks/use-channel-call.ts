@@ -29,6 +29,19 @@ export const useChannelCall = (serverId?: string, channelId?: string) => {
     callConfig,
     isJoining: joinMutation.isPending,
     joinCall: joinMutation.mutate,
-    leaveCall: () => setCallConfig(null),
+    leaveCall: async () => {
+      const callId = callConfig?.call.id;
+      setCallConfig(null);
+
+      if (!serverId || !channelId || !callId) {
+        return;
+      }
+
+      try {
+        await api.leaveChannelCall(serverId, channelId, callId);
+      } catch {
+        // A failed best-effort leave should not trap the user inside the room.
+      }
+    },
   };
 };

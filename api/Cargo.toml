@@ -12,6 +12,7 @@ dashmap.workspace = true
 dotenv.workspace = true
 entity = { path = "../entity" }
 jsonwebtoken.workspace = true
+livekit-api.workspace = true
 migrations = { path = "../migrations" }
 mime_guess.workspace = true
 password-auth.workspace = true

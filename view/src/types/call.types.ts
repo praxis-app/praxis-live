@@ -12,3 +12,7 @@ export interface JoinCallRes {
   token: string;
   call: CallRes;
 }
+
+export interface StartCallRes {
+  call: CallRes;
+}

@@ -101,7 +101,7 @@ test('authenticated user can send an in-call chat message with an image', async 
   const joinCallResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
-      response.url().includes('/calls/join') &&
+      /\/calls\/[^/]+\/join$/.test(response.url()) &&
       response.status() === 200,
   );
 

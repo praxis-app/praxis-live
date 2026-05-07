@@ -1,11 +1,8 @@
-use axum::{
-    routing::{post, MethodRouter},
-    Router,
-};
+use axum::{routing::post, Router};
 use sea_orm::DatabaseConnection;
 
 use super::{
-    handlers::{join_call, CallsState},
+    handlers::{join_call, leave_call, start_call, CallsState},
     service::LiveKitConfig,
 };
 
@@ -14,10 +11,9 @@ pub(crate) fn router(
     jwt_secret: String,
     livekit: Option<LiveKitConfig>,
 ) -> Router {
-    let join_route: MethodRouter<CallsState> = post(join_call);
-
     Router::new()
-        .route("/{channelId}/calls", join_route.clone())
-        .route("/{channelId}/calls/join", join_route)
+        .route("/{channelId}/calls", post(start_call))
+        .route("/{channelId}/calls/{callId}/join", post(join_call))
+        .route("/{channelId}/calls/{callId}/leave", post(leave_call))
         .with_state(CallsState::new(database, jwt_secret, livekit))
 }
