@@ -1,14 +1,15 @@
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{calls, users};
-use jsonwebtoken::{encode, EncodingKey, Header};
-use livekit_api::services::room::RoomClient;
+use livekit_api::{
+    access_token::{AccessToken, VideoGrants},
+    services::room::RoomClient,
+};
 use sea_orm::{
     sea_query::Expr, ActiveModelTrait, ColumnTrait, ConnectionTrait,
     DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, Set, SqlErr,
     TransactionTrait,
 };
-use serde::Serialize;
 use std::env;
 use tokio::time::{self, MissedTickBehavior};
 
@@ -345,37 +346,35 @@ fn create_livekit_token(
     room_name: &str,
     user: &users::Model,
 ) -> AppResult<String> {
-    let now = Utc::now();
-    let claims = LiveKitClaims {
-        iss: livekit.api_key.clone(),
-        sub: user.id.to_string(),
-        name: user
-            .display_name
-            .clone()
-            .unwrap_or_else(|| user.name.clone()),
-        nbf: now.timestamp() as usize,
-        exp: (now + Duration::minutes(TOKEN_TTL_MINUTES)).timestamp() as usize,
-        video: VideoGrant {
+    let name = user
+        .display_name
+        .clone()
+        .unwrap_or_else(|| user.name.clone());
+
+    let metadata = serde_json::json!({
+        "userId": user.id,
+        "name": user.name,
+        "displayName": user.display_name,
+    })
+    .to_string();
+
+    AccessToken::with_api_key(&livekit.api_key, &livekit.api_secret)
+        .with_identity(&user.id.to_string())
+        .with_name(&name)
+        .with_metadata(&metadata)
+        .with_ttl(std::time::Duration::from_secs(
+            (TOKEN_TTL_MINUTES * 60) as u64,
+        ))
+        .with_grants(VideoGrants {
             room: room_name.to_owned(),
             room_join: true,
             can_subscribe: true,
             can_publish: true,
             can_publish_data: false,
-        },
-        metadata: serde_json::json!({
-            "userId": user.id,
-            "name": user.name,
-            "displayName": user.display_name,
+            ..Default::default()
         })
-        .to_string(),
-    };
-
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(livekit.api_secret.as_bytes()),
-    )
-    .map_err(internal_error)
+        .to_jwt()
+        .map_err(internal_error)
 }
 
 async fn cleanup_stale_calls(
@@ -459,27 +458,6 @@ fn livekit_api_url(livekit_url: &str) -> String {
                 .map(|host| format!("http://{host}"))
         })
         .unwrap_or_else(|| livekit_url.to_owned())
-}
-
-#[derive(Debug, Serialize)]
-struct LiveKitClaims {
-    iss: String,
-    sub: String,
-    name: String,
-    nbf: usize,
-    exp: usize,
-    video: VideoGrant,
-    metadata: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct VideoGrant {
-    room: String,
-    room_join: bool,
-    can_subscribe: bool,
-    can_publish: bool,
-    can_publish_data: bool,
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
