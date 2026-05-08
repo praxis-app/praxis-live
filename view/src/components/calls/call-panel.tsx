@@ -1,5 +1,5 @@
-import { CallControls } from '@/components/calls/call-controls';
 import { CallChatPanel } from '@/components/calls/call-chat-panel';
+import { CallControls } from '@/components/calls/call-controls';
 import { TopNav } from '@/components/nav/top-nav';
 import {
   Drawer,
@@ -13,15 +13,15 @@ import { useServerData } from '@/hooks/use-server-data';
 import { type JoinCallRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';
 import {
+  GridLayout,
   ParticipantTile,
-  TrackLoop,
   useParticipants,
   useTracks,
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdClose } from 'react-icons/md';
-import { useState } from 'react';
 
 interface Props {
   channel: ChannelRes;
@@ -30,7 +30,12 @@ interface Props {
   onLeave: () => void;
 }
 
-export const CallPanel = ({ channel, callConfig, serverName, onLeave }: Props) => {
+export const CallPanel = ({
+  channel,
+  callConfig,
+  serverName,
+  onLeave,
+}: Props) => {
   const participants = useParticipants();
   const isDesktop = useIsDesktop();
   const { t } = useTranslation();
@@ -41,9 +46,7 @@ export const CallPanel = ({ channel, callConfig, serverName, onLeave }: Props) =
     { source: Track.Source.Camera, withPlaceholder: true },
   ]);
 
-  const tileCount = Math.max(tracks.length, 1);
-  const gridColumnCount = isDesktop ? Math.ceil(Math.sqrt(tileCount)) : 1;
-  const gridRowCount = Math.ceil(tileCount / gridColumnCount);
+  const shouldStackTiles = isDesktop && isChatOpen && tracks.length === 2;
 
   const participantCount = t('calls.labels.participantCount', {
     count: participants.length,
@@ -59,6 +62,13 @@ export const CallPanel = ({ channel, callConfig, serverName, onLeave }: Props) =
     },
   );
 
+  const gridLayoutStyle = {
+    ...(shouldStackTiles && {
+      gridTemplateColumns: 'repeat(1, minmax(0, 1fr))',
+    }),
+    '--lk-grid-gap': '0.75rem',
+  };
+
   return (
     <div className="bg-background fixed inset-0 z-50 flex flex-col">
       <TopNav
@@ -71,16 +81,14 @@ export const CallPanel = ({ channel, callConfig, serverName, onLeave }: Props) =
 
       <main className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div
-            className="grid min-h-0 flex-1 gap-3 p-3"
-            style={{
-              gridTemplateColumns: `repeat(${gridColumnCount}, minmax(0, 1fr))`,
-              gridTemplateRows: `repeat(${gridRowCount}, minmax(0, 1fr))`,
-            }}
-          >
-            <TrackLoop tracks={tracks}>
+          <div className="min-h-0 flex-1 p-3">
+            <GridLayout
+              tracks={tracks}
+              className="h-full min-h-0 w-full p-0"
+              style={gridLayoutStyle}
+            >
               <ParticipantTile className="call-participant-tile bg-muted h-full min-h-0 w-full overflow-hidden rounded-md border border-[--color-border] data-[lk-speaking=true]:border-green-500" />
-            </TrackLoop>
+            </GridLayout>
           </div>
 
           <div className="border-t border-[--color-border] px-3 py-3">
