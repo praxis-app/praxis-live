@@ -8,6 +8,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
+import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
 import { type JoinCallRes } from '@/types/call.types';
@@ -19,7 +20,7 @@ import {
   useTracks,
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdClose } from 'react-icons/md';
 
@@ -45,6 +46,28 @@ export const CallPanel = ({
   const tracks = useTracks([
     { source: Track.Source.Camera, withPlaceholder: true },
   ]);
+
+  const handleEscapeKey = useCallback(() => {
+    if (isChatOpen) {
+      setIsChatOpen(false);
+      return;
+    }
+
+    onLeave();
+  }, [isChatOpen, onLeave]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === KeyCodes.Escape) {
+        handleEscapeKey();
+      }
+    };
+
+    window.addEventListener(BrowserEvents.Keydown, handleKeyDown);
+    return () => {
+      window.removeEventListener(BrowserEvents.Keydown, handleKeyDown);
+    };
+  }, [handleEscapeKey]);
 
   const shouldStackTiles = isDesktop && isChatOpen && tracks.length === 2;
 
