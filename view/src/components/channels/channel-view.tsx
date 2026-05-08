@@ -293,6 +293,7 @@ export const ChannelView = ({ channel }: Props) => {
           feedBoxRef={feedBoxRef}
           onLoadMore={fetchNextPage}
           feed={feedData?.pages.flatMap((page) => page.feed) || []}
+          feedQueryKey={feedQueryKey}
           isLastPage={isLastPage}
         />
 

@@ -280,7 +280,8 @@
   "messages": {
     "actions": {
       "sendAnonymous": "Send anonymously",
-      "dismissMessage": "Dismiss message"
+      "dismissMessage": "Dismiss message",
+      "openMessageActions": "Open message actions"
     },
     "placeholders": {
       "sendMessage": "Send a message..."

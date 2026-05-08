@@ -12,6 +12,7 @@ import { timeAgo, timeFromNow } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
+import { type QueryKey } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaClipboard } from 'react-icons/fa';
@@ -19,10 +20,11 @@ import { FaClipboard } from 'react-icons/fa';
 interface Props {
   poll: PollRes;
   channel: ChannelRes;
+  feedQueryKey: QueryKey;
   me?: CurrentUser;
 }
 
-export const InlineProposal = ({ poll, channel, me }: Props) => {
+export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
   const { t } = useTranslation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -94,6 +96,7 @@ export const InlineProposal = ({ poll, channel, me }: Props) => {
             <ProposalVoteButtons
               pollId={id}
               channel={channel}
+              feedQueryKey={feedQueryKey}
               myVote={myVote}
               stage={stage}
             />

@@ -256,6 +256,7 @@ export const CallChatPanel = ({ serverId, channel, callId }: Props) => {
         feedBoxRef={feedBoxRef}
         onLoadMore={fetchNextPage}
         feed={feedData?.pages.flatMap((page) => page.feed) || []}
+        feedQueryKey={feedQueryKey}
         isLastPage={isLastPage}
       />
       <MessageForm

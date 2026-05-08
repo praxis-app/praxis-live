@@ -11,6 +11,7 @@ import { useServerData } from '@/hooks/use-server-data';
 import { debounce, throttle } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
+import { type QueryKey } from '@tanstack/react-query';
 import {
   type RefObject,
   type UIEvent,
@@ -26,6 +27,7 @@ const IN_VIEW_THRESHOLD = 50;
 interface Props {
   channel?: ChannelRes;
   feed: FeedItemRes[];
+  feedQueryKey: QueryKey;
   feedBoxRef: RefObject<HTMLDivElement | null>;
   isLastPage: boolean;
   onLoadMore: () => void;
@@ -34,6 +36,7 @@ interface Props {
 export const ChannelFeed = ({
   channel,
   feed,
+  feedQueryKey,
   feedBoxRef,
   isLastPage,
   onLoadMore,
@@ -115,6 +118,7 @@ export const ChannelFeed = ({
                 key={`poll-${item.id}`}
                 poll={item}
                 channel={channel}
+                feedQueryKey={feedQueryKey}
                 me={me}
               />
             );
@@ -124,6 +128,7 @@ export const ChannelFeed = ({
               key={`poll-${item.id}`}
               poll={item}
               channel={channel}
+              feedQueryKey={feedQueryKey}
               me={me}
             />
           );

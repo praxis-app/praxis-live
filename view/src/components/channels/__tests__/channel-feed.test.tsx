@@ -116,6 +116,7 @@ describe('ChannelFeed', () => {
       <ChannelFeed
         channel={mockChannel}
         feed={mockFeed}
+        feedQueryKey={['feed']}
         feedBoxRef={mockFeedBoxRef}
         onLoadMore={mockOnLoadMore}
         isLastPage={false}
@@ -136,6 +137,7 @@ describe('ChannelFeed', () => {
     render(
       <ChannelFeed
         feed={[]}
+        feedQueryKey={['feed']}
         feedBoxRef={mockFeedBoxRef}
         onLoadMore={mockOnLoadMore}
         isLastPage={false}

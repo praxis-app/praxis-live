@@ -54,6 +54,7 @@ export const MessageFormMenu = ({
     <>
       <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
         <DropdownMenuTrigger
+          aria-label={t('messages.actions.openMessageActions')}
           className="bg-input/30 hover:bg-input/40 inline-flex size-11 cursor-pointer items-center justify-center rounded-full p-2 px-3 focus:outline-none [&_svg]:shrink-0"
           disabled={disabled}
         >

@@ -22,7 +22,11 @@ import {
 import { type PollOptionRes, type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -38,10 +42,11 @@ type InlinePollFormSchema = z.infer<typeof inlinePollFormSchema>;
 interface Props {
   poll: PollRes;
   channel: ChannelRes;
+  feedQueryKey: QueryKey;
   me?: CurrentUser;
 }
 
-export const InlinePoll = ({ poll, channel, me }: Props) => {
+export const InlinePoll = ({ poll, channel, feedQueryKey, me }: Props) => {
   const { t } = useTranslation();
   const { serverId } = useServerData();
   const queryClient = useQueryClient();
@@ -68,58 +73,55 @@ export const InlinePoll = ({ poll, channel, me }: Props) => {
   });
 
   const updateFeedCache = (newMyVote: typeof myVote) => {
-    queryClient.setQueryData<FeedQuery>(
-      ['servers', serverId, 'channels', channel.id, 'feed'],
-      (old) => {
-        if (!old) {
-          return old;
-        }
-        const pages = old.pages.map((page) => ({
-          feed: page.feed.map((item: FeedItemRes) => {
-            if (
-              item.id !== id ||
-              item.type !== 'poll' ||
-              item.pollType !== 'poll'
-            ) {
-              return item;
-            }
+    queryClient.setQueryData<FeedQuery>(feedQueryKey, (old) => {
+      if (!old) {
+        return old;
+      }
+      const pages = old.pages.map((page) => ({
+        feed: page.feed.map((item: FeedItemRes) => {
+          if (
+            item.id !== id ||
+            item.type !== 'poll' ||
+            item.pollType !== 'poll'
+          ) {
+            return item;
+          }
 
-            let updatedVotes = item.votes;
-            let updatedOptions = item.options;
+          let updatedVotes = item.votes;
+          let updatedOptions = item.options;
 
-            if (!myVote && newMyVote) {
-              updatedVotes = [
-                ...item.votes,
-                { id: newMyVote.id, pollOptionIds: newMyVote.pollOptionIds },
-              ];
-              updatedOptions = item.options?.map((option) => ({
-                ...option,
-                voteCount: newMyVote.pollOptionIds?.includes(option.id)
-                  ? option.voteCount + 1
-                  : option.voteCount,
-              }));
-            }
-            if (myVote && !newMyVote) {
-              updatedVotes = item.votes.filter((vote) => vote.id !== myVote.id);
-              updatedOptions = item.options?.map((option) => ({
-                ...option,
-                voteCount: myVote.pollOptionIds?.includes(option.id)
-                  ? option.voteCount - 1
-                  : option.voteCount,
-              }));
-            }
+          if (!myVote && newMyVote) {
+            updatedVotes = [
+              ...item.votes,
+              { id: newMyVote.id, pollOptionIds: newMyVote.pollOptionIds },
+            ];
+            updatedOptions = item.options?.map((option) => ({
+              ...option,
+              voteCount: newMyVote.pollOptionIds?.includes(option.id)
+                ? option.voteCount + 1
+                : option.voteCount,
+            }));
+          }
+          if (myVote && !newMyVote) {
+            updatedVotes = item.votes.filter((vote) => vote.id !== myVote.id);
+            updatedOptions = item.options?.map((option) => ({
+              ...option,
+              voteCount: myVote.pollOptionIds?.includes(option.id)
+                ? option.voteCount - 1
+                : option.voteCount,
+            }));
+          }
 
-            return {
-              ...item,
-              votes: updatedVotes,
-              options: updatedOptions,
-              myVote: newMyVote,
-            };
-          }),
-        }));
-        return { pages, pageParams: old.pageParams };
-      },
-    );
+          return {
+            ...item,
+            votes: updatedVotes,
+            options: updatedOptions,
+            myVote: newMyVote,
+          };
+        }),
+      }));
+      return { pages, pageParams: old.pageParams };
+    });
   };
 
   const { mutate: submitVote, isPending: isSubmitting } = useMutation({
