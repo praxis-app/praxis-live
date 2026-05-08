@@ -2,11 +2,9 @@ import { AttachedImageList } from '@/components/images/attached-image-list';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
-import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { timeAgo } from '@/lib/time.utils';
 import { type MessageRes } from '@/types/message.types';
 import { useTranslation } from 'react-i18next';
-import { cn } from '../../lib/shared.utils';
 import { truncate } from '../../lib/text.utils';
 import { type CurrentUser } from '../../types/user.types';
 
@@ -24,7 +22,6 @@ export const Message = ({
   me,
 }: Props) => {
   const { t } = useTranslation();
-  const isDesktop = useIsDesktop();
 
   if (!user) {
     return null;
@@ -37,7 +34,7 @@ export const Message = ({
   const truncatedUsername = truncate(name, 18);
 
   return (
-    <div className="flex gap-4">
+    <div className="flex max-w-full min-w-0 gap-4">
       <UserProfileDrawer
         name={truncatedUsername}
         userId={user.id}
@@ -54,8 +51,8 @@ export const Message = ({
         }
       />
 
-      <div>
-        <div className="mb-[-0.1rem] flex items-center gap-1.5">
+      <div className="max-w-full min-w-0 flex-1">
+        <div className="mb-[-0.1rem] flex min-w-0 items-center gap-1.5">
           <UserProfileDrawer
             name={truncatedUsername}
             userId={user.id}
@@ -82,7 +79,7 @@ export const Message = ({
             channelId={channelId}
             messageId={id}
             imageClassName="rounded-lg"
-            className={cn('pt-1.5', isDesktop ? 'w-[350px]' : 'w-full')}
+            className="w-full max-w-[min(350px,100%)] pt-1.5"
           />
         )}
 

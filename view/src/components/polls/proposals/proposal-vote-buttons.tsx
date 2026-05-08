@@ -169,7 +169,7 @@ export const ProposalVoteButtons = ({
   };
 
   return (
-    <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+    <div className="grid w-full min-w-0 grid-cols-2 gap-2 @lg:grid-cols-4">
       {VOTE_TYPES.map((vote) => (
         <Button
           key={vote}

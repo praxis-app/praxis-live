@@ -102,7 +102,7 @@ export const CallPanel = ({
         </div>
 
         {isDesktop && isChatOpen && (
-          <aside className="h-full w-[380px] min-w-[320px] border-l border-[--color-border]">
+          <aside className="h-full w-[380px] min-w-0 border-l border-[--color-border]">
             <CallChatPanel
               serverId={serverId}
               channel={channel}

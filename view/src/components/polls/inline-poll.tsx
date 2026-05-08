@@ -226,7 +226,7 @@ export const InlinePoll = ({ poll, channel, me }: Props) => {
   };
 
   return (
-    <div className="flex gap-4 pt-4">
+    <div className="flex max-w-full min-w-0 gap-4 pt-4">
       <UserProfileDrawer
         name={truncatedName}
         userId={user.id}
@@ -243,8 +243,8 @@ export const InlinePoll = ({ poll, channel, me }: Props) => {
         }
       />
 
-      <div className="w-full">
-        <div className="flex items-center gap-1.5 pb-1">
+      <div className="max-w-full min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1.5 pb-1">
           <UserProfileDrawer
             name={truncatedName}
             userId={user.id}
@@ -258,11 +258,14 @@ export const InlinePoll = ({ poll, channel, me }: Props) => {
           <div className="text-muted-foreground text-sm">{formattedDate}</div>
         </div>
 
-        <Card className="before:border-l-border relative w-full gap-3.5 rounded-md px-3 py-3.5 pt-2.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
+        <Card className="before:border-l-border relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 pt-2.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
           {body && <FormattedText text={body} className="pt-1 pb-2" />}
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)}>
+            <form
+              className="max-w-full min-w-0"
+              onSubmit={form.handleSubmit(handleSubmit)}
+            >
               {!isClosed && (
                 <Label className="text-muted-foreground mb-3 text-sm font-normal">
                   {isMultipleChoice
@@ -302,7 +305,7 @@ export const InlinePoll = ({ poll, channel, me }: Props) => {
                             }
                           }}
                           className={cn(
-                            'relative flex w-full items-center gap-3 overflow-hidden rounded-md border px-3 py-2.5 text-left transition-colors',
+                            'relative flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-md border px-3 py-2.5 text-left transition-colors',
                             isSelected
                               ? 'border-primary bg-primary/10'
                               : 'border-input bg-background',
@@ -330,7 +333,7 @@ export const InlinePoll = ({ poll, channel, me }: Props) => {
                             />
                           )}
                           <div className="relative z-10 min-w-0 flex-1">
-                            <span className="text-sm font-medium">
+                            <span className="block min-w-0 text-sm font-medium wrap-anywhere">
                               {option.text}
                             </span>
                             {(hasVoted || isClosed) && (

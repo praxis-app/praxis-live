@@ -97,7 +97,7 @@ export const ChannelFeed = ({
   return (
     <div
       ref={feedBoxRef}
-      className="flex flex-1 flex-col-reverse gap-4.5 overflow-y-scroll px-3.5 pt-2.5 pb-4"
+      className="flex min-w-0 flex-1 flex-col-reverse gap-4.5 overflow-x-hidden overflow-y-scroll px-3.5 pt-2.5 pb-4"
       onScroll={handleScroll}
     >
       {showWelcomeMessage && (
