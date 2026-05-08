@@ -20,7 +20,7 @@ use crate::{
     channels::{self, extractors::ChannelWriteContext},
     common::{request::multipart_file, ApiError, AppResult},
     polls,
-    pub_sub::PubSubService,
+    pub_sub::{PubSubService, PubSubTopic},
 };
 
 #[derive(Clone, Debug)]
@@ -483,9 +483,10 @@ async fn broadcast_to_call_members(
             continue;
         }
 
-        let topic = format!(
-            "new-message-{server_id}-{channel_id}-{call_id}-{member_id}"
-        );
+        let topic = PubSubTopic::call_message(
+            server_id, channel_id, call_id, member_id,
+        )
+        .to_string();
         chat_state
             .pub_sub_service
             .publish(&topic, body.clone())
@@ -511,7 +512,8 @@ async fn broadcast_to_channel_members(
             continue;
         }
 
-        let topic = format!("new-message-{server_id}-{channel_id}-{member_id}");
+        let topic = PubSubTopic::new_message(server_id, channel_id, member_id)
+            .to_string();
         chat_state
             .pub_sub_service
             .publish(&topic, body.clone())

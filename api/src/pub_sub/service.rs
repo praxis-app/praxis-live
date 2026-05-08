@@ -10,7 +10,7 @@ use redis::AsyncCommands;
 use sea_orm::prelude::Uuid;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, env, sync::Arc};
+use std::{collections::HashSet, env, fmt, sync::Arc};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -56,6 +56,146 @@ struct PubSubRegistry {
     store: SubscriptionStore,
     subscribers: DashMap<Uuid, mpsc::UnboundedSender<Message>>,
     socket_channels: DashMap<Uuid, HashSet<String>>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PubSubTopicKind {
+    NewMessage,
+    NewPoll,
+}
+
+impl PubSubTopicKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::NewMessage => "new-message",
+            Self::NewPoll => "new-poll",
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "new-message" => Some(Self::NewMessage),
+            "new-poll" => Some(Self::NewPoll),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct PubSubTopic {
+    kind: PubSubTopicKind,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Option<Uuid>,
+    user_id: Uuid,
+}
+
+impl PubSubTopic {
+    const DELIMITER: char = ':';
+
+    pub(crate) fn new_message(
+        server_id: Uuid,
+        channel_id: Uuid,
+        user_id: Uuid,
+    ) -> Self {
+        Self {
+            kind: PubSubTopicKind::NewMessage,
+            server_id,
+            channel_id,
+            call_id: None,
+            user_id,
+        }
+    }
+
+    pub(crate) fn call_message(
+        server_id: Uuid,
+        channel_id: Uuid,
+        call_id: Uuid,
+        user_id: Uuid,
+    ) -> Self {
+        Self {
+            kind: PubSubTopicKind::NewMessage,
+            server_id,
+            channel_id,
+            call_id: Some(call_id),
+            user_id,
+        }
+    }
+
+    pub(crate) fn new_poll(
+        server_id: Uuid,
+        channel_id: Uuid,
+        user_id: Uuid,
+    ) -> Self {
+        Self {
+            kind: PubSubTopicKind::NewPoll,
+            server_id,
+            channel_id,
+            call_id: None,
+            user_id,
+        }
+    }
+
+    pub(crate) fn call_poll(
+        server_id: Uuid,
+        channel_id: Uuid,
+        call_id: Uuid,
+        user_id: Uuid,
+    ) -> Self {
+        Self {
+            kind: PubSubTopicKind::NewPoll,
+            server_id,
+            channel_id,
+            call_id: Some(call_id),
+            user_id,
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        let parts = value.split(Self::DELIMITER).collect::<Vec<_>>();
+        match parts.as_slice() {
+            [kind, server_id, channel_id, user_id] => Some(Self {
+                kind: PubSubTopicKind::parse(kind)?,
+                server_id: server_id.parse().ok()?,
+                channel_id: channel_id.parse().ok()?,
+                call_id: None,
+                user_id: user_id.parse().ok()?,
+            }),
+            [kind, server_id, channel_id, call_id, user_id] => Some(Self {
+                kind: PubSubTopicKind::parse(kind)?,
+                server_id: server_id.parse().ok()?,
+                channel_id: channel_id.parse().ok()?,
+                call_id: Some(call_id.parse().ok()?),
+                user_id: user_id.parse().ok()?,
+            }),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for PubSubTopic {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let delimiter = Self::DELIMITER;
+        match self.call_id {
+            Some(call_id) => write!(
+                formatter,
+                "{}{delimiter}{}{delimiter}{}{delimiter}{}{delimiter}{}",
+                self.kind.as_str(),
+                self.server_id,
+                self.channel_id,
+                call_id,
+                self.user_id
+            ),
+            None => write!(
+                formatter,
+                "{}{delimiter}{}{delimiter}{}{delimiter}{}",
+                self.kind.as_str(),
+                self.server_id,
+                self.channel_id,
+                self.user_id
+            ),
+        }
+    }
 }
 
 impl PubSubService {
@@ -366,41 +506,19 @@ fn response_message(
     .map_err(internal_error)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct ChannelAccess {
     server_id: Uuid,
     channel_id: Uuid,
 }
 
 fn channel_access(channel: &str, user_id: Uuid) -> Option<ChannelAccess> {
-    let parts: Vec<&str> = channel.split('-').collect();
-    if parts.len() != 17 && parts.len() != 22 {
-        return None;
-    }
+    let topic = PubSubTopic::parse(channel)?;
 
-    let topic = parts[0..2].join("-");
-    if topic != "new-message" && topic != "new-poll" {
-        return None;
-    }
-
-    let server_id = parse_uuid_parts(&parts[2..7])?;
-    let channel_id = parse_uuid_parts(&parts[7..12])?;
-    let user_id_start = if parts.len() == 22 { 17 } else { 12 };
-    let topic_user_id = parse_uuid_parts(&parts[user_id_start..])?;
-
-    (topic_user_id == user_id).then_some(ChannelAccess {
-        server_id,
-        channel_id,
+    (topic.user_id == user_id).then_some(ChannelAccess {
+        server_id: topic.server_id,
+        channel_id: topic.channel_id,
     })
-}
-
-fn parse_uuid_parts(parts: &[&str]) -> Option<Uuid> {
-    if parts.len() != 5 {
-        return None;
-    }
-
-    let value = parts.join("-");
-    value.parse::<Uuid>().ok()
 }
 
 fn channel_cache_key(channel: &str) -> String {

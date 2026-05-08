@@ -21,6 +21,7 @@ import { type MessageRes } from '@/types/message.types';
 import { type PollRes } from '@/types/poll.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
+import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
@@ -89,170 +90,176 @@ export const ChannelView = ({ channel }: Props) => {
   });
 
   // Listen for new messages
-  useSubscription(`new-message-${serverId}-${channel?.id}-${me?.id}`, {
-    onMessage: (event) => {
-      const { body }: PubSubMessage<NewMessagePayload | ImageMessagePayload> =
-        JSON.parse(event.data);
-      if (!body) {
-        return;
-      }
+  useSubscription(
+    channelPubSubTopic('new-message', serverId, channel?.id, me?.id),
+    {
+      onMessage: (event) => {
+        const { body }: PubSubMessage<NewMessagePayload | ImageMessagePayload> =
+          JSON.parse(event.data);
+        if (!body) {
+          return;
+        }
 
-      // Update cache with new message or update existing bot message
-      if (body.type === PubSubMessageType.MESSAGE) {
-        const messagePayload = body.message;
+        // Update cache with new message or update existing bot message
+        if (body.type === PubSubMessageType.MESSAGE) {
+          const messagePayload = body.message;
 
-        const preserveImageSrc = (
-          existingImages?: ImageRes[],
-          incomingImages?: ImageRes[],
-        ) => {
-          if (!incomingImages?.length || !existingImages?.length) {
-            return incomingImages;
-          }
-
-          const existingMap = new Map(
-            existingImages.map((img) => [img.id, img]),
-          );
-
-          return incomingImages.map((image) => {
-            const existing = existingMap.get(image.id);
-            if (existing?.src && !image.src) {
-              return { ...image, src: existing.src };
+          const preserveImageSrc = (
+            existingImages?: ImageRes[],
+            incomingImages?: ImageRes[],
+          ) => {
+            if (!incomingImages?.length || !existingImages?.length) {
+              return incomingImages;
             }
-            return image;
-          });
-        };
 
-        const buildFeedItem = (existing?: FeedItemRes): FeedItemRes => ({
-          ...messagePayload,
-          images: preserveImageSrc(existing?.images, messagePayload.images),
-          type: 'message',
-        });
-
-        queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
-          if (!oldData) {
-            return {
-              pages: [{ feed: [buildFeedItem()] }],
-              pageParams: [0],
-            };
-          }
-          const pages = oldData.pages.map((page, index): FeedQueryPage => {
-            // Check if message already exists (for bot message updates)
-            const existingIndex = page.feed.findIndex(
-              (item) =>
-                item.type === 'message' && item.id === messagePayload.id,
+            const existingMap = new Map(
+              existingImages.map((img) => [img.id, img]),
             );
 
-            if (existingIndex !== -1) {
-              // Update existing message (bot message with command result)
-              const updatedFeed = [...page.feed];
-              const existingMessage = page.feed[existingIndex];
-              updatedFeed[existingIndex] = buildFeedItem(existingMessage);
-
-              // Sort by createdAt descending (newest first)
-              updatedFeed.sort(
-                (a, b) =>
-                  new Date(b.createdAt).getTime() -
-                  new Date(a.createdAt).getTime(),
-              );
-              return { feed: updatedFeed };
-            }
-
-            // Add new message to first page only
-            if (index === 0) {
-              const updatedFeed = [buildFeedItem(), ...page.feed];
-              // Sort by createdAt descending (newest first)
-              updatedFeed.sort(
-                (a, b) =>
-                  new Date(b.createdAt).getTime() -
-                  new Date(a.createdAt).getTime(),
-              );
-              return { feed: updatedFeed };
-            }
-            return page;
-          });
-          return { pages, pageParams: oldData.pageParams };
-        });
-      }
-
-      // Update cache with image status once uploaded
-      if (body.type === PubSubMessageType.IMAGE) {
-        queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
-          if (!oldData) {
-            return { pages: [], pageParams: [] };
-          }
-
-          const pages = oldData.pages.map((page): FeedQueryPage => {
-            const feed = page.feed.map((item) => {
-              if (item.type !== 'message') {
-                return item;
+            return incomingImages.map((image) => {
+              const existing = existingMap.get(image.id);
+              if (existing?.src && !image.src) {
+                return { ...image, src: existing.src };
               }
-              if (item.id !== body.messageId || !item.images) {
-                return item;
-              }
-              const images = item.images.map((image) =>
-                image.id === body.imageId
-                  ? { ...image, isPlaceholder: false }
-                  : image,
-              );
-              return { ...item, images } as FeedItemRes;
+              return image;
             });
-            return { feed };
+          };
+
+          const buildFeedItem = (existing?: FeedItemRes): FeedItemRes => ({
+            ...messagePayload,
+            images: preserveImageSrc(existing?.images, messagePayload.images),
+            type: 'message',
           });
 
-          return { pages, pageParams: oldData.pageParams };
-        });
-      }
+          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
+            if (!oldData) {
+              return {
+                pages: [{ feed: [buildFeedItem()] }],
+                pageParams: [0],
+              };
+            }
+            const pages = oldData.pages.map((page, index): FeedQueryPage => {
+              // Check if message already exists (for bot message updates)
+              const existingIndex = page.feed.findIndex(
+                (item) =>
+                  item.type === 'message' && item.id === messagePayload.id,
+              );
 
-      scrollToBottom();
+              if (existingIndex !== -1) {
+                // Update existing message (bot message with command result)
+                const updatedFeed = [...page.feed];
+                const existingMessage = page.feed[existingIndex];
+                updatedFeed[existingIndex] = buildFeedItem(existingMessage);
+
+                // Sort by createdAt descending (newest first)
+                updatedFeed.sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime(),
+                );
+                return { feed: updatedFeed };
+              }
+
+              // Add new message to first page only
+              if (index === 0) {
+                const updatedFeed = [buildFeedItem(), ...page.feed];
+                // Sort by createdAt descending (newest first)
+                updatedFeed.sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime(),
+                );
+                return { feed: updatedFeed };
+              }
+              return page;
+            });
+            return { pages, pageParams: oldData.pageParams };
+          });
+        }
+
+        // Update cache with image status once uploaded
+        if (body.type === PubSubMessageType.IMAGE) {
+          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
+            if (!oldData) {
+              return { pages: [], pageParams: [] };
+            }
+
+            const pages = oldData.pages.map((page): FeedQueryPage => {
+              const feed = page.feed.map((item) => {
+                if (item.type !== 'message') {
+                  return item;
+                }
+                if (item.id !== body.messageId || !item.images) {
+                  return item;
+                }
+                const images = item.images.map((image) =>
+                  image.id === body.imageId
+                    ? { ...image, isPlaceholder: false }
+                    : image,
+                );
+                return { ...item, images } as FeedItemRes;
+              });
+              return { feed };
+            });
+
+            return { pages, pageParams: oldData.pageParams };
+          });
+        }
+
+        scrollToBottom();
+      },
+      enabled: !!me && !!channel && !!serverId,
     },
-    enabled: !!me && !!channel && !!serverId,
-  });
+  );
 
   // Listen for new polls
-  useSubscription(`new-poll-${serverId}-${channel?.id}-${me?.id}`, {
-    onMessage: (event) => {
-      const { body }: PubSubMessage<NewPollPayload> = JSON.parse(event.data);
-      if (!body) {
-        return;
-      }
-      if (body.type === PubSubMessageType.POLL) {
-        const newFeedItem: FeedItemRes = {
-          ...(body.poll as FeedItemRes & { type: 'poll' }),
-          type: 'poll',
-        };
-        queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
-          if (!oldData) {
-            return {
-              pages: [{ feed: [newFeedItem] }],
-              pageParams: [0],
-            };
-          }
-          const pages = oldData.pages.map((page, index): FeedQueryPage => {
-            if (index === 0) {
-              const exists = page.feed.some(
-                (fi) => fi.type === 'poll' && fi.id === newFeedItem.id,
-              );
-              if (exists) {
-                return page;
-              }
-              const updatedFeed = [newFeedItem, ...page.feed];
-              // Sort by createdAt descending (newest first)
-              updatedFeed.sort(
-                (a, b) =>
-                  new Date(b.createdAt).getTime() -
-                  new Date(a.createdAt).getTime(),
-              );
-              return { feed: updatedFeed };
+  useSubscription(
+    channelPubSubTopic('new-poll', serverId, channel?.id, me?.id),
+    {
+      onMessage: (event) => {
+        const { body }: PubSubMessage<NewPollPayload> = JSON.parse(event.data);
+        if (!body) {
+          return;
+        }
+        if (body.type === PubSubMessageType.POLL) {
+          const newFeedItem: FeedItemRes = {
+            ...(body.poll as FeedItemRes & { type: 'poll' }),
+            type: 'poll',
+          };
+          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
+            if (!oldData) {
+              return {
+                pages: [{ feed: [newFeedItem] }],
+                pageParams: [0],
+              };
             }
-            return page;
+            const pages = oldData.pages.map((page, index): FeedQueryPage => {
+              if (index === 0) {
+                const exists = page.feed.some(
+                  (fi) => fi.type === 'poll' && fi.id === newFeedItem.id,
+                );
+                if (exists) {
+                  return page;
+                }
+                const updatedFeed = [newFeedItem, ...page.feed];
+                // Sort by createdAt descending (newest first)
+                updatedFeed.sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime(),
+                );
+                return { feed: updatedFeed };
+              }
+              return page;
+            });
+            return { pages, pageParams: oldData.pageParams };
           });
-          return { pages, pageParams: oldData.pageParams };
-        });
-      }
-      scrollToBottom();
+        }
+        scrollToBottom();
+      },
+      enabled: !!me && !!channel && !!serverId,
     },
-    enabled: !!me && !!channel && !!serverId,
-  });
+  );
 
   // Reset isLastPage when switching channels
   useEffect(() => {
