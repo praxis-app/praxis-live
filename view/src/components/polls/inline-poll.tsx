@@ -228,7 +228,7 @@ export const InlinePoll = ({ poll, channel, feedQueryKey, me }: Props) => {
   };
 
   return (
-    <div className="flex max-w-full min-w-0 gap-4 pt-4">
+    <div className="flex max-w-full min-w-0 gap-4 pt-1">
       <UserProfileDrawer
         name={truncatedName}
         userId={user.id}

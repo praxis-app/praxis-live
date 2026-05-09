@@ -120,7 +120,7 @@ export const CallArtifact = ({
 
   return (
     <>
-      <article className="flex max-w-full min-w-0 gap-4 pt-4">
+      <article className="flex max-w-full min-w-0 gap-4 pt-1">
         <UserProfileDrawer
           name={truncatedStarterName}
           userId={call.startedBy.id}

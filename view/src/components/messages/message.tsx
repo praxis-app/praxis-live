@@ -34,7 +34,7 @@ export const Message = ({
   const truncatedUsername = truncate(name, 18);
 
   return (
-    <div className="flex max-w-full min-w-0 gap-4">
+    <div className="flex max-w-full min-w-0 gap-4 pt-1">
       <UserProfileDrawer
         name={truncatedUsername}
         userId={user.id}

@@ -50,7 +50,7 @@ export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
     : t('proposals.labels.consensusProposal');
 
   return (
-    <article aria-label={label} className="flex max-w-full min-w-0 gap-4 pt-4">
+    <article aria-label={label} className="flex max-w-full min-w-0 gap-4 pt-1">
       <UserProfileDrawer
         name={truncatedName}
         userId={user.id}
