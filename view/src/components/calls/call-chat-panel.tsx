@@ -41,9 +41,15 @@ interface Props {
   serverId?: string;
   channel: ChannelRes;
   callId: string;
+  readOnly?: boolean;
 }
 
-export const CallChatPanel = ({ serverId, channel, callId }: Props) => {
+export const CallChatPanel = ({
+  serverId,
+  channel,
+  callId,
+  readOnly = false,
+}: Props) => {
   const [isLastPage, setIsLastPage] = useState(false);
   const feedBoxRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -123,7 +129,9 @@ export const CallChatPanel = ({ serverId, channel, callId }: Props) => {
                 : image;
             });
           };
-          const buildFeedItem = (existing?: FeedItemRes): FeedItemRes => ({
+          const buildFeedItem = (
+            existing?: Extract<FeedItemRes, { type: 'message' }>,
+          ): FeedItemRes => ({
             ...messagePayload,
             images: preserveImageSrc(existing?.images, messagePayload.images),
             type: 'message',
@@ -141,7 +149,10 @@ export const CallChatPanel = ({ serverId, channel, callId }: Props) => {
               if (existingIndex !== -1) {
                 const updatedFeed = [...page.feed];
                 updatedFeed[existingIndex] = buildFeedItem(
-                  page.feed[existingIndex],
+                  // TODO: Esnure this is valid for building the feed item
+                  page.feed[existingIndex].type === 'message'
+                    ? page.feed[existingIndex]
+                    : undefined,
                 );
                 updatedFeed.sort(
                   (a, b) =>
@@ -259,11 +270,13 @@ export const CallChatPanel = ({ serverId, channel, callId }: Props) => {
         feedQueryKey={feedQueryKey}
         isLastPage={isLastPage}
       />
-      <MessageForm
-        channelId={channel.id}
-        callId={callId}
-        onSend={scrollToBottom}
-      />
+      {!readOnly && (
+        <MessageForm
+          channelId={channel.id}
+          callId={callId}
+          onSend={scrollToBottom}
+        />
+      )}
     </section>
   );
 };

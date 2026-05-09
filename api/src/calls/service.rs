@@ -1,20 +1,28 @@
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
-use entity::{calls, users};
+use entity::{calls, enums::PollType, messages, polls, users};
 use livekit_api::{
     access_token::{AccessToken, VideoGrants},
     services::room::RoomClient,
 };
 use sea_orm::{
     sea_query::Expr, ActiveModelTrait, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, Set, SqlErr,
-    TransactionTrait,
+    DatabaseConnection, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, Set, SqlErr, TransactionTrait,
 };
+use std::collections::BTreeSet;
 use std::env;
 use tokio::time::{self, MissedTickBehavior};
 
-use super::types::{CallResponse, JoinCallResponse, StartCallResponse};
-use crate::common::{ApiError, AppResult};
+use super::types::{
+    CallArtifactResponse, CallResponse, CallSummaryResponse, CallUserResponse,
+    JoinCallResponse,
+};
+use crate::{
+    common::{ApiError, AppResult},
+    messages::types::serialize_timestamp,
+    users as users_service,
+};
 
 const TOKEN_TTL_MINUTES: i64 = 30;
 const ACTIVE_STATUSES: [&str; 2] = ["starting", "active"];
@@ -108,17 +116,19 @@ fn livekit_url_from_env() -> Option<String> {
 
 pub(crate) async fn start_channel_call(
     database: &DatabaseConnection,
+    livekit: &LiveKitConfig,
     server_id: uuid::Uuid,
     channel_id: uuid::Uuid,
     user_id: uuid::Uuid,
-) -> AppResult<StartCallResponse> {
+) -> AppResult<JoinCallResponse> {
     let call =
         get_or_create_channel_call(database, server_id, channel_id, user_id)
             .await?;
 
-    Ok(StartCallResponse {
-        call: shape_call(call),
-    })
+    join_channel_call(
+        database, livekit, server_id, channel_id, call.id, user_id,
+    )
+    .await
 }
 
 pub(crate) async fn join_channel_call(
@@ -206,6 +216,33 @@ pub(crate) async fn get_call(
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Call not found."))
+}
+
+pub(crate) async fn get_channel_call_artifacts(
+    database: &DatabaseConnection,
+    server_id: uuid::Uuid,
+    channel_id: uuid::Uuid,
+    offset: u64,
+    limit: u64,
+) -> AppResult<Vec<CallArtifactResponse>> {
+    crate::channels::get_channel(database, server_id, channel_id).await?;
+
+    let calls = calls::Entity::find()
+        .filter(calls::Column::ServerId.eq(server_id))
+        .filter(calls::Column::ChannelId.eq(channel_id))
+        .order_by_desc(calls::Column::CreatedAt)
+        .offset(offset)
+        .limit(limit)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    let mut artifacts = Vec::with_capacity(calls.len());
+    for call in calls {
+        artifacts.push(shape_call_artifact(database, call).await?);
+    }
+
+    Ok(artifacts)
 }
 
 async fn find_call<C>(
@@ -437,6 +474,115 @@ fn shape_call(call: calls::Model) -> CallResponse {
         channel_id: call.channel_id.to_string(),
         room_name: call.livekit_room,
         status: call.status,
+    }
+}
+
+async fn shape_call_artifact(
+    database: &DatabaseConnection,
+    call: calls::Model,
+) -> AppResult<CallArtifactResponse> {
+    let message_count = messages::Entity::find()
+        .filter(messages::Column::CallId.eq(call.id))
+        .count(database)
+        .await
+        .map_err(internal_error)?;
+    let proposal_count = polls::Entity::find()
+        .filter(polls::Column::CallId.eq(call.id))
+        .filter(polls::Column::PollType.eq(PollType::Proposal))
+        .count(database)
+        .await
+        .map_err(internal_error)?;
+    let poll_count = polls::Entity::find()
+        .filter(polls::Column::CallId.eq(call.id))
+        .filter(polls::Column::PollType.eq(PollType::Poll))
+        .count(database)
+        .await
+        .map_err(internal_error)?;
+
+    let call_messages = messages::Entity::find()
+        .filter(messages::Column::CallId.eq(call.id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let call_polls = polls::Entity::find()
+        .filter(polls::Column::CallId.eq(call.id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    let mut participant_ids = BTreeSet::new();
+    participant_ids.insert(call.started_by);
+    if let Some(ended_by) = call.ended_by {
+        participant_ids.insert(ended_by);
+    }
+    participant_ids.extend(call_messages.iter().map(|message| message.user_id));
+    participant_ids.extend(call_polls.iter().map(|poll| poll.user_id));
+
+    let user_ids = participant_ids.into_iter().collect::<Vec<_>>();
+    let users = users::Entity::find()
+        .filter(users::Column::Id.is_in(user_ids.clone()))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
+
+    let participants = users
+        .iter()
+        .map(|user| shape_call_user(user, &profile_pictures))
+        .collect::<Vec<_>>();
+    let started_by = users
+        .iter()
+        .find(|user| user.id == call.started_by)
+        .map(|user| shape_call_user(user, &profile_pictures))
+        .ok_or_else(|| internal_error("call starter not found"))?;
+
+    let ended_at = (call.status == "ended" || call.status == "failed")
+        .then(|| serialize_timestamp(call.updated_at));
+    let duration_end = if ended_at.is_some() {
+        call.updated_at
+    } else {
+        Utc::now().fixed_offset()
+    };
+    let duration_seconds = duration_end
+        .signed_duration_since(call.created_at)
+        .num_seconds()
+        .max(0);
+
+    Ok(CallArtifactResponse {
+        kind: "call",
+        id: call.id.to_string(),
+        server_id: call.server_id.to_string(),
+        channel_id: call.channel_id.to_string(),
+        room_name: call.livekit_room,
+        status: call.status,
+        started_by,
+        participant_count: participants.len(),
+        participants,
+        duration_seconds,
+        summary: CallSummaryResponse {
+            messages: message_count,
+            proposals: proposal_count,
+            polls: poll_count,
+        },
+        created_at: serialize_timestamp(call.created_at),
+        ended_at,
+    })
+}
+
+fn shape_call_user(
+    user: &users::Model,
+    profile_pictures: &std::collections::BTreeMap<
+        uuid::Uuid,
+        crate::users::UserImageRef,
+    >,
+) -> CallUserResponse {
+    CallUserResponse {
+        id: user.id.to_string(),
+        name: user.name.clone(),
+        display_name: user.display_name.clone(),
+        profile_picture: profile_pictures.get(&user.id).cloned(),
     }
 }
 

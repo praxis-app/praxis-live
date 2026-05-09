@@ -108,7 +108,7 @@ test('authenticated user can send an in-call chat message with an image', async 
   const joinCallResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
-      /\/calls\/[^/]+\/join$/.test(response.url()) &&
+      /\/calls$/.test(response.url()) &&
       response.status() === 200,
   );
 
@@ -184,7 +184,7 @@ test('authenticated user can create and vote on an in-call proposal', async ({
   const joinCallResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
-      /\/calls\/[^/]+\/join$/.test(response.url()) &&
+      /\/calls$/.test(response.url()) &&
       response.status() === 200,
   );
 

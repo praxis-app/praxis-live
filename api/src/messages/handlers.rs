@@ -90,6 +90,14 @@ pub(super) async fn get_channel_feed(
         user_id,
     )
     .await?;
+    let calls = crate::calls::service::get_channel_call_artifacts(
+        &chat_state.database,
+        path.server_id,
+        path.channel_id,
+        0,
+        fetch_limit,
+    )
+    .await?;
 
     let mut feed = feed
         .drain(..)
@@ -105,6 +113,9 @@ pub(super) async fn get_channel_feed(
             );
         }
         feed.push(value);
+    }
+    for call in calls {
+        feed.push(serde_json::to_value(call).map_err(internal_error)?);
     }
 
     feed.sort_by(|left, right| {

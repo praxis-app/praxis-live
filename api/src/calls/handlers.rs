@@ -53,10 +53,11 @@ pub(crate) async fn start_call(
     State(state): State<CallsState>,
     context: ChannelWriteContext,
 ) -> AppResult<Json<serde_json::Value>> {
-    let _ = livekit_config(&state)?;
+    let livekit = livekit_config(&state)?;
 
     let response = service::start_channel_call(
         &state.database,
+        livekit,
         context.server_id,
         context.channel_id,
         context.user_id,

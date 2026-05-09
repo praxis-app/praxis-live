@@ -1,3 +1,4 @@
+import { CallArtifact } from '@/components/calls/call-artifact';
 import { WelcomeMessage } from '@/components/invites/welcome-message';
 import { BotMessage } from '@/components/messages/bot-message';
 import { Message } from '@/components/messages/message';
@@ -31,6 +32,8 @@ interface Props {
   feedBoxRef: RefObject<HTMLDivElement | null>;
   isLastPage: boolean;
   onLoadMore: () => void;
+  isJoiningCall?: boolean;
+  onJoinCall?: (callId: string) => void;
 }
 
 export const ChannelFeed = ({
@@ -40,6 +43,8 @@ export const ChannelFeed = ({
   feedBoxRef,
   isLastPage,
   onLoadMore,
+  isJoiningCall,
+  onJoinCall,
 }: Props) => {
   const { isAppLoading } = useAppStore();
   const { me, isAnon, isLoggedIn } = useAuthData();
@@ -130,6 +135,19 @@ export const ChannelFeed = ({
               channel={channel}
               feedQueryKey={feedQueryKey}
               me={me}
+            />
+          );
+        }
+        if (item.type === 'call') {
+          return (
+            <CallArtifact
+              key={`call-${item.id}`}
+              call={item}
+              channel={channel}
+              serverId={serverId}
+              me={me}
+              isJoining={isJoiningCall}
+              onJoinCall={onJoinCall}
             />
           );
         }

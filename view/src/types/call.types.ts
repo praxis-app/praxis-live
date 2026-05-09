@@ -13,6 +13,34 @@ export interface JoinCallRes {
   call: CallRes;
 }
 
-export interface StartCallRes {
-  call: CallRes;
+export interface CallUserRes {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  profilePicture?: {
+    id: string;
+    createdAt: string;
+  } | null;
+}
+
+export interface CallSummaryRes {
+  messages: number;
+  proposals: number;
+  polls: number;
+}
+
+export interface CallArtifactRes {
+  type: 'call';
+  id: string;
+  serverId: string;
+  channelId: string;
+  roomName: string;
+  status: string;
+  startedBy: CallUserRes;
+  participants: CallUserRes[];
+  participantCount: number;
+  durationSeconds: number;
+  summary: CallSummaryRes;
+  createdAt: string;
+  endedAt?: string | null;
 }

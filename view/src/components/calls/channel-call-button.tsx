@@ -39,7 +39,7 @@ export const ChannelCallButton = ({
           <TooltipTrigger asChild>
             <Button
               aria-label={callLabel}
-              onClick={onJoin}
+              onClick={() => onJoin()}
               disabled={isJoining}
               variant="ghost"
               size="icon"

@@ -125,7 +125,9 @@ export const ChannelView = ({ channel }: Props) => {
             });
           };
 
-          const buildFeedItem = (existing?: FeedItemRes): FeedItemRes => ({
+          const buildFeedItem = (
+            existing?: Extract<FeedItemRes, { type: 'message' }>,
+          ): FeedItemRes => ({
             ...messagePayload,
             images: preserveImageSrc(existing?.images, messagePayload.images),
             type: 'message',
@@ -149,7 +151,12 @@ export const ChannelView = ({ channel }: Props) => {
                 // Update existing message (bot message with command result)
                 const updatedFeed = [...page.feed];
                 const existingMessage = page.feed[existingIndex];
-                updatedFeed[existingIndex] = buildFeedItem(existingMessage);
+                updatedFeed[existingIndex] = buildFeedItem(
+                  // TODO: Esnure this is valid for building the feed item
+                  existingMessage.type === 'message'
+                    ? existingMessage
+                    : undefined,
+                );
 
                 // Sort by createdAt descending (newest first)
                 updatedFeed.sort(
@@ -295,6 +302,8 @@ export const ChannelView = ({ channel }: Props) => {
           feed={feedData?.pages.flatMap((page) => page.feed) || []}
           feedQueryKey={feedQueryKey}
           isLastPage={isLastPage}
+          isJoiningCall={isJoining}
+          onJoinCall={joinCall}
         />
 
         <MessageForm channelId={channel?.id} onSend={scrollToBottom} />

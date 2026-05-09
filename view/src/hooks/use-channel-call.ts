@@ -1,6 +1,6 @@
 import { api } from '@/client/api-client';
 import { type JoinCallRes } from '@/types/call.types';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -8,17 +8,25 @@ import { toast } from 'sonner';
 export const useChannelCall = (serverId?: string, channelId?: string) => {
   const [callConfig, setCallConfig] = useState<JoinCallRes | null>(null);
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
 
   const joinMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (callId?: string) => {
       if (!serverId || !channelId) {
         throw new Error('Server ID and channel ID are required');
+      }
+
+      if (callId) {
+        return api.joinChannelCallById(serverId, channelId, callId);
       }
 
       return api.joinChannelCall(serverId, channelId);
     },
     onSuccess: (config) => {
       setCallConfig(config);
+      void queryClient.invalidateQueries({
+        queryKey: ['servers', serverId, 'channels', channelId, 'feed'],
+      });
     },
     onError: () => {
       toast(t('calls.errors.joinFailed'));
@@ -28,7 +36,7 @@ export const useChannelCall = (serverId?: string, channelId?: string) => {
   return {
     callConfig,
     isJoining: joinMutation.isPending,
-    joinCall: joinMutation.mutate,
+    joinCall: (callId?: string) => joinMutation.mutate(callId),
     leaveCall: async () => {
       const callId = callConfig?.call.id;
       setCallConfig(null);
@@ -39,6 +47,9 @@ export const useChannelCall = (serverId?: string, channelId?: string) => {
 
       try {
         await api.leaveChannelCall(serverId, channelId, callId);
+        void queryClient.invalidateQueries({
+          queryKey: ['servers', serverId, 'channels', channelId, 'feed'],
+        });
       } catch {
         // A failed best-effort leave should not trap the user inside the room.
       }

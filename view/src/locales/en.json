@@ -328,7 +328,10 @@
 
   "calls": {
     "actions": {
-      "call": "Call"
+      "call": "Call",
+      "joinActiveVideo": "Join active video",
+      "joinCall": "Join call",
+      "viewDetails": "View details"
     },
     "headers": {
       "channelCall": "Call in #{{channelName}}",
@@ -349,6 +352,25 @@
       "status": "{{participants}}",
       "statusWithServer": "Server: {{serverName}} - {{participants}}",
       "inCallChat": "Messages, proposals, and polls for this call."
+    },
+    "artifact": {
+      "activeTitle": "Call is active",
+      "decisionCount_one": "{{count}} decision",
+      "decisionCount_other": "{{count}} decisions",
+      "detailsDescription": "{{participants}} participants - {{duration}}",
+      "detailsTitle": "Call details",
+      "duration": "Duration {{duration}}",
+      "durationHours": "{{hours}}h {{minutes}}m",
+      "durationMinutes": "{{minutes}}m {{seconds}}s",
+      "durationSeconds": "{{seconds}}s",
+      "endedTitle": "Call ended",
+      "messageCount_one": "{{count}} message",
+      "messageCount_other": "{{count}} messages",
+      "messages": "Messages",
+      "participants": "Participants",
+      "polls": "Polls",
+      "proposals": "Proposals",
+      "startedBy": "Started by {{name}}"
     },
     "errors": {
       "cameraUnavailable": "Unable to use the camera.",

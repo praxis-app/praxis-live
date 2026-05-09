@@ -1,3 +1,4 @@
+import { type CallArtifactRes } from './call.types';
 import { type MessageRes } from './message.types';
 import { type PollRes } from './poll.types';
 
@@ -23,7 +24,8 @@ export interface UpdateChannelReq {
 
 export type FeedItemRes =
   | (MessageRes & { type: 'message' })
-  | (PollRes & { type: 'poll' });
+  | (PollRes & { type: 'poll' })
+  | CallArtifactRes;
 
 export interface FeedQueryPage {
   feed: FeedItemRes[];
