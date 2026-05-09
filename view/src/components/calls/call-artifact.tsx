@@ -244,7 +244,7 @@ export const CallArtifact = ({
       </article>
 
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-h-[90vh] max-w-4xl gap-4 overflow-hidden p-0 pt-12 md:p-0 md:pt-12">
+        <DialogContent className="max-h-[90vh] gap-4 overflow-hidden p-0 pt-12 md:min-w-4xl md:p-0 md:pt-12">
           <DialogHeader className="px-4 md:px-6">
             <DialogTitle>{t('calls.artifact.detailsTitle')}</DialogTitle>
             <DialogDescription>
