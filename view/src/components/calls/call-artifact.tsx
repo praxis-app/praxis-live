@@ -244,7 +244,7 @@ export const CallArtifact = ({
       </article>
 
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-h-[90vh] gap-4 overflow-hidden p-0 pt-12 md:min-w-4xl md:p-0 md:pt-12">
+        <DialogContent className="h-[90vh] max-h-[90vh] gap-4 overflow-hidden p-0 pt-12 md:flex md:min-w-4xl md:p-0 md:pt-12">
           <DialogHeader className="px-4 md:px-6">
             <DialogTitle>{t('calls.artifact.detailsTitle')}</DialogTitle>
             <DialogDescription>
@@ -254,7 +254,7 @@ export const CallArtifact = ({
               })}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid min-h-0 flex-1 gap-0 md:grid-cols-[220px_minmax(0,1fr)]">
+          <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-none">
             <aside className="border-border space-y-3 border-b px-4 pb-4 md:border-r md:border-b-0 md:px-6">
               <DetailStat
                 label={t('calls.artifact.messages')}
@@ -287,12 +287,17 @@ export const CallArtifact = ({
                 </div>
               </div>
             </aside>
-            <div className="min-h-[420px] min-w-0">
+            <div className="min-h-0 min-w-0 md:min-h-[420px]">
               <CallChatPanel
                 serverId={serverId}
                 channel={channel}
                 callId={call.id}
                 readOnly
+                initialFeedLimit={
+                  call.summary.messages +
+                  call.summary.proposals +
+                  call.summary.polls
+                }
               />
             </div>
           </div>

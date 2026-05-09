@@ -42,6 +42,7 @@ interface Props {
   channel: ChannelRes;
   callId: string;
   readOnly?: boolean;
+  initialFeedLimit?: number;
 }
 
 export const CallChatPanel = ({
@@ -49,6 +50,7 @@ export const CallChatPanel = ({
   channel,
   callId,
   readOnly = false,
+  initialFeedLimit = MESSAGES_PAGE_SIZE,
 }: Props) => {
   const [isLastPage, setIsLastPage] = useState(false);
   const feedBoxRef = useRef<HTMLDivElement>(null);
@@ -77,7 +79,7 @@ export const CallChatPanel = ({
         channel.id,
         callId,
         pageParam,
-        MESSAGES_PAGE_SIZE,
+        Math.max(MESSAGES_PAGE_SIZE, initialFeedLimit),
       );
       if (result.feed.length === 0) {
         setIsLastPage(true);
@@ -269,6 +271,7 @@ export const CallChatPanel = ({
         feed={feedData?.pages.flatMap((page) => page.feed) || []}
         feedQueryKey={feedQueryKey}
         isLastPage={isLastPage}
+        scrollMode={readOnly ? 'natural' : 'bottom-anchored'}
       />
       {!readOnly && (
         <MessageForm
