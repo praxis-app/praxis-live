@@ -1,5 +1,6 @@
 import { CallChatPanel } from '@/components/calls/call-chat-panel';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -147,8 +148,8 @@ export const CallArtifact = ({
             <div className="text-muted-foreground text-sm">{formattedDate}</div>
           </div>
 
-          <div
-            className="border-border bg-card text-card-foreground before:border-l-border relative rounded-md border p-3 shadow-sm before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3"
+          <Card
+            className="before:border-l-border relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3"
             role={!isActive ? 'button' : undefined}
             tabIndex={!isActive ? 0 : undefined}
             onClick={handleArtifactClick}
@@ -239,7 +240,7 @@ export const CallArtifact = ({
                 </Button>
               )}
             </div>
-          </div>
+          </Card>
         </div>
       </article>
 
