@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::Json,
 };
 use sea_orm::DatabaseConnection;
@@ -105,6 +105,31 @@ pub(crate) async fn leave_call(
     .await?;
 
     Ok(Json(serde_json::json!({ "call": call })))
+}
+
+// TODO: Rename to handle_livekit_webhook
+pub(crate) async fn livekit_webhook(
+    State(state): State<CallsState>,
+    headers: HeaderMap,
+    body: String,
+) -> AppResult<StatusCode> {
+    let livekit = livekit_config(&state)?;
+    let authorization = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "Missing authorization.")
+        })?;
+
+    service::handle_livekit_webhook(
+        &state.database,
+        livekit,
+        &body,
+        authorization,
+    )
+    .await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 fn livekit_config(state: &CallsState) -> AppResult<&LiveKitConfig> {

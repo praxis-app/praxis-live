@@ -31,12 +31,16 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
+    let livekit_config = calls::LiveKitConfig::from_env();
 
     polls::service::spawn_proposal_synchronizer(database.clone());
     polls::service::spawn_expired_poll_closer(database.clone());
-    calls::service::spawn_stale_call_cleaner(database.clone());
+    calls::service::spawn_stale_call_cleaner(
+        database.clone(),
+        livekit_config.clone(),
+    );
 
-    let app = build_router(database, jwt_secret).layer(
+    let app = build_router(database, jwt_secret, livekit_config).layer(
         TraceLayer::new_for_http()
             .make_span_with(logging::make_request_span)
             .on_request(logging::log_request_start())
@@ -62,10 +66,10 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 pub fn build_router(
     database: DatabaseConnection,
     jwt_secret: impl Into<String>,
+    livekit_config: Option<calls::LiveKitConfig>,
 ) -> Router {
     let jwt_secret = jwt_secret.into();
     let pub_sub_service = pub_sub::PubSubService::from_env();
-    let livekit_config = calls::LiveKitConfig::from_env();
 
     let ws = Router::new().route(
         "/ws",
@@ -82,6 +86,11 @@ pub fn build_router(
         .merge(invites::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
         .merge(instance::router(database.clone(), jwt_secret.clone()))
+        .merge(calls::livekit_webhook_router(
+            database.clone(),
+            jwt_secret.clone(),
+            livekit_config.clone(),
+        ))
         .merge(servers::router(
             database,
             jwt_secret,

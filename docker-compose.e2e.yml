@@ -30,10 +30,13 @@ services:
       DB_MIGRATIONS: true
       REDIS_HOST: cache
       REDIS_PORT: 6379
-      LIVEKIT_HOST: 127.0.0.1
-      LIVEKIT_PORT: 37880
+      LIVEKIT_URL: ws://127.0.0.1:37880
+      LIVEKIT_API_URL: http://livekit:7880
+      LIVEKIT_HOST: livekit
+      LIVEKIT_PORT: 7880
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: secret
+      STALE_CALL_CLEANUP_INTERVAL_SECONDS: 5
     depends_on:
       database:
         condition: service_healthy
@@ -47,6 +50,15 @@ services:
 
   livekit:
     image: livekit/livekit-server:latest
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        keys:
+          devkey: secret
+        webhook:
+          api_key: devkey
+          urls:
+            - http://web:3210/api/livekit/webhook
     ports:
       - '37880:7880'
       - '37881:7881'

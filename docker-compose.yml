@@ -16,9 +16,13 @@ services:
       REDIS_HOST: cache
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      LIVEKIT_URL: ws://${LIVEKIT_HOST}:${LIVEKIT_PORT}
+      LIVEKIT_URL: ws://localhost:${LIVEKIT_PORT}
+      LIVEKIT_API_URL: http://livekit:${LIVEKIT_PORT}
+      LIVEKIT_HOST: livekit
+      LIVEKIT_PORT: ${LIVEKIT_PORT}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      STALE_CALL_CLEANUP_INTERVAL_SECONDS: ${STALE_CALL_CLEANUP_INTERVAL_SECONDS:-10}
     depends_on:
       database:
         condition: service_healthy
@@ -66,6 +70,15 @@ services:
 
   livekit:
     image: livekit/livekit-server:latest
+    environment:
+      LIVEKIT_CONFIG: |
+        port: ${LIVEKIT_PORT}
+        keys:
+          ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+        webhook:
+          api_key: ${LIVEKIT_API_KEY}
+          urls:
+            - http://web:${VITE_SERVER_PORT}/api/livekit/webhook
     ports:
       - '${LIVEKIT_PORT}:${LIVEKIT_PORT}'
       - '${LIVEKIT_RTC_TCP_PORT}:${LIVEKIT_RTC_TCP_PORT}'

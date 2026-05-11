@@ -16,6 +16,7 @@ import { type ChannelRes } from '@/types/channel.types';
 import {
   GridLayout,
   useParticipants,
+  useRoomContext,
   useTracks,
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
@@ -28,7 +29,7 @@ interface Props {
   channel: ChannelRes;
   callConfig: JoinCallRes;
   serverName?: string;
-  onLeave: () => void;
+  onLeave: () => void | Promise<void>;
 }
 
 export const CallPanel = ({
@@ -38,24 +39,33 @@ export const CallPanel = ({
   onLeave,
 }: Props) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const participants = useParticipants();
   const { serverId } = useServerData();
+
+  const participants = useParticipants();
+  const room = useRoomContext();
+
+  const tracks = useTracks([
+    {
+      source: Track.Source.Camera,
+      withPlaceholder: true,
+    },
+  ]);
 
   const isDesktop = useIsDesktop();
   const { t } = useTranslation();
 
-  const tracks = useTracks([
-    { source: Track.Source.Camera, withPlaceholder: true },
-  ]);
+  const handleLeave = useCallback(async () => {
+    await room.disconnect();
+    await onLeave();
+  }, [onLeave, room]);
 
   const handleEscapeKey = useCallback(() => {
     if (isChatOpen) {
       setIsChatOpen(false);
       return;
     }
-
-    onLeave();
-  }, [isChatOpen, onLeave]);
+    void handleLeave();
+  }, [handleLeave, isChatOpen]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -100,7 +110,7 @@ export const CallPanel = ({
       <TopNav
         header={t('calls.headers.channelCall', { channelName: channel.name })}
         subheader={topNavSubHeader}
-        onBackClick={onLeave}
+        onBackClick={handleLeave}
         backBtnIcon={<MdClose className="size-6" />}
         showSearch={false}
       />
@@ -122,7 +132,7 @@ export const CallPanel = ({
           <div className="border-t border-[--color-border] px-3 py-3">
             <div className="flex items-center justify-center">
               <CallControls
-                onLeave={onLeave}
+                onLeave={handleLeave}
                 onOpenChat={() => setIsChatOpen((open) => !open)}
               />
             </div>

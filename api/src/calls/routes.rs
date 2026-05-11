@@ -2,9 +2,21 @@ use axum::{routing::post, Router};
 use sea_orm::DatabaseConnection;
 
 use super::{
-    handlers::{join_call, leave_call, start_call, CallsState},
+    handlers::{
+        join_call, leave_call, livekit_webhook, start_call, CallsState,
+    },
     service::LiveKitConfig,
 };
+
+pub(crate) fn livekit_webhook_router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+    livekit: Option<LiveKitConfig>,
+) -> Router {
+    Router::new()
+        .route("/livekit/webhook", post(livekit_webhook))
+        .with_state(CallsState::new(database, jwt_secret, livekit))
+}
 
 pub(crate) fn router(
     database: DatabaseConnection,

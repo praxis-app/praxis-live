@@ -1720,6 +1720,7 @@ version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "900451a686a1ce8488c420e81a2135831383b03aade6bc3075cf80463d3dd6a4"
 dependencies = [
+ "base64 0.21.7",
  "device-info",
  "http 1.4.0",
  "jsonwebtoken 10.3.0",
@@ -1734,6 +1735,7 @@ dependencies = [
  "rustls-native-certs 0.6.3",
  "scopeguard",
  "serde",
+ "serde_json",
  "sha2",
  "thiserror 2.0.18",
  "tokio-rustls 0.24.1",

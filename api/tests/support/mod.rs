@@ -58,8 +58,12 @@ impl TestApp {
         let database = api::connect_database(&database_url, true)
             .await
             .expect("expected test database migrations to succeed");
-        let app =
-            api::build_router(database.clone(), "integration-test-secret");
+
+        let app = api::build_router(
+            database.clone(),
+            "integration-test-secret",
+            None,
+        );
 
         Self {
             app,

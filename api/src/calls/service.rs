@@ -2,8 +2,9 @@ use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{calls, enums::PollType, messages, polls, users};
 use livekit_api::{
-    access_token::{AccessToken, VideoGrants},
-    services::room::RoomClient,
+    access_token::{AccessToken, TokenVerifier, VideoGrants},
+    services::{room::RoomClient, ServiceError, TwirpError, TwirpErrorCode},
+    webhooks::WebhookReceiver,
 };
 use sea_orm::{
     sea_query::Expr, ActiveModelTrait, ColumnTrait, ConnectionTrait,
@@ -26,20 +27,23 @@ use crate::{
 
 const TOKEN_TTL_MINUTES: i64 = 30;
 const ACTIVE_STATUSES: [&str; 2] = ["starting", "active"];
-const STALE_CALL_CLEANUP_INTERVAL_SECONDS: u64 = 60 * 5;
+const STALE_CALL_CLEANUP_INTERVAL_SECONDS: u64 = 10;
 const STALE_STARTING_MINUTES: i64 = 15;
 const STALE_ACTIVE_HOURS: i64 = 24;
 const STALE_ENDING_MINUTES: i64 = 5;
+const EMPTY_ROOM_CLEANUP_GRACE_SECONDS: i64 = 30;
+const LEAVE_PARTICIPANT_SETTLE_MILLIS: u64 = 500;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct StaleCallCleanupSummary {
     failed_starting: u64,
+    ended_empty: u64,
     ended_active: u64,
     ended_ending: u64,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct LiveKitConfig {
+pub struct LiveKitConfig {
     pub(crate) url: String,
     api_url: String,
     api_key: String,
@@ -49,6 +53,8 @@ pub(crate) struct LiveKitConfig {
 impl LiveKitConfig {
     pub(crate) fn from_env() -> Option<Self> {
         let url = livekit_url_from_env()?;
+        let api_url =
+            livekit_api_url_from_env().unwrap_or_else(|| livekit_api_url(&url));
         let api_key = env::var("LIVEKIT_API_KEY").ok()?;
         let api_secret = env::var("LIVEKIT_API_SECRET").ok()?;
 
@@ -60,15 +66,25 @@ impl LiveKitConfig {
         }
 
         Some(Self {
-            api_url: livekit_api_url(&url),
+            api_url,
             url,
             api_key,
             api_secret,
         })
     }
+
+    pub(crate) fn webhook_receiver(&self) -> WebhookReceiver {
+        WebhookReceiver::new(TokenVerifier::with_api_key(
+            &self.api_key,
+            &self.api_secret,
+        ))
+    }
 }
 
-pub(crate) fn spawn_stale_call_cleaner(database: DatabaseConnection) {
+pub(crate) fn spawn_stale_call_cleaner(
+    database: DatabaseConnection,
+    livekit: Option<LiveKitConfig>,
+) {
     tokio::spawn(async move {
         let mut interval = time::interval(std::time::Duration::from_secs(
             configured_interval_seconds(
@@ -84,11 +100,13 @@ pub(crate) fn spawn_stale_call_cleaner(database: DatabaseConnection) {
             match cleanup_stale_calls(&database).await {
                 Ok(summary)
                     if summary.failed_starting > 0
+                        || summary.ended_empty > 0
                         || summary.ended_active > 0
                         || summary.ended_ending > 0 =>
                 {
                     tracing::info!(
                         failed_starting = summary.failed_starting,
+                        ended_empty = summary.ended_empty,
                         ended_active = summary.ended_active,
                         ended_ending = summary.ended_ending,
                         "Cleaned up stale calls."
@@ -99,11 +117,34 @@ pub(crate) fn spawn_stale_call_cleaner(database: DatabaseConnection) {
                     tracing::warn!("Failed to clean up stale calls: {error}");
                 }
             }
+
+            let Some(livekit) = livekit.as_ref() else {
+                continue;
+            };
+
+            match cleanup_empty_active_calls(&database, livekit).await {
+                Ok(0) => {}
+                Ok(ended_empty) => {
+                    tracing::info!(
+                        ended_empty,
+                        "Ended active calls with empty LiveKit rooms."
+                    );
+                }
+                Err(error) => {
+                    tracing::warn!("Failed to clean up empty calls: {error}");
+                }
+            }
         }
     });
 }
 
 fn livekit_url_from_env() -> Option<String> {
+    if let Ok(url) = env::var("LIVEKIT_URL") {
+        if !url.trim().is_empty() {
+            return Some(url);
+        }
+    }
+
     let host = env::var("LIVEKIT_HOST").ok()?;
     let port = env::var("LIVEKIT_PORT").ok()?;
 
@@ -112,6 +153,12 @@ fn livekit_url_from_env() -> Option<String> {
     }
 
     Some(format!("ws://{host}:{port}"))
+}
+
+fn livekit_api_url_from_env() -> Option<String> {
+    env::var("LIVEKIT_API_URL")
+        .ok()
+        .filter(|url| !url.trim().is_empty())
 }
 
 pub(crate) async fn start_channel_call(
@@ -176,26 +223,72 @@ pub(crate) async fn leave_channel_call(
     }
 
     let active_participants =
-        livekit_room_participant_count(livekit, &call.livekit_room).await?;
+        settled_livekit_room_participant_count(livekit, &call.livekit_room)
+            .await?;
 
     if active_participants > 0 {
         transaction.commit().await.map_err(internal_error)?;
         return Ok(shape_call(call));
     }
 
-    let mut active_call = call.into_active_model();
-    active_call.status = Set("ended".to_owned());
-    active_call.ended_by = Set(Some(user_id));
-    active_call.ended_reason = Set(Some("last_participant_left".to_owned()));
-    active_call.updated_at = Set(Utc::now().fixed_offset());
-
-    let call = active_call
-        .update(&transaction)
-        .await
-        .map_err(internal_error)?;
+    let call =
+        end_call(&transaction, call, Some(user_id), "last_participant_left")
+            .await?;
     transaction.commit().await.map_err(internal_error)?;
 
     Ok(shape_call(call))
+}
+
+pub(crate) async fn handle_livekit_webhook(
+    database: &DatabaseConnection,
+    livekit: &LiveKitConfig,
+    body: &str,
+    authorization: &str,
+) -> AppResult<()> {
+    let auth_token = authorization
+        .strip_prefix("Bearer ")
+        .unwrap_or(authorization)
+        .trim();
+    let event = livekit
+        .webhook_receiver()
+        .receive(body, auth_token)
+        .map_err(|error| {
+            tracing::warn!("invalid LiveKit webhook: {error}");
+            ApiError::new(StatusCode::UNAUTHORIZED, "Invalid webhook.")
+        })?;
+
+    match event.event.as_str() {
+        "room_finished" => {
+            if let Some(room) = event.room {
+                end_active_call_by_room(
+                    database,
+                    &room.name,
+                    "livekit_room_finished",
+                )
+                .await?;
+            }
+        }
+        "participant_left" | "participant_connection_aborted" => {
+            let Some(room) = event.room else {
+                return Ok(());
+            };
+
+            if room.num_participants > 0 {
+                return Ok(());
+            }
+
+            end_call_by_room_if_empty(
+                database,
+                livekit,
+                &room.name,
+                "livekit_room_empty",
+            )
+            .await?;
+        }
+        _ => {}
+    }
+
+    Ok(())
 }
 
 fn room_name(
@@ -325,6 +418,20 @@ where
         .await
 }
 
+async fn find_active_call_by_room<C>(
+    database: &C,
+    room_name: &str,
+) -> Result<Option<calls::Model>, sea_orm::DbErr>
+where
+    C: ConnectionTrait,
+{
+    calls::Entity::find()
+        .filter(calls::Column::LivekitRoom.eq(room_name))
+        .filter(calls::Column::Status.is_in(ACTIVE_STATUSES))
+        .one(database)
+        .await
+}
+
 async fn activate_channel_call(
     database: &DatabaseConnection,
     server_id: uuid::Uuid,
@@ -367,15 +474,95 @@ async fn livekit_room_participant_count(
     livekit: &LiveKitConfig,
     room_name: &str,
 ) -> AppResult<usize> {
-    RoomClient::with_api_key(
+    let participants = RoomClient::with_api_key(
         &livekit.api_url,
         &livekit.api_key,
         &livekit.api_secret,
     )
     .list_participants(room_name)
-    .await
-    .map(|participants| participants.len())
-    .map_err(internal_error)
+    .await;
+
+    match participants {
+        Ok(participants) => Ok(participants.len()),
+        Err(error) if is_livekit_not_found(&error) => Ok(0),
+        Err(error) => Err(internal_error(error)),
+    }
+}
+
+fn is_livekit_not_found(error: &ServiceError) -> bool {
+    matches!(
+        error,
+        ServiceError::Twirp(TwirpError::Twirp(code))
+            if code.code == TwirpErrorCode::NOT_FOUND
+    )
+}
+
+async fn settled_livekit_room_participant_count(
+    livekit: &LiveKitConfig,
+    room_name: &str,
+) -> AppResult<usize> {
+    let count = livekit_room_participant_count(livekit, room_name).await?;
+
+    if count == 0 {
+        return Ok(0);
+    }
+
+    time::sleep(std::time::Duration::from_millis(
+        LEAVE_PARTICIPANT_SETTLE_MILLIS,
+    ))
+    .await;
+
+    livekit_room_participant_count(livekit, room_name).await
+}
+
+async fn end_call<C>(
+    database: &C,
+    call: calls::Model,
+    ended_by: Option<uuid::Uuid>,
+    reason: &str,
+) -> AppResult<calls::Model>
+where
+    C: ConnectionTrait,
+{
+    let mut active_call = call.into_active_model();
+    active_call.status = Set("ended".to_owned());
+    active_call.ended_by = Set(ended_by);
+    active_call.ended_reason = Set(Some(reason.to_owned()));
+    active_call.updated_at = Set(Utc::now().fixed_offset());
+
+    active_call.update(database).await.map_err(internal_error)
+}
+
+async fn end_active_call_by_room(
+    database: &DatabaseConnection,
+    room_name: &str,
+    reason: &str,
+) -> AppResult<bool> {
+    let Some(call) = find_active_call_by_room(database, room_name)
+        .await
+        .map_err(internal_error)?
+    else {
+        return Ok(false);
+    };
+
+    end_call(database, call, None, reason).await?;
+    Ok(true)
+}
+
+async fn end_call_by_room_if_empty(
+    database: &DatabaseConnection,
+    livekit: &LiveKitConfig,
+    room_name: &str,
+    reason: &str,
+) -> AppResult<bool> {
+    let participant_count =
+        settled_livekit_room_participant_count(livekit, room_name).await?;
+
+    if participant_count > 0 {
+        return Ok(false);
+    }
+
+    end_active_call_by_room(database, room_name, reason).await
 }
 
 fn create_livekit_token(
@@ -462,9 +649,38 @@ async fn cleanup_stale_calls(
 
     Ok(StaleCallCleanupSummary {
         failed_starting,
+        ended_empty: 0,
         ended_active,
         ended_ending,
     })
+}
+
+async fn cleanup_empty_active_calls(
+    database: &DatabaseConnection,
+    livekit: &LiveKitConfig,
+) -> AppResult<u64> {
+    let active_calls = calls::Entity::find()
+        .filter(calls::Column::Status.is_in(ACTIVE_STATUSES))
+        .filter(calls::Column::UpdatedAt.lt(Utc::now().fixed_offset()
+            - Duration::seconds(EMPTY_ROOM_CLEANUP_GRACE_SECONDS)))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let mut ended_empty = 0;
+
+    for call in active_calls {
+        let participant_count =
+            livekit_room_participant_count(livekit, &call.livekit_room).await?;
+
+        if participant_count > 0 {
+            continue;
+        }
+
+        end_call(database, call, None, "empty_livekit_room").await?;
+        ended_empty += 1;
+    }
+
+    Ok(ended_empty)
 }
 
 fn shape_call(call: calls::Model) -> CallResponse {
