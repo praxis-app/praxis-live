@@ -1,0 +1,42 @@
+/* TODO: Check if the following can be accomplished with Tailwind CSS classes instead */
+
+.call-participant-tile .lk-focus-toggle-button,
+.call-participant-tile .lk-participant-metadata-item {
+  background-color: rgb(255 255 255 / 85%);
+  color: var(--foreground);
+}
+
+.call-grid-layout-wrapper {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.call-grid-layout {
+  grid-template-rows: repeat(var(--lk-row-count), minmax(0, 1fr));
+}
+
+.call-participant-tile-frame {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.call-participant-tile {
+  aspect-ratio: 16 / 9;
+  max-width: 100%;
+  max-height: 100%;
+  flex: none;
+}
+
+.dark .call-participant-tile .lk-focus-toggle-button,
+.dark .call-participant-tile .lk-participant-metadata-item {
+  background-color: rgb(0 0 0 / 60%);
+  color: white;
+}

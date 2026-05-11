@@ -1,4 +1,4 @@
-import { CallPanel } from '@/components/calls/call-panel';
+import { CallPanel } from '@/components/calls/call-panel/call-panel';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,

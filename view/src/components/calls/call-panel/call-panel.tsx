@@ -15,14 +15,14 @@ import { type JoinCallRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';
 import {
   GridLayout,
-  ParticipantTile,
   useParticipants,
   useTracks,
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
-import { useCallback, useEffect, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdClose } from 'react-icons/md';
+import { CallParticipantTile } from './call-participant-tile';
 
 interface Props {
   channel: ChannelRes;
@@ -37,11 +37,12 @@ export const CallPanel = ({
   serverName,
   onLeave,
 }: Props) => {
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const participants = useParticipants();
+  const { serverId } = useServerData();
+
   const isDesktop = useIsDesktop();
   const { t } = useTranslation();
-  const { serverId } = useServerData();
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const tracks = useTracks([
     { source: Track.Source.Camera, withPlaceholder: true },
@@ -69,25 +70,27 @@ export const CallPanel = ({
     };
   }, [handleEscapeKey]);
 
-  const shouldStackTiles = isDesktop && isChatOpen && tracks.length === 2;
-
-  const participantCount = t('calls.labels.participantCount', {
-    count: participants.length,
-  });
+  const tileLayoutKey = `${isDesktop ? 'desktop' : 'mobile'}-${isChatOpen ? 'chat-open' : 'chat-closed'}-${tracks.length}`;
 
   const topNavSubHeader = t(
     serverName
       ? 'calls.descriptions.statusWithServer'
       : 'calls.descriptions.status',
     {
-      participants: participantCount,
+      participants: t('calls.labels.participantCount', {
+        count: participants.length,
+      }),
       serverName,
     },
   );
 
-  const gridLayoutStyle = {
+  const shouldStackTiles =
+    tracks.length === 2 && (!isDesktop || (isDesktop && isChatOpen));
+
+  const gridLayoutStyle: CSSProperties & Record<'--lk-grid-gap', string> = {
     ...(shouldStackTiles && {
       gridTemplateColumns: 'repeat(1, minmax(0, 1fr))',
+      gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
     }),
     '--lk-grid-gap': '0.75rem',
   };
@@ -104,14 +107,16 @@ export const CallPanel = ({
 
       <main className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 p-3">
-            <GridLayout
-              tracks={tracks}
-              className="h-full min-h-0 w-full p-0"
-              style={gridLayoutStyle}
-            >
-              <ParticipantTile className="call-participant-tile bg-muted h-full min-h-0 w-full overflow-hidden rounded-md border border-[--color-border] data-[lk-speaking=true]:border-green-500" />
-            </GridLayout>
+          <div className="min-h-0 flex-1 overflow-hidden p-3">
+            <div className="call-grid-layout-wrapper h-full min-h-0">
+              <GridLayout
+                tracks={tracks}
+                className="call-grid-layout h-full min-h-0 w-full p-0"
+                style={gridLayoutStyle}
+              >
+                <CallParticipantTile layoutKey={tileLayoutKey} />
+              </GridLayout>
+            </div>
           </div>
 
           <div className="border-t border-[--color-border] px-3 py-3">

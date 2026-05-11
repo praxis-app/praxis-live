@@ -1,3 +1,4 @@
+@import './calls.css';
 @import './fonts.css';
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -161,16 +162,4 @@
   .font-inter {
     font-family: var(--font-inter);
   }
-}
-
-.call-participant-tile .lk-focus-toggle-button,
-.call-participant-tile .lk-participant-metadata-item {
-  background-color: rgb(255 255 255 / 85%);
-  color: var(--foreground);
-}
-
-.dark .call-participant-tile .lk-focus-toggle-button,
-.dark .call-participant-tile .lk-participant-metadata-item {
-  background-color: rgb(0 0 0 / 60%);
-  color: white;
 }
