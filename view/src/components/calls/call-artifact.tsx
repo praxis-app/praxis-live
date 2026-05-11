@@ -19,22 +19,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuMessagesSquare, LuPhoneCall, LuVote } from 'react-icons/lu';
 
-const ParticipantStack = ({
-  participants,
-}: {
-  participants: CallUserRes[];
-}) => (
-  <div className="flex shrink-0 -space-x-2">
-    {participants.slice(0, 4).map((participant) => (
-      <CallUserAvatar
-        key={participant.id}
-        user={participant}
-        className="border-card size-7 border-2"
-      />
-    ))}
-  </div>
-);
-
 const CallUserAvatar = ({
   user,
   className = 'size-7',
@@ -50,13 +34,6 @@ const CallUserAvatar = ({
     fallbackClassName="text-xs"
     skipLoadAnimation
   />
-);
-
-const DetailStat = ({ label, value }: { label: string; value: number }) => (
-  <div>
-    <div className="text-lg font-semibold">{value}</div>
-    <div className="text-muted-foreground text-xs">{label}</div>
-  </div>
 );
 
 const formatDuration = (
@@ -96,18 +73,20 @@ interface Props {
 export const CallArtifact = ({
   call,
   channel,
-  serverId,
-  me,
   isJoining = false,
+  me,
   onJoinCall,
+  serverId,
 }: Props) => {
-  const { t } = useTranslation();
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const { t } = useTranslation();
+
   const isActive = call.status === 'starting' || call.status === 'active';
   const duration = formatDuration(call.durationSeconds, t);
   const starterName = displayName(call.startedBy);
   const truncatedStarterName = truncate(starterName, 18);
   const formattedDate = timeAgo(call.createdAt);
+
   const participantNames = call.participants
     .map(displayName)
     .filter(Boolean)
@@ -118,6 +97,13 @@ export const CallArtifact = ({
       setDetailsOpen(true);
     }
   };
+
+  const renderDetailStat = (label: string, value: number) => (
+    <div>
+      <div className="text-lg font-semibold">{value}</div>
+      <div className="text-muted-foreground text-xs">{label}</div>
+    </div>
+  );
 
   return (
     <>
@@ -181,7 +167,15 @@ export const CallArtifact = ({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <ParticipantStack participants={call.participants} />
+                  <div className="flex shrink-0 -space-x-2">
+                    {call.participants.slice(0, 4).map((participant) => (
+                      <CallUserAvatar
+                        key={participant.id}
+                        user={participant}
+                        className="border-card size-7 border-2"
+                      />
+                    ))}
+                  </div>
                   <span className="text-muted-foreground text-xs">
                     {t('calls.labels.participantCount', {
                       count: call.participantCount,
@@ -257,18 +251,16 @@ export const CallArtifact = ({
           </DialogHeader>
           <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-none">
             <aside className="border-border space-y-3 border-b px-4 pb-4 md:border-r md:border-b-0 md:px-6">
-              <DetailStat
-                label={t('calls.artifact.messages')}
-                value={call.summary.messages}
-              />
-              <DetailStat
-                label={t('calls.artifact.proposals')}
-                value={call.summary.proposals}
-              />
-              <DetailStat
-                label={t('calls.artifact.polls')}
-                value={call.summary.polls}
-              />
+              {renderDetailStat(
+                t('calls.artifact.messages'),
+                call.summary.messages,
+              )}
+              {renderDetailStat(
+                t('calls.artifact.proposals'),
+                call.summary.proposals,
+              )}
+              {renderDetailStat(t('calls.artifact.polls'), call.summary.polls)}
+
               <div className="space-y-2">
                 <h4 className="text-xs font-medium">
                   {t('calls.artifact.participants')}

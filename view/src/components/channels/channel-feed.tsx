@@ -99,7 +99,6 @@ export const ChannelFeed = ({
     [feed, isBottomAnchored],
   );
 
-
   // Cleanup debounced function on unmount
   useEffect(() => {
     return () => {
