@@ -250,7 +250,13 @@ export const MessageForm = ({ channelId, callId, onSend }: Props) => {
               (item) => item.type === 'message' && item.id === message.id,
             );
             if (alreadyExists) {
-              return { feed: feedWithoutOptimistic };
+              return {
+                feed: feedWithoutOptimistic.map((item) =>
+                  item.type === 'message' && item.id === message.id
+                    ? newFeedItem
+                    : item,
+                ),
+              };
             }
             const sortedFeed = sortFeedByDate([
               newFeedItem,
