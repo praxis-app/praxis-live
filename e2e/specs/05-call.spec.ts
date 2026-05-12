@@ -124,6 +124,21 @@ test('starting a call immediately appears in other users channel feeds', async (
     await expect(
       observerPage.getByRole('button', { name: 'Join active video' }),
     ).toBeVisible();
+
+    const leaveCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().endsWith('/leave') &&
+        response.status() === 200,
+    );
+
+    await page.getByRole('button', { name: 'Leave call' }).click();
+    await leaveCallResponse;
+
+    await expect(observerPage.getByText('Call ended')).toBeVisible();
+    await expect(
+      observerPage.getByRole('button', { name: 'Join active video' }),
+    ).toHaveCount(0);
   } finally {
     await observerContext.close();
   }

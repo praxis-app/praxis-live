@@ -293,13 +293,16 @@ export const ChannelView = ({ channel }: Props) => {
               };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
+              const existingIndex = page.feed.findIndex(
+                (fi) => fi.type === 'call' && fi.id === newFeedItem.id,
+              );
+              if (existingIndex !== -1) {
+                const updatedFeed = [...page.feed];
+                updatedFeed[existingIndex] = newFeedItem;
+                return { feed: updatedFeed };
+              }
+
               if (index === 0) {
-                const exists = page.feed.some(
-                  (fi) => fi.type === 'call' && fi.id === newFeedItem.id,
-                );
-                if (exists) {
-                  return page;
-                }
                 const updatedFeed = [newFeedItem, ...page.feed];
                 // Sort by createdAt descending (newest first)
                 updatedFeed.sort(

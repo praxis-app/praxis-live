@@ -139,6 +139,34 @@ pub(crate) async fn leave_call(
     )
     .await?;
 
+    if call.status == "ended" || call.status == "failed" {
+        match service::get_channel_call_artifact(
+            &state.database,
+            context.server_id,
+            context.channel_id,
+            path.call_id,
+        )
+        .await
+        {
+            Ok(call) => {
+                if let Err(error) = broadcast_call(
+                    &state,
+                    context.server_id,
+                    context.channel_id,
+                    context.user_id,
+                    &call,
+                )
+                .await
+                {
+                    tracing::warn!("failed to broadcast ended call: {error}");
+                }
+            }
+            Err(error) => {
+                tracing::warn!("failed to load ended call artifact: {error}");
+            }
+        }
+    }
+
     Ok(Json(serde_json::json!({ "call": call })))
 }
 
