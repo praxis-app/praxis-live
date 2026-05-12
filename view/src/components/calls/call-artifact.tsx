@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type CallArtifactRes, type CallUserRes } from '@/types/call.types';
@@ -46,15 +47,14 @@ const formatDuration = (
   const remainingSeconds = safeSeconds % 60;
 
   if (hours > 0) {
-    return t('calls.artifact.durationHours', { hours, minutes });
+    return `${t('time.hours', { hours })} ${t('time.minutes', { minutes })}`;
   }
   if (minutes > 0) {
-    return t('calls.artifact.durationMinutes', {
-      minutes,
+    return `${t('time.minutes', { minutes })} ${t('time.seconds', {
       seconds: remainingSeconds,
-    });
+    })}`;
   }
-  return t('calls.artifact.durationSeconds', { seconds: remainingSeconds });
+  return t('time.seconds', { seconds: remainingSeconds });
 };
 
 const displayName = (user: CallUserRes) => {
@@ -83,6 +83,9 @@ export const CallArtifact = ({
 
   const isActive = call.status === 'starting' || call.status === 'active';
   const duration = formatDuration(call.durationSeconds, t);
+  const participantCount = t('calls.labels.participantCount', {
+    count: call.participantCount,
+  });
   const starterName = displayName(call.startedBy);
   const truncatedStarterName = truncate(starterName, 18);
   const formattedDate = timeAgo(call.createdAt);
@@ -134,22 +137,19 @@ export const CallArtifact = ({
             <div className="text-muted-foreground text-sm">{formattedDate}</div>
           </div>
 
-          <Card
-            className="before:border-l-border relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3"
-            role={!isActive ? 'button' : undefined}
-            aria-label={!isActive ? t('calls.actions.viewDetails') : undefined}
-            tabIndex={!isActive ? 0 : undefined}
-            onClick={handleArtifactClick}
-            onKeyDown={(event) => {
-              if (!isActive && (event.key === 'Enter' || event.key === ' ')) {
-                event.preventDefault();
-                setDetailsOpen(true);
-              }
-            }}
-          >
+          <Card className="before:border-l-border relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 space-y-2">
-                <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className={cn(
+                    'flex max-w-full items-center gap-2 text-left',
+                    !isActive && 'cursor-pointer',
+                  )}
+                  disabled={isActive}
+                  aria-label={t('calls.actions.viewDetails')}
+                  onClick={handleArtifactClick}
+                >
                   <span className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-full">
                     <LuPhoneCall className="size-4" />
                   </span>
@@ -165,9 +165,18 @@ export const CallArtifact = ({
                       })}
                     </p>
                   </div>
-                </div>
+                </button>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className={cn(
+                    'flex max-w-full flex-wrap items-center gap-2 text-left',
+                    !isActive && 'cursor-pointer',
+                  )}
+                  disabled={isActive}
+                  aria-label={t('calls.actions.viewDetails')}
+                  onClick={handleArtifactClick}
+                >
                   <div className="flex shrink-0 -space-x-2">
                     {call.participants.slice(0, 4).map((participant) => (
                       <CallUserAvatar
@@ -178,14 +187,21 @@ export const CallArtifact = ({
                     ))}
                   </div>
                   <span className="text-muted-foreground text-xs">
-                    {t('calls.labels.participantCount', {
-                      count: call.participantCount,
-                    })}
+                    {participantCount}
                     {participantNames ? `: ${participantNames}` : ''}
                   </span>
-                </div>
+                </button>
 
-                <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                <button
+                  type="button"
+                  className={cn(
+                    'text-muted-foreground flex max-w-full flex-wrap gap-x-4 gap-y-1 text-left text-xs',
+                    !isActive && 'cursor-pointer',
+                  )}
+                  disabled={isActive}
+                  aria-label={t('calls.actions.viewDetails')}
+                  onClick={handleArtifactClick}
+                >
                   <span>
                     {t('calls.artifact.duration', {
                       duration,
@@ -207,7 +223,7 @@ export const CallArtifact = ({
                       </span>
                     </>
                   )}
-                </div>
+                </button>
               </div>
 
               {isActive ? (
@@ -246,21 +262,28 @@ export const CallArtifact = ({
             <DialogDescription>
               {t('calls.artifact.detailsDescription', {
                 duration,
-                participants: call.participantCount,
+                participants: participantCount,
               })}
             </DialogDescription>
           </DialogHeader>
           <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-none">
             <aside className="border-border space-y-3 border-b px-4 pb-4 md:border-r md:border-b-0 md:px-6">
               {renderDetailStat(
-                t('calls.artifact.messages'),
+                t('calls.artifact.messages', {
+                  count: call.summary.messages,
+                }),
                 call.summary.messages,
               )}
               {renderDetailStat(
-                t('calls.artifact.proposals'),
+                t('calls.artifact.proposals', {
+                  count: call.summary.proposals,
+                }),
                 call.summary.proposals,
               )}
-              {renderDetailStat(t('calls.artifact.polls'), call.summary.polls)}
+              {renderDetailStat(
+                t('calls.artifact.polls', { count: call.summary.polls }),
+                call.summary.polls,
+              )}
 
               <div className="space-y-2">
                 <h4 className="text-xs font-medium">

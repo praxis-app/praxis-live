@@ -36,10 +36,16 @@ const formSchema = zod.object({
 interface Props {
   channelId?: string;
   callId?: string;
+  focusOnTyping?: boolean;
   onSend?(): void;
 }
 
-export const MessageForm = ({ channelId, callId, onSend }: Props) => {
+export const MessageForm = ({
+  channelId,
+  callId,
+  focusOnTyping = true,
+  onSend,
+}: Props) => {
   const [showMenu, setShowMenu] = useState(false);
   const [isAuthPromptOpen, setIsAuthPromptOpen] = useState(false);
   const [imagesInputKey, setImagesInputKey] = useState<number>();
@@ -290,6 +296,10 @@ export const MessageForm = ({ channelId, callId, onSend }: Props) => {
 
   // Focus on input when pressing space, enter, etc.
   useEffect(() => {
+    if (!focusOnTyping) {
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeElement = document.activeElement;
       if (
@@ -314,7 +324,7 @@ export const MessageForm = ({ channelId, callId, onSend }: Props) => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [focusOnTyping]);
 
   // Restore draft on page load
   useEffect(() => {

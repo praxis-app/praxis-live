@@ -306,7 +306,11 @@ export const ChannelView = ({ channel }: Props) => {
           onJoinCall={joinCall}
         />
 
-        <MessageForm channelId={channel?.id} onSend={scrollToBottom} />
+        <MessageForm
+          channelId={channel?.id}
+          focusOnTyping={!callConfig}
+          onSend={scrollToBottom}
+        />
       </div>
     </div>
   );
