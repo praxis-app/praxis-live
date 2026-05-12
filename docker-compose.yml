@@ -3,26 +3,13 @@ services:
     build: .
     ports:
       - '${VITE_SERVER_PORT}:${VITE_SERVER_PORT}'
+    env_file: .env
     environment:
-      VITE_SERVER_PORT: ${VITE_SERVER_PORT}
-      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET}
-      CHANNEL_KEY_MASTER: ${CHANNEL_KEY_MASTER}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_SCHEMA: ${DB_SCHEMA}
       DB_HOST: database
-      DB_PORT: ${DB_PORT}
-      DB_MIGRATIONS: ${DB_MIGRATIONS:-false}
       REDIS_HOST: cache
-      REDIS_PORT: ${REDIS_PORT}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       LIVEKIT_URL: ws://localhost:${LIVEKIT_PORT}
       LIVEKIT_API_URL: http://livekit:${LIVEKIT_PORT}
       LIVEKIT_HOST: livekit
-      LIVEKIT_PORT: ${LIVEKIT_PORT}
-      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
-      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
-      STALE_CALL_CLEANUP_INTERVAL_SECONDS: ${STALE_CALL_CLEANUP_INTERVAL_SECONDS:-10}
     depends_on:
       database:
         condition: service_healthy
@@ -73,6 +60,11 @@ services:
     environment:
       LIVEKIT_CONFIG: |
         port: ${LIVEKIT_PORT}
+        rtc:
+          tcp_port: ${LIVEKIT_RTC_TCP_PORT}
+          udp_port: ${LIVEKIT_RTC_UDP_PORT}
+          use_external_ip: false
+          node_ip: 127.0.0.1
         keys:
           ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
         webhook:
