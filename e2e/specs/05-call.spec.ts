@@ -1,5 +1,9 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { createAuthenticatedUser } from '../lib/auth';
+import {
+  createAuthenticatedUser,
+  seedAuthenticatedSession,
+  signUpViaApi,
+} from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
@@ -67,4 +71,60 @@ test('authenticated user can start a call and see a video tile', async ({
   await page.getByRole('button', { name: 'Open call chat' }).click();
   await callFeedResponse;
   await expectTileToRender(tile);
+});
+
+test('starting a call immediately appears in other users channel feeds', async ({
+  browser,
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  const starter = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('call-feed-starter'),
+  );
+  const observer = await signUpViaApi(
+    request,
+    createTestUser('call-feed-observer'),
+  );
+  const observerContext = await browser.newContext();
+
+  try {
+    await seedAuthenticatedSession(observerContext, observer.accessToken);
+    const observerPage = await observerContext.newPage();
+    const starterChat = new ChatPage(page);
+    const observerChat = new ChatPage(observerPage);
+
+    await starterChat.goto();
+    await observerChat.goto();
+
+    await starterChat.expectChannel('general');
+    await observerChat.expectChannel('general');
+    await expect(
+      observerPage.getByText(`Started by ${starter.user.name}`),
+    ).toHaveCount(0);
+
+    const joinCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/calls$/.test(response.url()) &&
+        response.status() === 200,
+    );
+
+    await page.getByRole('button', { name: 'Call' }).click();
+    await joinCallResponse;
+
+    await expect(observerPage.getByText('Call is active')).toBeVisible();
+    await expect(
+      observerPage.getByText(`Started by ${starter.user.name}`),
+    ).toBeVisible();
+    await expect(
+      observerPage.getByRole('button', { name: 'Join active video' }),
+    ).toBeVisible();
+  } finally {
+    await observerContext.close();
+  }
 });

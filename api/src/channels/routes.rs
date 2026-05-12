@@ -33,6 +33,11 @@ pub(crate) fn router(
             jwt_secret.clone(),
             pub_sub_service.clone(),
         ))
-        .merge(calls::router(database.clone(), jwt_secret.clone(), livekit))
+        .merge(calls::router(
+            database.clone(),
+            jwt_secret.clone(),
+            livekit,
+            pub_sub_service.clone(),
+        ))
         .merge(polls::router(database, jwt_secret, pub_sub_service))
 }

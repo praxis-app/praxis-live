@@ -12,8 +12,12 @@ use super::{
 };
 use crate::{
     auth::HasJwtSecret,
-    channels::extractors::{ChannelWriteContext, HasDatabase},
+    channels::{
+        self,
+        extractors::{ChannelWriteContext, HasDatabase},
+    },
     common::{ApiError, AppResult},
+    pub_sub::{PubSubService, PubSubTopic},
 };
 
 #[derive(Clone, Debug)]
@@ -21,6 +25,7 @@ pub(crate) struct CallsState {
     pub(crate) database: DatabaseConnection,
     jwt_secret: Arc<str>,
     pub(crate) livekit: Option<LiveKitConfig>,
+    pub(crate) pub_sub_service: Option<PubSubService>,
 }
 
 impl CallsState {
@@ -28,11 +33,13 @@ impl CallsState {
         database: DatabaseConnection,
         jwt_secret: String,
         livekit: Option<LiveKitConfig>,
+        pub_sub_service: Option<PubSubService>,
     ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
             livekit,
+            pub_sub_service,
         }
     }
 }
@@ -63,6 +70,34 @@ pub(crate) async fn start_call(
         context.user_id,
     )
     .await?;
+
+    if let Ok(call_id) = response.call.id.parse() {
+        match service::get_channel_call_artifact(
+            &state.database,
+            context.server_id,
+            context.channel_id,
+            call_id,
+        )
+        .await
+        {
+            Ok(call) => {
+                if let Err(error) = broadcast_call(
+                    &state,
+                    context.server_id,
+                    context.channel_id,
+                    context.user_id,
+                    &call,
+                )
+                .await
+                {
+                    tracing::warn!("failed to broadcast started call: {error}");
+                }
+            }
+            Err(error) => {
+                tracing::warn!("failed to load started call artifact: {error}");
+            }
+        }
+    }
 
     Ok(Json(serde_json::json!(response)))
 }
@@ -139,4 +174,35 @@ fn livekit_config(state: &CallsState) -> AppResult<&LiveKitConfig> {
             "LiveKit is not configured.",
         )
     })
+}
+
+async fn broadcast_call(
+    state: &CallsState,
+    server_id: sea_orm::prelude::Uuid,
+    channel_id: sea_orm::prelude::Uuid,
+    sender_id: sea_orm::prelude::Uuid,
+    call: &crate::calls::types::CallArtifactResponse,
+) -> AppResult<()> {
+    let Some(pub_sub_service) = state.pub_sub_service.as_ref() else {
+        return Ok(());
+    };
+    let body = serde_json::json!({
+        "type": "call",
+        "call": call,
+    });
+    let members =
+        channels::get_channel_member_user_ids(&state.database, channel_id)
+            .await?;
+
+    for member_id in members {
+        if member_id == sender_id {
+            continue;
+        }
+
+        let topic =
+            PubSubTopic::new_call(server_id, channel_id, member_id).to_string();
+        pub_sub_service.publish(&topic, body.clone()).await?;
+    }
+
+    Ok(())
 }

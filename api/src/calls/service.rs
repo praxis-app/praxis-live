@@ -338,6 +338,17 @@ pub(crate) async fn get_channel_call_artifacts(
     Ok(artifacts)
 }
 
+pub(crate) async fn get_channel_call_artifact(
+    database: &DatabaseConnection,
+    server_id: uuid::Uuid,
+    channel_id: uuid::Uuid,
+    call_id: uuid::Uuid,
+) -> AppResult<CallArtifactResponse> {
+    let call = get_call(database, server_id, channel_id, call_id).await?;
+
+    shape_call_artifact(database, call).await
+}
+
 async fn find_call<C>(
     database: &C,
     server_id: uuid::Uuid,

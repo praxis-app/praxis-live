@@ -16,6 +16,7 @@ import {
   type FeedQuery,
   type FeedQueryPage,
 } from '@/types/channel.types';
+import { type CallArtifactRes } from '@/types/call.types';
 import { type ImageRes } from '@/types/image.types';
 import { type MessageRes } from '@/types/message.types';
 import { type PollRes } from '@/types/poll.types';
@@ -33,6 +34,11 @@ interface NewMessagePayload {
 interface NewPollPayload {
   type: PubSubMessageType.POLL;
   poll: PollRes;
+}
+
+interface NewCallPayload {
+  type: PubSubMessageType.CALL;
+  call: CallArtifactRes;
 }
 
 interface ImageMessagePayload {
@@ -244,6 +250,52 @@ export const ChannelView = ({ channel }: Props) => {
               if (index === 0) {
                 const exists = page.feed.some(
                   (fi) => fi.type === 'poll' && fi.id === newFeedItem.id,
+                );
+                if (exists) {
+                  return page;
+                }
+                const updatedFeed = [newFeedItem, ...page.feed];
+                // Sort by createdAt descending (newest first)
+                updatedFeed.sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime(),
+                );
+                return { feed: updatedFeed };
+              }
+              return page;
+            });
+            return { pages, pageParams: oldData.pageParams };
+          });
+        }
+        scrollToBottom();
+      },
+      enabled: !!me && !!channel && !!serverId,
+    },
+  );
+
+  // Listen for new calls
+  useSubscription(
+    channelPubSubTopic('new-call', serverId, channel?.id, me?.id),
+    {
+      onMessage: (event) => {
+        const { body }: PubSubMessage<NewCallPayload> = JSON.parse(event.data);
+        if (!body) {
+          return;
+        }
+        if (body.type === PubSubMessageType.CALL) {
+          const newFeedItem: FeedItemRes = body.call;
+          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
+            if (!oldData) {
+              return {
+                pages: [{ feed: [newFeedItem] }],
+                pageParams: [0],
+              };
+            }
+            const pages = oldData.pages.map((page, index): FeedQueryPage => {
+              if (index === 0) {
+                const exists = page.feed.some(
+                  (fi) => fi.type === 'call' && fi.id === newFeedItem.id,
                 );
                 if (exists) {
                   return page;
