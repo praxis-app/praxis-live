@@ -101,11 +101,13 @@ test('starting a call immediately appears in other users channel feeds', async (
     await starterChat.goto();
     await observerChat.goto();
 
+    const observerCallArtifact = observerPage
+      .locator('article')
+      .filter({ hasText: `Started by ${starter.user.name}` });
+
     await starterChat.expectChannel('general');
     await observerChat.expectChannel('general');
-    await expect(
-      observerPage.getByText(`Started by ${starter.user.name}`),
-    ).toHaveCount(0);
+    await expect(observerCallArtifact).toHaveCount(0);
 
     const joinCallResponse = page.waitForResponse(
       (response) =>
@@ -117,12 +119,9 @@ test('starting a call immediately appears in other users channel feeds', async (
     await page.getByRole('button', { name: 'Call' }).click();
     await joinCallResponse;
 
-    await expect(observerPage.getByText('Call is active')).toBeVisible();
+    await expect(observerCallArtifact).toContainText('Call is active');
     await expect(
-      observerPage.getByText(`Started by ${starter.user.name}`),
-    ).toBeVisible();
-    await expect(
-      observerPage.getByRole('button', { name: 'Join active video' }),
+      observerCallArtifact.getByRole('button', { name: 'Join active video' }),
     ).toBeVisible();
 
     const leaveCallResponse = page.waitForResponse(
@@ -135,9 +134,9 @@ test('starting a call immediately appears in other users channel feeds', async (
     await page.getByRole('button', { name: 'Leave call' }).click();
     await leaveCallResponse;
 
-    await expect(observerPage.getByText('Call ended')).toBeVisible();
+    await expect(observerCallArtifact).toContainText('Call ended');
     await expect(
-      observerPage.getByRole('button', { name: 'Join active video' }),
+      observerCallArtifact.getByRole('button', { name: 'Join active video' }),
     ).toHaveCount(0);
   } finally {
     await observerContext.close();
