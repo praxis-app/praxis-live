@@ -56,7 +56,7 @@ services:
       - cache:/data
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.11
     environment:
       LIVEKIT_CONFIG: |
         port: ${LIVEKIT_PORT}

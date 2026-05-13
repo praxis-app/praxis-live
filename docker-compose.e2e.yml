@@ -49,7 +49,7 @@ services:
     image: redis:8.4.0
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.11
     environment:
       LIVEKIT_CONFIG: |
         port: 7880
