@@ -17,6 +17,18 @@ Praxis Live is a video calling app with collaborative decision-making (CDM) feat
 
 Refer to `README.md` for more information.
 
+## Backend architecture
+
+The Rust backend under `api/src` is organized into modules divided by domain or feature, such as calls, messages, polls, and votes. When adding backend functionality, follow the structure used by the existing modules:
+
+- `service.rs` contains the business logic for the module.
+- `handlers.rs` contains thin route handlers. Handlers should call service functions and handle request lifecycle concerns such as extracting inputs, shaping responses, mapping errors, and websocket interactions; keep business logic out of handlers whenever possible.
+- `routes.rs` registers endpoints and wires them to handler functions from `handlers.rs`.
+- `mod.rs` declares the module and its internal files.
+- `types.rs` contains module-specific request/response and data transfer types.
+- `models.rs`, when present, contains persisted/domain model definitions.
+- `extractors.rs`, when present, contains custom request extraction logic.
+
 ## Required verifications
 
 - After code changes (not documentation-only), run `cargo fmt --check` and `cargo test` before signaling readiness.
