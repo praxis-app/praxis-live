@@ -262,3 +262,110 @@ test('second user can join an active call from the call artifact', async ({
     await joinerContext.close();
   }
 });
+
+test('multi-user call stays active until the last participant leaves', async ({
+  browser,
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  const starter = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('call-last-leaver-starter'),
+  );
+  const server = await getDefaultServer(request, starter);
+  const inviteToken = await createInvite(request, starter, server.id);
+  const joiner = await signUpViaApi(
+    request,
+    createTestUser('call-last-leaver-joiner'),
+    inviteToken,
+  );
+  const joinerContext = await browser.newContext();
+  let joinerPage: Page | undefined;
+
+  try {
+    await seedAuthenticatedSession(joinerContext, joiner.accessToken);
+    joinerPage = await joinerContext.newPage();
+    const starterChat = new ChatPage(page);
+    const joinerChat = new ChatPage(joinerPage);
+
+    await starterChat.goto();
+    await starterChat.expectChannel('general');
+    await joinerPage.goto(page.url());
+    await joinerChat.expectChannel('general');
+
+    const starterCallArtifact = page
+      .locator('article')
+      .filter({ hasText: `Started by ${starter.user.name}` });
+    const joinerCallArtifact = joinerPage
+      .locator('article')
+      .filter({ hasText: `Started by ${starter.user.name}` });
+
+    const starterJoinCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/calls$/.test(response.url()) &&
+        response.status() === 200,
+    );
+
+    await page.getByRole('button', { name: 'Call' }).click();
+    await starterJoinCallResponse;
+    await expect(page.getByText('Call in #general')).toBeVisible();
+    await expectRenderedParticipantTiles(page, 1);
+
+    await joinerPage.reload();
+    await joinerChat.expectChannel('general');
+    await expect(joinerCallArtifact).toContainText('Call is active');
+
+    const joinerJoinCallResponse = joinerPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes('/calls/') &&
+        response.url().endsWith('/join') &&
+        response.status() === 200,
+    );
+
+    await joinerCallArtifact
+      .getByRole('button', { name: 'Join active video' })
+      .click();
+    await joinerJoinCallResponse;
+    await expect(joinerPage.getByText('Call in #general')).toBeVisible();
+    await expectRenderedParticipantTiles(page, 2);
+    await expectRenderedParticipantTiles(joinerPage, 2);
+
+    const starterLeaveCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().endsWith('/leave') &&
+        response.status() === 200,
+    );
+
+    await page.getByRole('button', { name: 'Leave call' }).click();
+    await starterLeaveCallResponse;
+
+    await expectRenderedParticipantTiles(joinerPage, 1);
+    await expect(starterCallArtifact).toContainText('Call is active');
+    await expect(starterCallArtifact).not.toContainText('Call ended');
+
+    const joinerLeaveCallResponse = joinerPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().endsWith('/leave') &&
+        response.status() === 200,
+    );
+
+    await joinerPage.getByRole('button', { name: 'Leave call' }).click();
+    await joinerLeaveCallResponse;
+
+    await expect(starterCallArtifact).toContainText('Call ended');
+  } finally {
+    if (joinerPage) {
+      await leaveCallIfVisible(joinerPage);
+    }
+    await leaveCallIfVisible(page);
+    await joinerContext.close();
+  }
+});
