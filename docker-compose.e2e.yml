@@ -53,6 +53,11 @@ services:
     environment:
       LIVEKIT_CONFIG: |
         port: 7880
+        rtc:
+          tcp_port: 37881
+          udp_port: 37882
+          use_external_ip: false
+          node_ip: 127.0.0.1
         keys:
           devkey: secret
         webhook:
@@ -61,6 +66,6 @@ services:
             - http://web:3210/api/livekit/webhook
     ports:
       - '37880:7880'
-      - '37881:7881'
-      - '37882:7882/udp'
+      - '37881:37881'
+      - '37882:37882/udp'
     command: --dev --bind 0.0.0.0

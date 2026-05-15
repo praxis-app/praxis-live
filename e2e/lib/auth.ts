@@ -45,12 +45,14 @@ type ServerResponse = {
 export async function signUpViaApi(
   request: APIRequestContext,
   user: TestUser = createTestUser(),
+  inviteToken?: string,
 ): Promise<AuthenticatedUser> {
   const response = await request.post('/api/auth/signup', {
     data: {
       name: user.name,
       email: user.email,
       password: user.password,
+      inviteToken,
     },
   });
 
