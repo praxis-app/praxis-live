@@ -4,7 +4,7 @@ import {
   seedAuthenticatedSession,
   signUpViaApi,
 } from '../lib/auth';
-import { createTestUser } from '../lib/data';
+import { createTestMessage, createTestUser } from '../lib/data';
 import { createInvite } from '../lib/invites';
 import { getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
@@ -361,6 +361,138 @@ test('multi-user call stays active until the last participant leaves', async ({
     await joinerLeaveCallResponse;
 
     await expect(starterCallArtifact).toContainText('Call ended');
+  } finally {
+    if (joinerPage) {
+      await leaveCallIfVisible(joinerPage);
+    }
+    await leaveCallIfVisible(page);
+    await joinerContext.close();
+  }
+});
+
+test('in-call chat messages are delivered realtime between participants', async ({
+  browser,
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  const starter = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('call-chat-realtime-starter'),
+  );
+  const message = createTestMessage(
+    'call-chat-realtime',
+    starter.user.suffix,
+  );
+  const server = await getDefaultServer(request, starter);
+  const inviteToken = await createInvite(request, starter, server.id);
+  const joiner = await signUpViaApi(
+    request,
+    createTestUser('call-chat-realtime-joiner'),
+    inviteToken,
+  );
+  const joinerContext = await browser.newContext();
+  let joinerPage: Page | undefined;
+
+  try {
+    await seedAuthenticatedSession(joinerContext, joiner.accessToken);
+    joinerPage = await joinerContext.newPage();
+    const starterChat = new ChatPage(page);
+    const joinerChat = new ChatPage(joinerPage);
+
+    await starterChat.goto();
+    await starterChat.expectChannel('general');
+    await joinerPage.goto(page.url());
+    await joinerChat.expectChannel('general');
+
+    const joinerCallArtifact = joinerPage
+      .locator('article')
+      .filter({ hasText: `Started by ${starter.user.name}` });
+
+    const starterJoinCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/calls$/.test(response.url()) &&
+        response.status() === 200,
+    );
+
+    await page.getByRole('button', { name: 'Call' }).click();
+    await starterJoinCallResponse;
+    await expect(page.getByText('Call in #general')).toBeVisible();
+    await expectRenderedParticipantTiles(page, 1);
+
+    await joinerPage.reload();
+    await joinerChat.expectChannel('general');
+    await expect(joinerCallArtifact).toContainText('Call is active');
+
+    const joinerJoinCallResponse = joinerPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes('/calls/') &&
+        response.url().endsWith('/join') &&
+        response.status() === 200,
+    );
+
+    await joinerCallArtifact
+      .getByRole('button', { name: 'Join active video' })
+      .click();
+    await joinerJoinCallResponse;
+    await expect(joinerPage.getByText('Call in #general')).toBeVisible();
+    await expectRenderedParticipantTiles(page, 2);
+    await expectRenderedParticipantTiles(joinerPage, 2);
+
+    const starterCallFeedResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().includes('/calls/') &&
+        response.url().includes('/feed') &&
+        response.status() === 200,
+    );
+    await page.getByRole('button', { name: 'Open call chat' }).click();
+    await starterCallFeedResponse;
+
+    const joinerCallFeedResponse = joinerPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().includes('/calls/') &&
+        response.url().includes('/feed') &&
+        response.status() === 200,
+    );
+    await joinerPage.getByRole('button', { name: 'Open call chat' }).click();
+    await joinerCallFeedResponse;
+
+    const starterCallChatPanel = page.getByRole('region', {
+      name: 'In-call chat',
+    });
+    const joinerCallChatPanel = joinerPage.getByRole('region', {
+      name: 'In-call chat',
+    });
+    await expect(starterCallChatPanel).toBeVisible();
+    await expect(joinerCallChatPanel).toBeVisible();
+
+    const messageResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes('/calls/') &&
+        response.url().includes('/messages') &&
+        response.status() === 200,
+    );
+
+    await starterCallChatPanel
+      .getByPlaceholder('Send a message...')
+      .fill(message);
+    await starterCallChatPanel
+      .getByPlaceholder('Send a message...')
+      .press('Enter');
+    await messageResponse;
+
+    await expect(joinerCallChatPanel.getByText(message)).toBeVisible();
+    await expect(
+      joinerCallChatPanel.getByText(starter.user.name).first(),
+    ).toBeVisible();
   } finally {
     if (joinerPage) {
       await leaveCallIfVisible(joinerPage);
