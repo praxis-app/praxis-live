@@ -192,6 +192,8 @@ pub(crate) async fn livekit_webhook(
     )
     .await?;
 
+    // TODO: Broadcast an updated call artifact when the webhook ends a call so
+    // open channel feeds do not show stale active-call state until refresh.
     Ok(StatusCode::NO_CONTENT)
 }
 
