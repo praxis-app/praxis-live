@@ -130,10 +130,8 @@ pub(crate) async fn create_poll(
     user_id: Uuid,
     request: CreatePollRequest,
 ) -> AppResult<PollResponse> {
-    create_poll_for_call(
-        database, server_id, channel_id, None, user_id, request,
-    )
-    .await
+    create_poll_record(database, server_id, channel_id, None, user_id, request)
+        .await
 }
 
 pub(crate) async fn create_call_poll(
@@ -146,7 +144,7 @@ pub(crate) async fn create_call_poll(
 ) -> AppResult<PollResponse> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
-    create_poll_for_call(
+    create_poll_record(
         database,
         server_id,
         channel_id,
@@ -157,7 +155,7 @@ pub(crate) async fn create_call_poll(
     .await
 }
 
-pub(crate) async fn create_poll_for_call(
+async fn create_poll_record(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
