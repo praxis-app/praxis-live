@@ -109,7 +109,7 @@ pub(crate) async fn create_message(
     user_id: Uuid,
     request: CreateMessageRequest,
 ) -> AppResult<MessageResponse> {
-    create_message_for_call(database, channel_id, None, user_id, request).await
+    create_message_record(database, channel_id, None, user_id, request).await
 }
 
 pub(crate) async fn create_call_message(
@@ -122,17 +122,11 @@ pub(crate) async fn create_call_message(
 ) -> AppResult<MessageResponse> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
-    create_message_for_call(
-        database,
-        channel_id,
-        Some(call_id),
-        user_id,
-        request,
-    )
-    .await
+    create_message_record(database, channel_id, Some(call_id), user_id, request)
+        .await
 }
 
-async fn create_message_for_call(
+async fn create_message_record(
     database: &DatabaseConnection,
     channel_id: Uuid,
     call_id: Option<Uuid>,
