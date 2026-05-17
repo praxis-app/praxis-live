@@ -86,15 +86,15 @@ pub fn build_router(
         .merge(invites::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
         .merge(instance::router(database.clone(), jwt_secret.clone()))
-        .merge(calls::livekit_webhook_router(
+        .merge(servers::router(
             database.clone(),
             jwt_secret.clone(),
+            pub_sub_service.clone(),
             livekit_config.clone(),
         ))
-        .merge(servers::router(
+        .merge(calls::livekit_webhook_router(
             database,
             jwt_secret,
-            pub_sub_service,
             livekit_config,
         ));
 
