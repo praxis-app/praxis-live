@@ -101,7 +101,7 @@ export const CallParticipantTile = ({ layoutKey }: Props) => {
       className="flex h-full min-h-0 w-full min-w-0 items-center justify-center overflow-hidden"
     >
       <ParticipantTile
-        className="bg-muted text-foreground aspect-video max-h-full max-w-full flex-none overflow-hidden rounded-md border border-[--color-border] data-[lk-speaking=true]:border-green-500 [&_.lk-focus-toggle-button]:!bg-[rgb(255_255_255_/_85%)] [&_.lk-focus-toggle-button]:!text-foreground [&_.lk-participant-metadata-item]:!bg-[rgb(255_255_255_/_85%)] [&_.lk-participant-metadata-item]:!text-foreground dark:[&_.lk-focus-toggle-button]:!bg-[rgb(0_0_0_/_60%)] dark:[&_.lk-focus-toggle-button]:!text-white dark:[&_.lk-participant-metadata-item]:!bg-[rgb(0_0_0_/_60%)] dark:[&_.lk-participant-metadata-item]:!text-white"
+        className="bg-muted text-foreground aspect-video max-h-full max-w-full flex-none overflow-hidden rounded-md border border-[--color-border] data-[lk-speaking=true]:border-green-500 [&_.lk-focus-toggle-button]:bg-[rgb(255_255_255/85%)]! [&_.lk-focus-toggle-button]:text-foreground! [&_.lk-participant-metadata-item]:bg-[rgb(255_255_255/85%)]! [&_.lk-participant-metadata-item]:text-foreground! dark:[&_.lk-focus-toggle-button]:bg-[rgb(0_0_0/60%)]! dark:[&_.lk-focus-toggle-button]:text-white! dark:[&_.lk-participant-metadata-item]:bg-[rgb(0_0_0/60%)]! dark:[&_.lk-participant-metadata-item]:text-white!"
         data-testid="call-participant-tile"
         style={tileStyle}
       />
