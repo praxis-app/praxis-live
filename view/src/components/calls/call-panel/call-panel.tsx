@@ -11,6 +11,7 @@ import {
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
+import { cn } from '@/lib/shared.utils';
 import { type JoinCallRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';
 import {
@@ -24,6 +25,30 @@ import { type CSSProperties, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdClose } from 'react-icons/md';
 import { CallParticipantTile } from './call-participant-tile';
+
+const getGridColumnCount = (
+  trackCount: number,
+  isDesktop: boolean,
+  isChatOpen: boolean,
+) => {
+  if (trackCount <= 1) {
+    return 1;
+  }
+  if (trackCount === 2 && (!isDesktop || isChatOpen)) {
+    return 1;
+  }
+  if (trackCount <= 4) {
+    return 2;
+  }
+  if (trackCount <= 9) {
+    return 3;
+  }
+  if (trackCount <= 16) {
+    return 4;
+  }
+
+  return 5;
+};
 
 interface Props {
   channel: ChannelRes;
@@ -94,15 +119,20 @@ export const CallPanel = ({
     },
   );
 
+  const gridColumnCount = getGridColumnCount(
+    tracks.length,
+    isDesktop,
+    isChatOpen,
+  );
+
   const shouldStackTiles =
     tracks.length === 2 && (!isDesktop || (isDesktop && isChatOpen));
 
-  const gridLayoutStyle: CSSProperties & Record<'--lk-grid-gap', string> = {
+  const gridLayoutStyle: CSSProperties = {
     ...(shouldStackTiles && {
       gridTemplateColumns: 'repeat(1, minmax(0, 1fr))',
       gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
     }),
-    '--lk-grid-gap': '0.75rem',
   };
 
   return (
@@ -121,7 +151,20 @@ export const CallPanel = ({
             <div className="flex h-full min-h-0 w-full flex-col items-center justify-center overflow-hidden">
               <GridLayout
                 tracks={tracks}
-                className="call-grid-layout h-full min-h-0 w-full p-0"
+                className={cn(
+                  'call-grid-layout h-full min-h-0 w-full p-0 [--lk-grid-gap:0.75rem]',
+                  shouldStackTiles &&
+                    '[&>*:first-child]:items-end [&>*:last-child]:items-start',
+                  shouldStackTiles && !isDesktop && '[--lk-grid-gap:0.375rem]',
+                  gridColumnCount === 2 &&
+                    '[&>*:nth-child(even)]:justify-start [&>*:nth-child(odd)]:justify-end',
+                  gridColumnCount === 3 &&
+                    '[&>*:nth-child(3n)]:justify-start [&>*:nth-child(3n+1)]:justify-end [&>*:nth-child(3n+2)]:justify-center',
+                  gridColumnCount === 4 &&
+                    '[&>*:nth-child(4n)]:justify-start [&>*:nth-child(4n+1)]:justify-end [&>*:nth-child(4n+2)]:justify-end [&>*:nth-child(4n+3)]:justify-start',
+                  gridColumnCount === 5 &&
+                    '[&>*:nth-child(5n)]:justify-start [&>*:nth-child(5n+1)]:justify-end [&>*:nth-child(5n+2)]:justify-end [&>*:nth-child(5n+3)]:justify-center [&>*:nth-child(5n+4)]:justify-start',
+                )}
                 style={gridLayoutStyle}
               >
                 <CallParticipantTile layoutKey={tileLayoutKey} />

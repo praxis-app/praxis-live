@@ -33,6 +33,43 @@ const expectRenderedParticipantTiles = async (
   }
 };
 
+const expectParticipantTilesToBeLaidOut = async (
+  page: { getByTestId: (testId: string) => Locator },
+  count: number,
+) => {
+  const tiles = page.getByTestId('call-participant-tile');
+
+  await expectRenderedParticipantTiles(page, count);
+  await expect
+    .poll(async () => {
+      const boxes = await Promise.all(
+        Array.from({ length: count }, (_, index) =>
+          tiles.nth(index).boundingBox(),
+        ),
+      );
+
+      if (boxes.some((box) => !box)) {
+        return false;
+      }
+
+      return boxes.every((box, index) =>
+        boxes.every((otherBox, otherIndex) => {
+          if (!box || !otherBox || index === otherIndex) {
+            return true;
+          }
+
+          return (
+            box.x + box.width <= otherBox.x ||
+            otherBox.x + otherBox.width <= box.x ||
+            box.y + box.height <= otherBox.y ||
+            otherBox.y + otherBox.height <= box.y
+          );
+        }),
+      );
+    })
+    .toBe(true);
+};
+
 const leaveCallIfVisible = async (page: Page) => {
   const leaveButton = page.getByRole('button', { name: 'Leave call' });
   if (!(await leaveButton.isVisible())) {
@@ -260,6 +297,99 @@ test('second user can join an active call from the call artifact', async ({
     }
     await leaveCallIfVisible(page);
     await joinerContext.close();
+  }
+});
+
+test('call renders four participant tiles without overlap', async ({
+  browser,
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+
+  await page.setViewportSize({ height: 720, width: 1280 });
+
+  const starter = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('call-four-tiles-starter'),
+  );
+  const server = await getDefaultServer(request, starter);
+  const inviteToken = await createInvite(request, starter, server.id);
+  const joiners = await Promise.all(
+    [1, 2, 3].map((index) =>
+      signUpViaApi(
+        request,
+        createTestUser(`call-four-tiles-joiner-${index}`),
+        inviteToken,
+      ),
+    ),
+  );
+  const joinerContexts = await Promise.all(
+    joiners.map(async (joiner) => {
+      const joinerContext = await browser.newContext({
+        viewport: { height: 720, width: 1280 },
+      });
+      await seedAuthenticatedSession(joinerContext, joiner.accessToken);
+
+      return joinerContext;
+    }),
+  );
+  const joinerPages: Page[] = [];
+
+  try {
+    const starterChat = new ChatPage(page);
+    await starterChat.goto();
+    await starterChat.expectChannel('general');
+
+    const starterJoinCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/calls$/.test(response.url()) &&
+        response.status() === 200,
+    );
+
+    await page.getByRole('button', { name: 'Call' }).click();
+    await starterJoinCallResponse;
+    await expect(page.getByText('Call in #general')).toBeVisible();
+    await expectParticipantTilesToBeLaidOut(page, 1);
+
+    for (const joinerContext of joinerContexts) {
+      const joinerPage = await joinerContext.newPage();
+      joinerPages.push(joinerPage);
+
+      const joinerChat = new ChatPage(joinerPage);
+      await joinerPage.goto(page.url());
+      await joinerChat.expectChannel('general');
+
+      const joinerCallArtifact = joinerPage
+        .locator('article')
+        .filter({ hasText: `Started by ${starter.user.name}` });
+      await expect(joinerCallArtifact).toContainText('Call is active');
+
+      const joinerJoinCallResponse = joinerPage.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          response.url().includes('/calls/') &&
+          response.url().endsWith('/join') &&
+          response.status() === 200,
+      );
+
+      await joinerCallArtifact
+        .getByRole('button', { name: 'Join active video' })
+        .click();
+      await joinerJoinCallResponse;
+      await expect(joinerPage.getByText('Call in #general')).toBeVisible();
+    }
+
+    await expectParticipantTilesToBeLaidOut(page, 4);
+  } finally {
+    for (const joinerPage of joinerPages) {
+      await leaveCallIfVisible(joinerPage);
+    }
+    await leaveCallIfVisible(page);
+    await Promise.all(joinerContexts.map((joinerContext) => joinerContext.close()));
   }
 });
 
