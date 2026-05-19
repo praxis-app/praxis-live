@@ -17,7 +17,7 @@ use crate::{
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{request::multipart_file, ApiError, AppResult},
-    pub_sub::{PubSubService, PubSubTopic},
+    pub_sub::PubSubService,
 };
 
 #[derive(Clone, Debug)]
@@ -69,8 +69,9 @@ pub(super) async fn create_poll(
     )
     .await?;
 
-    if let Err(error) = broadcast_poll(
-        &state,
+    if let Err(error) = service::broadcast_poll(
+        &state.database,
+        &state.pub_sub_service,
         context.server_id,
         context.channel_id,
         context.user_id,
@@ -99,8 +100,9 @@ pub(super) async fn create_call_poll(
     )
     .await?;
 
-    if let Err(error) = broadcast_poll_to_call(
-        &state,
+    if let Err(error) = service::broadcast_poll_to_call(
+        &state.database,
+        &state.pub_sub_service,
         context.server_id,
         context.channel_id,
         context.call_id,
@@ -132,8 +134,9 @@ pub(super) async fn upload_poll_image(
     )
     .await?;
 
-    if let Err(error) = broadcast_poll_image_upload(
-        &state,
+    if let Err(error) = service::broadcast_poll_image_upload(
+        &state.database,
+        &state.pub_sub_service,
         context.server_id,
         context.channel_id,
         context.user_id,
@@ -196,94 +199,4 @@ pub(super) async fn delete_poll(
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("poll route failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
-}
-
-async fn broadcast_poll(
-    state: &PollsState,
-    server_id: sea_orm::prelude::Uuid,
-    channel_id: sea_orm::prelude::Uuid,
-    sender_id: sea_orm::prelude::Uuid,
-    poll: &crate::polls::types::PollResponse,
-) -> AppResult<()> {
-    let body = serde_json::json!({
-        "type": "poll",
-        "poll": poll,
-    });
-
-    broadcast_to_channel_members(state, server_id, channel_id, sender_id, body)
-        .await
-}
-
-async fn broadcast_poll_to_call(
-    state: &PollsState,
-    server_id: sea_orm::prelude::Uuid,
-    channel_id: sea_orm::prelude::Uuid,
-    call_id: sea_orm::prelude::Uuid,
-    sender_id: sea_orm::prelude::Uuid,
-    poll: &crate::polls::types::PollResponse,
-) -> AppResult<()> {
-    let body = serde_json::json!({
-        "type": "poll",
-        "poll": poll,
-    });
-
-    let members =
-        channels::get_channel_member_user_ids(&state.database, channel_id)
-            .await?;
-
-    for member_id in members {
-        if member_id == sender_id {
-            continue;
-        }
-
-        let topic =
-            PubSubTopic::call_poll(server_id, channel_id, call_id, member_id)
-                .to_string();
-        state.pub_sub_service.publish(&topic, body.clone()).await?;
-    }
-
-    Ok(())
-}
-
-async fn broadcast_poll_image_upload(
-    state: &PollsState,
-    server_id: sea_orm::prelude::Uuid,
-    channel_id: sea_orm::prelude::Uuid,
-    sender_id: sea_orm::prelude::Uuid,
-    poll_id: &str,
-    image_id: &str,
-) -> AppResult<()> {
-    let body = serde_json::json!({
-        "type": "image",
-        "isPlaceholder": false,
-        "pollId": poll_id,
-        "imageId": image_id,
-    });
-
-    broadcast_to_channel_members(state, server_id, channel_id, sender_id, body)
-        .await
-}
-
-async fn broadcast_to_channel_members(
-    state: &PollsState,
-    server_id: sea_orm::prelude::Uuid,
-    channel_id: sea_orm::prelude::Uuid,
-    sender_id: sea_orm::prelude::Uuid,
-    body: serde_json::Value,
-) -> AppResult<()> {
-    let members =
-        channels::get_channel_member_user_ids(&state.database, channel_id)
-            .await?;
-
-    for member_id in members {
-        if member_id == sender_id {
-            continue;
-        }
-
-        let topic =
-            PubSubTopic::new_poll(server_id, channel_id, member_id).to_string();
-        state.pub_sub_service.publish(&topic, body.clone()).await?;
-    }
-
-    Ok(())
 }

@@ -20,8 +20,10 @@ use super::types::{
     JoinCallResponse,
 };
 use crate::{
+    channels,
     common::{ApiError, AppResult},
     messages::types::serialize_timestamp,
+    pub_sub::{PubSubService, PubSubTopic},
     users as users_service,
 };
 
@@ -347,6 +349,37 @@ pub(crate) async fn get_channel_call_artifact(
     let call = get_call(database, server_id, channel_id, call_id).await?;
 
     shape_call_artifact(database, call).await
+}
+
+pub(crate) async fn broadcast_call(
+    database: &DatabaseConnection,
+    pub_sub_service: Option<&PubSubService>,
+    server_id: uuid::Uuid,
+    channel_id: uuid::Uuid,
+    sender_id: uuid::Uuid,
+    call: &CallArtifactResponse,
+) -> AppResult<()> {
+    let Some(pub_sub_service) = pub_sub_service else {
+        return Ok(());
+    };
+    let body = serde_json::json!({
+        "type": "call",
+        "call": call,
+    });
+    let members =
+        channels::get_channel_member_user_ids(database, channel_id).await?;
+
+    for member_id in members {
+        if member_id == sender_id {
+            continue;
+        }
+
+        let topic =
+            PubSubTopic::new_call(server_id, channel_id, member_id).to_string();
+        pub_sub_service.publish(&topic, body.clone()).await?;
+    }
+
+    Ok(())
 }
 
 async fn find_call<C>(
