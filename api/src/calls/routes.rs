@@ -16,7 +16,7 @@ pub(crate) fn livekit_webhook_router(
 ) -> Router {
     Router::new()
         .route("/livekit/webhook", post(livekit_webhook))
-        .with_state(CallsState::new(database, jwt_secret, livekit, None))
+        .with_state(CallsState::new(database, jwt_secret, None, livekit))
 }
 
 pub(crate) fn router(
@@ -32,8 +32,8 @@ pub(crate) fn router(
         .with_state(CallsState::new(
             database.clone(),
             jwt_secret.clone(),
-            livekit,
             Some(pub_sub_service.clone()),
+            livekit.clone(),
         ));
 
     calls_router

@@ -22,18 +22,18 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub(crate) struct CallsState {
-    pub(crate) database: DatabaseConnection,
+    database: DatabaseConnection,
     jwt_secret: Arc<str>,
-    pub(crate) livekit: Option<LiveKitConfig>,
-    pub(crate) pub_sub_service: Option<PubSubService>,
+    pub_sub_service: Option<PubSubService>,
+    livekit: Option<LiveKitConfig>,
 }
 
 impl CallsState {
     pub(crate) fn new(
         database: DatabaseConnection,
         jwt_secret: String,
-        livekit: Option<LiveKitConfig>,
         pub_sub_service: Option<PubSubService>,
+        livekit: Option<LiveKitConfig>,
     ) -> Self {
         Self {
             database,
