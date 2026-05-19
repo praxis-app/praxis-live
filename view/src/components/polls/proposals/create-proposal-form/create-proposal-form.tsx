@@ -7,6 +7,7 @@ import {
   type CreatePollActionServerRoleMemberReq,
   type CreatePollActionServerRolePermissionReq,
 } from '@/types/poll-action.types';
+import { type CreatePollReq } from '@/types/poll.types';
 import { type ServerPermissionKeys } from '@/types/role.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -29,12 +30,14 @@ import {
 
 interface Props {
   channelId?: string;
+  callId?: string;
   onSuccess: () => void;
   onNavigate: () => void;
 }
 
 export const CreateProposalForm = ({
   channelId,
+  callId,
   onSuccess,
   onNavigate,
 }: Props) => {
@@ -219,14 +222,18 @@ export const CreateProposalForm = ({
             }
           : undefined;
 
-      return api.createPoll(serverId, channelId, {
+      const request: CreatePollReq = {
         body: values.body?.trim(),
         pollType: 'proposal',
         action: {
           actionType: values.action,
           serverRole,
         },
-      });
+      };
+
+      return callId
+        ? api.createCallPoll(serverId, channelId, callId, request)
+        : api.createPoll(serverId, channelId, request);
     },
     onSuccess: ({ poll }) => {
       if (!channelId || !serverId) {
@@ -235,7 +242,9 @@ export const CreateProposalForm = ({
 
       // Optimistically insert new poll at top of feed (no refetch)
       queryClient.setQueryData<FeedQuery>(
-        ['servers', serverId, 'channels', channelId, 'feed'],
+        callId
+          ? ['servers', serverId, 'channels', channelId, 'calls', callId, 'feed']
+          : ['servers', serverId, 'channels', channelId, 'feed'],
         (old) => {
           const newItem: FeedItemRes = {
             ...poll,

@@ -13,16 +13,20 @@ import { toast } from 'sonner';
 
 interface Props {
   header?: string;
+  subheader?: ReactNode;
   onBackClick?: () => void;
   backBtnIcon?: ReactNode;
   goBackOnEscape?: boolean;
+  showSearch?: boolean;
 }
 
 export const TopNav = ({
   header,
+  subheader,
   onBackClick,
   backBtnIcon,
   goBackOnEscape = false,
+  showSearch = true,
 }: Props) => {
   const { isNavSheetOpen, setIsNavSheetOpen } = useNavStore();
 
@@ -86,18 +90,25 @@ export const TopNav = ({
       <div className="mr-1 flex min-w-0 flex-1 items-center gap-2.5">
         {renderBackBtn()}
 
-        <div className="min-w-0 flex-1 truncate text-[1.05rem] font-medium select-none">
-          {header}
+        <div className="min-w-0 flex-1 select-none">
+          <div className="truncate text-[1.05rem] font-medium">{header}</div>
+          {subheader && (
+            <div className="text-muted-foreground truncate text-xs">
+              {subheader}
+            </div>
+          )}
         </div>
       </div>
 
-      <Button
-        onClick={() => toast(t('prompts.inDev'))}
-        variant="ghost"
-        size="icon"
-      >
-        <MdSearch className="size-6" />
-      </Button>
+      {showSearch && (
+        <Button
+          onClick={() => toast(t('prompts.inDev'))}
+          variant="ghost"
+          size="icon"
+        >
+          <MdSearch className="size-6" />
+        </Button>
+      )}
     </header>
   );
 };

@@ -9,6 +9,7 @@ pub struct Model {
     pub iv: Option<Vec<u8>>,
     pub tag: Option<Vec<u8>>,
     pub channel_id: Uuid,
+    pub call_id: Option<Uuid>,
     pub user_id: Uuid,
     pub bot_id: Option<Uuid>,
     pub command_status: Option<String>,
@@ -35,6 +36,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(
+        belongs_to = "super::calls::Entity",
+        from = "Column::CallId",
+        to = "super::calls::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Call,
     #[sea_orm(has_many = "super::message_images::Entity")]
     Images,
 }
@@ -48,6 +57,12 @@ impl Related<super::channels::Entity> for Entity {
 impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::calls::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Call.def()
     }
 }
 

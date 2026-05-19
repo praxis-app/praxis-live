@@ -9,12 +9,17 @@ import { type VoteRes } from '@/types/vote.types';
 import { type PollStage } from '@/types/poll.types';
 import { VOTE_TYPES } from '@/constants/vote.constants';
 import { type VoteType } from '@/types/vote.types';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 interface Props {
   channel: ChannelRes;
+  feedQueryKey: QueryKey;
   myVote?: VoteRes;
   pollId: string;
   stage: PollStage;
@@ -22,6 +27,7 @@ interface Props {
 
 export const ProposalVoteButtons = ({
   channel,
+  feedQueryKey,
   pollId,
   myVote,
   stage,
@@ -79,7 +85,7 @@ export const ProposalVoteButtons = ({
       queryClient.setQueryData<{
         pages: { feed: FeedItemRes[] }[];
         pageParams: number[];
-      }>(['servers', serverId, 'channels', channel.id, 'feed'], (oldData) => {
+      }>(feedQueryKey, (oldData) => {
         if (!oldData) {
           return oldData;
         }
@@ -169,7 +175,7 @@ export const ProposalVoteButtons = ({
   };
 
   return (
-    <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+    <div className="grid w-full min-w-0 grid-cols-2 gap-2 @lg:grid-cols-4">
       {VOTE_TYPES.map((vote) => (
         <Button
           key={vote}

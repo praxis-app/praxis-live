@@ -14,9 +14,10 @@ use super::{
 };
 use crate::{
     auth::HasJwtSecret,
+    calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{request::multipart_file, ApiError, AppResult},
-    pub_sub::PubSubService,
+    pub_sub::{PubSubService, PubSubTopic},
 };
 
 #[derive(Clone, Debug)]
@@ -78,6 +79,37 @@ pub(super) async fn create_poll(
     .await
     {
         tracing::warn!("failed to broadcast created poll: {error}");
+    }
+
+    Ok(Json(serde_json::json!({ "poll": poll })))
+}
+
+pub(super) async fn create_call_poll(
+    State(state): State<PollsState>,
+    context: CallWriteContext,
+    Json(payload): Json<CreatePollRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let poll = service::create_call_poll(
+        &state.database,
+        context.server_id,
+        context.channel_id,
+        context.call_id,
+        context.user_id,
+        payload,
+    )
+    .await?;
+
+    if let Err(error) = broadcast_poll_to_call(
+        &state,
+        context.server_id,
+        context.channel_id,
+        context.call_id,
+        context.user_id,
+        &poll,
+    )
+    .await
+    {
+        tracing::warn!("failed to broadcast created call poll: {error}");
     }
 
     Ok(Json(serde_json::json!({ "poll": poll })))
@@ -182,6 +214,37 @@ async fn broadcast_poll(
         .await
 }
 
+async fn broadcast_poll_to_call(
+    state: &PollsState,
+    server_id: sea_orm::prelude::Uuid,
+    channel_id: sea_orm::prelude::Uuid,
+    call_id: sea_orm::prelude::Uuid,
+    sender_id: sea_orm::prelude::Uuid,
+    poll: &crate::polls::types::PollResponse,
+) -> AppResult<()> {
+    let body = serde_json::json!({
+        "type": "poll",
+        "poll": poll,
+    });
+
+    let members =
+        channels::get_channel_member_user_ids(&state.database, channel_id)
+            .await?;
+
+    for member_id in members {
+        if member_id == sender_id {
+            continue;
+        }
+
+        let topic =
+            PubSubTopic::call_poll(server_id, channel_id, call_id, member_id)
+                .to_string();
+        state.pub_sub_service.publish(&topic, body.clone()).await?;
+    }
+
+    Ok(())
+}
+
 async fn broadcast_poll_image_upload(
     state: &PollsState,
     server_id: sea_orm::prelude::Uuid,
@@ -217,7 +280,8 @@ async fn broadcast_to_channel_members(
             continue;
         }
 
-        let topic = format!("new-poll-{server_id}-{channel_id}-{member_id}");
+        let topic =
+            PubSubTopic::new_poll(server_id, channel_id, member_id).to_string();
         state.pub_sub_service.publish(&topic, body.clone()).await?;
     }
 

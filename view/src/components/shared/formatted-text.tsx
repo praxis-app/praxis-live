@@ -42,7 +42,10 @@ export const FormattedText = ({ text, urlTrimSize, className }: Props) => {
   return (
     <div
       dangerouslySetInnerHTML={{ __html: formattedText }}
-      className={cn('whitespace-pre-wrap', className)}
+      className={cn(
+        'max-w-full min-w-0 wrap-break-word whitespace-pre-wrap',
+        className,
+      )}
     />
   );
 };

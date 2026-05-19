@@ -35,10 +35,17 @@ const formSchema = zod.object({
 
 interface Props {
   channelId?: string;
+  callId?: string;
+  focusOnTyping?: boolean;
   onSend?(): void;
 }
 
-export const MessageForm = ({ channelId, onSend }: Props) => {
+export const MessageForm = ({
+  channelId,
+  callId,
+  focusOnTyping = true,
+  onSend,
+}: Props) => {
   const [showMenu, setShowMenu] = useState(false);
   const [isAuthPromptOpen, setIsAuthPromptOpen] = useState(false);
   const [imagesInputKey, setImagesInputKey] = useState<number>();
@@ -64,8 +71,13 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
   const isEmptyBody = !getValues('body') && !formState.dirtyFields.body;
   const isEmpty = isEmptyBody && !images.length;
 
-  const draftKey = `message-draft-${serverId}-${channelId}`;
-  const feedQueryKey = ['servers', serverId, 'channels', channelId, 'feed'];
+  const draftKey = callId
+    ? `message-draft-${serverId}-${channelId}-call-${callId}`
+    : `message-draft-${serverId}-${channelId}`;
+
+  const feedQueryKey = callId
+    ? ['servers', serverId, 'channels', channelId, 'calls', callId, 'feed']
+    : ['servers', serverId, 'channels', channelId, 'feed'];
 
   const sortFeedByDate = (feed: FeedItemRes[]): FeedItemRes[] => {
     return [...feed].sort(
@@ -85,12 +97,20 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
       const currentImages = [...images];
       validateImageInput(currentImages);
 
-      const { message } = await api.sendMessage(
-        serverId,
-        channelId,
-        body,
-        currentImages.length,
-      );
+      const { message } = callId
+        ? await api.sendCallMessage(
+            serverId,
+            channelId,
+            callId,
+            body,
+            currentImages.length,
+          )
+        : await api.sendMessage(
+            serverId,
+            channelId,
+            body,
+            currentImages.length,
+          );
       const messageImages: ImageRes[] = [];
 
       if (currentImages.length && message.images) {
@@ -99,13 +119,22 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
           formData.set('file', currentImages[i]);
 
           const placeholder = message.images[i];
-          const { image } = await api.uploadMessageImage(
-            serverId,
-            channelId,
-            message.id,
-            placeholder.id,
-            formData,
-          );
+          const { image } = callId
+            ? await api.uploadCallMessageImage(
+                serverId,
+                channelId,
+                callId,
+                message.id,
+                placeholder.id,
+                formData,
+              )
+            : await api.uploadMessageImage(
+                serverId,
+                channelId,
+                message.id,
+                placeholder.id,
+                formData,
+              );
           messageImages.push(image);
         }
       }
@@ -227,7 +256,13 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
               (item) => item.type === 'message' && item.id === message.id,
             );
             if (alreadyExists) {
-              return { feed: feedWithoutOptimistic };
+              return {
+                feed: feedWithoutOptimistic.map((item) =>
+                  item.type === 'message' && item.id === message.id
+                    ? newFeedItem
+                    : item,
+                ),
+              };
             }
             const sortedFeed = sortFeedByDate([
               newFeedItem,
@@ -261,6 +296,10 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
 
   // Focus on input when pressing space, enter, etc.
   useEffect(() => {
+    if (!focusOnTyping) {
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeElement = document.activeElement;
       if (
@@ -285,7 +324,7 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [focusOnTyping]);
 
   // Restore draft on page load
   useEffect(() => {
@@ -401,6 +440,7 @@ export const MessageForm = ({ channelId, onSend }: Props) => {
             showMenu={showMenu}
             setShowMenu={setShowMenu}
             channelId={channelId}
+            callId={callId}
             disabled={isMessageSending}
           />
 

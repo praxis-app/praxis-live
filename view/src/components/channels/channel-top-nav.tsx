@@ -1,12 +1,20 @@
 import { ChannelDetailsDialogDesktop } from '@/components/channels/channel-details-dialog-desktop';
 import { ChannelDetailsDrawer } from '@/components/channels/channel-details-drawer';
+import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { NavSheet } from '@/components/nav/nav-sheet';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { truncate } from '@/lib/text.utils';
 import { useAppStore } from '@/store/app.store';
 import { type ChannelRes } from '@/types/channel.types';
+import { type JoinCallRes } from '@/types/call.types';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
 import { MdChevronRight, MdSearch, MdTag } from 'react-icons/md';
@@ -14,9 +22,21 @@ import { toast } from 'sonner';
 
 interface Props {
   channel?: ChannelRes;
+  callConfig: JoinCallRes | null;
+  serverName?: string;
+  isJoiningCall: boolean;
+  onJoinCall: () => void;
+  onLeaveCall: () => void;
 }
 
-export const ChannelTopNav = ({ channel }: Props) => {
+export const ChannelTopNav = ({
+  channel,
+  callConfig,
+  serverName,
+  isJoiningCall,
+  onJoinCall,
+  onLeaveCall,
+}: Props) => {
   const { isAppLoading } = useAppStore();
 
   const { t } = useTranslation();
@@ -29,6 +49,7 @@ export const ChannelTopNav = ({ channel }: Props) => {
     channel?.name || '',
     isDesktop ? 23 : 25,
   );
+  const searchLabel = t('actions.search');
 
   return (
     <header className="flex h-[55px] items-center justify-between border-b border-[--color-border] px-2 md:pl-6">
@@ -80,13 +101,34 @@ export const ChannelTopNav = ({ channel }: Props) => {
         </div>
       </div>
 
-      <Button
-        onClick={() => toast(t('prompts.inDev'))}
-        variant="ghost"
-        size="icon"
-      >
-        <MdSearch className="size-6" />
-      </Button>
+      <div className="flex items-center gap-1">
+        {channel && (
+          <ChannelCallButton
+            callConfig={callConfig}
+            channel={channel}
+            serverName={serverName}
+            isJoining={isJoiningCall}
+            onJoin={onJoinCall}
+            onLeave={onLeaveCall}
+          />
+        )}
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={searchLabel}
+                onClick={() => toast(t('prompts.inDev'))}
+                variant="ghost"
+                size="icon"
+              >
+                <MdSearch className="size-6" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{searchLabel}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </header>
   );
 };

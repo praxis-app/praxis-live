@@ -12,6 +12,7 @@ import { timeAgo, timeFromNow } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
+import { type QueryKey } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaClipboard } from 'react-icons/fa';
@@ -19,10 +20,11 @@ import { FaClipboard } from 'react-icons/fa';
 interface Props {
   poll: PollRes;
   channel: ChannelRes;
+  feedQueryKey: QueryKey;
   me?: CurrentUser;
 }
 
-export const InlineProposal = ({ poll, channel, me }: Props) => {
+export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
   const { t } = useTranslation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -48,7 +50,7 @@ export const InlineProposal = ({ poll, channel, me }: Props) => {
     : t('proposals.labels.consensusProposal');
 
   return (
-    <article aria-label={label} className="flex gap-4 pt-4">
+    <article aria-label={label} className="flex max-w-full min-w-0 gap-4 pt-1">
       <UserProfileDrawer
         name={truncatedName}
         userId={user.id}
@@ -65,8 +67,8 @@ export const InlineProposal = ({ poll, channel, me }: Props) => {
         }
       />
 
-      <div className="w-full">
-        <div className="flex items-center gap-1.5 pb-1">
+      <div className="max-w-full min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1.5 pb-1">
           <UserProfileDrawer
             name={truncatedName}
             userId={user.id}
@@ -80,8 +82,8 @@ export const InlineProposal = ({ poll, channel, me }: Props) => {
           <div className="text-muted-foreground text-sm">{formattedDate}</div>
         </div>
 
-        <Card className="before:border-l-border relative w-full gap-3.5 rounded-md px-3 py-3.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
-          <div className="text-muted-foreground flex items-center gap-1.5 font-medium">
+        <Card className="before:border-l-border @container relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
+          <div className="text-muted-foreground flex min-w-0 items-center gap-1.5 font-medium">
             <FaClipboard className="mb-0.5" />
             {t('proposals.labels.consensusProposal')}
           </div>
@@ -94,6 +96,7 @@ export const InlineProposal = ({ poll, channel, me }: Props) => {
             <ProposalVoteButtons
               pollId={id}
               channel={channel}
+              feedQueryKey={feedQueryKey}
               myVote={myVote}
               stage={stage}
             />
@@ -101,8 +104,8 @@ export const InlineProposal = ({ poll, channel, me }: Props) => {
 
           <Separator className="my-1" />
 
-          <div className="flex justify-between">
-            <div className="text-muted-foreground flex gap-3 text-sm">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="text-muted-foreground flex min-w-0 flex-wrap gap-3 text-sm">
               <VoteProgressDialog
                 votes={votes ?? []}
                 config={config}

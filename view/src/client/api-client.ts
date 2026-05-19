@@ -12,6 +12,7 @@ import {
   type FeedItemRes,
   type UpdateChannelReq,
 } from '@/types/channel.types';
+import { type JoinCallRes } from '@/types/call.types';
 import { type ImageRes } from '@/types/image.types';
 import {
   type InstanceConfigReq,
@@ -185,6 +186,19 @@ class ApiClient {
     });
   };
 
+  getCallFeed = async (
+    serverId: string,
+    channelId: string,
+    callId: string,
+    offset: number,
+    limit: number,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/feed`;
+    return this.executeRequest<{ feed: FeedItemRes[] }>('get', path, {
+      params: { offset, limit },
+    });
+  };
+
   createChannel = async (serverId: string, data: CreateChannelReq) => {
     const path = `/servers/${serverId}/channels`;
     return this.executeRequest<{ channel: ChannelRes }>('post', path, {
@@ -208,6 +222,29 @@ class ApiClient {
     return this.executeRequest<void>('delete', path);
   };
 
+  joinChannelCall = async (serverId: string, channelId: string) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls`;
+    return this.executeRequest<JoinCallRes>('post', path);
+  };
+
+  joinChannelCallById = async (
+    serverId: string,
+    channelId: string,
+    callId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/join`;
+    return this.executeRequest<JoinCallRes>('post', path);
+  };
+
+  leaveChannelCall = async (
+    serverId: string,
+    channelId: string,
+    callId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/leave`;
+    return this.executeRequest<void>('post', path);
+  };
+
   sendMessage = async (
     serverId: string,
     channelId: string,
@@ -215,6 +252,19 @@ class ApiClient {
     imageCount: number,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/messages`;
+    return this.executeRequest<{ message: MessageRes }>('post', path, {
+      data: { body, imageCount },
+    });
+  };
+
+  sendCallMessage = async (
+    serverId: string,
+    channelId: string,
+    callId: string,
+    body: string,
+    imageCount: number,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/messages`;
     return this.executeRequest<{ message: MessageRes }>('post', path, {
       data: { body, imageCount },
     });
@@ -228,6 +278,20 @@ class ApiClient {
     formData: FormData,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/messages/${messageId}/images/${imageId}/upload`;
+    return this.executeRequest<{ image: ImageRes }>('post', path, {
+      data: formData,
+    });
+  };
+
+  uploadCallMessageImage = async (
+    serverId: string,
+    channelId: string,
+    callId: string,
+    messageId: string,
+    imageId: string,
+    formData: FormData,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/messages/${messageId}/images/${imageId}/upload`;
     return this.executeRequest<{ image: ImageRes }>('post', path, {
       data: formData,
     });
@@ -281,6 +345,18 @@ class ApiClient {
     data: CreatePollReq,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/polls`;
+    return this.executeRequest<{ poll: PollRes }>('post', path, {
+      data,
+    });
+  };
+
+  createCallPoll = async (
+    serverId: string,
+    channelId: string,
+    callId: string,
+    data: CreatePollReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/polls`;
     return this.executeRequest<{ poll: PollRes }>('post', path, {
       data,
     });

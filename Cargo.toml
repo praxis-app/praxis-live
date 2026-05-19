@@ -21,6 +21,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 dashmap = "6"
 dotenv = "0.15"
 jsonwebtoken = "9"
+livekit-api = { version = "0.4.19", default-features = false, features = ["services-tokio", "access-token", "webhooks", "rustls-tls-native-roots"] }
 mime_guess = "2"
 password-auth = "1"
 owo-colors = "4"

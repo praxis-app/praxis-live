@@ -5,7 +5,8 @@ use axum::{
 use sea_orm::DatabaseConnection;
 
 use super::handlers::{
-    create_poll, delete_poll, get_poll_image, upload_poll_image, PollsState,
+    create_call_poll, create_poll, delete_poll, get_poll_image,
+    upload_poll_image, PollsState,
 };
 use crate::{pub_sub::PubSubService, votes};
 
@@ -16,6 +17,7 @@ pub(crate) fn router(
 ) -> Router {
     Router::new()
         .route("/{channelId}/polls", post(create_poll))
+        .route("/{channelId}/calls/{callId}/polls", post(create_call_poll))
         .route("/{channelId}/polls/{pollId}", delete(delete_poll))
         .route(
             "/{channelId}/polls/{pollId}/images/{imageId}",

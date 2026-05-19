@@ -25,6 +25,7 @@ interface Props {
   setShowMenu: (show: boolean) => void;
   trigger: ReactNode;
   channelId?: string;
+  callId?: string;
   disabled?: boolean;
 }
 
@@ -33,6 +34,7 @@ export const MessageFormMenu = ({
   showMenu,
   setShowMenu,
   channelId,
+  callId,
   disabled,
 }: Props) => {
   const [showProposalForm, setShowProposalForm] = useState(false);
@@ -52,6 +54,7 @@ export const MessageFormMenu = ({
     <>
       <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
         <DropdownMenuTrigger
+          aria-label={t('messages.actions.openMessageActions')}
           className="bg-input/30 hover:bg-input/40 inline-flex size-11 cursor-pointer items-center justify-center rounded-full p-2 px-3 focus:outline-none [&_svg]:shrink-0"
           disabled={disabled}
         >
@@ -98,6 +101,7 @@ export const MessageFormMenu = ({
 
           <CreateProposalForm
             channelId={channelId}
+            callId={callId}
             onSuccess={() => setShowProposalForm(false)}
             onNavigate={handleProposalFormNavigate}
           />
@@ -117,6 +121,7 @@ export const MessageFormMenu = ({
 
           <CreatePollForm
             channelId={channelId}
+            callId={callId}
             onSuccess={() => setShowPollForm(false)}
           />
         </DialogContent>

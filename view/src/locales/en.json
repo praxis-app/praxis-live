@@ -1,22 +1,23 @@
 {
   "actions": {
+    "add": "Add",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "copy": "Copy",
     "create": "Create",
     "delete": "Delete",
+    "disabled": "Disabled",
     "edit": "Edit",
-    "remove": "Remove",
-    "add": "Add",
-    "save": "Save",
-    "submit": "Submit",
+    "enabled": "Enabled",
     "goToHome": "Back to home",
+    "loading": "Loading...",
     "next": "Next",
     "previous": "Previous",
-    "enabled": "Enabled",
-    "disabled": "Disabled",
-    "loading": "Loading...",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "remove": "Remove",
+    "save": "Save",
+    "search": "Search",
+    "submit": "Submit"
   },
 
   "states": {
@@ -279,7 +280,8 @@
   "messages": {
     "actions": {
       "sendAnonymous": "Send anonymously",
-      "dismissMessage": "Dismiss message"
+      "dismissMessage": "Dismiss message",
+      "openMessageActions": "Open message actions"
     },
     "placeholders": {
       "sendMessage": "Send a message..."
@@ -321,6 +323,59 @@
       "createChannel": "Create a new channel",
       "creatingChannel": "Creating...",
       "startConversation": "Start a conversation around a topic or idea."
+    }
+  },
+
+  "calls": {
+    "actions": {
+      "call": "Call",
+      "joinActiveVideo": "Join active video",
+      "joinCall": "Join call",
+      "viewDetails": "View details"
+    },
+    "headers": {
+      "channelCall": "Call in #{{channelName}}",
+      "inCallChat": "In-call chat"
+    },
+    "labels": {
+      "leaveCall": "Leave call",
+      "minimizeCall": "Minimize call",
+      "muteMicrophone": "Mute microphone",
+      "openChannelChat": "Open call chat",
+      "participantCount_one": "{{count}} participant",
+      "participantCount_other": "{{count}} participants",
+      "turnCameraOff": "Turn camera off",
+      "useCamera": "Use camera",
+      "useMicrophone": "Use microphone"
+    },
+    "descriptions": {
+      "status": "{{participants}}",
+      "statusWithServer": "Server: {{serverName}} - {{participants}}",
+      "inCallChat": "Messages, proposals, and polls for this call."
+    },
+    "artifact": {
+      "activeTitle": "Call is active",
+      "decisionCount_one": "{{count}} decision",
+      "decisionCount_other": "{{count}} decisions",
+      "detailsDescription": "{{participants}} - {{duration}}",
+      "detailsTitle": "Call details",
+      "duration": "Duration {{duration}}",
+      "endedTitle": "Call ended",
+      "messageCount_one": "{{count}} message",
+      "messageCount_other": "{{count}} messages",
+      "messages_one": "Message",
+      "messages_other": "Messages",
+      "participants": "Participants",
+      "polls_one": "Poll",
+      "polls_other": "Polls",
+      "proposals_one": "Proposal",
+      "proposals_other": "Proposals",
+      "startedBy": "Started by {{name}}"
+    },
+    "errors": {
+      "cameraUnavailable": "Unable to use the camera.",
+      "joinFailed": "Unable to join the call.",
+      "microphoneUnavailable": "Unable to use the microphone."
     }
   },
 
@@ -619,6 +674,7 @@
     "minutesFull_one": "{{count}} minute",
     "minutesFull_other": "{{count}} minutes",
     "never": "Never",
+    "seconds": "{{seconds}}s",
     "unlimited": "Unlimited",
     "weeks_one": "{{count}} week",
     "weeks_other": "{{count}} weeks",

@@ -30,6 +30,7 @@ pub(crate) async fn get_feed(
 
     let messages = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
+        .filter(messages::Column::CallId.is_null())
         .order_by_desc(messages::Column::CreatedAt)
         .offset(offset)
         .limit(limit)
@@ -78,9 +79,57 @@ pub(crate) async fn get_feed(
         .collect())
 }
 
+pub(crate) async fn get_call_feed(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Uuid,
+    offset: u64,
+    limit: u64,
+) -> AppResult<Vec<FeedMessageResponse>> {
+    crate::calls::service::get_call(database, server_id, channel_id, call_id)
+        .await?;
+
+    let messages = messages::Entity::find()
+        .filter(messages::Column::ChannelId.eq(channel_id))
+        .filter(messages::Column::CallId.eq(call_id))
+        .order_by_desc(messages::Column::CreatedAt)
+        .offset(offset)
+        .limit(limit)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    shape_message_feed(database, messages).await
+}
+
 pub(crate) async fn create_message(
     database: &DatabaseConnection,
     channel_id: Uuid,
+    user_id: Uuid,
+    request: CreateMessageRequest,
+) -> AppResult<MessageResponse> {
+    create_message_record(database, channel_id, None, user_id, request).await
+}
+
+pub(crate) async fn create_call_message(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Uuid,
+    user_id: Uuid,
+    request: CreateMessageRequest,
+) -> AppResult<MessageResponse> {
+    crate::calls::service::get_call(database, server_id, channel_id, call_id)
+        .await?;
+    create_message_record(database, channel_id, Some(call_id), user_id, request)
+        .await
+}
+
+async fn create_message_record(
+    database: &DatabaseConnection,
+    channel_id: Uuid,
+    call_id: Option<Uuid>,
     user_id: Uuid,
     request: CreateMessageRequest,
 ) -> AppResult<MessageResponse> {
@@ -104,6 +153,7 @@ pub(crate) async fn create_message(
     let message = messages::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         channel_id: Set(channel_id),
+        call_id: Set(call_id),
         user_id: Set(user_id),
         key_id: Set(encrypted.as_ref().map(|(key_id, _)| *key_id)),
         ciphertext: Set(encrypted
@@ -158,6 +208,51 @@ pub(crate) async fn create_message(
         command_status: None,
         created_at: serialize_timestamp(message.created_at),
     })
+}
+
+async fn shape_message_feed(
+    database: &DatabaseConnection,
+    messages: Vec<messages::Model>,
+) -> AppResult<Vec<FeedMessageResponse>> {
+    let user_ids: Vec<Uuid> =
+        messages.iter().map(|message| message.user_id).collect();
+    let message_ids: Vec<Uuid> =
+        messages.iter().map(|message| message.id).collect();
+
+    let users = users::Entity::find()
+        .filter(users::Column::Id.is_in(user_ids.clone()))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
+    let images = message_images::Entity::find()
+        .filter(message_images::Column::MessageId.is_in(message_ids))
+        .order_by_asc(message_images::Column::CreatedAt)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let key_ids = messages
+        .iter()
+        .filter_map(|message| message.key_id)
+        .collect::<Vec<_>>();
+    let key_map =
+        channels::get_unwrapped_channel_key_map(database, key_ids).await?;
+
+    Ok(messages
+        .into_iter()
+        .map(|message| FeedMessageResponse {
+            kind: "message",
+            message: shape_message(
+                &message,
+                users.iter().find(|user| user.id == message.user_id),
+                &profile_pictures,
+                images.iter().filter(|image| image.message_id == message.id),
+                decrypt_message_body(&message, &key_map),
+            ),
+        })
+        .collect())
 }
 
 pub(crate) async fn store_message_image(
@@ -259,6 +354,28 @@ pub(crate) async fn get_message_image(
     })
 }
 
+pub(crate) async fn get_call_message_image(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Uuid,
+    message_id: Uuid,
+    image_id: Uuid,
+) -> AppResult<StoredImage> {
+    load_call_message(database, server_id, channel_id, call_id, message_id)
+        .await?;
+    get_message_image(
+        database,
+        upload_root,
+        server_id,
+        channel_id,
+        message_id,
+        image_id,
+    )
+    .await
+}
+
 pub(crate) async fn load_message(
     database: &DatabaseConnection,
     server_id: Uuid,
@@ -278,6 +395,25 @@ pub(crate) async fn load_message(
     }
 
     channels::get_channel(database, server_id, channel_id).await?;
+
+    Ok(message)
+}
+
+pub(crate) async fn load_call_message(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Uuid,
+    message_id: Uuid,
+) -> AppResult<messages::Model> {
+    crate::calls::service::get_call(database, server_id, channel_id, call_id)
+        .await?;
+    let message =
+        load_message(database, server_id, channel_id, message_id).await?;
+
+    if message.call_id != Some(call_id) {
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
+    }
 
     Ok(message)
 }

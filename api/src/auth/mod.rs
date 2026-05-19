@@ -1,10 +1,10 @@
-mod extractor;
+mod extractors;
 mod handlers;
 mod routes;
 mod service;
 mod types;
 
-pub(crate) use extractor::{
+pub(crate) use extractors::{
     authenticate_token, AuthenticatedUser, AuthenticatedUserOptional,
     HasJwtSecret,
 };

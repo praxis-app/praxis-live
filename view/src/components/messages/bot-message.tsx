@@ -117,11 +117,11 @@ export const BotMessage = ({
   };
 
   return (
-    <div className="flex gap-4">
+    <div className="flex max-w-full min-w-0 gap-4">
       <UserAvatar name={botName} imageSrc={appIconImg} className="mt-0.5" />
 
-      <div>
-        <div className="flex items-center gap-1.5">
+      <div className="max-w-full min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1.5">
           <div className="font-medium">{botName}</div>
           <div className="text-muted-foreground text-sm font-light">
             {formattedDate}
@@ -129,7 +129,7 @@ export const BotMessage = ({
         </div>
 
         <div
-          className={cn('transition-all', bodyClassName)}
+          className={cn('max-w-full min-w-0 transition-all', bodyClassName)}
           style={contentGlowStyle}
         >
           {renderContent()}

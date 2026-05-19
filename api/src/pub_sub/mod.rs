@@ -1,3 +1,5 @@
 pub(crate) mod service;
 
-pub(crate) use service::{websocket_handler, PubSubService, PubSubState};
+pub(crate) use service::{
+    websocket_handler, PubSubService, PubSubState, PubSubTopic,
+};

@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use entity::{
-    enums::VoteType, poll_actions as poll_action_entities,
+    calls, enums::VoteType, poll_actions as poll_action_entities,
     poll_option_selections, poll_options, polls, users, votes as vote_entities,
 };
 use sea_orm::{
@@ -303,6 +303,32 @@ pub(crate) async fn ensure_anonymous_can_vote_on_poll(
     Err(ApiError::new(
         StatusCode::FORBIDDEN,
         "Only registered users can vote on non-test proposals.",
+    ))
+}
+
+pub(crate) async fn ensure_poll_accepts_vote_mutations(
+    database: &DatabaseConnection,
+    poll: &polls::Model,
+) -> AppResult<()> {
+    let Some(call_id) = poll.call_id else {
+        return Ok(());
+    };
+
+    let call = calls::Entity::find_by_id(call_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Call not found.")
+        })?;
+
+    if matches!(call.status.as_str(), "starting" | "active") {
+        return Ok(());
+    }
+
+    Err(ApiError::new(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "Call has ended. Votes can no longer be changed.",
     ))
 }
 

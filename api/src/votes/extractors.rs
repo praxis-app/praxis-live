@@ -183,6 +183,7 @@ async fn load_vote_route_context(
             "Poll is no longer accepting votes.",
         ));
     }
+    service::ensure_poll_accepts_vote_mutations(&state.database, &poll).await?;
 
     channels::ensure_channel_membership(&state.database, channel_id, user_id)
         .await?;

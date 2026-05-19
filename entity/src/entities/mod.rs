@@ -1,4 +1,5 @@
 pub mod bots;
+pub mod calls;
 pub mod channel_keys;
 pub mod channel_members;
 pub mod channels;

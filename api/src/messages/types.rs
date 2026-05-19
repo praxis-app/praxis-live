@@ -12,6 +12,16 @@ pub(crate) struct MessageImagePath {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct CallMessageImagePath {
+    pub(crate) server_id: Uuid,
+    pub(crate) channel_id: Uuid,
+    pub(crate) call_id: Uuid,
+    pub(crate) message_id: Uuid,
+    pub(crate) image_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CreateMessageRequest {
     pub(crate) body: Option<String>,
     pub(crate) image_count: usize,
