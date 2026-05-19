@@ -36,33 +36,35 @@ export const useChannelCall = (serverId?: string, channelId?: string) => {
     },
   });
 
+  const leaveCall = async () => {
+    if (isLeavingRef.current) {
+      return;
+    }
+
+    isLeavingRef.current = true;
+    const callId = callConfig?.call.id;
+    setCallConfig(null);
+
+    if (!serverId || !channelId || !callId) {
+      return;
+    }
+
+    try {
+      await api.leaveChannelCall(serverId, channelId, callId);
+      void queryClient.invalidateQueries({
+        queryKey: ['servers', serverId, 'channels', channelId, 'feed'],
+      });
+    } catch {
+      // A failed best-effort leave should not trap the user inside the room.
+    } finally {
+      isLeavingRef.current = false;
+    }
+  };
+
   return {
     callConfig,
     isJoining: joinMutation.isPending,
     joinCall: (callId?: string) => joinMutation.mutate(callId),
-    leaveCall: async () => {
-      if (isLeavingRef.current) {
-        return;
-      }
-
-      isLeavingRef.current = true;
-      const callId = callConfig?.call.id;
-      setCallConfig(null);
-
-      if (!serverId || !channelId || !callId) {
-        return;
-      }
-
-      try {
-        await api.leaveChannelCall(serverId, channelId, callId);
-        void queryClient.invalidateQueries({
-          queryKey: ['servers', serverId, 'channels', channelId, 'feed'],
-        });
-      } catch {
-        // A failed best-effort leave should not trap the user inside the room.
-      } finally {
-        isLeavingRef.current = false;
-      }
-    },
+    leaveCall,
   };
 };
