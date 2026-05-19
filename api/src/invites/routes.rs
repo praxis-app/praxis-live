@@ -14,11 +14,16 @@ pub(crate) fn router(
 ) -> Router {
     Router::new()
         .route("/invites/validate/{token}", get(is_valid_invite))
-        .route("/servers/{serverId}/invites", get(get_invites))
-        .route("/servers/{serverId}/invites", post(create_invite))
-        .route(
-            "/servers/{serverId}/invites/{inviteId}",
-            delete(delete_invite),
-        )
+        .with_state(InvitesState::new(database, jwt_secret))
+}
+
+pub(crate) fn server_invites_router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+) -> Router {
+    Router::new()
+        .route("/", get(get_invites))
+        .route("/", post(create_invite))
+        .route("/{inviteId}", delete(delete_invite))
         .with_state(InvitesState::new(database, jwt_secret))
 }

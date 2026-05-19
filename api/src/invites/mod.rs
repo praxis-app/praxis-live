@@ -3,4 +3,4 @@ mod routes;
 pub(crate) mod service;
 mod types;
 
-pub(crate) use routes::router;
+pub(crate) use routes::{router, server_invites_router};

@@ -17,25 +17,48 @@ pub(crate) fn router(
     pub_sub_service: PubSubService,
 ) -> Router {
     Router::new()
-        .route("/{channelId}/feed", get(get_channel_feed))
-        .route("/{channelId}/calls/{callId}/feed", get(get_call_feed))
-        .route("/{channelId}/messages", post(create_message))
-        .route("/{channelId}/calls/{callId}/messages", post(create_call_message))
+        .route("/", post(create_message))
+        .route("/{messageId}/images/{imageId}", get(get_message_image))
         .route(
-            "/{channelId}/messages/{messageId}/images/{imageId}",
-            get(get_message_image),
-        )
-        .route(
-            "/{channelId}/calls/{callId}/messages/{messageId}/images/{imageId}",
-            get(get_call_message_image),
-        )
-        .route(
-            "/{channelId}/messages/{messageId}/images/{imageId}/upload",
+            "/{messageId}/images/{imageId}/upload",
             post(upload_message_image),
         )
+        .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
+}
+
+pub(crate) fn call_messages_router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+    pub_sub_service: PubSubService,
+) -> Router {
+    Router::new()
+        .route("/", post(create_call_message))
+        .route("/{messageId}/images/{imageId}", get(get_call_message_image))
         .route(
-            "/{channelId}/calls/{callId}/messages/{messageId}/images/{imageId}/upload",
+            "/{messageId}/images/{imageId}/upload",
             post(upload_call_message_image),
         )
+        .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
+}
+
+// TODO: Move feed routes to their own module
+
+pub(crate) fn call_feed_router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+    pub_sub_service: PubSubService,
+) -> Router {
+    Router::new()
+        .route("/", get(get_call_feed))
+        .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
+}
+
+pub(crate) fn feed_router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+    pub_sub_service: PubSubService,
+) -> Router {
+    Router::new()
+        .route("/", get(get_channel_feed))
         .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
 }

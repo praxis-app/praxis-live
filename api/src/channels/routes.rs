@@ -28,16 +28,37 @@ pub(crate) fn router(
         .with_state(ChannelsState::new(database.clone(), jwt_secret.clone()));
 
     channels_router
-        .merge(messages::router(
-            database.clone(),
-            jwt_secret.clone(),
-            pub_sub_service.clone(),
-        ))
-        .merge(calls::router(
-            database.clone(),
-            jwt_secret.clone(),
-            livekit,
-            pub_sub_service.clone(),
-        ))
-        .merge(polls::router(database, jwt_secret, pub_sub_service))
+        .nest(
+            "/{channelId}/feed",
+            messages::feed_router(
+                database.clone(),
+                jwt_secret.clone(),
+                pub_sub_service.clone(),
+            ),
+        )
+        .nest(
+            "/{channelId}/messages",
+            messages::router(
+                database.clone(),
+                jwt_secret.clone(),
+                pub_sub_service.clone(),
+            ),
+        )
+        .nest(
+            "/{channelId}/calls",
+            calls::router(
+                database.clone(),
+                jwt_secret.clone(),
+                pub_sub_service.clone(),
+                livekit,
+            ),
+        )
+        .nest(
+            "/{channelId}/polls",
+            polls::router(
+                database.clone(),
+                jwt_secret.clone(),
+                pub_sub_service.clone(),
+            ),
+        )
 }
