@@ -37,6 +37,8 @@ interface ImageMessagePayload {
   imageId: string;
 }
 
+type MessageFeedItem = Extract<FeedItemRes, { type: 'message' }>;
+
 interface Props {
   serverId?: string;
   channel: ChannelRes;
@@ -131,9 +133,7 @@ export const CallChatPanel = ({
                 : image;
             });
           };
-          const buildFeedItem = (
-            existing?: Extract<FeedItemRes, { type: 'message' }>,
-          ): FeedItemRes => ({
+          const buildFeedItem = (existing?: MessageFeedItem): MessageFeedItem => ({
             ...messagePayload,
             images: preserveImageSrc(existing?.images, messagePayload.images),
             type: 'message',
@@ -150,10 +150,10 @@ export const CallChatPanel = ({
               );
               if (existingIndex !== -1) {
                 const updatedFeed = [...page.feed];
+                const existingMessage = page.feed[existingIndex];
                 updatedFeed[existingIndex] = buildFeedItem(
-                  // TODO: Esnure this is valid for building the feed item
-                  page.feed[existingIndex].type === 'message'
-                    ? page.feed[existingIndex]
+                  existingMessage.type === 'message'
+                    ? existingMessage
                     : undefined,
                 );
                 updatedFeed.sort(

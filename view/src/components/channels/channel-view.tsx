@@ -48,6 +48,8 @@ interface ImageMessagePayload {
   imageId: string;
 }
 
+type MessageFeedItem = Extract<FeedItemRes, { type: 'message' }>;
+
 interface Props {
   channel?: ChannelRes;
 }
@@ -131,9 +133,7 @@ export const ChannelView = ({ channel }: Props) => {
             });
           };
 
-          const buildFeedItem = (
-            existing?: Extract<FeedItemRes, { type: 'message' }>,
-          ): FeedItemRes => ({
+          const buildFeedItem = (existing?: MessageFeedItem): MessageFeedItem => ({
             ...messagePayload,
             images: preserveImageSrc(existing?.images, messagePayload.images),
             type: 'message',
@@ -158,7 +158,6 @@ export const ChannelView = ({ channel }: Props) => {
                 const updatedFeed = [...page.feed];
                 const existingMessage = page.feed[existingIndex];
                 updatedFeed[existingIndex] = buildFeedItem(
-                  // TODO: Esnure this is valid for building the feed item
                   existingMessage.type === 'message'
                     ? existingMessage
                     : undefined,
