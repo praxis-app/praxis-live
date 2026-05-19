@@ -118,7 +118,7 @@ export const CallPanel = ({
       <main className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-hidden p-3">
-            <div className="call-grid-layout-wrapper h-full min-h-0">
+            <div className="flex h-full min-h-0 w-full flex-col items-center justify-center overflow-hidden">
               <GridLayout
                 tracks={tracks}
                 className="call-grid-layout h-full min-h-0 w-full p-0"

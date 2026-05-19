@@ -96,9 +96,12 @@ export const CallParticipantTile = ({ layoutKey }: Props) => {
       };
 
   return (
-    <div ref={frameRef} className="call-participant-tile-frame h-full w-full">
+    <div
+      ref={frameRef}
+      className="flex h-full min-h-0 w-full min-w-0 items-center justify-center overflow-hidden"
+    >
       <ParticipantTile
-        className="call-participant-tile bg-muted overflow-hidden rounded-md border border-[--color-border] data-[lk-speaking=true]:border-green-500"
+        className="call-participant-tile bg-muted aspect-video max-h-full max-w-full flex-none overflow-hidden rounded-md border border-[--color-border] data-[lk-speaking=true]:border-green-500"
         data-testid="call-participant-tile"
         style={tileStyle}
       />
