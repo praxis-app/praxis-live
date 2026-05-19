@@ -26,7 +26,7 @@ pub(crate) fn router(
         .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
 }
 
-pub(crate) fn call_router(
+pub(crate) fn call_messages_router(
     database: DatabaseConnection,
     jwt_secret: String,
     pub_sub_service: PubSubService,
@@ -41,15 +41,7 @@ pub(crate) fn call_router(
         .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
 }
 
-pub(crate) fn feed_router(
-    database: DatabaseConnection,
-    jwt_secret: String,
-    pub_sub_service: PubSubService,
-) -> Router {
-    Router::new()
-        .route("/", get(get_channel_feed))
-        .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
-}
+// TODO: Move feed routes to their own module
 
 pub(crate) fn call_feed_router(
     database: DatabaseConnection,
@@ -58,5 +50,15 @@ pub(crate) fn call_feed_router(
 ) -> Router {
     Router::new()
         .route("/", get(get_call_feed))
+        .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
+}
+
+pub(crate) fn feed_router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+    pub_sub_service: PubSubService,
+) -> Router {
+    Router::new()
+        .route("/", get(get_channel_feed))
         .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
 }

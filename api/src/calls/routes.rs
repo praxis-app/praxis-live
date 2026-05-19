@@ -47,7 +47,7 @@ pub(crate) fn router(
         )
         .nest(
             "/{callId}/messages",
-            messages::call_router(
+            messages::call_messages_router(
                 database.clone(),
                 jwt_secret.clone(),
                 pub_sub_service.clone(),
@@ -55,6 +55,6 @@ pub(crate) fn router(
         )
         .nest(
             "/{callId}/polls",
-            polls::call_router(database, jwt_secret, pub_sub_service),
+            polls::call_polls_router(database, jwt_secret, pub_sub_service),
         )
 }

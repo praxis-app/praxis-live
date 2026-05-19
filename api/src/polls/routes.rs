@@ -28,7 +28,7 @@ pub(crate) fn router(
         .with_state(PollsState::new(database, jwt_secret, pub_sub_service))
 }
 
-pub(crate) fn call_router(
+pub(crate) fn call_polls_router(
     database: DatabaseConnection,
     jwt_secret: String,
     pub_sub_service: PubSubService,
