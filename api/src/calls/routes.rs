@@ -22,8 +22,8 @@ pub(crate) fn livekit_webhook_router(
 pub(crate) fn router(
     database: DatabaseConnection,
     jwt_secret: String,
-    livekit: Option<LiveKitConfig>,
     pub_sub_service: PubSubService,
+    livekit: Option<LiveKitConfig>,
 ) -> Router {
     let calls_router = Router::new()
         .route("/", post(start_call))

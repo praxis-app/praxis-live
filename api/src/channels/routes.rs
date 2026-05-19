@@ -49,8 +49,8 @@ pub(crate) fn router(
             calls::router(
                 database.clone(),
                 jwt_secret.clone(),
-                livekit,
                 pub_sub_service.clone(),
+                livekit,
             ),
         )
         .nest(
