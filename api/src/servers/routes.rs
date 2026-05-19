@@ -12,7 +12,7 @@ use super::handlers::{
     remove_server_members, update_server, update_server_config, ServersState,
 };
 use super::server_roles;
-use crate::{calls::LiveKitConfig, channels, pub_sub::PubSubService};
+use crate::{calls::LiveKitConfig, channels, invites, pub_sub::PubSubService};
 
 pub(crate) fn router(
     database: DatabaseConnection,
@@ -52,6 +52,10 @@ pub(crate) fn router(
         .nest(
             "/servers/{serverId}/roles",
             server_roles::router(database.clone(), jwt_secret.clone()),
+        )
+        .nest(
+            "/servers/{serverId}/invites",
+            invites::server_router(database.clone(), jwt_secret.clone()),
         )
         .nest(
             "/servers/{serverId}/channels",

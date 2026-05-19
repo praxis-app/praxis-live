@@ -16,21 +16,24 @@ pub(crate) fn router(
     pub_sub_service: PubSubService,
 ) -> Router {
     Router::new()
-        .route("/{channelId}/polls", post(create_poll))
-        .route("/{channelId}/calls/{callId}/polls", post(create_call_poll))
-        .route("/{channelId}/polls/{pollId}", delete(delete_poll))
+        .route("/", post(create_poll))
+        .route("/{pollId}", delete(delete_poll))
+        .route("/{pollId}/images/{imageId}", get(get_poll_image))
+        .route("/{pollId}/images/{imageId}/upload", post(upload_poll_image))
         .route(
-            "/{channelId}/polls/{pollId}/images/{imageId}",
-            get(get_poll_image),
-        )
-        .route(
-            "/{channelId}/polls/{pollId}/images/{imageId}/upload",
-            post(upload_poll_image),
-        )
-        .route(
-            "/{channelId}/polls/{pollId}/options/{pollOptionId}/voters",
+            "/{pollId}/options/{pollOptionId}/voters",
             get(votes::handlers::get_voters_by_poll_option),
         )
-        .nest("/{channelId}/polls/{pollId}/votes", votes::routes::router())
+        .nest("/{pollId}/votes", votes::routes::router())
+        .with_state(PollsState::new(database, jwt_secret, pub_sub_service))
+}
+
+pub(crate) fn call_router(
+    database: DatabaseConnection,
+    jwt_secret: String,
+    pub_sub_service: PubSubService,
+) -> Router {
+    Router::new()
+        .route("/", post(create_call_poll))
         .with_state(PollsState::new(database, jwt_secret, pub_sub_service))
 }
