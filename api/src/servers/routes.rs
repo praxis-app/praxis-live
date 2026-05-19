@@ -55,7 +55,10 @@ pub(crate) fn router(
         )
         .nest(
             "/servers/{serverId}/invites",
-            invites::server_router(database.clone(), jwt_secret.clone()),
+            invites::server_invites_router(
+                database.clone(),
+                jwt_secret.clone(),
+            ),
         )
         .nest(
             "/servers/{serverId}/channels",

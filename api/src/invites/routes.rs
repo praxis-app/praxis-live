@@ -17,7 +17,7 @@ pub(crate) fn router(
         .with_state(InvitesState::new(database, jwt_secret))
 }
 
-pub(crate) fn server_router(
+pub(crate) fn server_invites_router(
     database: DatabaseConnection,
     jwt_secret: String,
 ) -> Router {
