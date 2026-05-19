@@ -70,6 +70,49 @@ const expectParticipantTilesToBeLaidOut = async (
     .toBe(true);
 };
 
+const setTheme = async (page: Page, theme: 'light' | 'dark') => {
+  await page.evaluate((nextTheme) => {
+    localStorage.setItem('praxis-theme', nextTheme);
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(nextTheme);
+  }, theme);
+};
+
+const expectedForegroundColor = async (page: Page) => {
+  return page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--foreground)';
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+
+    return color;
+  });
+};
+
+const expectParticipantMetadataStyle = async (
+  page: Page,
+  expected: {
+    backgroundColor: string;
+    color: string;
+  },
+) => {
+  const metadataItem = page.locator('.lk-participant-metadata-item').first();
+  await expect(metadataItem).toBeVisible();
+  await expect
+    .poll(async () =>
+      metadataItem.evaluate((element) => {
+        const style = getComputedStyle(element);
+
+        return {
+          backgroundColor: style.backgroundColor,
+          color: style.color,
+        };
+      }),
+    )
+    .toEqual(expected);
+};
+
 const leaveCallIfVisible = async (page: Page) => {
   const leaveButton = page.getByRole('button', { name: 'Leave call' });
   if (!(await leaveButton.isVisible())) {
@@ -390,6 +433,56 @@ test('call renders four participant tiles without overlap', async ({
     }
     await leaveCallIfVisible(page);
     await Promise.all(joinerContexts.map((joinerContext) => joinerContext.close()));
+  }
+});
+
+test('call participant metadata uses theme-aware control styles', async ({
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  await page.addInitScript(() => {
+    localStorage.setItem('praxis-theme', 'light');
+  });
+  const authenticatedUser = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('call-tile-theme'),
+  );
+  const chat = new ChatPage(page);
+
+  try {
+    await chat.goto();
+    await chat.expectChannel('general');
+
+    const joinCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/calls$/.test(response.url()) &&
+        response.status() === 200,
+    );
+
+    await page.getByRole('button', { name: 'Call' }).click();
+    await joinCallResponse;
+    await expect(page.getByText('Call in #general')).toBeVisible();
+    await expectRenderedParticipantTiles(page, 1);
+    await expect(page.getByText(authenticatedUser.user.name).first()).toBeVisible();
+
+    await setTheme(page, 'light');
+    await expectParticipantMetadataStyle(page, {
+      backgroundColor: 'rgba(255, 255, 255, 0.85)',
+      color: await expectedForegroundColor(page),
+    });
+
+    await setTheme(page, 'dark');
+    await expectParticipantMetadataStyle(page, {
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      color: 'rgb(255, 255, 255)',
+    });
+  } finally {
+    await leaveCallIfVisible(page);
   }
 });
 

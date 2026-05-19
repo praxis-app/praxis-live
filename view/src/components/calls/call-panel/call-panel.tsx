@@ -152,7 +152,7 @@ export const CallPanel = ({
               <GridLayout
                 tracks={tracks}
                 className={cn(
-                  'call-grid-layout h-full min-h-0 w-full p-0 [--lk-grid-gap:0.75rem]',
+                  'h-full min-h-0 w-full grid-rows-[repeat(var(--lk-row-count),minmax(0,1fr))] p-0 [--lk-grid-gap:0.75rem]',
                   shouldStackTiles &&
                     '[&>*:first-child]:items-end [&>*:last-child]:items-start',
                   shouldStackTiles && !isDesktop && '[--lk-grid-gap:0.375rem]',
