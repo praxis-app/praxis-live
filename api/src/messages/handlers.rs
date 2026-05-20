@@ -70,7 +70,7 @@ pub(super) async fn get_channel_feed(
 ) -> AppResult<Json<serde_json::Value>> {
     let limit = query.limit.unwrap_or(50).min(100);
     let offset = query.offset.unwrap_or(0);
-    let feed = service::get_combined_channel_feed(
+    let feed = service::get_feed(
         &chat_state.database,
         path.server_id,
         path.channel_id,
@@ -91,7 +91,7 @@ pub(super) async fn get_call_feed(
 ) -> AppResult<Json<serde_json::Value>> {
     let limit = query.limit.unwrap_or(50).min(100);
     let offset = query.offset.unwrap_or(0);
-    let feed = service::get_combined_call_feed(
+    let feed = service::get_call_feed(
         &chat_state.database,
         path.server_id,
         path.channel_id,

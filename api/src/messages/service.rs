@@ -27,95 +27,17 @@ pub(crate) async fn get_feed(
     channel_id: Uuid,
     offset: u64,
     limit: u64,
-) -> AppResult<Vec<FeedMessageResponse>> {
-    channels::get_channel(database, server_id, channel_id).await?;
-
-    let messages = messages::Entity::find()
-        .filter(messages::Column::ChannelId.eq(channel_id))
-        .filter(messages::Column::CallId.is_null())
-        .order_by_desc(messages::Column::CreatedAt)
-        .offset(offset)
-        .limit(limit)
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-
-    let user_ids: Vec<Uuid> =
-        messages.iter().map(|message| message.user_id).collect();
-    let message_ids: Vec<Uuid> =
-        messages.iter().map(|message| message.id).collect();
-
-    let users = users::Entity::find()
-        .filter(users::Column::Id.is_in(user_ids.clone()))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    let profile_pictures =
-        users_service::get_user_profile_pictures_map(database, &user_ids)
-            .await?;
-    let images = message_images::Entity::find()
-        .filter(message_images::Column::MessageId.is_in(message_ids))
-        .order_by_asc(message_images::Column::CreatedAt)
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    let key_ids = messages
-        .iter()
-        .filter_map(|message| message.key_id)
-        .collect::<Vec<_>>();
-    let key_map =
-        channels::get_unwrapped_channel_key_map(database, key_ids).await?;
-
-    Ok(messages
-        .into_iter()
-        .map(|message| FeedMessageResponse {
-            kind: "message",
-            message: shape_message(
-                &message,
-                users.iter().find(|user| user.id == message.user_id),
-                &profile_pictures,
-                images.iter().filter(|image| image.message_id == message.id),
-                decrypt_message_body(&message, &key_map),
-            ),
-        })
-        .collect())
-}
-
-pub(crate) async fn get_call_feed(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    call_id: Uuid,
-    offset: u64,
-    limit: u64,
-) -> AppResult<Vec<FeedMessageResponse>> {
-    crate::calls::service::get_call(database, server_id, channel_id, call_id)
-        .await?;
-
-    let messages = messages::Entity::find()
-        .filter(messages::Column::ChannelId.eq(channel_id))
-        .filter(messages::Column::CallId.eq(call_id))
-        .order_by_desc(messages::Column::CreatedAt)
-        .offset(offset)
-        .limit(limit)
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-
-    shape_message_feed(database, messages).await
-}
-
-pub(crate) async fn get_combined_channel_feed(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    offset: u64,
-    limit: u64,
     user_id: Option<Uuid>,
 ) -> AppResult<Vec<serde_json::Value>> {
     let fetch_limit = offset.saturating_add(limit);
-    let messages =
-        get_feed(database, server_id, channel_id, 0, fetch_limit).await?;
+    let messages = get_channel_message_feed(
+        database,
+        server_id,
+        channel_id,
+        0,
+        fetch_limit,
+    )
+    .await?;
     let polls = crate::polls::service::get_inline_polls(
         database,
         server_id,
@@ -156,7 +78,7 @@ pub(crate) async fn get_combined_channel_feed(
     Ok(sort_and_page_feed(feed, offset, limit))
 }
 
-pub(crate) async fn get_combined_call_feed(
+pub(crate) async fn get_call_feed(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -166,9 +88,15 @@ pub(crate) async fn get_combined_call_feed(
     user_id: Option<Uuid>,
 ) -> AppResult<Vec<serde_json::Value>> {
     let fetch_limit = offset.saturating_add(limit);
-    let messages =
-        get_call_feed(database, server_id, channel_id, call_id, 0, fetch_limit)
-            .await?;
+    let messages = get_call_message_feed(
+        database,
+        server_id,
+        channel_id,
+        call_id,
+        0,
+        fetch_limit,
+    )
+    .await?;
     let polls = crate::polls::service::get_inline_call_polls(
         database,
         server_id,
@@ -197,6 +125,52 @@ pub(crate) async fn get_combined_call_feed(
     }
 
     Ok(sort_and_page_feed(feed, offset, limit))
+}
+
+async fn get_channel_message_feed(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    offset: u64,
+    limit: u64,
+) -> AppResult<Vec<FeedMessageResponse>> {
+    channels::get_channel(database, server_id, channel_id).await?;
+
+    let messages = messages::Entity::find()
+        .filter(messages::Column::ChannelId.eq(channel_id))
+        .filter(messages::Column::CallId.is_null())
+        .order_by_desc(messages::Column::CreatedAt)
+        .offset(offset)
+        .limit(limit)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    shape_message_feed(database, messages).await
+}
+
+async fn get_call_message_feed(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Uuid,
+    offset: u64,
+    limit: u64,
+) -> AppResult<Vec<FeedMessageResponse>> {
+    crate::calls::service::get_call(database, server_id, channel_id, call_id)
+        .await?;
+
+    let messages = messages::Entity::find()
+        .filter(messages::Column::ChannelId.eq(channel_id))
+        .filter(messages::Column::CallId.eq(call_id))
+        .order_by_desc(messages::Column::CreatedAt)
+        .offset(offset)
+        .limit(limit)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    shape_message_feed(database, messages).await
 }
 
 pub(crate) async fn create_message(
