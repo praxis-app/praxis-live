@@ -24,6 +24,7 @@ use crate::{
     common::{encryption, text::sanitize_text, ApiError, AppResult},
     messages::types::serialize_timestamp,
     poll_actions::{self, types::CreatePollActionRequest},
+    pub_sub::{PubSubService, PubSubTopic},
     servers::{self, server_configs},
     users as users_service,
     votes::service as vote_service,
@@ -151,6 +152,88 @@ pub(crate) async fn create_call_poll(
         Some(call_id),
         user_id,
         request,
+    )
+    .await
+}
+
+pub(crate) async fn broadcast_poll(
+    database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
+    server_id: Uuid,
+    channel_id: Uuid,
+    sender_id: Uuid,
+    poll: &PollResponse,
+) -> AppResult<()> {
+    let body = serde_json::json!({
+        "type": "poll",
+        "poll": poll,
+    });
+
+    broadcast_to_channel_members(
+        database,
+        pub_sub_service,
+        server_id,
+        channel_id,
+        sender_id,
+        body,
+    )
+    .await
+}
+
+pub(crate) async fn broadcast_poll_to_call(
+    database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Uuid,
+    sender_id: Uuid,
+    poll: &PollResponse,
+) -> AppResult<()> {
+    let body = serde_json::json!({
+        "type": "poll",
+        "poll": poll,
+    });
+
+    let members =
+        channels::get_channel_member_user_ids(database, channel_id).await?;
+
+    for member_id in members {
+        if member_id == sender_id {
+            continue;
+        }
+
+        let topic =
+            PubSubTopic::call_poll(server_id, channel_id, call_id, member_id)
+                .to_string();
+        pub_sub_service.publish(&topic, body.clone()).await?;
+    }
+
+    Ok(())
+}
+
+pub(crate) async fn broadcast_poll_image_upload(
+    database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
+    server_id: Uuid,
+    channel_id: Uuid,
+    sender_id: Uuid,
+    poll_id: &str,
+    image_id: &str,
+) -> AppResult<()> {
+    let body = serde_json::json!({
+        "type": "image",
+        "isPlaceholder": false,
+        "pollId": poll_id,
+        "imageId": image_id,
+    });
+
+    broadcast_to_channel_members(
+        database,
+        pub_sub_service,
+        server_id,
+        channel_id,
+        sender_id,
+        body,
     )
     .await
 }
@@ -1154,6 +1237,30 @@ fn validate_action(
             ));
         }
     }
+    Ok(())
+}
+
+async fn broadcast_to_channel_members(
+    database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
+    server_id: Uuid,
+    channel_id: Uuid,
+    sender_id: Uuid,
+    body: serde_json::Value,
+) -> AppResult<()> {
+    let members =
+        channels::get_channel_member_user_ids(database, channel_id).await?;
+
+    for member_id in members {
+        if member_id == sender_id {
+            continue;
+        }
+
+        let topic =
+            PubSubTopic::new_poll(server_id, channel_id, member_id).to_string();
+        pub_sub_service.publish(&topic, body.clone()).await?;
+    }
+
     Ok(())
 }
 

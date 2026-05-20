@@ -12,12 +12,9 @@ use super::{
 };
 use crate::{
     auth::HasJwtSecret,
-    channels::{
-        self,
-        extractors::{ChannelWriteContext, HasDatabase},
-    },
+    channels::extractors::{ChannelWriteContext, HasDatabase},
     common::{ApiError, AppResult},
-    pub_sub::{PubSubService, PubSubTopic},
+    pub_sub::PubSubService,
 };
 
 #[derive(Clone, Debug)]
@@ -81,8 +78,9 @@ pub(crate) async fn start_call(
         .await
         {
             Ok(call) => {
-                if let Err(error) = broadcast_call(
-                    &state,
+                if let Err(error) = service::broadcast_call(
+                    &state.database,
+                    state.pub_sub_service.as_ref(),
                     context.server_id,
                     context.channel_id,
                     context.user_id,
@@ -149,8 +147,9 @@ pub(crate) async fn leave_call(
         .await
         {
             Ok(call) => {
-                if let Err(error) = broadcast_call(
-                    &state,
+                if let Err(error) = service::broadcast_call(
+                    &state.database,
+                    state.pub_sub_service.as_ref(),
                     context.server_id,
                     context.channel_id,
                     context.user_id,
@@ -204,35 +203,4 @@ fn livekit_config(state: &CallsState) -> AppResult<&LiveKitConfig> {
             "LiveKit is not configured.",
         )
     })
-}
-
-async fn broadcast_call(
-    state: &CallsState,
-    server_id: sea_orm::prelude::Uuid,
-    channel_id: sea_orm::prelude::Uuid,
-    sender_id: sea_orm::prelude::Uuid,
-    call: &crate::calls::types::CallArtifactResponse,
-) -> AppResult<()> {
-    let Some(pub_sub_service) = state.pub_sub_service.as_ref() else {
-        return Ok(());
-    };
-    let body = serde_json::json!({
-        "type": "call",
-        "call": call,
-    });
-    let members =
-        channels::get_channel_member_user_ids(&state.database, channel_id)
-            .await?;
-
-    for member_id in members {
-        if member_id == sender_id {
-            continue;
-        }
-
-        let topic =
-            PubSubTopic::new_call(server_id, channel_id, member_id).to_string();
-        pub_sub_service.publish(&topic, body.clone()).await?;
-    }
-
-    Ok(())
 }
