@@ -1,4 +1,4 @@
-import { ChannelFeed } from '@/components/channels/channel-feed';
+import { Feed } from '@/components/feeds/feed';
 import { useAuthStore } from '@/store/auth.store';
 import { customRender as render } from '@/test/lib/custom-render';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
@@ -59,7 +59,7 @@ vi.mock('@/components/polls/proposals/inline-proposal/inline-proposal', () => ({
   InlineProposal: () => <div data-testid="inline-proposal" />,
 }));
 
-describe('ChannelFeed', () => {
+describe('Feed', () => {
   const mockOnLoadMore = vi.fn();
   const mockFeedBoxRef = { current: document.createElement('div') };
   const mockChannel: ChannelRes = {
@@ -113,7 +113,7 @@ describe('ChannelFeed', () => {
     });
 
     render(
-      <ChannelFeed
+      <Feed
         channel={mockChannel}
         feed={mockFeed}
         feedQueryKey={['feed']}
@@ -135,7 +135,7 @@ describe('ChannelFeed', () => {
     });
 
     render(
-      <ChannelFeed
+      <Feed
         feed={[]}
         feedQueryKey={['feed']}
         feedBoxRef={mockFeedBoxRef}

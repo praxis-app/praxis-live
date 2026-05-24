@@ -7,7 +7,7 @@ use super::{
     },
     service::LiveKitConfig,
 };
-use crate::{messages, polls, pub_sub::PubSubService};
+use crate::{feeds, messages, polls, pub_sub::PubSubService};
 
 pub(crate) fn livekit_webhook_router(
     database: DatabaseConnection,
@@ -39,11 +39,7 @@ pub(crate) fn router(
     calls_router
         .nest(
             "/{callId}/feed",
-            messages::call_feed_router(
-                database.clone(),
-                jwt_secret.clone(),
-                pub_sub_service.clone(),
-            ),
+            feeds::call_feed_router(database.clone(), jwt_secret.clone()),
         )
         .nest(
             "/{callId}/messages",

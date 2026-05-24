@@ -1,11 +1,10 @@
 use axum::{
     body::Body,
-    extract::{Multipart, Path, Query, State},
+    extract::{Multipart, Path, State},
     http::{header, Response, StatusCode},
     response::Json,
 };
 use sea_orm::DatabaseConnection;
-use serde::Deserialize;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
@@ -14,7 +13,7 @@ use super::{
     types::{CallMessageImagePath, CreateMessageRequest, MessageImagePath},
 };
 use crate::{
-    auth::{AuthenticatedUserOptional, HasJwtSecret},
+    auth::HasJwtSecret,
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{request::multipart_file, ApiError, AppResult},
@@ -54,55 +53,6 @@ impl channels::extractors::HasDatabase for ChatState {
     fn database(&self) -> &DatabaseConnection {
         &self.database
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct FeedQuery {
-    offset: Option<u64>,
-    limit: Option<u64>,
-}
-
-pub(super) async fn get_channel_feed(
-    State(chat_state): State<ChatState>,
-    Path(path): Path<channels::types::ChannelPath>,
-    Query(query): Query<FeedQuery>,
-    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
-) -> AppResult<Json<serde_json::Value>> {
-    let limit = query.limit.unwrap_or(50).min(100);
-    let offset = query.offset.unwrap_or(0);
-    let feed = service::get_feed(
-        &chat_state.database,
-        path.server_id,
-        path.channel_id,
-        offset,
-        limit,
-        user_id,
-    )
-    .await?;
-
-    Ok(Json(serde_json::json!({ "feed": feed })))
-}
-
-pub(super) async fn get_call_feed(
-    State(chat_state): State<ChatState>,
-    Path(path): Path<crate::calls::types::CallPath>,
-    Query(query): Query<FeedQuery>,
-    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
-) -> AppResult<Json<serde_json::Value>> {
-    let limit = query.limit.unwrap_or(50).min(100);
-    let offset = query.offset.unwrap_or(0);
-    let feed = service::get_call_feed(
-        &chat_state.database,
-        path.server_id,
-        path.channel_id,
-        path.call_id,
-        offset,
-        limit,
-        user_id,
-    )
-    .await?;
-
-    Ok(Json(serde_json::json!({ "feed": feed })))
 }
 
 pub(super) async fn create_message(

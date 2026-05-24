@@ -5,6 +5,7 @@ mod auth;
 mod calls;
 mod channels;
 mod common;
+mod feeds;
 mod health;
 mod instance;
 mod invites;
