@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    serialize_timestamp, CreateMessageRequest, FeedMessageResponse,
-    ImageResponse, MessageResponse, MessageUser, StoredImage,
+    serialize_timestamp, CreateMessageRequest, ImageResponse, MessageResponse,
+    MessageUser, StoredImage,
 };
 use crate::{
     channels,
@@ -26,7 +26,7 @@ pub(crate) async fn get_channel_message_feed(
     channel_id: Uuid,
     offset: u64,
     limit: u64,
-) -> AppResult<Vec<FeedMessageResponse>> {
+) -> AppResult<Vec<MessageResponse>> {
     channels::get_channel(database, server_id, channel_id).await?;
 
     let messages = messages::Entity::find()
@@ -49,7 +49,7 @@ pub(crate) async fn get_call_message_feed(
     call_id: Uuid,
     offset: u64,
     limit: u64,
-) -> AppResult<Vec<FeedMessageResponse>> {
+) -> AppResult<Vec<MessageResponse>> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
 
@@ -282,7 +282,7 @@ async fn create_message_record(
 async fn shape_message_feed(
     database: &DatabaseConnection,
     messages: Vec<messages::Model>,
-) -> AppResult<Vec<FeedMessageResponse>> {
+) -> AppResult<Vec<MessageResponse>> {
     let user_ids: Vec<Uuid> =
         messages.iter().map(|message| message.user_id).collect();
     let message_ids: Vec<Uuid> =
@@ -311,15 +311,14 @@ async fn shape_message_feed(
 
     Ok(messages
         .into_iter()
-        .map(|message| FeedMessageResponse {
-            kind: "message",
-            message: shape_message(
+        .map(|message| {
+            shape_message(
                 &message,
                 users.iter().find(|user| user.id == message.user_id),
                 &profile_pictures,
                 images.iter().filter(|image| image.message_id == message.id),
                 decrypt_message_body(&message, &key_map),
-            ),
+            )
         })
         .collect())
 }

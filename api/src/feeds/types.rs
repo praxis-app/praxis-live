@@ -16,9 +16,26 @@ pub(super) struct FeedResponse {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub(super) enum FeedItem {
-    Message(messages::types::FeedMessageResponse),
+    Message(FeedMessageResponse),
     Poll(FeedPollResponse),
     Call(calls::types::CallArtifactResponse),
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct FeedMessageResponse {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    #[serde(flatten)]
+    pub(super) message: messages::types::MessageResponse,
+}
+
+impl FeedMessageResponse {
+    pub(super) fn new(message: messages::types::MessageResponse) -> Self {
+        Self {
+            kind: "message",
+            message,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]

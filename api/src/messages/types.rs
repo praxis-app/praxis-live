@@ -60,14 +60,6 @@ pub(crate) struct MessageResponse {
     pub(crate) created_at: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct FeedMessageResponse {
-    #[serde(rename = "type")]
-    pub(crate) kind: &'static str,
-    #[serde(flatten)]
-    pub(crate) message: MessageResponse,
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct StoredImage {
     pub(crate) content_type: Option<String>,

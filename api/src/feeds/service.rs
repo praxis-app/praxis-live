@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset};
 use sea_orm::prelude::Uuid;
 
-use super::types::{FeedItem, FeedPollResponse};
+use super::types::{FeedItem, FeedMessageResponse, FeedPollResponse};
 use crate::{calls, common::AppResult, messages, polls};
 
 pub(crate) async fn get_channel_feed(
@@ -39,7 +39,11 @@ pub(crate) async fn get_channel_feed(
     )
     .await?;
 
-    let mut feed = messages.into_iter().map(FeedItem::Message).collect();
+    let mut feed = messages
+        .into_iter()
+        .map(FeedMessageResponse::new)
+        .map(FeedItem::Message)
+        .collect();
     append_polls(&mut feed, polls);
     for call in calls {
         feed.push(FeedItem::Call(call));
@@ -78,7 +82,11 @@ pub(crate) async fn get_call_feed(
     )
     .await?;
 
-    let mut feed = messages.into_iter().map(FeedItem::Message).collect();
+    let mut feed = messages
+        .into_iter()
+        .map(FeedMessageResponse::new)
+        .map(FeedItem::Message)
+        .collect();
     append_polls(&mut feed, polls);
 
     Ok(sort_and_page_feed(feed, offset, limit))
