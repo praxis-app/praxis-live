@@ -152,5 +152,8 @@ fn id_string(value: &serde_json::Value) -> String {
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("feed request failed: {error}");
-    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+    ApiError::new(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Internal server error for feed request.",
+    )
 }
