@@ -1,5 +1,5 @@
 import { api } from '@/client/api-client';
-import { ChannelFeed } from '@/components/channels/channel-feed';
+import { Feed } from '@/components/feeds/feed';
 import { MessageForm } from '@/components/messages/message-form';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
@@ -264,7 +264,7 @@ export const CallChatPanel = ({
           {t('calls.descriptions.inCallChat')}
         </p>
       </div>
-      <ChannelFeed
+      <Feed
         channel={channel}
         feedBoxRef={feedBoxRef}
         onLoadMore={fetchNextPage}

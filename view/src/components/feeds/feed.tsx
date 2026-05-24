@@ -39,7 +39,7 @@ interface Props {
   scrollMode?: FeedScrollMode;
 }
 
-export const ChannelFeed = ({
+export const Feed = ({
   channel,
   feed,
   feedQueryKey,

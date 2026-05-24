@@ -1,5 +1,5 @@
 import { api } from '@/client/api-client';
-import { ChannelFeed } from '@/components/channels/channel-feed';
+import { Feed } from '@/components/feeds/feed';
 import { ChannelTopNav } from '@/components/channels/channel-top-nav';
 import { MessageForm } from '@/components/messages/message-form';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
@@ -349,7 +349,7 @@ export const ChannelView = ({ channel }: Props) => {
           onLeaveCall={leaveCall}
         />
 
-        <ChannelFeed
+        <Feed
           channel={channel}
           feedBoxRef={feedBoxRef}
           onLoadMore={fetchNextPage}
