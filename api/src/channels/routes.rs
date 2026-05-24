@@ -30,7 +30,7 @@ pub(crate) fn router(
     channels_router
         .nest(
             "/{channelId}/feed",
-            feeds::feed_router(database.clone(), jwt_secret.clone()),
+            feeds::channel_feed_router(database.clone(), jwt_secret.clone()),
         )
         .nest(
             "/{channelId}/messages",

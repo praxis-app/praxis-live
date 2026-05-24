@@ -3,7 +3,7 @@ use sea_orm::DatabaseConnection;
 
 use super::handlers::{get_call_feed, get_channel_feed, FeedsState};
 
-pub(crate) fn feed_router(
+pub(crate) fn channel_feed_router(
     database: DatabaseConnection,
     jwt_secret: String,
 ) -> Router {
