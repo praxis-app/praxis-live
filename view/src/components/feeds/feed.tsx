@@ -101,6 +101,13 @@ export const Feed = ({
     () => (isBottomAnchored ? feed : [...feed].reverse()),
     [feed, isBottomAnchored],
   );
+  const callsById = useMemo(() => {
+    return new Map(
+      feed
+        .filter((item) => item.type === 'call')
+        .map((call) => [call.id, call]),
+    );
+  }, [feed]);
 
   // Cleanup debounced function on unmount
   useEffect(() => {
@@ -138,6 +145,10 @@ export const Feed = ({
         }
         if (item.type === 'poll') {
           if (item.pollType === 'proposal') {
+            const sourceCall = item.sourceCallId
+              ? callsById.get(item.sourceCallId)
+              : undefined;
+
             return (
               <InlineProposal
                 key={`poll-${item.id}`}
@@ -145,6 +156,9 @@ export const Feed = ({
                 channel={channel}
                 feedQueryKey={feedQueryKey}
                 me={me}
+                sourceCall={sourceCall}
+                isJoiningSourceCall={isJoiningCall}
+                onJoinCall={onJoinCall}
                 onViewCall={setOpenCallDetailsId}
               />
             );
