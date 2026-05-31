@@ -64,7 +64,6 @@ pub(super) async fn get_call_feed(
     State(feeds_state): State<FeedsState>,
     Path(path): Path<crate::calls::types::CallPath>,
     Query(query): Query<FeedQuery>,
-    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Json<FeedResponse>> {
     let limit = query.limit.unwrap_or(50).min(100);
     let offset = query.offset.unwrap_or(0);
@@ -75,7 +74,6 @@ pub(super) async fn get_call_feed(
         path.call_id,
         offset,
         limit,
-        user_id,
     )
     .await?;
 

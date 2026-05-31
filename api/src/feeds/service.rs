@@ -59,7 +59,6 @@ pub(crate) async fn get_call_feed(
     call_id: Uuid,
     offset: u64,
     limit: u64,
-    _user_id: Option<Uuid>,
 ) -> AppResult<Vec<FeedItem>> {
     let messages = messages::get_call_message_feed(
         database, server_id, channel_id, call_id, offset, limit,
