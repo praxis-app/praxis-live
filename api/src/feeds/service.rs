@@ -59,37 +59,18 @@ pub(crate) async fn get_call_feed(
     call_id: Uuid,
     offset: u64,
     limit: u64,
-    user_id: Option<Uuid>,
+    _user_id: Option<Uuid>,
 ) -> AppResult<Vec<FeedItem>> {
-    let fetch_limit = offset.saturating_add(limit);
     let messages = messages::get_call_message_feed(
-        database,
-        server_id,
-        channel_id,
-        call_id,
-        0,
-        fetch_limit,
-    )
-    .await?;
-    let polls = polls::service::get_inline_call_polls(
-        database,
-        server_id,
-        channel_id,
-        call_id,
-        0,
-        fetch_limit,
-        user_id,
+        database, server_id, channel_id, call_id, offset, limit,
     )
     .await?;
 
-    let mut feed = messages
+    Ok(messages
         .into_iter()
         .map(FeedMessageResponse::new)
         .map(FeedItem::Message)
-        .collect();
-    append_polls(&mut feed, polls);
-
-    Ok(sort_and_page_feed(feed, offset, limit))
+        .collect())
 }
 
 fn append_polls(

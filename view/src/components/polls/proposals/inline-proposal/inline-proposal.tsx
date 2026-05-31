@@ -7,6 +7,7 @@ import { Card, CardAction } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { truncate } from '@/lib/text.utils';
 import { timeAgo, timeFromNow } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
@@ -22,9 +23,18 @@ interface Props {
   channel: ChannelRes;
   feedQueryKey: QueryKey;
   me?: CurrentUser;
+  onPollChange?: () => void;
+  onViewCall?: (callId: string) => void;
 }
 
-export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
+export const InlineProposal = ({
+  poll,
+  channel,
+  feedQueryKey,
+  me,
+  onPollChange,
+  onViewCall,
+}: Props) => {
   const { t } = useTranslation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -99,6 +109,7 @@ export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
               feedQueryKey={feedQueryKey}
               myVote={myVote}
               stage={stage}
+              onVoteSuccess={onPollChange}
             />
           </CardAction>
 
@@ -123,6 +134,26 @@ export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
             </div>
             <Badge variant="outline">{t(`proposals.labels.${stage}`)}</Badge>
           </div>
+
+          {poll.sourceCallId && stage === 'voting' && (
+            <div className="text-muted-foreground text-xs">
+              {t('proposals.labels.createdInCall')}
+              {MIDDOT_WITH_SPACES}
+              <a
+                href={`#call-${poll.sourceCallId}`}
+                className="text-primary underline-offset-4 hover:underline"
+                onClick={(event) => {
+                  if (!onViewCall) {
+                    return;
+                  }
+                  event.preventDefault();
+                  onViewCall(poll.sourceCallId!);
+                }}
+              >
+                {t('proposals.actions.viewCall')}
+              </a>
+            </div>
+          )}
         </Card>
       </div>
     </article>

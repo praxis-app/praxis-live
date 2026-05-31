@@ -44,9 +44,16 @@ interface Props {
   channel: ChannelRes;
   feedQueryKey: QueryKey;
   me?: CurrentUser;
+  onPollChange?: () => void;
 }
 
-export const InlinePoll = ({ poll, channel, feedQueryKey, me }: Props) => {
+export const InlinePoll = ({
+  poll,
+  channel,
+  feedQueryKey,
+  me,
+  onPollChange,
+}: Props) => {
   const { t } = useTranslation();
   const { serverId } = useServerData();
   const queryClient = useQueryClient();
@@ -148,6 +155,7 @@ export const InlinePoll = ({ poll, channel, feedQueryKey, me }: Props) => {
       queryClient.invalidateQueries({
         queryKey: ['pollOptionVoters', serverId, channel.id, id],
       });
+      onPollChange?.();
     },
     onError: (error: Error) => {
       handleError(error);
@@ -167,6 +175,7 @@ export const InlinePoll = ({ poll, channel, feedQueryKey, me }: Props) => {
       queryClient.invalidateQueries({
         queryKey: ['pollOptionVoters', serverId, channel.id, id],
       });
+      onPollChange?.();
     },
     onError: (error: Error) => {
       handleError(error);

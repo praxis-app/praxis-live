@@ -153,21 +153,6 @@ impl PubSubTopic {
         }
     }
 
-    pub(crate) fn call_poll(
-        server_id: Uuid,
-        channel_id: Uuid,
-        call_id: Uuid,
-        user_id: Uuid,
-    ) -> Self {
-        Self {
-            kind: PubSubTopicKind::NewPoll,
-            server_id,
-            channel_id,
-            call_id: Some(call_id),
-            user_id,
-        }
-    }
-
     fn parse(value: &str) -> Option<Self> {
         let parts = value.split(Self::DELIMITER).collect::<Vec<_>>();
         match parts.as_slice() {

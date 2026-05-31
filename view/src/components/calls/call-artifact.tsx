@@ -68,6 +68,8 @@ interface Props {
   me?: CurrentUser;
   isJoining?: boolean;
   onJoinCall?: (callId: string) => void;
+  detailsOpen?: boolean;
+  onDetailsOpenChange?: (open: boolean) => void;
 }
 
 export const CallArtifact = ({
@@ -76,10 +78,21 @@ export const CallArtifact = ({
   isJoining = false,
   me,
   onJoinCall,
+  detailsOpen: controlledDetailsOpen,
+  onDetailsOpenChange,
   serverId,
 }: Props) => {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [uncontrolledDetailsOpen, setUncontrolledDetailsOpen] =
+    useState(false);
   const { t } = useTranslation();
+
+  const detailsOpen = controlledDetailsOpen ?? uncontrolledDetailsOpen;
+  const setDetailsOpen = (open: boolean) => {
+    onDetailsOpenChange?.(open);
+    if (controlledDetailsOpen === undefined) {
+      setUncontrolledDetailsOpen(open);
+    }
+  };
 
   const isActive = call.status === 'starting' || call.status === 'active';
   const duration = formatDuration(call.durationSeconds, t);
@@ -96,9 +109,7 @@ export const CallArtifact = ({
     .join(', ');
 
   const handleArtifactClick = () => {
-    if (!isActive) {
-      setDetailsOpen(true);
-    }
+    setDetailsOpen(true);
   };
 
   const renderDetailStat = (label: string, value: number) => (
@@ -146,7 +157,6 @@ export const CallArtifact = ({
                     'flex max-w-full items-center gap-2 text-left',
                     !isActive && 'cursor-pointer',
                   )}
-                  disabled={isActive}
                   aria-label={t('calls.actions.viewDetails')}
                   onClick={handleArtifactClick}
                 >
@@ -173,7 +183,6 @@ export const CallArtifact = ({
                     'flex max-w-full flex-wrap items-center gap-2 text-left',
                     !isActive && 'cursor-pointer',
                   )}
-                  disabled={isActive}
                   aria-label={t('calls.actions.viewDetails')}
                   onClick={handleArtifactClick}
                 >
@@ -198,7 +207,6 @@ export const CallArtifact = ({
                     'text-muted-foreground flex max-w-full flex-wrap gap-x-4 gap-y-1 text-left text-xs',
                     !isActive && 'cursor-pointer',
                   )}
-                  disabled={isActive}
                   aria-label={t('calls.actions.viewDetails')}
                   onClick={handleArtifactClick}
                 >

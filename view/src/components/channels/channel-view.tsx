@@ -247,11 +247,13 @@ export const ChannelView = ({ channel }: Props) => {
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
               if (index === 0) {
-                const exists = page.feed.some(
+                const existingIndex = page.feed.findIndex(
                   (fi) => fi.type === 'poll' && fi.id === newFeedItem.id,
                 );
-                if (exists) {
-                  return page;
+                if (existingIndex !== -1) {
+                  const updatedFeed = [...page.feed];
+                  updatedFeed[existingIndex] = newFeedItem;
+                  return { feed: updatedFeed };
                 }
                 const updatedFeed = [newFeedItem, ...page.feed];
                 // Sort by createdAt descending (newest first)

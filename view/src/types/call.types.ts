@@ -1,3 +1,5 @@
+import { type PollRes } from './poll.types';
+
 export interface CallRes {
   id: string;
   serverId: string;
@@ -11,6 +13,11 @@ export interface JoinCallRes {
   roomName: string;
   token: string;
   call: CallRes;
+}
+
+export interface CallDecisionRes {
+  activeItem?: PollRes | null;
+  recentResult?: PollRes | null;
 }
 
 export interface CallUserRes {

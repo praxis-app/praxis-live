@@ -37,6 +37,7 @@ interface Props {
   channelId?: string;
   callId?: string;
   focusOnTyping?: boolean;
+  showActions?: boolean;
   onSend?(): void;
 }
 
@@ -44,6 +45,7 @@ export const MessageForm = ({
   channelId,
   callId,
   focusOnTyping = true,
+  showActions = true,
   onSend,
 }: Props) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -427,22 +429,24 @@ export const MessageForm = ({
     <Form {...form}>
       <form className="flex w-full flex-col gap-2 overflow-y-auto border-t p-2 pt-2.5 pb-4">
         <div className="flex w-full items-center gap-2">
-          <MessageFormMenu
-            trigger={
-              <MdAdd
-                className={cn(
-                  'text-muted-foreground size-7 transition-transform duration-200',
-                  isMessageSending && 'cursor-not-allowed opacity-50',
-                  showMenu && 'rotate-45',
-                )}
-              />
-            }
-            showMenu={showMenu}
-            setShowMenu={setShowMenu}
-            channelId={channelId}
-            callId={callId}
-            disabled={isMessageSending}
-          />
+          {showActions && (
+            <MessageFormMenu
+              trigger={
+                <MdAdd
+                  className={cn(
+                    'text-muted-foreground size-7 transition-transform duration-200',
+                    isMessageSending && 'cursor-not-allowed opacity-50',
+                    showMenu && 'rotate-45',
+                  )}
+                />
+              }
+              showMenu={showMenu}
+              setShowMenu={setShowMenu}
+              channelId={channelId}
+              callId={callId}
+              disabled={isMessageSending}
+            />
+          )}
 
           <div className="bg-input/30 flex w-full items-center rounded-3xl px-2">
             <FormField

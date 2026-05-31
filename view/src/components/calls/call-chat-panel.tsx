@@ -14,7 +14,6 @@ import {
 import { type ChannelRes } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
 import { type MessageRes } from '@/types/message.types';
-import { type PollRes } from '@/types/poll.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -23,11 +22,6 @@ import { useTranslation } from 'react-i18next';
 interface NewMessagePayload {
   type: PubSubMessageType.MESSAGE;
   message: MessageRes;
-}
-
-interface NewPollPayload {
-  type: PubSubMessageType.POLL;
-  poll: PollRes;
 }
 
 interface ImageMessagePayload {
@@ -208,49 +202,6 @@ export const CallChatPanel = ({
     },
   );
 
-  useSubscription(
-    callPubSubTopic('new-poll', serverId, channel.id, callId, me?.id),
-    {
-      onMessage: (event) => {
-        const { body }: PubSubMessage<NewPollPayload> = JSON.parse(event.data);
-        if (!body || body.type !== PubSubMessageType.POLL) {
-          return;
-        }
-        const newFeedItem: FeedItemRes = {
-          ...(body.poll as FeedItemRes & { type: 'poll' }),
-          type: 'poll',
-        };
-        queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
-          if (!oldData) {
-            return { pages: [{ feed: [newFeedItem] }], pageParams: [0] };
-          }
-          const pages = oldData.pages.map((page, index): FeedQueryPage => {
-            if (index !== 0) {
-              return page;
-            }
-            if (
-              page.feed.some(
-                (item) => item.type === 'poll' && item.id === newFeedItem.id,
-              )
-            ) {
-              return page;
-            }
-            const updatedFeed = [newFeedItem, ...page.feed];
-            updatedFeed.sort(
-              (a, b) =>
-                new Date(b.createdAt).getTime() -
-                new Date(a.createdAt).getTime(),
-            );
-            return { feed: updatedFeed };
-          });
-          return { pages, pageParams: oldData.pageParams };
-        });
-        scrollToBottom();
-      },
-      enabled: !!me && !!serverId,
-    },
-  );
-
   return (
     <section
       aria-label={t('calls.headers.inCallChat')}
@@ -277,6 +228,7 @@ export const CallChatPanel = ({
         <MessageForm
           channelId={channel.id}
           callId={callId}
+          showActions={false}
           onSend={scrollToBottom}
         />
       )}

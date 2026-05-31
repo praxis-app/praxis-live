@@ -240,37 +240,53 @@ export const CreateProposalForm = ({
         return;
       }
 
-      // Optimistically insert new poll at top of feed (no refetch)
-      queryClient.setQueryData<FeedQuery>(
-        callId
-          ? ['servers', serverId, 'channels', channelId, 'calls', callId, 'feed']
-          : ['servers', serverId, 'channels', channelId, 'feed'],
-        (old) => {
-          const newItem: FeedItemRes = {
-            ...poll,
-            type: 'poll',
+      const channelFeedQueryKey = [
+        'servers',
+        serverId,
+        'channels',
+        channelId,
+        'feed',
+      ];
+
+      queryClient.setQueryData<FeedQuery>(channelFeedQueryKey, (old) => {
+        const newItem: FeedItemRes = {
+          ...poll,
+          type: 'poll',
+        };
+        if (!old) {
+          return {
+            pages: [{ feed: [newItem] }],
+            pageParams: [0],
           };
-          if (!old) {
-            return {
-              pages: [{ feed: [newItem] }],
-              pageParams: [0],
-            };
+        }
+        const pages = old.pages.map((page, idx) => {
+          if (idx !== 0) {
+            return page;
           }
-          const pages = old.pages.map((page, idx) => {
-            if (idx !== 0) {
-              return page;
-            }
-            const exists = page.feed.some(
-              (fi) => fi.type === 'poll' && fi.id === poll.id,
-            );
-            if (exists) {
-              return page;
-            }
-            return { feed: [newItem, ...page.feed] };
-          });
-          return { pages, pageParams: old.pageParams };
-        },
-      );
+          const exists = page.feed.some(
+            (fi) => fi.type === 'poll' && fi.id === poll.id,
+          );
+          if (exists) {
+            return page;
+          }
+          return { feed: [newItem, ...page.feed] };
+        });
+        return { pages, pageParams: old.pageParams };
+      });
+
+      if (callId) {
+        void queryClient.invalidateQueries({
+          queryKey: [
+            'servers',
+            serverId,
+            'channels',
+            channelId,
+            'calls',
+            callId,
+            'decisions',
+          ],
+        });
+      }
 
       onSuccess();
     },

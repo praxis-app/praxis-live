@@ -51,6 +51,14 @@ pub(crate) fn router(
         )
         .nest(
             "/{callId}/polls",
-            polls::call_polls_router(database, jwt_secret, pub_sub_service),
+            polls::call_polls_router(
+                database.clone(),
+                jwt_secret.clone(),
+                pub_sub_service.clone(),
+            ),
+        )
+        .nest(
+            "/{callId}/decisions",
+            polls::call_decisions_router(database, jwt_secret, pub_sub_service),
         )
 }

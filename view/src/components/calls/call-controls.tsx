@@ -13,7 +13,7 @@ import {
   LuMessageSquare,
   LuMic,
   LuMicOff,
-  LuMinimize2,
+  LuVote,
   LuVideo,
   LuVideoOff,
 } from 'react-icons/lu';
@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 interface Props {
   onLeave: () => void;
   onOpenChat?: () => void;
+  onOpenDecisions?: () => void;
 }
 
 interface CallControlTooltipProps {
@@ -43,7 +44,11 @@ const CallControlTooltip = ({ children, label }: CallControlTooltipProps) => (
   </Tooltip>
 );
 
-export const CallControls = ({ onLeave, onOpenChat }: Props) => {
+export const CallControls = ({
+  onLeave,
+  onOpenChat,
+  onOpenDecisions,
+}: Props) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } =
     useLocalParticipant();
 
@@ -56,8 +61,8 @@ export const CallControls = ({ onLeave, onOpenChat }: Props) => {
     ? t('calls.labels.turnCameraOff')
     : t('calls.labels.useCamera');
 
-  const minimizeCallLabel = t('calls.labels.minimizeCall');
   const openChannelChatLabel = t('calls.labels.openChannelChat');
+  const openDecisionsLabel = t('calls.labels.openDecisions');
   const leaveCallLabel = t('calls.labels.leaveCall');
 
   const toggleMicrophone = async () => {
@@ -109,18 +114,6 @@ export const CallControls = ({ onLeave, onOpenChat }: Props) => {
           </Button>
         </CallControlTooltip>
 
-        <CallControlTooltip label={minimizeCallLabel}>
-          <Button
-            aria-label={minimizeCallLabel}
-            onClick={() => undefined}
-            variant="ghost"
-            size="icon"
-            className={controlButtonClassName}
-          >
-            <LuMinimize2 />
-          </Button>
-        </CallControlTooltip>
-
         <CallControlTooltip label={openChannelChatLabel}>
           <Button
             aria-label={openChannelChatLabel}
@@ -130,6 +123,18 @@ export const CallControls = ({ onLeave, onOpenChat }: Props) => {
             className={controlButtonClassName}
           >
             <LuMessageSquare />
+          </Button>
+        </CallControlTooltip>
+
+        <CallControlTooltip label={openDecisionsLabel}>
+          <Button
+            aria-label={openDecisionsLabel}
+            onClick={onOpenDecisions}
+            variant="ghost"
+            size="icon"
+            className={controlButtonClassName}
+          >
+            <LuVote />
           </Button>
         </CallControlTooltip>
 

@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{
+    channels as channel_entities,
     enums::{PollDecisionMakingModel, PollStage, PollType, VoteType},
     poll_configs, poll_images, poll_option_selections, poll_options, polls,
     users, votes,
@@ -16,8 +17,9 @@ use tokio::time::{self, MissedTickBehavior};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    CreatePollRequest, PollConfigResponse, PollImageResponse,
-    PollOptionResponse, PollResponse, PollUserResponse, StoredPollImage,
+    CallDecisionResponse, CreatePollRequest, PollConfigResponse,
+    PollImageResponse, PollOptionResponse, PollResponse, PollUserResponse,
+    StoredPollImage,
 };
 use crate::{
     channels,
@@ -61,7 +63,10 @@ struct ExpiredPollClosureSummary {
     failed: usize,
 }
 
-pub(crate) fn spawn_proposal_synchronizer(database: DatabaseConnection) {
+pub(crate) fn spawn_proposal_synchronizer(
+    database: DatabaseConnection,
+    pub_sub_service: PubSubService,
+) {
     tokio::spawn(async move {
         let mut interval = time::interval(std::time::Duration::from_secs(
             configured_interval_seconds(
@@ -74,7 +79,7 @@ pub(crate) fn spawn_proposal_synchronizer(database: DatabaseConnection) {
         loop {
             interval.tick().await;
 
-            match synchronize_proposals(&database).await {
+            match synchronize_proposals(&database, &pub_sub_service).await {
                 Ok(summary) if summary.processed > 0 => {
                     tracing::info!(
                         processed = summary.processed,
@@ -93,7 +98,10 @@ pub(crate) fn spawn_proposal_synchronizer(database: DatabaseConnection) {
     });
 }
 
-pub(crate) fn spawn_expired_poll_closer(database: DatabaseConnection) {
+pub(crate) fn spawn_expired_poll_closer(
+    database: DatabaseConnection,
+    pub_sub_service: PubSubService,
+) {
     tokio::spawn(async move {
         let mut interval = time::interval(std::time::Duration::from_secs(
             configured_interval_seconds(
@@ -106,7 +114,7 @@ pub(crate) fn spawn_expired_poll_closer(database: DatabaseConnection) {
         loop {
             interval.tick().await;
 
-            match close_expired_polls(&database).await {
+            match close_expired_polls(&database, &pub_sub_service).await {
                 Ok(summary) if summary.processed > 0 => {
                     tracing::info!(
                         processed = summary.processed,
@@ -156,56 +164,37 @@ pub(crate) async fn create_call_poll(
     .await
 }
 
-pub(crate) async fn broadcast_poll(
+pub(crate) async fn broadcast_poll_update(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
     server_id: Uuid,
     channel_id: Uuid,
-    sender_id: Uuid,
-    poll: &PollResponse,
+    sender_id: Option<Uuid>,
+    poll_id: Uuid,
 ) -> AppResult<()> {
-    let body = serde_json::json!({
-        "type": "poll",
-        "poll": poll,
-    });
-
-    broadcast_to_channel_members(
-        database,
-        pub_sub_service,
-        server_id,
-        channel_id,
-        sender_id,
-        body,
-    )
-    .await
-}
-
-pub(crate) async fn broadcast_poll_to_call(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    channel_id: Uuid,
-    call_id: Uuid,
-    sender_id: Uuid,
-    poll: &PollResponse,
-) -> AppResult<()> {
-    let body = serde_json::json!({
-        "type": "poll",
-        "poll": poll,
-    });
-
     let members =
         channels::get_channel_member_user_ids(database, channel_id).await?;
 
     for member_id in members {
-        if member_id == sender_id {
+        if Some(member_id) == sender_id {
             continue;
         }
 
+        let poll = get_poll_response(
+            database,
+            server_id,
+            channel_id,
+            poll_id,
+            Some(member_id),
+        )
+        .await?;
+        let body = serde_json::json!({
+            "type": "poll",
+            "poll": poll,
+        });
         let topic =
-            PubSubTopic::call_poll(server_id, channel_id, call_id, member_id)
-                .to_string();
-        pub_sub_service.publish(&topic, body.clone()).await?;
+            PubSubTopic::new_poll(server_id, channel_id, member_id).to_string();
+        pub_sub_service.publish(&topic, body).await?;
     }
 
     Ok(())
@@ -362,7 +351,6 @@ pub(crate) async fn get_inline_polls(
     channels::get_channel(database, server_id, channel_id).await?;
     let polls = polls::Entity::find()
         .filter(polls::Column::ChannelId.eq(channel_id))
-        .filter(polls::Column::CallId.is_null())
         .order_by_desc(polls::Column::CreatedAt)
         .offset(offset)
         .limit(limit)
@@ -377,32 +365,63 @@ pub(crate) async fn get_inline_polls(
     Ok(responses)
 }
 
-pub(crate) async fn get_inline_call_polls(
+pub(crate) async fn get_call_decision(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
     call_id: Uuid,
-    offset: u64,
-    limit: u64,
-    current_user_id: Option<Uuid>,
-) -> AppResult<Vec<PollResponse>> {
+    user_id: Uuid,
+) -> AppResult<CallDecisionResponse> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
-    let polls = polls::Entity::find()
+
+    let active_item = match polls::Entity::find()
         .filter(polls::Column::ChannelId.eq(channel_id))
         .filter(polls::Column::CallId.eq(call_id))
+        .filter(polls::Column::Stage.eq(PollStage::Voting))
         .order_by_desc(polls::Column::CreatedAt)
-        .offset(offset)
-        .limit(limit)
-        .all(database)
+        .one(database)
         .await
-        .map_err(internal_error)?;
+        .map_err(internal_error)?
+    {
+        Some(poll) => Some(shape_poll(database, poll, Some(user_id)).await?),
+        None => {
+            let active_channel_poll = polls::Entity::find()
+                .filter(polls::Column::ChannelId.eq(channel_id))
+                .filter(polls::Column::Stage.eq(PollStage::Voting))
+                .order_by_desc(polls::Column::CreatedAt)
+                .one(database)
+                .await
+                .map_err(internal_error)?;
 
-    let mut responses = Vec::with_capacity(polls.len());
-    for poll in polls {
-        responses.push(shape_poll(database, poll, current_user_id).await?);
-    }
-    Ok(responses)
+            match active_channel_poll {
+                Some(poll) => {
+                    Some(shape_poll(database, poll, Some(user_id)).await?)
+                }
+                None => None,
+            }
+        }
+    };
+
+    let recent_result = match polls::Entity::find()
+        .filter(polls::Column::ChannelId.eq(channel_id))
+        .filter(
+            polls::Column::Stage
+                .is_in([PollStage::Ratified, PollStage::Closed]),
+        )
+        .order_by_desc(polls::Column::UpdatedAt)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    {
+        Some(poll) => Some(shape_poll(database, poll, Some(user_id)).await?),
+        None => None,
+    };
+
+    Ok(CallDecisionResponse {
+        active_item,
+        recent_result,
+    })
 }
 
 pub(crate) async fn store_poll_image(
@@ -572,6 +591,7 @@ pub(crate) async fn ratify_poll(
 
 async fn synchronize_proposals(
     database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
 ) -> AppResult<ProposalSyncSummary> {
     let configs = poll_configs::Entity::find()
         .filter(poll_configs::Column::ClosingAt.is_not_null())
@@ -610,8 +630,26 @@ async fn synchronize_proposals(
             };
 
             match synchronize_proposal(database, poll, config).await {
-                Ok(ProposalSyncAction::Ratify) => summary.ratified += 1,
-                Ok(ProposalSyncAction::Close) => summary.closed += 1,
+                Ok(ProposalSyncAction::Ratify) => {
+                    broadcast_stored_poll_update(
+                        database,
+                        pub_sub_service,
+                        poll,
+                        None,
+                    )
+                    .await?;
+                    summary.ratified += 1;
+                }
+                Ok(ProposalSyncAction::Close) => {
+                    broadcast_stored_poll_update(
+                        database,
+                        pub_sub_service,
+                        poll,
+                        None,
+                    )
+                    .await?;
+                    summary.closed += 1;
+                }
                 Ok(ProposalSyncAction::None) => {}
                 Err(error) => {
                     summary.failed += 1;
@@ -629,6 +667,7 @@ async fn synchronize_proposals(
 
 async fn close_expired_polls(
     database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
 ) -> AppResult<ExpiredPollClosureSummary> {
     let configs = poll_configs::Entity::find()
         .filter(poll_configs::Column::ClosingAt.is_not_null())
@@ -670,7 +709,16 @@ async fn close_expired_polls(
             summary.processed += 1;
 
             match close_poll(database, poll.id).await {
-                Ok(()) => summary.closed += 1,
+                Ok(()) => {
+                    broadcast_stored_poll_update(
+                        database,
+                        pub_sub_service,
+                        poll,
+                        None,
+                    )
+                    .await?;
+                    summary.closed += 1;
+                }
                 Err(error) => {
                     summary.failed += 1;
                     tracing::warn!(
@@ -711,6 +759,17 @@ pub(crate) async fn load_poll(
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Poll not found."))
+}
+
+pub(crate) async fn get_poll_response(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    poll_id: Uuid,
+    current_user_id: Option<Uuid>,
+) -> AppResult<PollResponse> {
+    let poll = load_poll(database, server_id, channel_id, poll_id).await?;
+    shape_poll(database, poll, current_user_id).await
 }
 
 async fn shape_poll(
@@ -826,6 +885,7 @@ async fn shape_poll(
         votes: shaped_votes,
         my_vote,
         member_count: get_poll_member_count(database, poll.id).await?,
+        source_call_id: poll.call_id.map(|call_id| call_id.to_string()),
         created_at: serialize_timestamp(poll.created_at),
     })
 }
@@ -1262,6 +1322,31 @@ async fn broadcast_to_channel_members(
     }
 
     Ok(())
+}
+
+async fn broadcast_stored_poll_update(
+    database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
+    poll: &polls::Model,
+    sender_id: Option<Uuid>,
+) -> AppResult<()> {
+    let channel = channel_entities::Entity::find_by_id(poll.channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
+        })?;
+
+    broadcast_poll_update(
+        database,
+        pub_sub_service,
+        channel.server_id,
+        poll.channel_id,
+        sender_id,
+        poll.id,
+    )
+    .await
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

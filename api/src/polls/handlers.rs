@@ -10,7 +10,7 @@ use std::{path::PathBuf, sync::Arc};
 use super::{
     extractors::{PollDeleteContext, PollImageUploadContext},
     service,
-    types::{CreatePollRequest, PollImagePath},
+    types::{CallDecisionResponse, CreatePollRequest, PollImagePath},
 };
 use crate::{
     auth::HasJwtSecret,
@@ -24,7 +24,7 @@ use crate::{
 pub(crate) struct PollsState {
     pub(crate) database: DatabaseConnection,
     jwt_secret: Arc<str>,
-    pub_sub_service: PubSubService,
+    pub(crate) pub_sub_service: PubSubService,
     upload_root: Arc<PathBuf>,
 }
 
@@ -69,13 +69,13 @@ pub(super) async fn create_poll(
     )
     .await?;
 
-    if let Err(error) = service::broadcast_poll(
+    if let Err(error) = service::broadcast_poll_update(
         &state.database,
         &state.pub_sub_service,
         context.server_id,
         context.channel_id,
-        context.user_id,
-        &poll,
+        Some(context.user_id),
+        poll.id.parse().expect("created poll id is valid"),
     )
     .await
     {
@@ -100,21 +100,36 @@ pub(super) async fn create_call_poll(
     )
     .await?;
 
-    if let Err(error) = service::broadcast_poll_to_call(
+    if let Err(error) = service::broadcast_poll_update(
         &state.database,
         &state.pub_sub_service,
         context.server_id,
         context.channel_id,
-        context.call_id,
-        context.user_id,
-        &poll,
+        Some(context.user_id),
+        poll.id.parse().expect("created poll id is valid"),
     )
     .await
     {
-        tracing::warn!("failed to broadcast created call poll: {error}");
+        tracing::warn!("failed to broadcast created in-call poll: {error}");
     }
 
     Ok(Json(serde_json::json!({ "poll": poll })))
+}
+
+pub(super) async fn get_call_decision(
+    State(state): State<PollsState>,
+    context: CallWriteContext,
+) -> AppResult<Json<CallDecisionResponse>> {
+    let decision = service::get_call_decision(
+        &state.database,
+        context.server_id,
+        context.channel_id,
+        context.call_id,
+        context.user_id,
+    )
+    .await?;
+
+    Ok(Json(decision))
 }
 
 pub(super) async fn upload_poll_image(

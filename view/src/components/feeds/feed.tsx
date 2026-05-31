@@ -57,6 +57,9 @@ export const Feed = ({
 
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
+  const [openCallDetailsId, setOpenCallDetailsId] = useState<string | null>(
+    null,
+  );
 
   const scrollDirection = useScrollDirection(feedBoxRef);
   const feedTopRef = useRef<HTMLDivElement>(null);
@@ -142,6 +145,7 @@ export const Feed = ({
                 channel={channel}
                 feedQueryKey={feedQueryKey}
                 me={me}
+                onViewCall={setOpenCallDetailsId}
               />
             );
           }
@@ -165,6 +169,10 @@ export const Feed = ({
               me={me}
               isJoining={isJoiningCall}
               onJoinCall={onJoinCall}
+              detailsOpen={openCallDetailsId === item.id}
+              onDetailsOpenChange={(open) =>
+                setOpenCallDetailsId(open ? item.id : null)
+              }
             />
           );
         }

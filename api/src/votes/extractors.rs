@@ -24,6 +24,8 @@ struct PollOptionQuery {
 }
 
 pub(crate) struct VoteRouteContext {
+    pub(crate) server_id: Uuid,
+    pub(crate) channel_id: Uuid,
     pub(crate) poll_id: Uuid,
     pub(crate) user_id: Uuid,
     pub(crate) poll: polls::Model,
@@ -191,6 +193,8 @@ async fn load_vote_route_context(
         .await?;
 
     Ok(VoteRouteContext {
+        server_id,
+        channel_id,
         poll_id,
         user_id,
         poll,

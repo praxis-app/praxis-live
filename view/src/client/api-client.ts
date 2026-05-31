@@ -12,7 +12,7 @@ import {
   type FeedItemRes,
   type UpdateChannelReq,
 } from '@/types/channel.types';
-import { type JoinCallRes } from '@/types/call.types';
+import { type CallDecisionRes, type JoinCallRes } from '@/types/call.types';
 import { type ImageRes } from '@/types/image.types';
 import {
   type InstanceConfigReq,
@@ -197,6 +197,15 @@ class ApiClient {
     return this.executeRequest<{ feed: FeedItemRes[] }>('get', path, {
       params: { offset, limit },
     });
+  };
+
+  getCallDecision = async (
+    serverId: string,
+    channelId: string,
+    callId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/decisions`;
+    return this.executeRequest<CallDecisionRes>('get', path);
   };
 
   createChannel = async (serverId: string, data: CreateChannelReq) => {

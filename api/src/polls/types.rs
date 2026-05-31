@@ -57,7 +57,16 @@ pub(crate) struct PollResponse {
     pub(crate) my_vote: Option<VoteResponse>,
     pub(crate) agreement_vote_count: usize,
     pub(crate) member_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) source_call_id: Option<String>,
     pub(crate) created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CallDecisionResponse {
+    pub(crate) active_item: Option<PollResponse>,
+    pub(crate) recent_result: Option<PollResponse>,
 }
 
 #[derive(Debug, Clone, Serialize)]
