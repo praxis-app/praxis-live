@@ -22,12 +22,27 @@ export const CallDecisionBanner = ({ decision, onOpen }: Props) => {
   return (
     <button
       type="button"
-      className="bg-card hover:bg-accent mx-auto flex max-w-xl cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm shadow-sm transition-colors"
+      className="bg-card hover:bg-accent mx-auto flex w-full max-w-xl cursor-pointer flex-col gap-1 rounded-2xl border px-3 py-2 text-left text-sm shadow-sm transition-colors sm:flex-row sm:items-center sm:gap-2 sm:rounded-full"
       onClick={onOpen}
     >
-      <span className="font-medium">{t('calls.labels.decisionInProgress')}</span>
-      <span className="text-muted-foreground min-w-0 truncate">{title}</span>
-      {count && <span className="text-muted-foreground shrink-0">{count}</span>}
+      <span className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-start">
+        <span className="shrink-0 whitespace-nowrap font-medium">
+          {t('calls.labels.decisionInProgress')}
+        </span>
+        {count && (
+          <span className="text-muted-foreground shrink-0 text-xs sm:hidden">
+            {count}
+          </span>
+        )}
+      </span>
+      <span className="text-muted-foreground w-full min-w-0 truncate sm:flex-1">
+        {title}
+      </span>
+      {count && (
+        <span className="text-muted-foreground hidden shrink-0 sm:inline">
+          {count}
+        </span>
+      )}
     </button>
   );
 };

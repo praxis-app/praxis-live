@@ -156,7 +156,7 @@ export const CallDecisionPanel = ({
               type="button"
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-foreground size-7"
+              className="text-muted-foreground hover:text-foreground hidden size-7 md:inline-flex"
               aria-label={t('calls.labels.closeActiveDecision')}
               onClick={onClose}
             >
