@@ -373,6 +373,7 @@
       "detailsDescription": "{{participants}} - {{duration}}",
       "detailsTitle": "Call details",
       "duration": "Duration {{duration}}",
+      "endedAt": "Ended {{time}}",
       "endedTitle": "Call ended",
       "messageCount_one": "{{count}} message",
       "messageCount_other": "{{count}} messages",
@@ -383,7 +384,11 @@
       "polls_other": "Polls",
       "proposals_one": "Proposal",
       "proposals_other": "Proposals",
-      "startedBy": "Started by {{name}}"
+      "startedAgo": "Started {{time}} ago",
+      "startedAt": "Started {{time}}",
+      "startedBy": "Started by {{name}}",
+      "timeRange": "{{startedAt}}-{{endedAt}}",
+      "times": "Times"
     },
     "errors": {
       "cameraUnavailable": "Unable to use the camera.",
