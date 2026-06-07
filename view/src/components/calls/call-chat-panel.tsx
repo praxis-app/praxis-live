@@ -3,6 +3,10 @@ import { Feed } from '@/components/feeds/feed';
 import { MessageForm } from '@/components/messages/message-form';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
+import {
+  preserveFeedImages,
+  preserveFeedItemImages,
+} from '@/lib/feed.utils';
 import { callPubSubTopic } from '@/lib/pub-sub.utils';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useSubscription } from '@/hooks/use-subscription';
@@ -12,7 +16,6 @@ import {
   type FeedQueryPage,
 } from '@/types/channel.types';
 import { type ChannelRes } from '@/types/channel.types';
-import { type ImageRes } from '@/types/image.types';
 import { type MessageRes } from '@/types/message.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,8 +33,6 @@ interface ImageMessagePayload {
   messageId: string;
   imageId: string;
 }
-
-type MessageFeedItem = Extract<FeedItemRes, { type: 'message' }>;
 
 interface Props {
   serverId?: string;
@@ -80,7 +81,13 @@ export const CallChatPanel = ({
       if (result.feed.length === 0) {
         setIsLastPage(true);
       }
-      return result;
+      const existingFeed = queryClient
+        .getQueryData<FeedQuery>(feedQueryKey)
+        ?.pages.flatMap((page) => page.feed);
+      return {
+        ...result,
+        feed: preserveFeedImages(existingFeed, result.feed),
+      };
     },
     getNextPageParam: (_lastPage, pages) =>
       pages.flatMap((page) => page.feed).length,
@@ -110,32 +117,17 @@ export const CallChatPanel = ({
 
         if (body.type === PubSubMessageType.MESSAGE) {
           const messagePayload = body.message;
-          const preserveImageSrc = (
-            existingImages?: ImageRes[],
-            incomingImages?: ImageRes[],
-          ) => {
-            if (!incomingImages?.length || !existingImages?.length) {
-              return incomingImages;
-            }
-            const existingMap = new Map(
-              existingImages.map((image) => [image.id, image]),
-            );
-            return incomingImages.map((image) => {
-              const existing = existingMap.get(image.id);
-              return existing?.src && !image.src
-                ? { ...image, src: existing.src }
-                : image;
-            });
-          };
-          const buildFeedItem = (existing?: MessageFeedItem): MessageFeedItem => ({
+          const incomingFeedItem = {
             ...messagePayload,
-            images: preserveImageSrc(existing?.images, messagePayload.images),
-            type: 'message',
-          });
+            type: 'message' as const,
+          };
 
           queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
             if (!oldData) {
-              return { pages: [{ feed: [buildFeedItem()] }], pageParams: [0] };
+              return {
+                pages: [{ feed: [incomingFeedItem] }],
+                pageParams: [0],
+              };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
               const existingIndex = page.feed.findIndex(
@@ -145,10 +137,11 @@ export const CallChatPanel = ({
               if (existingIndex !== -1) {
                 const updatedFeed = [...page.feed];
                 const existingMessage = page.feed[existingIndex];
-                updatedFeed[existingIndex] = buildFeedItem(
+                updatedFeed[existingIndex] = preserveFeedItemImages(
                   existingMessage.type === 'message'
                     ? existingMessage
                     : undefined,
+                  incomingFeedItem,
                 );
                 updatedFeed.sort(
                   (a, b) =>
@@ -158,7 +151,7 @@ export const CallChatPanel = ({
                 return { feed: updatedFeed };
               }
               if (index === 0) {
-                const updatedFeed = [buildFeedItem(), ...page.feed];
+                const updatedFeed = [incomingFeedItem, ...page.feed];
                 updatedFeed.sort(
                   (a, b) =>
                     new Date(b.createdAt).getTime() -
