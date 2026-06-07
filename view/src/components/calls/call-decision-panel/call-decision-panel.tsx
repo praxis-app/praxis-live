@@ -93,6 +93,10 @@ export const CallDecisionPanel = ({
   });
 
   const displayedDecision = decision?.activeItem || decision?.recentResult;
+
+  const sourceCallContext =
+    displayedDecision?.sourceCallId === callId ? 'this-call' : 'another-call';
+
   const isShowingRecentResult =
     !!decision?.recentResult && !decision?.activeItem;
   const displayedFeedQueryKey = decision?.activeItem
@@ -172,19 +176,20 @@ export const CallDecisionPanel = ({
           <div className="[&>article]:gap-3 [&>article]:pt-0 [&>article>button]:hidden">
             {displayedDecision.pollType === 'proposal' ? (
               <InlineProposal
-                poll={displayedDecision}
                 channel={channel}
                 feedQueryKey={displayedFeedQueryKey}
-                me={me}
                 onPollChange={refreshDecision}
+                poll={displayedDecision}
+                sourceCallContext={sourceCallContext}
+                me={me}
               />
             ) : (
               <InlinePoll
-                poll={displayedDecision}
                 channel={channel}
                 feedQueryKey={displayedFeedQueryKey}
-                me={me}
                 onPollChange={refreshDecision}
+                poll={displayedDecision}
+                me={me}
               />
             )}
           </div>

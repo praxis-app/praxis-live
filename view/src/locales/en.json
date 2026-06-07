@@ -166,7 +166,10 @@
       "thresholdMet": "Met",
       "thresholdNotMet": "Not met",
       "voting": "Voting",
-      "createdInCall": "Created in-call"
+      "createdInCall": "Created in-call",
+      "createdInThisCall": "Created in this call",
+      "createdInAnotherCall": "Created in another call",
+      "createdInChannel": "Created in channel"
     },
     "headers": {
       "availableRoles": "Available Roles",

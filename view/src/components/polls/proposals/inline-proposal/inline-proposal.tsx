@@ -19,6 +19,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaClipboard } from 'react-icons/fa';
 
+type SourceCallContext = 'in-call' | 'this-call' | 'another-call';
+
 interface Props {
   poll: PollRes;
   channel: ChannelRes;
@@ -28,6 +30,7 @@ interface Props {
   onViewCall?: (callId: string) => void;
   onJoinCall?: (callId: string) => void;
   sourceCall?: CallArtifactRes;
+  sourceCallContext?: SourceCallContext;
   isJoiningSourceCall?: boolean;
 }
 
@@ -40,6 +43,7 @@ export const InlineProposal = ({
   onViewCall,
   onJoinCall,
   sourceCall,
+  sourceCallContext = 'in-call',
   isJoiningSourceCall = false,
 }: Props) => {
   const { t } = useTranslation();
@@ -68,6 +72,12 @@ export const InlineProposal = ({
 
   const isSourceCallActive =
     sourceCall?.status === 'starting' || sourceCall?.status === 'active';
+
+  const sourceCallLabel = {
+    'in-call': t('proposals.labels.createdInCall'),
+    'this-call': t('proposals.labels.createdInThisCall'),
+    'another-call': t('proposals.labels.createdInAnotherCall'),
+  }[sourceCallContext];
 
   return (
     <article aria-label={label} className="flex max-w-full min-w-0 gap-4 pt-1">
@@ -147,7 +157,7 @@ export const InlineProposal = ({
 
           {poll.sourceCallId && stage === 'voting' && (
             <div className="text-muted-foreground text-xs">
-              {t('proposals.labels.createdInCall')}
+              {sourceCallLabel}
               {MIDDOT_WITH_SPACES}
               {isSourceCallActive && onJoinCall ? (
                 <button
