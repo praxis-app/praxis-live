@@ -22,23 +22,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuMessagesSquare, LuPhoneCall, LuVote } from 'react-icons/lu';
 
-const CallUserAvatar = ({
-  user,
-  className = 'size-7',
-}: {
-  user: CallUserRes;
-  className?: string;
-}) => (
-  <UserAvatar
-    name={displayName(user)}
-    userId={user.id}
-    imageId={user.profilePicture?.id}
-    className={className}
-    fallbackClassName="text-xs"
-    skipLoadAnimation
-  />
-);
-
 const formatDuration = (
   seconds: number,
   t: (key: string, values: Record<string, number>) => string,
@@ -73,6 +56,13 @@ const formatCallTime = (
   return dayjs(timestamp).format(includeDate ? 'MMM D, h:mm A' : 'h:mm A');
 };
 
+const formatCallDate = (timestamp: string) => {
+  const date = dayjs(timestamp);
+  return date.isSame(dayjs(), 'year')
+    ? date.format('ddd, MMM D')
+    : date.format('MMM D, YYYY');
+};
+
 const formatCompactCallTimeRange = (
   startedAt: string,
   endedAt: string | null | undefined,
@@ -103,6 +93,23 @@ const formatCompactCallTimeRange = (
     endedAt: end.format('h:mm A'),
   };
 };
+
+const CallUserAvatar = ({
+  user,
+  className = 'size-7',
+}: {
+  user: CallUserRes;
+  className?: string;
+}) => (
+  <UserAvatar
+    name={displayName(user)}
+    userId={user.id}
+    imageId={user.profilePicture?.id}
+    className={className}
+    fallbackClassName="text-xs"
+    skipLoadAnimation
+  />
+);
 
 interface Props {
   call: CallArtifactRes;
@@ -138,22 +145,36 @@ export const CallArtifact = ({
 
   const starterName = displayName(call.startedBy);
   const truncatedStarterName = truncate(starterName, 18);
+  const isCallToday = dayjs(call.createdAt).isSame(dayjs(), 'day');
   const formattedDate = timeAgo(call.createdAt);
   const endedAt = call.endedAt || undefined;
+
   const compactTimeRange = formatCompactCallTimeRange(call.createdAt, endedAt);
+  const compactTimeRangeLabel = compactTimeRange
+    ? t('calls.artifact.timeRange', {
+        startedAt: compactTimeRange.startedAt,
+        endedAt: compactTimeRange.endedAt,
+      })
+    : null;
+
   const detailsStartedAt = formatCallTime(call.createdAt, true);
   const detailsEndedAt = formatCallTime(endedAt, true);
   const messageCount = call.summary.messages;
   const decisionCount = call.summary.proposals + call.summary.polls;
+  const callDate = formatCallDate(call.createdAt);
+
+  const messageCountLabel = t('calls.artifact.messageCount', {
+    count: messageCount,
+  });
+  const decisionCountLabel = t('calls.artifact.decisionCount', {
+    count: decisionCount,
+  });
 
   const timeline = isActive
     ? t('calls.artifact.startedAgo', { time: formattedDate })
-    : compactTimeRange
-      ? t('calls.artifact.timeRange', {
-          startedAt: compactTimeRange.startedAt,
-          endedAt: compactTimeRange.endedAt,
-        })
-      : t('calls.artifact.duration', { duration });
+    : isCallToday && compactTimeRangeLabel
+      ? compactTimeRangeLabel
+      : callDate;
 
   const participantNames = call.participants
     .map(displayName)
@@ -263,7 +284,7 @@ export const CallArtifact = ({
                 <button
                   type="button"
                   className={cn(
-                    'text-muted-foreground flex max-w-full flex-wrap gap-x-4 gap-y-1 text-left text-xs',
+                    'text-muted-foreground flex max-w-full flex-wrap gap-x-2 gap-y-1 text-left text-xs',
                     !isActive && 'cursor-pointer',
                   )}
                   aria-label={t('calls.actions.viewDetails')}
@@ -271,23 +292,30 @@ export const CallArtifact = ({
                 >
                   <span className="whitespace-nowrap">{timeline}</span>
 
+                  {!isActive && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span className="whitespace-nowrap">{duration}</span>
+                    </>
+                  )}
+
+                  <span aria-hidden="true">·</span>
+
                   <span className="inline-flex items-center gap-1 whitespace-nowrap">
                     <LuMessagesSquare className="size-3.5" />
                     <span className="sm:hidden">{messageCount}</span>
                     <span className="hidden sm:inline">
-                      {t('calls.artifact.messageCount', {
-                        count: messageCount,
-                      })}
+                      {messageCountLabel}
                     </span>
                   </span>
+
+                  <span aria-hidden="true">·</span>
 
                   <span className="inline-flex items-center gap-1 whitespace-nowrap">
                     <LuVote className="size-3.5" />
                     <span className="sm:hidden">{decisionCount}</span>
                     <span className="hidden sm:inline">
-                      {t('calls.artifact.decisionCount', {
-                        count: decisionCount,
-                      })}
+                      {decisionCountLabel}
                     </span>
                   </span>
                 </button>
