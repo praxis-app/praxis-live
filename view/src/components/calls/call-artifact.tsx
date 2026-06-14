@@ -59,7 +59,7 @@ const formatCallTime = (
 const formatCallDate = (timestamp: string) => {
   const date = dayjs(timestamp);
   return date.isSame(dayjs(), 'year')
-    ? date.format('ddd, MMM D')
+    ? date.format('MMM D')
     : date.format('MMM D, YYYY');
 };
 
