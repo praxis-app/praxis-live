@@ -224,18 +224,26 @@ pub(crate) async fn leave_channel_call(
         return Ok(shape_call(call));
     }
 
-    let active_participants =
-        settled_livekit_room_participant_count(livekit, &call.livekit_room)
-            .await?;
+    let end_reason = match settled_livekit_room_participant_count(
+        livekit,
+        &call.livekit_room,
+    )
+    .await
+    {
+        Ok(active_participants) if active_participants > 0 => {
+            transaction.commit().await.map_err(internal_error)?;
+            return Ok(shape_call(call));
+        }
+        Ok(_) => "last_participant_left",
+        Err(error) => {
+            tracing::warn!(
+                    "failed to check LiveKit room participant count while leaving call: {error}"
+                );
+            "livekit_unavailable"
+        }
+    };
 
-    if active_participants > 0 {
-        transaction.commit().await.map_err(internal_error)?;
-        return Ok(shape_call(call));
-    }
-
-    let call =
-        end_call(&transaction, call, Some(user_id), "last_participant_left")
-            .await?;
+    let call = end_call(&transaction, call, Some(user_id), end_reason).await?;
     transaction.commit().await.map_err(internal_error)?;
 
     Ok(shape_call(call))

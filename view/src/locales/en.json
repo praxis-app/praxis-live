@@ -393,7 +393,8 @@
     "errors": {
       "cameraUnavailable": "Unable to use the camera.",
       "joinFailed": "Unable to join the call.",
-      "microphoneUnavailable": "Unable to use the microphone."
+      "microphoneUnavailable": "Unable to use the microphone.",
+      "unavailable": "Calls are currently unavailable."
     }
   },
 

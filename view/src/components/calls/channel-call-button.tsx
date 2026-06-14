@@ -11,6 +11,7 @@ import { type ChannelRes } from '@/types/channel.types';
 import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
 import { useTranslation } from 'react-i18next';
 import { TbVideo } from 'react-icons/tb';
+import { toast } from 'sonner';
 
 interface Props {
   callConfig: JoinCallRes | null;
@@ -18,7 +19,7 @@ interface Props {
   serverName?: string;
   isJoining: boolean;
   onJoin: () => void;
-  onLeave: () => void;
+  onLeave: () => void | Promise<void>;
 }
 
 export const ChannelCallButton = ({
@@ -60,6 +61,10 @@ export const ChannelCallButton = ({
       connect
       audio={false}
       video={false}
+      onError={() => {
+        toast(t('calls.errors.unavailable'), { id: 'calls-unavailable' });
+        void onLeave();
+      }}
       onDisconnected={onLeave}
     >
       <RoomAudioRenderer />
