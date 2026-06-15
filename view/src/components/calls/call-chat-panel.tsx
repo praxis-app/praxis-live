@@ -3,6 +3,7 @@ import { Feed } from '@/components/feeds/feed';
 import { MessageForm } from '@/components/messages/message-form';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
+import { preserveFeedImages, preserveFeedItemImages } from '@/lib/feed.utils';
 import { callPubSubTopic } from '@/lib/pub-sub.utils';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useSubscription } from '@/hooks/use-subscription';
@@ -12,9 +13,7 @@ import {
   type FeedQueryPage,
 } from '@/types/channel.types';
 import { type ChannelRes } from '@/types/channel.types';
-import { type ImageRes } from '@/types/image.types';
 import { type MessageRes } from '@/types/message.types';
-import { type PollRes } from '@/types/poll.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -25,19 +24,12 @@ interface NewMessagePayload {
   message: MessageRes;
 }
 
-interface NewPollPayload {
-  type: PubSubMessageType.POLL;
-  poll: PollRes;
-}
-
 interface ImageMessagePayload {
   type: PubSubMessageType.IMAGE;
   isPlaceholder: boolean;
   messageId: string;
   imageId: string;
 }
-
-type MessageFeedItem = Extract<FeedItemRes, { type: 'message' }>;
 
 interface Props {
   serverId?: string;
@@ -86,7 +78,15 @@ export const CallChatPanel = ({
       if (result.feed.length === 0) {
         setIsLastPage(true);
       }
-      return result;
+      const existingFeed = queryClient
+        .getQueryData<FeedQuery>(feedQueryKey)
+        ?.pages.flatMap((page) => page.feed);
+      return {
+        ...result,
+
+        // Keep locally loaded image srcs from being lost on feed refresh.
+        feed: preserveFeedImages(existingFeed, result.feed),
+      };
     },
     getNextPageParam: (_lastPage, pages) =>
       pages.flatMap((page) => page.feed).length,
@@ -116,32 +116,17 @@ export const CallChatPanel = ({
 
         if (body.type === PubSubMessageType.MESSAGE) {
           const messagePayload = body.message;
-          const preserveImageSrc = (
-            existingImages?: ImageRes[],
-            incomingImages?: ImageRes[],
-          ) => {
-            if (!incomingImages?.length || !existingImages?.length) {
-              return incomingImages;
-            }
-            const existingMap = new Map(
-              existingImages.map((image) => [image.id, image]),
-            );
-            return incomingImages.map((image) => {
-              const existing = existingMap.get(image.id);
-              return existing?.src && !image.src
-                ? { ...image, src: existing.src }
-                : image;
-            });
-          };
-          const buildFeedItem = (existing?: MessageFeedItem): MessageFeedItem => ({
+          const incomingFeedItem = {
             ...messagePayload,
-            images: preserveImageSrc(existing?.images, messagePayload.images),
-            type: 'message',
-          });
+            type: 'message' as const,
+          };
 
           queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
             if (!oldData) {
-              return { pages: [{ feed: [buildFeedItem()] }], pageParams: [0] };
+              return {
+                pages: [{ feed: [incomingFeedItem] }],
+                pageParams: [0],
+              };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
               const existingIndex = page.feed.findIndex(
@@ -151,10 +136,11 @@ export const CallChatPanel = ({
               if (existingIndex !== -1) {
                 const updatedFeed = [...page.feed];
                 const existingMessage = page.feed[existingIndex];
-                updatedFeed[existingIndex] = buildFeedItem(
+                updatedFeed[existingIndex] = preserveFeedItemImages(
                   existingMessage.type === 'message'
                     ? existingMessage
                     : undefined,
+                  incomingFeedItem,
                 );
                 updatedFeed.sort(
                   (a, b) =>
@@ -164,7 +150,7 @@ export const CallChatPanel = ({
                 return { feed: updatedFeed };
               }
               if (index === 0) {
-                const updatedFeed = [buildFeedItem(), ...page.feed];
+                const updatedFeed = [incomingFeedItem, ...page.feed];
                 updatedFeed.sort(
                   (a, b) =>
                     new Date(b.createdAt).getTime() -
@@ -208,49 +194,6 @@ export const CallChatPanel = ({
     },
   );
 
-  useSubscription(
-    callPubSubTopic('new-poll', serverId, channel.id, callId, me?.id),
-    {
-      onMessage: (event) => {
-        const { body }: PubSubMessage<NewPollPayload> = JSON.parse(event.data);
-        if (!body || body.type !== PubSubMessageType.POLL) {
-          return;
-        }
-        const newFeedItem: FeedItemRes = {
-          ...(body.poll as FeedItemRes & { type: 'poll' }),
-          type: 'poll',
-        };
-        queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
-          if (!oldData) {
-            return { pages: [{ feed: [newFeedItem] }], pageParams: [0] };
-          }
-          const pages = oldData.pages.map((page, index): FeedQueryPage => {
-            if (index !== 0) {
-              return page;
-            }
-            if (
-              page.feed.some(
-                (item) => item.type === 'poll' && item.id === newFeedItem.id,
-              )
-            ) {
-              return page;
-            }
-            const updatedFeed = [newFeedItem, ...page.feed];
-            updatedFeed.sort(
-              (a, b) =>
-                new Date(b.createdAt).getTime() -
-                new Date(a.createdAt).getTime(),
-            );
-            return { feed: updatedFeed };
-          });
-          return { pages, pageParams: oldData.pageParams };
-        });
-        scrollToBottom();
-      },
-      enabled: !!me && !!serverId,
-    },
-  );
-
   return (
     <section
       aria-label={t('calls.headers.inCallChat')}
@@ -277,6 +220,7 @@ export const CallChatPanel = ({
         <MessageForm
           channelId={channel.id}
           callId={callId}
+          showActions={false}
           onSend={scrollToBottom}
         />
       )}

@@ -2,6 +2,7 @@ import { api } from '@/client/api-client';
 import { type WizardStepData } from '@/components/shared/wizard/wizard.types';
 import { useServerData } from '@/hooks/use-server-data';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
+import { type CallDecisionRes } from '@/types/call.types';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import {
   type CreatePollActionServerRoleMemberReq,
@@ -240,37 +241,57 @@ export const CreateProposalForm = ({
         return;
       }
 
-      // Optimistically insert new poll at top of feed (no refetch)
-      queryClient.setQueryData<FeedQuery>(
-        callId
-          ? ['servers', serverId, 'channels', channelId, 'calls', callId, 'feed']
-          : ['servers', serverId, 'channels', channelId, 'feed'],
-        (old) => {
-          const newItem: FeedItemRes = {
-            ...poll,
-            type: 'poll',
+      const channelFeedQueryKey = [
+        'servers',
+        serverId,
+        'channels',
+        channelId,
+        'feed',
+      ];
+
+      queryClient.setQueryData<FeedQuery>(channelFeedQueryKey, (old) => {
+        const newItem: FeedItemRes = {
+          ...poll,
+          type: 'poll',
+        };
+        if (!old) {
+          return {
+            pages: [{ feed: [newItem] }],
+            pageParams: [0],
           };
-          if (!old) {
-            return {
-              pages: [{ feed: [newItem] }],
-              pageParams: [0],
-            };
+        }
+        const pages = old.pages.map((page, idx) => {
+          if (idx !== 0) {
+            return page;
           }
-          const pages = old.pages.map((page, idx) => {
-            if (idx !== 0) {
-              return page;
-            }
-            const exists = page.feed.some(
-              (fi) => fi.type === 'poll' && fi.id === poll.id,
-            );
-            if (exists) {
-              return page;
-            }
-            return { feed: [newItem, ...page.feed] };
-          });
-          return { pages, pageParams: old.pageParams };
-        },
-      );
+          const exists = page.feed.some(
+            (fi) => fi.type === 'poll' && fi.id === poll.id,
+          );
+          if (exists) {
+            return page;
+          }
+          return { feed: [newItem, ...page.feed] };
+        });
+        return { pages, pageParams: old.pageParams };
+      });
+
+      if (callId) {
+        queryClient.setQueryData<CallDecisionRes>(
+          [
+            'servers',
+            serverId,
+            'channels',
+            channelId,
+            'calls',
+            callId,
+            'decisions',
+          ],
+          (old) => ({
+            activeItem: poll,
+            recentResult: old?.recentResult ?? null,
+          }),
+        );
+      }
 
       onSuccess();
     },

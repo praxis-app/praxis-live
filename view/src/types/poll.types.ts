@@ -31,6 +31,7 @@ export interface PollRes {
   myVote?: VoteRes;
   agreementVoteCount: number;
   memberCount: number;
+  sourceCallId?: string;
   createdAt: string;
 }
 

@@ -23,6 +23,7 @@ interface Props {
   myVote?: VoteRes;
   pollId: string;
   stage: PollStage;
+  onVoteSuccess?: () => void;
 }
 
 export const ProposalVoteButtons = ({
@@ -31,6 +32,7 @@ export const ProposalVoteButtons = ({
   pollId,
   myVote,
   stage,
+  onVoteSuccess,
 }: Props) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -152,6 +154,7 @@ export const ProposalVoteButtons = ({
       if (result.isRatifyingVote) {
         toast(t('proposals.prompts.ratifiedSuccess'));
       }
+      onVoteSuccess?.();
     },
     onError(error: Error) {
       handleError(error);

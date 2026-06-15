@@ -43,7 +43,7 @@ pub enum Relation {
         from = "Column::CallId",
         to = "super::calls::Column::Id",
         on_update = "Cascade",
-        on_delete = "Cascade"
+        on_delete = "SetNull"
     )]
     Call,
     #[sea_orm(has_one = "super::poll_configs::Entity")]

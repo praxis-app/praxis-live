@@ -197,22 +197,26 @@ test('authenticated user can create and vote on an in-call proposal', async ({
     await joinCallResponse;
     await expect(page.getByText('Call in #general')).toBeVisible();
 
-    const callFeedResponse = page.waitForResponse(
+    const decisionResponse = page.waitForResponse(
       (response) =>
         response.request().method() === 'GET' &&
         response.url().includes('/calls/') &&
-        response.url().includes('/feed') &&
+        response.url().includes('/decisions') &&
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Open call chat' }).click();
-    await callFeedResponse;
+    await page.getByRole('button', { name: 'Decisions' }).click();
+    await decisionResponse;
 
-    const callChatPanel = page.getByRole('region', { name: 'In-call chat' });
-    await expect(callChatPanel).toBeVisible();
+    const activeDecisionPanel = page.getByRole('region', {
+      name: 'Active Decision',
+    });
+    await expect(activeDecisionPanel).toBeVisible();
+    await expect(activeDecisionPanel.getByText('No active decision')).toBeVisible();
 
-    await openMessageFormMenu(callChatPanel);
-    await page.getByRole('menuitem', { name: 'Create proposal' }).click();
+    await activeDecisionPanel
+      .getByRole('button', { name: 'Create proposal' })
+      .click();
 
     const proposalDialog = page.getByRole('dialog', {
       name: 'Create a New Proposal',
@@ -241,10 +245,12 @@ test('authenticated user can create and vote on an in-call proposal', async ({
 
     await expect(proposalDialog).toBeHidden();
 
-    const proposal = callChatPanel.getByRole('article', {
+    const proposal = activeDecisionPanel.getByRole('article', {
       name: `Consensus proposal: ${proposalBody}`,
     });
     await expect(proposal).toBeVisible();
+    await expect(page.getByText('Active Decision')).toBeVisible();
+    await expect(activeDecisionPanel.getByText(/0\/\d+ responded/)).toBeVisible();
 
     const disagreeButton = proposal.getByRole('button', { name: 'Disagree' });
     const initialBackground = await backgroundColor(disagreeButton);
@@ -270,6 +276,16 @@ test('authenticated user can create and vote on an in-call proposal', async ({
     );
     await proposal.getByRole('button', { name: 'Abstain' }).click();
     await updateVoteResponse;
+
+    await leaveCallIfVisible(page);
+    const channelProposal = page.getByRole('article', {
+      name: `Consensus proposal: ${proposalBody}`,
+    });
+    await expect(channelProposal).toBeVisible();
+    await expect(channelProposal.getByText('Created in-call')).toBeVisible();
+    await expect(
+      channelProposal.getByRole('link', { name: 'View call' }),
+    ).toBeVisible();
   } finally {
     await leaveCallIfVisible(page);
   }
@@ -324,11 +340,6 @@ test('anonymous user can send messages with an image attached', async ({
   await expect(page.getByText(message)).toBeVisible();
   await chat.expectAttachedImage();
 });
-
-async function openMessageFormMenu(scope: Locator) {
-  await expect(scope.getByPlaceholder('Send a message...')).toBeVisible();
-  await scope.getByRole('button', { name: 'Open message actions' }).click();
-}
 
 async function leaveCallIfVisible(page: Page) {
   const leaveButton = page.getByRole('button', { name: 'Leave call' });

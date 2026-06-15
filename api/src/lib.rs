@@ -34,8 +34,6 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
     let livekit_config = calls::LiveKitConfig::from_env();
 
-    polls::service::spawn_proposal_synchronizer(database.clone());
-    polls::service::spawn_expired_poll_closer(database.clone());
     calls::service::spawn_stale_call_cleaner(
         database.clone(),
         livekit_config.clone(),
@@ -71,6 +69,14 @@ pub fn build_router(
 ) -> Router {
     let jwt_secret = jwt_secret.into();
     let pub_sub_service = pub_sub::PubSubService::from_env();
+    polls::service::spawn_proposal_synchronizer(
+        database.clone(),
+        pub_sub_service.clone(),
+    );
+    polls::service::spawn_expired_poll_closer(
+        database.clone(),
+        pub_sub_service.clone(),
+    );
 
     let ws = Router::new().route(
         "/ws",

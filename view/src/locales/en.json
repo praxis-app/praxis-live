@@ -165,7 +165,11 @@
       "thresholdProgress": "Threshold (approval)",
       "thresholdMet": "Met",
       "thresholdNotMet": "Not met",
-      "voting": "Voting"
+      "voting": "Voting",
+      "createdInCall": "Created in-call",
+      "createdInThisCall": "Created in this call",
+      "createdInAnotherCall": "Created in another call",
+      "createdInChannel": "Created in channel"
     },
     "headers": {
       "availableRoles": "Available Roles",
@@ -197,7 +201,8 @@
       "agree": "Agree",
       "block": "Block",
       "create": "Create proposal",
-      "disagree": "Disagree"
+      "disagree": "Disagree",
+      "viewCall": "View call"
     },
     "descriptions": {
       "basicInfoDescription": "Provide the basic details for your proposal",
@@ -335,13 +340,16 @@
     },
     "headers": {
       "channelCall": "Call in #{{channelName}}",
+      "activeDecision": "Active Decision",
       "inCallChat": "In-call chat"
     },
     "labels": {
       "leaveCall": "Leave call",
-      "minimizeCall": "Minimize call",
+      "decisionInProgress": "Decision in progress",
+      "closeActiveDecision": "Close active decision panel",
       "muteMicrophone": "Mute microphone",
       "openChannelChat": "Open call chat",
+      "openDecisions": "Decisions",
       "participantCount_one": "{{count}} participant",
       "participantCount_other": "{{count}} participants",
       "turnCameraOff": "Turn camera off",
@@ -351,7 +359,12 @@
     "descriptions": {
       "status": "{{participants}}",
       "statusWithServer": "Server: {{serverName}} - {{participants}}",
-      "inCallChat": "Messages, proposals, and polls for this call."
+      "inCallChat": "Messages for this call."
+    },
+    "decisions": {
+      "noActiveTitle": "No active decision",
+      "noActiveDescription": "Create or respond to channel decisions without leaving the call.",
+      "recentResultDescription": "The latest channel decision result is shown below."
     },
     "artifact": {
       "activeTitle": "Call is active",
@@ -360,6 +373,7 @@
       "detailsDescription": "{{participants}} - {{duration}}",
       "detailsTitle": "Call details",
       "duration": "Duration {{duration}}",
+      "endedAt": "Ended {{time}}",
       "endedTitle": "Call ended",
       "messageCount_one": "{{count}} message",
       "messageCount_other": "{{count}} messages",
@@ -370,12 +384,17 @@
       "polls_other": "Polls",
       "proposals_one": "Proposal",
       "proposals_other": "Proposals",
-      "startedBy": "Started by {{name}}"
+      "startedAgo": "Started {{time}} ago",
+      "startedAt": "Started {{time}}",
+      "startedBy": "Started by {{name}}",
+      "timeRange": "{{startedAt}}-{{endedAt}}",
+      "times": "Times"
     },
     "errors": {
       "cameraUnavailable": "Unable to use the camera.",
       "joinFailed": "Unable to join the call.",
-      "microphoneUnavailable": "Unable to use the microphone."
+      "microphoneUnavailable": "Unable to use the microphone.",
+      "unavailable": "Calls are currently unavailable."
     }
   },
 

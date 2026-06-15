@@ -17,6 +17,10 @@ Praxis Live is a video calling app with collaborative decision-making (CDM) feat
 
 Refer to `README.md` for more information.
 
+## Frontend architecture
+
+- Prefer one React component per file. When a feature needs multiple related components, place them in a dedicated folder and split each component into its own file, with shared non-component helpers in separate utility files.
+
 ## Backend architecture
 
 The Rust backend under `api/src` is organized into modules divided by domain or feature, such as calls, channels, messages, polls, servers, users, and votes. When adding backend functionality, follow the structure used by the existing modules:

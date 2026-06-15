@@ -1,5 +1,8 @@
 import { CallChatPanel } from '@/components/calls/call-chat-panel';
+import { CallDecisionBanner } from '@/components/calls/call-decision-panel/call-decision-banner';
+import { CallDecisionPanel } from '@/components/calls/call-decision-panel/call-decision-panel';
 import { CallControls } from '@/components/calls/call-controls';
+import { api } from '@/client/api-client';
 import { TopNav } from '@/components/nav/top-nav';
 import {
   Drawer,
@@ -9,11 +12,17 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
+import { PubSubMessageType } from '@/constants/pub-sub.constants';
+import { useAuthData } from '@/hooks/use-auth-data';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
+import { useSubscription } from '@/hooks/use-subscription';
+import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { cn } from '@/lib/shared.utils';
 import { type JoinCallRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';
+import { type PollRes } from '@/types/poll.types';
+import { type PubSubMessage } from '@/types/shared.types';
 import {
   GridLayout,
   useParticipants,
@@ -25,6 +34,7 @@ import { type CSSProperties, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdClose } from 'react-icons/md';
 import { CallParticipantTile } from './call-participant-tile';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const getGridColumnCount = (
   trackCount: number,
@@ -57,14 +67,23 @@ interface Props {
   onLeave: () => void | Promise<void>;
 }
 
+interface NewPollPayload {
+  type: PubSubMessageType.POLL;
+  poll: PollRes;
+}
+
+type SidePanel = 'chat' | 'decisions' | null;
+
 export const CallPanel = ({
   channel,
   callConfig,
   serverName,
   onLeave,
 }: Props) => {
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [sidePanel, setSidePanel] = useState<SidePanel>(null);
   const { serverId } = useServerData();
+  const { me } = useAuthData();
+  const queryClient = useQueryClient();
 
   const participants = useParticipants();
   const room = useRoomContext();
@@ -85,12 +104,12 @@ export const CallPanel = ({
   }, [onLeave, room]);
 
   const handleEscapeKey = useCallback(() => {
-    if (isChatOpen) {
-      setIsChatOpen(false);
+    if (sidePanel) {
+      setSidePanel(null);
       return;
     }
     void handleLeave();
-  }, [handleLeave, isChatOpen]);
+  }, [handleLeave, sidePanel]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -105,7 +124,43 @@ export const CallPanel = ({
     };
   }, [handleEscapeKey]);
 
-  const tileLayoutKey = `${isDesktop ? 'desktop' : 'mobile'}-${isChatOpen ? 'chat-open' : 'chat-closed'}-${tracks.length}`;
+  const isChatOpen = sidePanel === 'chat';
+  const isDecisionOpen = sidePanel === 'decisions';
+  const isSidePanelOpen = !!sidePanel;
+  const tileLayoutKey = `${isDesktop ? 'desktop' : 'mobile'}-${sidePanel ? 'panel-open' : 'panel-closed'}-${tracks.length}`;
+  const decisionQueryKey = [
+    'servers',
+    serverId,
+    'channels',
+    channel.id,
+    'calls',
+    callConfig.call.id,
+    'decisions',
+  ];
+
+  const { data: decision } = useQuery({
+    queryKey: decisionQueryKey,
+    queryFn: async () => {
+      if (!serverId) {
+        throw new Error('Server ID is required');
+      }
+      return api.getCallDecision(serverId, channel.id, callConfig.call.id);
+    },
+    enabled: !!serverId,
+  });
+
+  useSubscription(
+    channelPubSubTopic('new-poll', serverId, channel.id, me?.id),
+    {
+      onMessage: (event) => {
+        const { body }: PubSubMessage<NewPollPayload> = JSON.parse(event.data);
+        if (body?.type === PubSubMessageType.POLL) {
+          void queryClient.invalidateQueries({ queryKey: decisionQueryKey });
+        }
+      },
+      enabled: !!me && !!serverId,
+    },
+  );
 
   const topNavSubHeader = t(
     serverName
@@ -122,11 +177,11 @@ export const CallPanel = ({
   const gridColumnCount = getGridColumnCount(
     tracks.length,
     isDesktop,
-    isChatOpen,
+    isSidePanelOpen,
   );
 
   const shouldStackTiles =
-    tracks.length === 2 && (!isDesktop || (isDesktop && isChatOpen));
+    tracks.length === 2 && (!isDesktop || (isDesktop && isSidePanelOpen));
 
   const gridLayoutStyle: CSSProperties = {
     ...(shouldStackTiles && {
@@ -148,11 +203,11 @@ export const CallPanel = ({
       <main className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-hidden p-3">
-            <div className="flex h-full min-h-0 w-full flex-col items-center justify-center overflow-hidden">
+            <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
               <GridLayout
                 tracks={tracks}
                 className={cn(
-                  'h-full min-h-0 w-full grid-rows-[repeat(var(--lk-row-count),minmax(0,1fr))] p-0 [--lk-grid-gap:0.75rem]',
+                  'min-h-0 w-full flex-1 grid-rows-[repeat(var(--lk-row-count),minmax(0,1fr))] p-0 [--lk-grid-gap:0.75rem]',
                   shouldStackTiles &&
                     '[&>*:first-child]:items-end [&>*:last-child]:items-start',
                   shouldStackTiles && !isDesktop && '[--lk-grid-gap:0.375rem]',
@@ -169,6 +224,14 @@ export const CallPanel = ({
               >
                 <CallParticipantTile layoutKey={tileLayoutKey} />
               </GridLayout>
+              {!isDecisionOpen && (
+                <div className="pt-3">
+                  <CallDecisionBanner
+                    decision={decision?.activeItem}
+                    onOpen={() => setSidePanel('decisions')}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -176,37 +239,75 @@ export const CallPanel = ({
             <div className="flex items-center justify-center">
               <CallControls
                 onLeave={handleLeave}
-                onOpenChat={() => setIsChatOpen((open) => !open)}
+                onOpenChat={() =>
+                  setSidePanel((panel) => (panel === 'chat' ? null : 'chat'))
+                }
+                onOpenDecisions={() =>
+                  setSidePanel((panel) =>
+                    panel === 'decisions' ? null : 'decisions',
+                  )
+                }
               />
             </div>
           </div>
         </div>
 
-        {isDesktop && isChatOpen && (
+        {isDesktop && sidePanel && (
           <aside className="h-full w-[380px] min-w-0 border-l border-[--color-border]">
-            <CallChatPanel
-              serverId={serverId}
-              channel={channel}
-              callId={callConfig.call.id}
-            />
+            {isChatOpen ? (
+              <CallChatPanel
+                serverId={serverId}
+                channel={channel}
+                callId={callConfig.call.id}
+              />
+            ) : (
+              <CallDecisionPanel
+                serverId={serverId}
+                channel={channel}
+                callId={callConfig.call.id}
+                onClose={() => setSidePanel(null)}
+              />
+            )}
           </aside>
         )}
       </main>
 
       {!isDesktop && (
-        <Drawer open={isChatOpen} onOpenChange={setIsChatOpen}>
+        <Drawer
+          open={!!sidePanel}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSidePanel(null);
+            }
+          }}
+        >
           <DrawerContent className="h-[86vh]">
             <DrawerHeader className="sr-only">
-              <DrawerTitle>{t('calls.headers.inCallChat')}</DrawerTitle>
+              <DrawerTitle>
+                {isDecisionOpen
+                  ? t('calls.headers.activeDecision')
+                  : t('calls.headers.inCallChat')}
+              </DrawerTitle>
               <DrawerDescription>
-                {t('calls.descriptions.inCallChat')}
+                {isDecisionOpen
+                  ? t('calls.decisions.noActiveDescription')
+                  : t('calls.descriptions.inCallChat')}
               </DrawerDescription>
             </DrawerHeader>
-            <CallChatPanel
-              serverId={serverId}
-              channel={channel}
-              callId={callConfig.call.id}
-            />
+            {isDecisionOpen ? (
+              <CallDecisionPanel
+                serverId={serverId}
+                channel={channel}
+                callId={callConfig.call.id}
+                onClose={() => setSidePanel(null)}
+              />
+            ) : (
+              <CallChatPanel
+                serverId={serverId}
+                channel={channel}
+                callId={callConfig.call.id}
+              />
+            )}
           </DrawerContent>
         </Drawer>
       )}

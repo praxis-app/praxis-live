@@ -170,6 +170,8 @@ pub(crate) async fn start_channel_call(
     channel_id: uuid::Uuid,
     user_id: uuid::Uuid,
 ) -> AppResult<JoinCallResponse> {
+    ensure_livekit_available(livekit).await?;
+
     let call =
         get_or_create_channel_call(database, server_id, channel_id, user_id)
             .await?;
@@ -224,18 +226,26 @@ pub(crate) async fn leave_channel_call(
         return Ok(shape_call(call));
     }
 
-    let active_participants =
-        settled_livekit_room_participant_count(livekit, &call.livekit_room)
-            .await?;
+    let end_reason = match settled_livekit_room_participant_count(
+        livekit,
+        &call.livekit_room,
+    )
+    .await
+    {
+        Ok(active_participants) if active_participants > 0 => {
+            transaction.commit().await.map_err(internal_error)?;
+            return Ok(shape_call(call));
+        }
+        Ok(_) => "last_participant_left",
+        Err(error) => {
+            tracing::warn!(
+                    "failed to check LiveKit room participant count while leaving call: {error}"
+                );
+            "livekit_unavailable"
+        }
+    };
 
-    if active_participants > 0 {
-        transaction.commit().await.map_err(internal_error)?;
-        return Ok(shape_call(call));
-    }
-
-    let call =
-        end_call(&transaction, call, Some(user_id), "last_participant_left")
-            .await?;
+    let call = end_call(&transaction, call, Some(user_id), end_reason).await?;
     transaction.commit().await.map_err(internal_error)?;
 
     Ok(shape_call(call))
@@ -531,6 +541,18 @@ async fn livekit_room_participant_count(
         Err(error) if is_livekit_not_found(&error) => Ok(0),
         Err(error) => Err(internal_error(error)),
     }
+}
+
+async fn ensure_livekit_available(livekit: &LiveKitConfig) -> AppResult<()> {
+    RoomClient::with_api_key(
+        &livekit.api_url,
+        &livekit.api_key,
+        &livekit.api_secret,
+    )
+    .list_rooms(vec!["praxis-live-health-check".to_owned()])
+    .await
+    .map(|_| ())
+    .map_err(livekit_unavailable)
 }
 
 fn is_livekit_not_found(error: &ServiceError) -> bool {
@@ -869,4 +891,9 @@ fn livekit_api_url(livekit_url: &str) -> String {
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("call request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+}
+
+fn livekit_unavailable(error: impl std::fmt::Display) -> ApiError {
+    tracing::warn!("LiveKit is unavailable: {error}");
+    ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "LiveKit is unavailable.")
 }

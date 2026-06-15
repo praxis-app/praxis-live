@@ -7,8 +7,10 @@ import { Card, CardAction } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { truncate } from '@/lib/text.utils';
 import { timeAgo, timeFromNow } from '@/lib/time.utils';
+import { type CallArtifactRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';
 import { type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
@@ -17,14 +19,33 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaClipboard } from 'react-icons/fa';
 
+type SourceCallContext = 'in-call' | 'this-call' | 'another-call';
+
 interface Props {
   poll: PollRes;
   channel: ChannelRes;
   feedQueryKey: QueryKey;
   me?: CurrentUser;
+  onPollChange?: () => void;
+  onViewCall?: (callId: string) => void;
+  onJoinCall?: (callId: string) => void;
+  sourceCall?: CallArtifactRes;
+  sourceCallContext?: SourceCallContext;
+  isJoiningSourceCall?: boolean;
 }
 
-export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
+export const InlineProposal = ({
+  poll,
+  channel,
+  feedQueryKey,
+  me,
+  onPollChange,
+  onViewCall,
+  onJoinCall,
+  sourceCall,
+  sourceCallContext = 'in-call',
+  isJoiningSourceCall = false,
+}: Props) => {
   const { t } = useTranslation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -48,6 +69,15 @@ export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
   const label = body
     ? `${t('proposals.labels.consensusProposal')}: ${body}`
     : t('proposals.labels.consensusProposal');
+
+  const isSourceCallActive =
+    sourceCall?.status === 'starting' || sourceCall?.status === 'active';
+
+  const sourceCallLabel = {
+    'in-call': t('proposals.labels.createdInCall'),
+    'this-call': t('proposals.labels.createdInThisCall'),
+    'another-call': t('proposals.labels.createdInAnotherCall'),
+  }[sourceCallContext];
 
   return (
     <article aria-label={label} className="flex max-w-full min-w-0 gap-4 pt-1">
@@ -99,6 +129,7 @@ export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
               feedQueryKey={feedQueryKey}
               myVote={myVote}
               stage={stage}
+              onVoteSuccess={onPollChange}
             />
           </CardAction>
 
@@ -123,6 +154,38 @@ export const InlineProposal = ({ poll, channel, feedQueryKey, me }: Props) => {
             </div>
             <Badge variant="outline">{t(`proposals.labels.${stage}`)}</Badge>
           </div>
+
+          {poll.sourceCallId && stage === 'voting' && (
+            <div className="text-muted-foreground text-xs">
+              {sourceCallLabel}
+              {MIDDOT_WITH_SPACES}
+              {isSourceCallActive && onJoinCall ? (
+                <button
+                  type="button"
+                  className="text-primary cursor-pointer underline-offset-4 hover:underline disabled:pointer-events-none disabled:opacity-50"
+                  aria-label={t('calls.actions.joinActiveVideo')}
+                  disabled={isJoiningSourceCall}
+                  onClick={() => onJoinCall(poll.sourceCallId!)}
+                >
+                  {t('calls.actions.joinCall')}
+                </button>
+              ) : (
+                <a
+                  href={`#call-${poll.sourceCallId}`}
+                  className="text-primary underline-offset-4 hover:underline"
+                  onClick={(event) => {
+                    if (!onViewCall) {
+                      return;
+                    }
+                    event.preventDefault();
+                    onViewCall(poll.sourceCallId!);
+                  }}
+                >
+                  {t('proposals.actions.viewCall')}
+                </a>
+              )}
+            </div>
+          )}
         </Card>
       </div>
     </article>

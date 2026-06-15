@@ -17,11 +17,11 @@ import {
   type FeedQueryPage,
 } from '@/types/channel.types';
 import { type CallArtifactRes } from '@/types/call.types';
-import { type ImageRes } from '@/types/image.types';
 import { type MessageRes } from '@/types/message.types';
 import { type PollRes } from '@/types/poll.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
+import { preserveFeedImages, preserveFeedItemImages } from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -47,8 +47,6 @@ interface ImageMessagePayload {
   messageId: string;
   imageId: string;
 }
-
-type MessageFeedItem = Extract<FeedItemRes, { type: 'message' }>;
 
 interface Props {
   channel?: ChannelRes;
@@ -88,7 +86,15 @@ export const ChannelView = ({ channel }: Props) => {
       if (isLast) {
         setIsLastPage(true);
       }
-      return result;
+      const existingFeed = queryClient
+        .getQueryData<FeedQuery>(feedQueryKey)
+        ?.pages.flatMap((page) => page.feed);
+      return {
+        ...result,
+
+        // Keep locally loaded image srcs from being lost on feed refresh.
+        feed: preserveFeedImages(existingFeed, result.feed),
+      };
     },
     getNextPageParam: (_lastPage, pages) => {
       return pages.flatMap((page) => page.feed).length;
@@ -111,38 +117,15 @@ export const ChannelView = ({ channel }: Props) => {
         // Update cache with new message or update existing bot message
         if (body.type === PubSubMessageType.MESSAGE) {
           const messagePayload = body.message;
-
-          const preserveImageSrc = (
-            existingImages?: ImageRes[],
-            incomingImages?: ImageRes[],
-          ) => {
-            if (!incomingImages?.length || !existingImages?.length) {
-              return incomingImages;
-            }
-
-            const existingMap = new Map(
-              existingImages.map((img) => [img.id, img]),
-            );
-
-            return incomingImages.map((image) => {
-              const existing = existingMap.get(image.id);
-              if (existing?.src && !image.src) {
-                return { ...image, src: existing.src };
-              }
-              return image;
-            });
-          };
-
-          const buildFeedItem = (existing?: MessageFeedItem): MessageFeedItem => ({
+          const incomingFeedItem = {
             ...messagePayload,
-            images: preserveImageSrc(existing?.images, messagePayload.images),
-            type: 'message',
-          });
+            type: 'message' as const,
+          };
 
           queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
             if (!oldData) {
               return {
-                pages: [{ feed: [buildFeedItem()] }],
+                pages: [{ feed: [incomingFeedItem] }],
                 pageParams: [0],
               };
             }
@@ -157,10 +140,11 @@ export const ChannelView = ({ channel }: Props) => {
                 // Update existing message (bot message with command result)
                 const updatedFeed = [...page.feed];
                 const existingMessage = page.feed[existingIndex];
-                updatedFeed[existingIndex] = buildFeedItem(
+                updatedFeed[existingIndex] = preserveFeedItemImages(
                   existingMessage.type === 'message'
                     ? existingMessage
                     : undefined,
+                  incomingFeedItem,
                 );
 
                 // Sort by createdAt descending (newest first)
@@ -174,7 +158,7 @@ export const ChannelView = ({ channel }: Props) => {
 
               // Add new message to first page only
               if (index === 0) {
-                const updatedFeed = [buildFeedItem(), ...page.feed];
+                const updatedFeed = [incomingFeedItem, ...page.feed];
                 // Sort by createdAt descending (newest first)
                 updatedFeed.sort(
                   (a, b) =>
@@ -247,11 +231,13 @@ export const ChannelView = ({ channel }: Props) => {
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
               if (index === 0) {
-                const exists = page.feed.some(
+                const existingIndex = page.feed.findIndex(
                   (fi) => fi.type === 'poll' && fi.id === newFeedItem.id,
                 );
-                if (exists) {
-                  return page;
+                if (existingIndex !== -1) {
+                  const updatedFeed = [...page.feed];
+                  updatedFeed[existingIndex] = newFeedItem;
+                  return { feed: updatedFeed };
                 }
                 const updatedFeed = [newFeedItem, ...page.feed];
                 // Sort by createdAt descending (newest first)

@@ -1,6 +1,7 @@
 import { api } from '@/client/api-client';
 import { type JoinCallRes } from '@/types/call.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -31,8 +32,15 @@ export const useChannelCall = (serverId?: string, channelId?: string) => {
         queryKey: ['servers', serverId, 'channels', channelId, 'feed'],
       });
     },
-    onError: () => {
-      toast(t('calls.errors.joinFailed'));
+    onError: (error) => {
+      const isUnavailable =
+        isAxiosError(error) && error.response?.status === 503;
+      toast(
+        isUnavailable
+          ? t('calls.errors.unavailable')
+          : t('calls.errors.joinFailed'),
+        isUnavailable ? { id: 'calls-unavailable' } : undefined,
+      );
     },
   });
 

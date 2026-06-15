@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
 import { cn } from '@/lib/shared.utils';
@@ -16,26 +17,10 @@ import { timeAgo } from '@/lib/time.utils';
 import { type CallArtifactRes, type CallUserRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';
 import { type CurrentUser } from '@/types/user.types';
+import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuMessagesSquare, LuPhoneCall, LuVote } from 'react-icons/lu';
-
-const CallUserAvatar = ({
-  user,
-  className = 'size-7',
-}: {
-  user: CallUserRes;
-  className?: string;
-}) => (
-  <UserAvatar
-    name={displayName(user)}
-    userId={user.id}
-    imageId={user.profilePicture?.id}
-    className={className}
-    fallbackClassName="text-xs"
-    skipLoadAnimation
-  />
-);
 
 const formatDuration = (
   seconds: number,
@@ -61,6 +46,71 @@ const displayName = (user: CallUserRes) => {
   return user.displayName || user.name;
 };
 
+const formatCallTime = (
+  timestamp: string | null | undefined,
+  includeDate = false,
+) => {
+  if (!timestamp) {
+    return null;
+  }
+  return dayjs(timestamp).format(includeDate ? 'MMM D, h:mm A' : 'h:mm A');
+};
+
+const formatCallDate = (timestamp: string) => {
+  const date = dayjs(timestamp);
+  return date.isSame(dayjs(), 'year')
+    ? date.format('MMM D')
+    : date.format('MMM D, YYYY');
+};
+
+const formatCompactCallTimeRange = (
+  startedAt: string,
+  endedAt: string | null | undefined,
+) => {
+  if (!endedAt) {
+    return null;
+  }
+
+  const start = dayjs(startedAt);
+  const end = dayjs(endedAt);
+
+  if (!start.isSame(end, 'day')) {
+    return {
+      startedAt: start.format('MMM D, h:mm A'),
+      endedAt: end.format('MMM D, h:mm A'),
+    };
+  }
+
+  if (start.format('A') === end.format('A')) {
+    return {
+      startedAt: start.format('h:mm'),
+      endedAt: end.format('h:mm A'),
+    };
+  }
+
+  return {
+    startedAt: start.format('h:mm A'),
+    endedAt: end.format('h:mm A'),
+  };
+};
+
+const CallUserAvatar = ({
+  user,
+  className = 'size-7',
+}: {
+  user: CallUserRes;
+  className?: string;
+}) => (
+  <UserAvatar
+    name={displayName(user)}
+    userId={user.id}
+    imageId={user.profilePicture?.id}
+    className={className}
+    fallbackClassName="text-xs"
+    skipLoadAnimation
+  />
+);
+
 interface Props {
   call: CallArtifactRes;
   channel: ChannelRes;
@@ -68,6 +118,8 @@ interface Props {
   me?: CurrentUser;
   isJoining?: boolean;
   onJoinCall?: (callId: string) => void;
+  detailsOpen?: boolean;
+  onDetailsOpenChange?: (open: boolean) => void;
 }
 
 export const CallArtifact = ({
@@ -76,9 +128,13 @@ export const CallArtifact = ({
   isJoining = false,
   me,
   onJoinCall,
+  detailsOpen: controlledDetailsOpen,
+  onDetailsOpenChange,
   serverId,
 }: Props) => {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [uncontrolledDetailsOpen, setUncontrolledDetailsOpen] = useState(false);
+  const detailsOpen = controlledDetailsOpen ?? uncontrolledDetailsOpen;
+
   const { t } = useTranslation();
 
   const isActive = call.status === 'starting' || call.status === 'active';
@@ -86,19 +142,54 @@ export const CallArtifact = ({
   const participantCount = t('calls.labels.participantCount', {
     count: call.participantCount,
   });
+
   const starterName = displayName(call.startedBy);
   const truncatedStarterName = truncate(starterName, 18);
+  const isCallToday = dayjs(call.createdAt).isSame(dayjs(), 'day');
   const formattedDate = timeAgo(call.createdAt);
+  const endedAt = call.endedAt || undefined;
+
+  const compactTimeRange = formatCompactCallTimeRange(call.createdAt, endedAt);
+  const compactTimeRangeLabel = compactTimeRange
+    ? t('calls.artifact.timeRange', {
+        startedAt: compactTimeRange.startedAt,
+        endedAt: compactTimeRange.endedAt,
+      })
+    : null;
+
+  const detailsStartedAt = formatCallTime(call.createdAt, true);
+  const detailsEndedAt = formatCallTime(endedAt, true);
+  const messageCount = call.summary.messages;
+  const decisionCount = call.summary.proposals + call.summary.polls;
+  const callDate = formatCallDate(call.createdAt);
+
+  const messageCountLabel = t('calls.artifact.messageCount', {
+    count: messageCount,
+  });
+  const decisionCountLabel = t('calls.artifact.decisionCount', {
+    count: decisionCount,
+  });
+
+  const timeline = isActive
+    ? t('calls.artifact.startedAgo', { time: formattedDate })
+    : isCallToday && compactTimeRangeLabel
+      ? compactTimeRangeLabel
+      : callDate;
 
   const participantNames = call.participants
     .map(displayName)
     .filter(Boolean)
     .join(', ');
 
-  const handleArtifactClick = () => {
-    if (!isActive) {
-      setDetailsOpen(true);
+  const setDetailsOpen = (open: boolean) => {
+    onDetailsOpenChange?.(open);
+    if (controlledDetailsOpen === undefined) {
+      setUncontrolledDetailsOpen(open);
     }
+  };
+
+  const handleArtifactClick = () => {
+    setDetailsOpen(true);
   };
 
   const renderDetailStat = (label: string, value: number) => (
@@ -146,7 +237,6 @@ export const CallArtifact = ({
                     'flex max-w-full items-center gap-2 text-left',
                     !isActive && 'cursor-pointer',
                   )}
-                  disabled={isActive}
                   aria-label={t('calls.actions.viewDetails')}
                   onClick={handleArtifactClick}
                 >
@@ -173,7 +263,6 @@ export const CallArtifact = ({
                     'flex max-w-full flex-wrap items-center gap-2 text-left',
                     !isActive && 'cursor-pointer',
                   )}
-                  disabled={isActive}
                   aria-label={t('calls.actions.viewDetails')}
                   onClick={handleArtifactClick}
                 >
@@ -195,34 +284,40 @@ export const CallArtifact = ({
                 <button
                   type="button"
                   className={cn(
-                    'text-muted-foreground flex max-w-full flex-wrap gap-x-4 gap-y-1 text-left text-xs',
+                    'text-muted-foreground flex max-w-full flex-wrap gap-x-2 gap-y-1 text-left text-xs',
                     !isActive && 'cursor-pointer',
                   )}
-                  disabled={isActive}
                   aria-label={t('calls.actions.viewDetails')}
                   onClick={handleArtifactClick}
                 >
-                  <span>
-                    {t('calls.artifact.duration', {
-                      duration,
-                    })}
-                  </span>
+                  <span className="whitespace-nowrap">{timeline}</span>
+
                   {!isActive && (
                     <>
-                      <span className="inline-flex items-center gap-1">
-                        <LuMessagesSquare className="size-3.5" />
-                        {t('calls.artifact.messageCount', {
-                          count: call.summary.messages,
-                        })}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <LuVote className="size-3.5" />
-                        {t('calls.artifact.decisionCount', {
-                          count: call.summary.proposals + call.summary.polls,
-                        })}
-                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span className="whitespace-nowrap">{duration}</span>
                     </>
                   )}
+
+                  <span aria-hidden="true">·</span>
+
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <LuMessagesSquare className="size-3.5" />
+                    <span className="sm:hidden">{messageCount}</span>
+                    <span className="hidden sm:inline">
+                      {messageCountLabel}
+                    </span>
+                  </span>
+
+                  <span aria-hidden="true">·</span>
+
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <LuVote className="size-3.5" />
+                    <span className="sm:hidden">{decisionCount}</span>
+                    <span className="hidden sm:inline">
+                      {decisionCountLabel}
+                    </span>
+                  </span>
                 </button>
               </div>
 
@@ -268,6 +363,29 @@ export const CallArtifact = ({
           </DialogHeader>
           <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-none">
             <aside className="border-border space-y-3 border-b px-4 pb-4 md:border-r md:border-b-0 md:px-6">
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium">
+                  {t('calls.artifact.times')}
+                </h4>
+                <div className="text-muted-foreground space-y-1 text-xs">
+                  <div>
+                    {t('calls.artifact.startedAt', {
+                      time: detailsStartedAt,
+                    })}
+                  </div>
+                  {detailsEndedAt && (
+                    <div>
+                      {t('calls.artifact.endedAt', {
+                        time: detailsEndedAt,
+                      })}
+                    </div>
+                  )}
+                  <div>{t('calls.artifact.duration', { duration })}</div>
+                </div>
+              </div>
+
+              <Separator />
+
               {renderDetailStat(
                 t('calls.artifact.messages', {
                   count: call.summary.messages,
@@ -306,15 +424,11 @@ export const CallArtifact = ({
             </aside>
             <div className="min-h-0 min-w-0 md:min-h-[420px]">
               <CallChatPanel
+                initialFeedLimit={messageCount + decisionCount}
                 serverId={serverId}
                 channel={channel}
                 callId={call.id}
                 readOnly
-                initialFeedLimit={
-                  call.summary.messages +
-                  call.summary.proposals +
-                  call.summary.polls
-                }
               />
             </div>
           </div>
