@@ -15,6 +15,13 @@ export interface JoinCallRes {
   call: CallRes;
 }
 
+export interface CallJoinPreferences {
+  audioDeviceId: string;
+  audioEnabled: boolean;
+  videoDeviceId: string;
+  videoEnabled: boolean;
+}
+
 export interface CallDecisionRes {
   activeItem?: PollRes | null;
   recentResult?: PollRes | null;

@@ -336,6 +336,7 @@
       "call": "Call",
       "joinActiveVideo": "Join active video",
       "joinCall": "Join call",
+      "joinNow": "Join now",
       "viewDetails": "View details"
     },
     "headers": {
@@ -360,6 +361,26 @@
       "status": "{{participants}}",
       "statusWithServer": "Server: {{serverName}} - {{participants}}",
       "inCallChat": "Messages for this call."
+    },
+    "preJoin": {
+      "camera": "Camera",
+      "cameraOff": "Camera is off",
+      "cameraUnavailable": "Camera unavailable",
+      "checkSetup": "Check your setup",
+      "defaultCamera": "Default camera",
+      "defaultMicrophone": "Default microphone",
+      "description": "Make sure your camera and microphone are ready before you enter.",
+      "joinNow": "Join now",
+      "joining": "Joining...",
+      "mediaUnsupported": "This browser does not support camera or microphone preview.",
+      "microphone": "Microphone",
+      "microphoneLevel": "Microphone input level",
+      "off": "Off",
+      "on": "On",
+      "ready": "Ready when you are.",
+      "readyWithServer": "{{serverName}} - Ready when you are.",
+      "title": "Join #{{channelName}}",
+      "unavailable": "Unavailable"
     },
     "decisions": {
       "noActiveTitle": "No active decision",

@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { createAuthenticatedUser, setupAnonymousInvite } from '../lib/auth';
+import { startCallFromTopNav } from '../lib/calls';
 import { createTestMessage, createTestUser } from '../lib/data';
 import { getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
@@ -113,7 +114,7 @@ test('authenticated user can send an in-call chat message with an image', async 
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await joinCallResponse;
     await expect(page.getByText('Call in #general')).toBeVisible();
 
@@ -193,7 +194,7 @@ test('authenticated user can create and vote on an in-call proposal', async ({
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await joinCallResponse;
     await expect(page.getByText('Call in #general')).toBeVisible();
 
