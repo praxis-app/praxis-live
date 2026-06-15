@@ -51,8 +51,8 @@ export const InlinePoll = ({
   poll,
   channel,
   feedQueryKey,
-  me,
   onPollChange,
+  me,
 }: Props) => {
   const { t } = useTranslation();
   const { serverId } = useServerData();
