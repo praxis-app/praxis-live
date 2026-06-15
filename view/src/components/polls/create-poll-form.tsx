@@ -20,6 +20,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
+import { type CallDecisionRes } from '@/types/call.types';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import { type CreatePollReq } from '@/types/poll.types';
 import { VotingTimeLimit } from '@/constants/vote.constants';
@@ -137,8 +138,8 @@ export const CreatePollForm = ({ channelId, callId, onSuccess }: Props) => {
       });
 
       if (callId) {
-        void queryClient.invalidateQueries({
-          queryKey: [
+        queryClient.setQueryData<CallDecisionRes>(
+          [
             'servers',
             serverId,
             'channels',
@@ -147,7 +148,11 @@ export const CreatePollForm = ({ channelId, callId, onSuccess }: Props) => {
             callId,
             'decisions',
           ],
-        });
+          (old) => ({
+            activeItem: poll,
+            recentResult: old?.recentResult ?? null,
+          }),
+        );
       }
 
       onSuccess();
