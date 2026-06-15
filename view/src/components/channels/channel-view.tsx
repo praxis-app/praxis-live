@@ -21,10 +21,7 @@ import { type MessageRes } from '@/types/message.types';
 import { type PollRes } from '@/types/poll.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
-import {
-  preserveFeedImages,
-  preserveFeedItemImages,
-} from '@/lib/feed.utils';
+import { preserveFeedImages, preserveFeedItemImages } from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -94,6 +91,8 @@ export const ChannelView = ({ channel }: Props) => {
         ?.pages.flatMap((page) => page.feed);
       return {
         ...result,
+
+        // Keep locally loaded image srcs from being lost on feed refresh.
         feed: preserveFeedImages(existingFeed, result.feed),
       };
     },
