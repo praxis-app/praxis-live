@@ -3,10 +3,7 @@ import { Feed } from '@/components/feeds/feed';
 import { MessageForm } from '@/components/messages/message-form';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
-import {
-  preserveFeedImages,
-  preserveFeedItemImages,
-} from '@/lib/feed.utils';
+import { preserveFeedImages, preserveFeedItemImages } from '@/lib/feed.utils';
 import { callPubSubTopic } from '@/lib/pub-sub.utils';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useSubscription } from '@/hooks/use-subscription';
@@ -86,6 +83,8 @@ export const CallChatPanel = ({
         ?.pages.flatMap((page) => page.feed);
       return {
         ...result,
+
+        // Keep locally loaded image srcs from being lost on feed refresh.
         feed: preserveFeedImages(existingFeed, result.feed),
       };
     },
