@@ -74,6 +74,21 @@ export const PreJoinScreen = ({
     void videoRef.current.play().catch(() => {});
   }, [video.stream]);
 
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      onCancel();
+    };
+
+    window.addEventListener('keydown', closeOnEscape);
+
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onCancel]);
+
   const microphoneLabel = audio.enabled
     ? t('calls.labels.muteMicrophone')
     : t('calls.labels.useMicrophone');
