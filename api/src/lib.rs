@@ -33,13 +33,21 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
     let livekit_config = calls::LiveKitConfig::from_env();
+    let pub_sub_service = pub_sub::PubSubService::from_env();
 
     calls::service::spawn_stale_call_cleaner(
         database.clone(),
+        pub_sub_service.clone(),
         livekit_config.clone(),
     );
 
-    let app = build_router(database, jwt_secret, livekit_config).layer(
+    let app = build_router_with_pub_sub(
+        database,
+        jwt_secret,
+        livekit_config,
+        pub_sub_service,
+    )
+    .layer(
         TraceLayer::new_for_http()
             .make_span_with(logging::make_request_span)
             .on_request(logging::log_request_start())
@@ -67,8 +75,22 @@ pub fn build_router(
     jwt_secret: impl Into<String>,
     livekit_config: Option<calls::LiveKitConfig>,
 ) -> Router {
-    let jwt_secret = jwt_secret.into();
     let pub_sub_service = pub_sub::PubSubService::from_env();
+    build_router_with_pub_sub(
+        database,
+        jwt_secret,
+        livekit_config,
+        pub_sub_service,
+    )
+}
+
+fn build_router_with_pub_sub(
+    database: DatabaseConnection,
+    jwt_secret: impl Into<String>,
+    livekit_config: Option<calls::LiveKitConfig>,
+    pub_sub_service: pub_sub::PubSubService,
+) -> Router {
+    let jwt_secret = jwt_secret.into();
     polls::service::spawn_proposal_synchronizer(
         database.clone(),
         pub_sub_service.clone(),

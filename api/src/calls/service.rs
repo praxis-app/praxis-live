@@ -85,6 +85,7 @@ impl LiveKitConfig {
 
 pub(crate) fn spawn_stale_call_cleaner(
     database: DatabaseConnection,
+    pub_sub_service: PubSubService,
     livekit: Option<LiveKitConfig>,
 ) {
     tokio::spawn(async move {
@@ -100,21 +101,28 @@ pub(crate) fn spawn_stale_call_cleaner(
             interval.tick().await;
 
             match cleanup_stale_calls(&database).await {
-                Ok(summary)
-                    if summary.failed_starting > 0
-                        || summary.ended_empty > 0
-                        || summary.ended_active > 0
-                        || summary.ended_ending > 0 =>
-                {
-                    tracing::info!(
-                        failed_starting = summary.failed_starting,
-                        ended_empty = summary.ended_empty,
-                        ended_active = summary.ended_active,
-                        ended_ending = summary.ended_ending,
-                        "Cleaned up stale calls."
-                    );
+                Ok(cleanup) => {
+                    if cleanup.summary.failed_starting > 0
+                        || cleanup.summary.ended_empty > 0
+                        || cleanup.summary.ended_active > 0
+                        || cleanup.summary.ended_ending > 0
+                    {
+                        tracing::info!(
+                            failed_starting = cleanup.summary.failed_starting,
+                            ended_empty = cleanup.summary.ended_empty,
+                            ended_active = cleanup.summary.ended_active,
+                            ended_ending = cleanup.summary.ended_ending,
+                            "Cleaned up stale calls."
+                        );
+                    }
+
+                    broadcast_cleaned_call_updates(
+                        &database,
+                        &pub_sub_service,
+                        cleanup.calls,
+                    )
+                    .await;
                 }
-                Ok(_) => {}
                 Err(error) => {
                     tracing::warn!("Failed to clean up stale calls: {error}");
                 }
@@ -125,12 +133,18 @@ pub(crate) fn spawn_stale_call_cleaner(
             };
 
             match cleanup_empty_active_calls(&database, livekit).await {
-                Ok(0) => {}
-                Ok(ended_empty) => {
+                Ok(cleaned_calls) if cleaned_calls.is_empty() => {}
+                Ok(cleaned_calls) => {
                     tracing::info!(
-                        ended_empty,
+                        ended_empty = cleaned_calls.len(),
                         "Ended active calls with empty LiveKit rooms."
                     );
+                    broadcast_cleaned_call_updates(
+                        &database,
+                        &pub_sub_service,
+                        cleaned_calls,
+                    )
+                    .await;
                 }
                 Err(error) => {
                     tracing::warn!("Failed to clean up empty calls: {error}");
@@ -366,7 +380,7 @@ pub(crate) async fn broadcast_call(
     pub_sub_service: Option<&PubSubService>,
     server_id: uuid::Uuid,
     channel_id: uuid::Uuid,
-    sender_id: uuid::Uuid,
+    sender_id: Option<uuid::Uuid>,
     call: &CallArtifactResponse,
 ) -> AppResult<()> {
     let Some(pub_sub_service) = pub_sub_service else {
@@ -380,7 +394,7 @@ pub(crate) async fn broadcast_call(
         channels::get_channel_member_user_ids(database, channel_id).await?;
 
     for member_id in members {
-        if member_id == sender_id {
+        if Some(member_id) == sender_id {
             continue;
         }
 
@@ -669,62 +683,138 @@ fn create_livekit_token(
 
 async fn cleanup_stale_calls(
     database: &DatabaseConnection,
-) -> AppResult<StaleCallCleanupSummary> {
+) -> AppResult<StaleCallCleanup> {
     let now = Utc::now().fixed_offset();
-    let failed_starting = calls::Entity::update_many()
-        .col_expr(calls::Column::Status, Expr::value("failed"))
-        .col_expr(calls::Column::EndedReason, Expr::value("stale_starting"))
-        .col_expr(calls::Column::UpdatedAt, Expr::value(now))
-        .filter(calls::Column::Status.eq("starting"))
-        .filter(
-            calls::Column::UpdatedAt
-                .lt(now - Duration::minutes(STALE_STARTING_MINUTES)),
-        )
-        .exec(database)
-        .await
-        .map_err(internal_error)?
-        .rows_affected;
+    let failed_starting = cleanup_stale_calls_by_status(
+        database,
+        now,
+        "starting",
+        "failed",
+        "stale_starting",
+        now - Duration::minutes(STALE_STARTING_MINUTES),
+    )
+    .await?;
+    let ended_active = cleanup_stale_calls_by_status(
+        database,
+        now,
+        "active",
+        "ended",
+        "stale_active",
+        now - Duration::hours(STALE_ACTIVE_HOURS),
+    )
+    .await?;
+    let ended_ending = cleanup_stale_calls_by_status(
+        database,
+        now,
+        "ending",
+        "ended",
+        "stale_ending",
+        now - Duration::minutes(STALE_ENDING_MINUTES),
+    )
+    .await?;
 
-    let ended_active = calls::Entity::update_many()
-        .col_expr(calls::Column::Status, Expr::value("ended"))
-        .col_expr(calls::Column::EndedReason, Expr::value("stale_active"))
-        .col_expr(calls::Column::UpdatedAt, Expr::value(now))
-        .filter(calls::Column::Status.eq("active"))
-        .filter(
-            calls::Column::UpdatedAt
-                .lt(now - Duration::hours(STALE_ACTIVE_HOURS)),
-        )
-        .exec(database)
-        .await
-        .map_err(internal_error)?
-        .rows_affected;
-
-    let ended_ending = calls::Entity::update_many()
-        .col_expr(calls::Column::Status, Expr::value("ended"))
-        .col_expr(calls::Column::EndedReason, Expr::value("stale_ending"))
-        .col_expr(calls::Column::UpdatedAt, Expr::value(now))
-        .filter(calls::Column::Status.eq("ending"))
-        .filter(
-            calls::Column::UpdatedAt
-                .lt(now - Duration::minutes(STALE_ENDING_MINUTES)),
-        )
-        .exec(database)
-        .await
-        .map_err(internal_error)?
-        .rows_affected;
-
-    Ok(StaleCallCleanupSummary {
-        failed_starting,
+    let summary = StaleCallCleanupSummary {
+        failed_starting: failed_starting.len() as u64,
         ended_empty: 0,
-        ended_active,
-        ended_ending,
-    })
+        ended_active: ended_active.len() as u64,
+        ended_ending: ended_ending.len() as u64,
+    };
+    let calls = failed_starting
+        .into_iter()
+        .chain(ended_active)
+        .chain(ended_ending)
+        .collect();
+
+    Ok(StaleCallCleanup { summary, calls })
+}
+
+#[derive(Debug)]
+struct StaleCallCleanup {
+    summary: StaleCallCleanupSummary,
+    calls: Vec<calls::Model>,
+}
+
+async fn cleanup_stale_calls_by_status(
+    database: &DatabaseConnection,
+    now: chrono::DateTime<chrono::FixedOffset>,
+    current_status: &str,
+    next_status: &str,
+    reason: &str,
+    stale_before: chrono::DateTime<chrono::FixedOffset>,
+) -> AppResult<Vec<calls::Model>> {
+    let candidates = calls::Entity::find()
+        .filter(calls::Column::Status.eq(current_status))
+        .filter(calls::Column::UpdatedAt.lt(stale_before))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let mut cleaned_calls = Vec::new();
+
+    for call in candidates {
+        let result = calls::Entity::update_many()
+            .col_expr(calls::Column::Status, Expr::value(next_status))
+            .col_expr(calls::Column::EndedReason, Expr::value(reason))
+            .col_expr(calls::Column::UpdatedAt, Expr::value(now))
+            .filter(calls::Column::Id.eq(call.id))
+            .filter(calls::Column::Status.eq(current_status))
+            .filter(calls::Column::UpdatedAt.lt(stale_before))
+            .exec(database)
+            .await
+            .map_err(internal_error)?;
+
+        if result.rows_affected == 0 {
+            continue;
+        }
+
+        if let Some(call) = calls::Entity::find_by_id(call.id)
+            .one(database)
+            .await
+            .map_err(internal_error)?
+        {
+            cleaned_calls.push(call);
+        }
+    }
+
+    Ok(cleaned_calls)
+}
+
+async fn broadcast_cleaned_call_updates(
+    database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
+    calls: Vec<calls::Model>,
+) {
+    for call in calls {
+        let server_id = call.server_id;
+        let channel_id = call.channel_id;
+        let artifact = match shape_call_artifact(database, call).await {
+            Ok(artifact) => artifact,
+            Err(error) => {
+                tracing::warn!(
+                    "failed to load cleaned call artifact for broadcast: {error}"
+                );
+                continue;
+            }
+        };
+
+        if let Err(error) = broadcast_call(
+            database,
+            Some(pub_sub_service),
+            server_id,
+            channel_id,
+            None,
+            &artifact,
+        )
+        .await
+        {
+            tracing::warn!("failed to broadcast cleaned call update: {error}");
+        }
+    }
 }
 
 async fn cleanup_empty_active_calls(
     database: &DatabaseConnection,
     livekit: &LiveKitConfig,
-) -> AppResult<u64> {
+) -> AppResult<Vec<calls::Model>> {
     let active_calls = calls::Entity::find()
         .filter(calls::Column::Status.is_in(ACTIVE_STATUSES))
         .filter(calls::Column::UpdatedAt.lt(Utc::now().fixed_offset()
@@ -732,7 +822,7 @@ async fn cleanup_empty_active_calls(
         .all(database)
         .await
         .map_err(internal_error)?;
-    let mut ended_empty = 0;
+    let mut cleaned_calls = Vec::new();
 
     for call in active_calls {
         let participant_count =
@@ -742,11 +832,11 @@ async fn cleanup_empty_active_calls(
             continue;
         }
 
-        end_call(database, call, None, "empty_livekit_room").await?;
-        ended_empty += 1;
+        let call = end_call(database, call, None, "empty_livekit_room").await?;
+        cleaned_calls.push(call);
     }
 
-    Ok(ended_empty)
+    Ok(cleaned_calls)
 }
 
 fn shape_call(call: calls::Model) -> CallResponse {

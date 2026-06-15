@@ -4,11 +4,18 @@ import {
   seedAuthenticatedSession,
   signUpViaApi,
 } from '../lib/auth';
+import { ageActiveCallForStaleCleanup } from '../lib/calls';
 import { createTestMessage, createTestUser } from '../lib/data';
 import { createInvite } from '../lib/invites';
 import { getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
+
+type JoinCallResponse = {
+  call: {
+    id: string;
+  };
+};
 
 const expectTileToRender = async (tile: Locator) => {
   await expect(tile).toBeVisible();
@@ -257,6 +264,75 @@ test('starting a call immediately appears in other users channel feeds', async (
       observerCallArtifact.getByRole('button', { name: 'Join active video' }),
     ).toHaveCount(0);
   } finally {
+    await observerContext.close();
+  }
+});
+
+test('stale call cleanup updates other users channel feeds in realtime', async ({
+  browser,
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  const starter = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('call-stale-starter'),
+  );
+  const server = await getDefaultServer(request, starter);
+  const inviteToken = await createInvite(request, starter, server.id);
+  const observer = await signUpViaApi(
+    request,
+    createTestUser('call-stale-observer'),
+    inviteToken,
+  );
+  const observerContext = await browser.newContext();
+
+  try {
+    await seedAuthenticatedSession(observerContext, observer.accessToken);
+    const observerPage = await observerContext.newPage();
+    const starterChat = new ChatPage(page);
+    const observerChat = new ChatPage(observerPage);
+
+    await starterChat.goto();
+    await starterChat.expectChannel('general');
+    await observerPage.goto(page.url());
+    await observerChat.expectChannel('general');
+
+    const observerCallArtifact = observerPage
+      .locator('article')
+      .filter({ hasText: `Started by ${starter.user.name}` });
+
+    await expect(observerCallArtifact).toHaveCount(0);
+
+    const joinCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/calls$/.test(response.url()) &&
+        response.status() === 200,
+    );
+
+    await page.getByRole('button', { name: 'Call' }).click();
+    const startedCallResponse = await joinCallResponse;
+    const startedCall = (await startedCallResponse.json()) as JoinCallResponse;
+
+    await expect(observerCallArtifact).toContainText('Call is active');
+    await expect(
+      observerCallArtifact.getByRole('button', { name: 'Join active video' }),
+    ).toBeVisible();
+
+    ageActiveCallForStaleCleanup(startedCall.call.id);
+
+    await expect(observerCallArtifact).toContainText('Call ended', {
+      timeout: 20_000,
+    });
+    await expect(
+      observerCallArtifact.getByRole('button', { name: 'Join active video' }),
+    ).toHaveCount(0);
+  } finally {
+    await leaveCallIfVisible(page);
     await observerContext.close();
   }
 });
