@@ -170,6 +170,8 @@ pub(crate) async fn start_channel_call(
     channel_id: uuid::Uuid,
     user_id: uuid::Uuid,
 ) -> AppResult<JoinCallResponse> {
+    ensure_livekit_available(livekit).await?;
+
     let call =
         get_or_create_channel_call(database, server_id, channel_id, user_id)
             .await?;
@@ -541,6 +543,18 @@ async fn livekit_room_participant_count(
     }
 }
 
+async fn ensure_livekit_available(livekit: &LiveKitConfig) -> AppResult<()> {
+    RoomClient::with_api_key(
+        &livekit.api_url,
+        &livekit.api_key,
+        &livekit.api_secret,
+    )
+    .list_rooms(vec!["praxis-live-health-check".to_owned()])
+    .await
+    .map(|_| ())
+    .map_err(livekit_unavailable)
+}
+
 fn is_livekit_not_found(error: &ServiceError) -> bool {
     matches!(
         error,
@@ -877,4 +891,9 @@ fn livekit_api_url(livekit_url: &str) -> String {
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("call request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+}
+
+fn livekit_unavailable(error: impl std::fmt::Display) -> ApiError {
+    tracing::warn!("LiveKit is unavailable: {error}");
+    ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "LiveKit is unavailable.")
 }
