@@ -179,7 +179,7 @@ export const CallControls = ({
   return (
     <TooltipProvider>
       <div className="flex items-center justify-center gap-2">
-        <div className="bg-secondary flex items-center gap-0 rounded-full p-0.5">
+        <div className="bg-secondary flex h-11 items-center gap-0 rounded-full">
           <DeviceSelectControl
             activeDeviceId={activeMicrophoneId}
             devices={microphones}
@@ -203,7 +203,7 @@ export const CallControls = ({
           </CallControlTooltip>
         </div>
 
-        <div className="bg-secondary flex items-center gap-0 rounded-full p-0.5">
+        <div className="bg-secondary flex h-11 items-center gap-0 rounded-full">
           <DeviceSelectControl
             activeDeviceId={activeCameraId}
             devices={cameras}
