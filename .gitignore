@@ -14,9 +14,6 @@ dist-ssr/
 
 # Project
 .claude
-.docs
-.scripts
-.tmp
 content/*
 !content/README.md
 .idea
@@ -27,6 +24,13 @@ content/*
 playwright-report/
 test-results/
 .fallow
+
+# Local only files
+.docs
+.scripts
+.misc
+.logs
+.tmp
 
 # Docker workspace (persisted agent data)
 /workspace/*
