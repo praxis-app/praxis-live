@@ -23,8 +23,6 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuMic, LuMicOff, LuVideo, LuVideoOff, LuX } from 'react-icons/lu';
 
-const DEFAULT_DEVICE_ID = 'default';
-
 interface Props {
   channel: ChannelRes;
   isJoining: boolean;
@@ -48,22 +46,21 @@ export const PreJoinScreen = ({
 }: Props) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const {
-    audio,
-    hasMediaDevices,
-    video,
-  } = usePreJoinMedia();
+  const { audio, hasMediaDevices, video } = usePreJoinMedia();
 
-  const attachPreviewStream = useCallback((element: HTMLVideoElement | null) => {
-    videoRef.current = element;
+  const attachPreviewStream = useCallback(
+    (element: HTMLVideoElement | null) => {
+      videoRef.current = element;
 
-    if (!element) {
-      return;
-    }
+      if (!element) {
+        return;
+      }
 
-    element.srcObject = video.stream;
-    void element.play().catch(() => {});
-  }, [video.stream]);
+      element.srcObject = video.stream;
+      void element.play().catch(() => {});
+    },
+    [video.stream],
+  );
 
   useEffect(() => {
     if (!videoRef.current) {
@@ -108,6 +105,18 @@ export const PreJoinScreen = ({
   const preJoinSubheader = serverName
     ? t('calls.preJoin.readyWithServer', { serverName })
     : t('calls.preJoin.ready');
+
+  const audioDeviceValue = audio.devices.some(
+    (device) => device.deviceId === audio.deviceId,
+  )
+    ? audio.deviceId
+    : undefined;
+
+  const videoDeviceValue = video.devices.some(
+    (device) => device.deviceId === video.deviceId,
+  )
+    ? video.deviceId
+    : undefined;
 
   return (
     <div className="bg-background fixed inset-0 z-50 flex flex-col">
@@ -218,14 +227,17 @@ export const PreJoinScreen = ({
                 label={t('calls.preJoin.microphoneLevel')}
                 level={audio.level}
               />
-              <Select value={audio.deviceId} onValueChange={audio.setDeviceId}>
+              <Select
+                disabled={audio.devices.length === 0}
+                value={audioDeviceValue}
+                onValueChange={audio.setDeviceId}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue
+                    placeholder={t('calls.preJoin.selectingMicrophone')}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={DEFAULT_DEVICE_ID}>
-                    {t('calls.preJoin.defaultMicrophone')}
-                  </SelectItem>
                   {audio.devices.map((device) => (
                     <SelectItem key={device.deviceId} value={device.deviceId}>
                       {device.label}
@@ -246,14 +258,17 @@ export const PreJoinScreen = ({
                       : t('calls.preJoin.off')}
                 </span>
               </div>
-              <Select value={video.deviceId} onValueChange={video.setDeviceId}>
+              <Select
+                disabled={video.devices.length === 0}
+                value={videoDeviceValue}
+                onValueChange={video.setDeviceId}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue
+                    placeholder={t('calls.preJoin.selectingCamera')}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={DEFAULT_DEVICE_ID}>
-                    {t('calls.preJoin.defaultCamera')}
-                  </SelectItem>
                   {video.devices.map((device) => (
                     <SelectItem key={device.deviceId} value={device.deviceId}>
                       {device.label}

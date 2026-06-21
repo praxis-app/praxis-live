@@ -12,6 +12,7 @@ interface PreviewTrackOptions {
   enabled: boolean;
   hasMediaDevices: boolean;
   kind: 'audio' | 'video';
+  onDeviceResolved?: (deviceId: string) => void;
   onUnavailable: () => void;
   refreshDevices: () => Promise<void>;
 }
@@ -43,11 +44,22 @@ const mapDevices = (devices: MediaDeviceInfo[], kind: MediaDeviceKind) =>
         `${kind === 'audioinput' ? 'Microphone' : 'Camera'} ${index + 1}`,
     }));
 
+const getResolvedDeviceId = (
+  stream: MediaStream,
+  kind: PreviewTrackOptions['kind'],
+) => {
+  const track =
+    kind === 'audio' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
+
+  return track?.getSettings().deviceId;
+};
+
 const usePreviewTrack = ({
   deviceId,
   enabled,
   hasMediaDevices,
   kind,
+  onDeviceResolved,
   onUnavailable,
   refreshDevices,
 }: PreviewTrackOptions) => {
@@ -88,6 +100,11 @@ const usePreviewTrack = ({
         setError(false);
         replaceStream(nextStream);
         void refreshDevices();
+
+        const resolvedDeviceId = getResolvedDeviceId(nextStream, kind);
+        if (deviceId === DEFAULT_DEVICE_ID && resolvedDeviceId) {
+          onDeviceResolved?.(resolvedDeviceId);
+        }
       })
       .catch(() => {
         if (!isMounted) {
@@ -108,6 +125,7 @@ const usePreviewTrack = ({
     enabled,
     hasMediaDevices,
     kind,
+    onDeviceResolved,
     onUnavailable,
     refreshDevices,
     replaceStream,
@@ -151,11 +169,24 @@ export const usePreJoinMedia = () => {
     setVideoEnabled(false);
   }, []);
 
+  const selectResolvedAudioDevice = useCallback((deviceId: string) => {
+    setAudioDeviceId((currentDeviceId) =>
+      currentDeviceId === DEFAULT_DEVICE_ID ? deviceId : currentDeviceId,
+    );
+  }, []);
+
+  const selectResolvedVideoDevice = useCallback((deviceId: string) => {
+    setVideoDeviceId((currentDeviceId) =>
+      currentDeviceId === DEFAULT_DEVICE_ID ? deviceId : currentDeviceId,
+    );
+  }, []);
+
   const audioPreview = usePreviewTrack({
     deviceId: audioDeviceId,
     enabled: audioEnabled,
     hasMediaDevices,
     kind: 'audio',
+    onDeviceResolved: selectResolvedAudioDevice,
     onUnavailable: disableUnavailableAudio,
     refreshDevices,
   });
@@ -164,6 +195,7 @@ export const usePreJoinMedia = () => {
     enabled: videoEnabled,
     hasMediaDevices,
     kind: 'video',
+    onDeviceResolved: selectResolvedVideoDevice,
     onUnavailable: disableUnavailableVideo,
     refreshDevices,
   });

@@ -367,8 +367,6 @@
       "cameraOff": "Camera is off",
       "cameraUnavailable": "Camera unavailable",
       "checkSetup": "Check your setup",
-      "defaultCamera": "Default camera",
-      "defaultMicrophone": "Default microphone",
       "description": "Make sure your camera and microphone are ready before you enter.",
       "joinNow": "Join now",
       "joining": "Joining...",
@@ -379,6 +377,8 @@
       "on": "On",
       "ready": "Ready when you are.",
       "readyWithServer": "{{serverName}} - Ready when you are.",
+      "selectingCamera": "Selecting camera...",
+      "selectingMicrophone": "Selecting microphone...",
       "title": "Join #{{channelName}}",
       "unavailable": "Unavailable"
     },
