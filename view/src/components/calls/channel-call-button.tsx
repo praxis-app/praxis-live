@@ -7,20 +7,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  type CallJoinPreferences,
-  type JoinCallRes,
-} from '@/types/call.types';
+import { type CallJoinPreferences, type JoinCallRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';
+import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
 import {
-  LiveKitRoom,
-  RoomAudioRenderer,
-  useLocalParticipant,
-} from '@livekit/components-react';
-import { useEffect, useRef } from 'react';
+  ConnectionError,
+  type AudioCaptureOptions,
+  type VideoCaptureOptions,
+} from 'livekit-client';
 import { useTranslation } from 'react-i18next';
 import { TbVideo } from 'react-icons/tb';
 import { toast } from 'sonner';
+
+const DEFAULT_DEVICE_ID = 'default';
 
 interface Props {
   callConfig: JoinCallRes | null;
@@ -35,50 +34,38 @@ interface Props {
   onLeave: () => void | Promise<void>;
 }
 
-interface ApplyCallPreferencesProps {
-  preferences: CallJoinPreferences | null;
-}
+const getAudioCaptureOptions = (
+  preferences: CallJoinPreferences | null,
+): AudioCaptureOptions | boolean => {
+  if (!preferences?.audioEnabled) {
+    return false;
+  }
 
-const ApplyCallPreferences = ({ preferences }: ApplyCallPreferencesProps) => {
-  const hasAppliedRef = useRef(false);
-  const { localParticipant } = useLocalParticipant();
-  const { t } = useTranslation();
+  if (
+    !preferences.audioDeviceId ||
+    preferences.audioDeviceId === DEFAULT_DEVICE_ID
+  ) {
+    return true;
+  }
 
-  useEffect(() => {
-    if (!preferences || hasAppliedRef.current) {
-      return;
-    }
+  return { deviceId: preferences.audioDeviceId };
+};
 
-    hasAppliedRef.current = true;
+const getVideoCaptureOptions = (
+  preferences: CallJoinPreferences | null,
+): VideoCaptureOptions | boolean => {
+  if (!preferences?.videoEnabled) {
+    return false;
+  }
 
-    const applyPreferences = async () => {
-      try {
-        await localParticipant.setMicrophoneEnabled(
-          preferences.audioEnabled,
-          preferences.audioDeviceId === 'default'
-            ? undefined
-            : { deviceId: preferences.audioDeviceId },
-        );
-      } catch {
-        toast(t('calls.errors.microphoneUnavailable'));
-      }
+  if (
+    !preferences.videoDeviceId ||
+    preferences.videoDeviceId === DEFAULT_DEVICE_ID
+  ) {
+    return true;
+  }
 
-      try {
-        await localParticipant.setCameraEnabled(
-          preferences.videoEnabled,
-          preferences.videoDeviceId === 'default'
-            ? undefined
-            : { deviceId: preferences.videoDeviceId },
-        );
-      } catch {
-        toast(t('calls.errors.cameraUnavailable'));
-      }
-    };
-
-    void applyPreferences();
-  }, [localParticipant, preferences, t]);
-
-  return null;
+  return { deviceId: preferences.videoDeviceId };
 };
 
 export const ChannelCallButton = ({
@@ -94,7 +81,9 @@ export const ChannelCallButton = ({
   onLeave,
 }: Props) => {
   const { t } = useTranslation();
-  const callLabel = t('calls.actions.call');
+
+  const audio = getAudioCaptureOptions(callPreferences);
+  const video = getVideoCaptureOptions(callPreferences);
 
   if (!callConfig) {
     return (
@@ -103,7 +92,7 @@ export const ChannelCallButton = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                aria-label={callLabel}
+                aria-label={t('calls.actions.call')}
                 onClick={() => onJoin()}
                 disabled={isJoining}
                 variant="ghost"
@@ -112,7 +101,7 @@ export const ChannelCallButton = ({
                 <TbVideo className="size-6" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{callLabel}</TooltipContent>
+            <TooltipContent>{t('calls.actions.call')}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
 
@@ -134,16 +123,32 @@ export const ChannelCallButton = ({
       serverUrl={callConfig.livekitUrl}
       token={callConfig.token}
       connect
-      audio={false}
-      video={false}
-      onError={() => {
+      audio={audio}
+      video={video}
+      onError={(error) => {
+        if (!(error instanceof ConnectionError)) {
+          return;
+        }
+
         toast(t('calls.errors.unavailable'), { id: 'calls-unavailable' });
         void onLeave();
+      }}
+      onMediaDeviceFailure={(_failure, kind) => {
+        if (kind === 'audioinput') {
+          toast(t('calls.errors.microphoneUnavailable'));
+          return;
+        }
+
+        if (kind === 'videoinput') {
+          toast(t('calls.errors.cameraUnavailable'));
+          return;
+        }
+
+        toast(t('calls.errors.unavailable'), { id: 'calls-unavailable' });
       }}
       onDisconnected={onLeave}
     >
       <RoomAudioRenderer />
-      <ApplyCallPreferences preferences={callPreferences} />
       <CallPanel
         channel={channel}
         callConfig={callConfig}
