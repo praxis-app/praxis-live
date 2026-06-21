@@ -17,7 +17,7 @@ import {
   useLocalParticipant,
   useMediaDeviceSelect,
 } from '@livekit/components-react';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   LuMessageSquare,
@@ -52,6 +52,10 @@ interface DeviceSelectControlProps {
 const controlButtonClassName =
   'size-11 rounded-full bg-secondary text-secondary-foreground/85 hover:bg-secondary/70';
 
+const clearDocumentSelection = () => {
+  window.getSelection()?.removeAllRanges();
+};
+
 const CallControlTooltip = ({ children, label }: CallControlTooltipProps) => (
   <Tooltip>
     <TooltipTrigger asChild>{children}</TooltipTrigger>
@@ -66,6 +70,8 @@ const DeviceSelectControl = ({
   label,
   onDeviceChange,
 }: DeviceSelectControlProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   const selectableDevices = devices.filter((device) => {
     return device.deviceId;
   });
@@ -75,10 +81,37 @@ const DeviceSelectControl = ({
     ? activeDeviceId
     : undefined;
 
+  const handleOpenChange = useCallback((open: boolean) => {
+    setIsOpen(open);
+    clearDocumentSelection();
+
+    if (!open) {
+      window.requestAnimationFrame(clearDocumentSelection);
+      window.setTimeout(clearDocumentSelection, 0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    clearDocumentSelection();
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      window.requestAnimationFrame(clearDocumentSelection);
+    };
+  }, [isOpen]);
+
   return (
     <Select
       disabled={selectableDevices.length === 0}
+      open={isOpen}
       value={selectedDeviceId}
+      onOpenChange={handleOpenChange}
       onValueChange={onDeviceChange}
     >
       <SelectTrigger
@@ -90,9 +123,13 @@ const DeviceSelectControl = ({
       >
         <SelectValue placeholder={label} />
       </SelectTrigger>
-      <SelectContent sideOffset={6}>
+      <SelectContent className="select-none" sideOffset={6}>
         {selectableDevices.map((device, index) => (
-          <SelectItem key={device.deviceId} value={device.deviceId}>
+          <SelectItem
+            className="select-none"
+            key={device.deviceId}
+            value={device.deviceId}
+          >
             {device.label || `${label} ${index + 1}`}
           </SelectItem>
         ))}
