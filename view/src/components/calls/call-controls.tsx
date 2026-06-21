@@ -52,15 +52,6 @@ interface DeviceSelectControlProps {
 const controlButtonClassName =
   'size-11 rounded-full bg-secondary text-secondary-foreground/85 hover:bg-secondary/70';
 
-const activeControlButtonClassName =
-  'bg-primary! text-primary-foreground! hover:bg-primary/90! hover:text-primary-foreground!';
-
-const mediaControlGroupClassName =
-  'bg-secondary flex items-center gap-0 rounded-full p-0.5';
-
-const deviceSelectTriggerClassName =
-  'border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent dark:hover:bg-secondary/70 -mr-0.5 h-10 w-10 rounded-full px-2 text-secondary-foreground/85 hover:bg-secondary/70 data-[placeholder]:text-secondary-foreground/85 [&>span]:sr-only';
-
 const CallControlTooltip = ({ children, label }: CallControlTooltipProps) => (
   <Tooltip>
     <TooltipTrigger asChild>{children}</TooltipTrigger>
@@ -89,7 +80,10 @@ const DeviceSelectControl = ({
     >
       <SelectTrigger
         aria-label={label}
-        className={cn(deviceSelectTriggerClassName, className)}
+        className={cn(
+          'dark:hover:bg-secondary/70 text-secondary-foreground/85 hover:bg-secondary/70 data-placeholder:text-secondary-foreground/85 -mr-0.5 h-10 w-10 rounded-full border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent [&>span]:sr-only',
+          className,
+        )}
       >
         <SelectValue placeholder={label} />
       </SelectTrigger>
@@ -185,7 +179,7 @@ export const CallControls = ({
   return (
     <TooltipProvider>
       <div className="flex items-center justify-center gap-2">
-        <div className={mediaControlGroupClassName}>
+        <div className="bg-secondary flex items-center gap-0 rounded-full p-0.5">
           <DeviceSelectControl
             activeDeviceId={activeMicrophoneId}
             devices={microphones}
@@ -200,7 +194,8 @@ export const CallControls = ({
               size="icon"
               className={cn(
                 controlButtonClassName,
-                isMicrophoneEnabled && activeControlButtonClassName,
+                isMicrophoneEnabled &&
+                  'bg-primary! text-primary-foreground! hover:bg-primary/90! hover:text-primary-foreground!',
               )}
             >
               {isMicrophoneEnabled ? <LuMic /> : <LuMicOff />}
@@ -208,7 +203,7 @@ export const CallControls = ({
           </CallControlTooltip>
         </div>
 
-        <div className={mediaControlGroupClassName}>
+        <div className="bg-secondary flex items-center gap-0 rounded-full p-0.5">
           <DeviceSelectControl
             activeDeviceId={activeCameraId}
             devices={cameras}
@@ -223,7 +218,8 @@ export const CallControls = ({
               size="icon"
               className={cn(
                 controlButtonClassName,
-                isCameraEnabled && activeControlButtonClassName,
+                isCameraEnabled &&
+                  'bg-primary! text-primary-foreground! hover:bg-primary/90! hover:text-primary-foreground!',
               )}
             >
               {isCameraEnabled ? <LuVideo /> : <LuVideoOff />}
