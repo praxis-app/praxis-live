@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const DEFAULT_DEVICE_ID = 'default';
 
@@ -48,8 +48,8 @@ const getResolvedDeviceId = (
   stream: MediaStream,
   kind: PreviewTrackOptions['kind'],
 ) => {
-  const track =
-    kind === 'audio' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
+  const [track] =
+    kind === 'audio' ? stream.getAudioTracks() : stream.getVideoTracks();
 
   return track?.getSettings().deviceId;
 };
@@ -65,25 +65,15 @@ const usePreviewTrack = ({
 }: PreviewTrackOptions) => {
   const [error, setError] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const replaceStream = useCallback((nextStream: MediaStream | null) => {
-    setStream((currentStream) => {
-      stopStream(currentStream);
-      streamRef.current = nextStream;
-
-      return nextStream;
-    });
-  }, []);
 
   useEffect(() => {
     if (!hasMediaDevices || !enabled) {
-      replaceStream(null);
+      setStream(null);
       return;
     }
 
-    let isMounted = true;
-    let pendingStream: MediaStream | null = null;
+    let isActive = true;
+    let currentStream: MediaStream | null = null;
 
     navigator.mediaDevices
       .getUserMedia({
@@ -91,14 +81,14 @@ const usePreviewTrack = ({
         video: kind === 'video' ? deviceConstraint(deviceId) : false,
       })
       .then((nextStream) => {
-        pendingStream = nextStream;
-        if (!isMounted) {
+        currentStream = nextStream;
+        if (!isActive) {
           stopStream(nextStream);
           return;
         }
 
         setError(false);
-        replaceStream(nextStream);
+        setStream(nextStream);
         void refreshDevices();
 
         const resolvedDeviceId = getResolvedDeviceId(nextStream, kind);
@@ -107,18 +97,18 @@ const usePreviewTrack = ({
         }
       })
       .catch(() => {
-        if (!isMounted) {
+        if (!isActive) {
           return;
         }
 
         setError(true);
-        replaceStream(null);
+        setStream(null);
         onUnavailable();
       });
 
     return () => {
-      isMounted = false;
-      stopStream(pendingStream);
+      isActive = false;
+      stopStream(currentStream);
     };
   }, [
     deviceId,
@@ -128,12 +118,7 @@ const usePreviewTrack = ({
     onDeviceResolved,
     onUnavailable,
     refreshDevices,
-    replaceStream,
   ]);
-
-  useEffect(() => {
-    return () => stopStream(streamRef.current);
-  }, []);
 
   return { error, stream };
 };
