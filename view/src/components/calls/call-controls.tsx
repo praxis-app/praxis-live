@@ -66,15 +66,18 @@ const DeviceSelectControl = ({
   label,
   onDeviceChange,
 }: DeviceSelectControlProps) => {
-  const selectedDeviceId = devices.some(
-    (device) => device.deviceId === activeDeviceId,
-  )
+  const selectableDevices = devices.filter((device) => {
+    return device.deviceId;
+  });
+  const selectedDeviceId = selectableDevices.some((device) => {
+    return device.deviceId === activeDeviceId;
+  })
     ? activeDeviceId
     : undefined;
 
   return (
     <Select
-      disabled={devices.length === 0}
+      disabled={selectableDevices.length === 0}
       value={selectedDeviceId}
       onValueChange={onDeviceChange}
     >
@@ -88,7 +91,7 @@ const DeviceSelectControl = ({
         <SelectValue placeholder={label} />
       </SelectTrigger>
       <SelectContent sideOffset={6}>
-        {devices.map((device, index) => (
+        {selectableDevices.map((device, index) => (
           <SelectItem key={device.deviceId} value={device.deviceId}>
             {device.label || `${label} ${index + 1}`}
           </SelectItem>

@@ -124,6 +124,32 @@ const expectParticipantMetadataStyle = async (
     .toEqual(expected);
 };
 
+const expectCameraOffPlaceholderStyle = async (
+  page: Page,
+  expected: {
+    backgroundColor: string;
+    iconFill: string;
+    iconFillOpacity: string;
+  },
+) => {
+  const placeholder = page.locator('.lk-participant-placeholder').first();
+  await expect(placeholder).toBeVisible();
+  await expect
+    .poll(async () =>
+      placeholder.evaluate((element) => {
+        const path = element.querySelector('svg path');
+        const pathStyle = path ? getComputedStyle(path) : null;
+
+        return {
+          backgroundColor: getComputedStyle(element).backgroundColor,
+          iconFill: pathStyle?.fill ?? '',
+          iconFillOpacity: pathStyle?.fillOpacity ?? '',
+        };
+      }),
+    )
+    .toEqual(expected);
+};
+
 const leaveCallIfVisible = async (page: Page) => {
   const leaveButton = page.getByRole('button', { name: 'Leave call' });
   if (!(await leaveButton.isVisible())) {
@@ -546,16 +572,41 @@ test('call participant metadata uses theme-aware control styles', async ({
     await expectRenderedParticipantTiles(page, 1);
     await expect(page.getByText(authenticatedUser.user.name).first()).toBeVisible();
 
+    const turnCameraOffButton = page.getByRole('button', {
+      name: 'Turn camera off',
+    });
+    if (
+      await turnCameraOffButton
+        .isVisible({ timeout: 1_000 })
+        .catch(() => false)
+    ) {
+      await turnCameraOffButton.click();
+    } else {
+      await expect(
+        page.getByRole('button', { name: 'Use camera' }),
+      ).toBeVisible();
+    }
+
     await setTheme(page, 'light');
     await expectParticipantMetadataStyle(page, {
       backgroundColor: 'rgba(255, 255, 255, 0.85)',
       color: await expectedForegroundColor(page),
+    });
+    await expectCameraOffPlaceholderStyle(page, {
+      backgroundColor: 'rgb(255, 255, 255)',
+      iconFill: 'rgb(229, 231, 235)',
+      iconFillOpacity: '1',
     });
 
     await setTheme(page, 'dark');
     await expectParticipantMetadataStyle(page, {
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
       color: 'rgb(255, 255, 255)',
+    });
+    await expectCameraOffPlaceholderStyle(page, {
+      backgroundColor: 'rgb(29, 30, 32)',
+      iconFill: 'rgb(255, 255, 255)',
+      iconFillOpacity: '0.25',
     });
   } finally {
     await leaveCallIfVisible(page);
