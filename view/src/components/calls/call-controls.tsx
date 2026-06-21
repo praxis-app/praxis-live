@@ -87,7 +87,7 @@ const DeviceSelectControl = ({
       >
         <SelectValue placeholder={label} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent sideOffset={6}>
         {devices.map((device, index) => (
           <SelectItem key={device.deviceId} value={device.deviceId}>
             {device.label || `${label} ${index + 1}`}
