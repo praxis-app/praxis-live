@@ -353,6 +353,8 @@
       "openDecisions": "Decisions",
       "participantCount_one": "{{count}} participant",
       "participantCount_other": "{{count}} participants",
+      "selectCamera": "Select camera",
+      "selectMicrophone": "Select microphone",
       "turnCameraOff": "Turn camera off",
       "useCamera": "Use camera",
       "useMicrophone": "Use microphone"
