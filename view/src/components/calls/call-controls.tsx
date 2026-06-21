@@ -81,7 +81,7 @@ const DeviceSelectControl = ({
       <SelectTrigger
         aria-label={label}
         className={cn(
-          'dark:hover:bg-secondary/70 text-secondary-foreground/85 hover:bg-secondary/70 data-placeholder:text-secondary-foreground/85 -mr-0.5 h-10 w-10 rounded-full border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent [&>span]:sr-only',
+          'dark:hover:bg-secondary/70 text-secondary-foreground/85 hover:bg-secondary/70 data-placeholder:text-secondary-foreground/85 -mr-1.5 h-10 w-10 rounded-full border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent [&>span]:sr-only',
           className,
         )}
       >
