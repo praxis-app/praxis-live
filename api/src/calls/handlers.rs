@@ -6,10 +6,7 @@ use axum::{
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
-use super::{
-    service::{self, LiveKitConfig},
-    types::CallPath,
-};
+use super::{livekit::LiveKitConfig, service, types::CallPath};
 use crate::{
     auth::HasJwtSecret,
     channels::extractors::{ChannelWriteContext, HasDatabase},

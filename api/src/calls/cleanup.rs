@@ -6,9 +6,9 @@ use sea_orm::{
 use std::env;
 use tokio::time::{self, MissedTickBehavior};
 
-use super::service::{
-    broadcast_call, end_call, internal_error, livekit_room_participant_count,
-    shape_call_artifact, LiveKitConfig,
+use super::{
+    livekit::{livekit_room_participant_count, LiveKitConfig},
+    service::{broadcast_call, end_call, internal_error, shape_call_artifact},
 };
 use crate::{common::AppResult, pub_sub::PubSubService};
 

@@ -5,7 +5,7 @@ use super::{
     handlers::{
         join_call, leave_call, livekit_webhook, start_call, CallsState,
     },
-    service::LiveKitConfig,
+    livekit::LiveKitConfig,
 };
 use crate::{feeds, messages, polls, pub_sub::PubSubService};
 
