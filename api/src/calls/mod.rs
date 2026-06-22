@@ -1,3 +1,4 @@
+pub(crate) mod cleanup;
 pub(crate) mod extractors;
 mod handlers;
 mod routes;

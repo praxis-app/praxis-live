@@ -35,7 +35,7 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let livekit_config = calls::LiveKitConfig::from_env();
     let pub_sub_service = pub_sub::PubSubService::from_env();
 
-    calls::service::spawn_stale_call_cleaner(
+    calls::cleanup::spawn_stale_call_cleaner(
         database.clone(),
         pub_sub_service.clone(),
         livekit_config.clone(),
