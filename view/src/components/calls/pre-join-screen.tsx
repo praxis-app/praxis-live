@@ -48,6 +48,12 @@ export const PreJoinScreen = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const { audio, hasMediaDevices, video } = usePreJoinMedia();
 
+  const cancelPreJoin = useCallback(() => {
+    if (!isJoining) {
+      onCancel();
+    }
+  }, [isJoining, onCancel]);
+
   const attachPreviewStream = useCallback(
     (element: HTMLVideoElement | null) => {
       videoRef.current = element;
@@ -78,13 +84,13 @@ export const PreJoinScreen = ({
       }
 
       event.preventDefault();
-      onCancel();
+      cancelPreJoin();
     };
 
     window.addEventListener('keydown', closeOnEscape);
 
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [onCancel]);
+  }, [cancelPreJoin]);
 
   const microphoneLabel = audio.enabled
     ? t('calls.labels.muteMicrophone')
@@ -123,7 +129,7 @@ export const PreJoinScreen = ({
       <TopNav
         header={t('calls.preJoin.title', { channelName: channel.name })}
         subheader={preJoinSubheader}
-        onBackClick={onCancel}
+        onBackClick={cancelPreJoin}
         backBtnIcon={<LuX className="size-6" />}
         showSearch={false}
       />
@@ -281,7 +287,7 @@ export const PreJoinScreen = ({
             <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
               <Button
                 disabled={isJoining}
-                onClick={onCancel}
+                onClick={cancelPreJoin}
                 type="button"
                 variant="outline"
               >
