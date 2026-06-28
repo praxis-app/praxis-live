@@ -62,10 +62,17 @@ export const ChannelView = ({ channel }: Props) => {
 
   const { me, isMeSuccess, isAuthError } = useAuthData();
   const { server, serverId } = useServerData();
-  const { callConfig, isJoining, joinCall, leaveCall } = useChannelCall(
-    serverId,
-    channel?.id,
-  );
+
+  const {
+    callConfig,
+    callPreferences,
+    cancelPreJoin,
+    confirmJoinCall,
+    isJoining,
+    isPreJoinOpen,
+    joinCall,
+    leaveCall,
+  } = useChannelCall(serverId, channel?.id);
 
   const feedQueryKey = ['servers', serverId, 'channels', channel?.id, 'feed'];
 
@@ -329,8 +336,12 @@ export const ChannelView = ({ channel }: Props) => {
         <ChannelTopNav
           channel={channel}
           callConfig={callConfig}
+          callPreferences={callPreferences}
           serverName={server?.name}
           isJoiningCall={isJoining}
+          isPreJoinOpen={isPreJoinOpen}
+          onCancelPreJoin={cancelPreJoin}
+          onConfirmJoinCall={confirmJoinCall}
           onJoinCall={joinCall}
           onLeaveCall={leaveCall}
         />

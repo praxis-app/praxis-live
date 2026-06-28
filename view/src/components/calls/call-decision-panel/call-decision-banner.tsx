@@ -22,7 +22,7 @@ export const CallDecisionBanner = ({ decision, onOpen }: Props) => {
   return (
     <button
       type="button"
-      className="bg-card hover:bg-accent mx-auto flex w-full max-w-xl cursor-pointer flex-col gap-1 rounded-2xl border px-3 py-2 text-left text-sm shadow-sm transition-colors sm:flex-row sm:items-center sm:gap-2 sm:rounded-full"
+      className="bg-card hover:bg-accent mx-auto flex w-full max-w-xl cursor-pointer select-none flex-col gap-1 overflow-hidden rounded-2xl border px-3 py-2 text-left text-sm shadow-none transition-colors sm:flex-row sm:items-center sm:gap-2 sm:rounded-full dark:shadow-sm"
       onClick={onOpen}
     >
       <span className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-start">

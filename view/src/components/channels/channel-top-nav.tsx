@@ -14,7 +14,10 @@ import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { truncate } from '@/lib/text.utils';
 import { useAppStore } from '@/store/app.store';
 import { type ChannelRes } from '@/types/channel.types';
-import { type JoinCallRes } from '@/types/call.types';
+import {
+  type CallJoinPreferences,
+  type JoinCallRes,
+} from '@/types/call.types';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
 import { MdChevronRight, MdSearch, MdTag } from 'react-icons/md';
@@ -23,8 +26,12 @@ import { toast } from 'sonner';
 interface Props {
   channel?: ChannelRes;
   callConfig: JoinCallRes | null;
+  callPreferences: CallJoinPreferences | null;
   serverName?: string;
   isJoiningCall: boolean;
+  isPreJoinOpen: boolean;
+  onCancelPreJoin: () => void;
+  onConfirmJoinCall: (preferences: CallJoinPreferences) => void;
   onJoinCall: () => void;
   onLeaveCall: () => void;
 }
@@ -32,8 +39,12 @@ interface Props {
 export const ChannelTopNav = ({
   channel,
   callConfig,
+  callPreferences,
   serverName,
   isJoiningCall,
+  isPreJoinOpen,
+  onCancelPreJoin,
+  onConfirmJoinCall,
   onJoinCall,
   onLeaveCall,
 }: Props) => {
@@ -105,9 +116,13 @@ export const ChannelTopNav = ({
         {channel && (
           <ChannelCallButton
             callConfig={callConfig}
+            callPreferences={callPreferences}
             channel={channel}
             serverName={serverName}
             isJoining={isJoiningCall}
+            isPreJoinOpen={isPreJoinOpen}
+            onCancelPreJoin={onCancelPreJoin}
+            onConfirmJoin={onConfirmJoinCall}
             onJoin={onJoinCall}
             onLeave={onLeaveCall}
           />

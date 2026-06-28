@@ -4,11 +4,22 @@ import {
   seedAuthenticatedSession,
   signUpViaApi,
 } from '../lib/auth';
+import {
+  ageActiveCallForStaleCleanup,
+  joinCallFromArtifact,
+  startCallFromTopNav,
+} from '../lib/calls';
 import { createTestMessage, createTestUser } from '../lib/data';
 import { createInvite } from '../lib/invites';
 import { getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
+
+type JoinCallResponse = {
+  call: {
+    id: string;
+  };
+};
 
 const expectTileToRender = async (tile: Locator) => {
   await expect(tile).toBeVisible();
@@ -113,6 +124,32 @@ const expectParticipantMetadataStyle = async (
     .toEqual(expected);
 };
 
+const expectCameraOffPlaceholderStyle = async (
+  page: Page,
+  expected: {
+    backgroundColor: string;
+    iconFill: string;
+    iconFillOpacity: string;
+  },
+) => {
+  const placeholder = page.locator('.lk-participant-placeholder').first();
+  await expect(placeholder).toBeVisible();
+  await expect
+    .poll(async () =>
+      placeholder.evaluate((element) => {
+        const path = element.querySelector('svg path');
+        const pathStyle = path ? getComputedStyle(path) : null;
+
+        return {
+          backgroundColor: getComputedStyle(element).backgroundColor,
+          iconFill: pathStyle?.fill ?? '',
+          iconFillOpacity: pathStyle?.fillOpacity ?? '',
+        };
+      }),
+    )
+    .toEqual(expected);
+};
+
 const leaveCallIfVisible = async (page: Page) => {
   const leaveButton = page.getByRole('button', { name: 'Leave call' });
   if (!(await leaveButton.isVisible())) {
@@ -158,7 +195,7 @@ test('authenticated user can start a call and see a video tile', async ({
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await joinCallResponse;
 
     await expect(page.getByText('Call in #general')).toBeVisible();
@@ -234,7 +271,7 @@ test('starting a call immediately appears in other users channel feeds', async (
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await joinCallResponse;
 
     await expect(observerCallArtifact).toContainText('Call is active');
@@ -257,6 +294,75 @@ test('starting a call immediately appears in other users channel feeds', async (
       observerCallArtifact.getByRole('button', { name: 'Join active video' }),
     ).toHaveCount(0);
   } finally {
+    await observerContext.close();
+  }
+});
+
+test('stale call cleanup updates other users channel feeds in realtime', async ({
+  browser,
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  const starter = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('call-stale-starter'),
+  );
+  const server = await getDefaultServer(request, starter);
+  const inviteToken = await createInvite(request, starter, server.id);
+  const observer = await signUpViaApi(
+    request,
+    createTestUser('call-stale-observer'),
+    inviteToken,
+  );
+  const observerContext = await browser.newContext();
+
+  try {
+    await seedAuthenticatedSession(observerContext, observer.accessToken);
+    const observerPage = await observerContext.newPage();
+    const starterChat = new ChatPage(page);
+    const observerChat = new ChatPage(observerPage);
+
+    await starterChat.goto();
+    await starterChat.expectChannel('general');
+    await observerPage.goto(page.url());
+    await observerChat.expectChannel('general');
+
+    const observerCallArtifact = observerPage
+      .locator('article')
+      .filter({ hasText: `Started by ${starter.user.name}` });
+
+    await expect(observerCallArtifact).toHaveCount(0);
+
+    const joinCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/calls$/.test(response.url()) &&
+        response.status() === 200,
+    );
+
+    await startCallFromTopNav(page);
+    const startedCallResponse = await joinCallResponse;
+    const startedCall = (await startedCallResponse.json()) as JoinCallResponse;
+
+    await expect(observerCallArtifact).toContainText('Call is active');
+    await expect(
+      observerCallArtifact.getByRole('button', { name: 'Join active video' }),
+    ).toBeVisible();
+
+    ageActiveCallForStaleCleanup(startedCall.call.id);
+
+    await expect(observerCallArtifact).toContainText('Call ended', {
+      timeout: 20_000,
+    });
+    await expect(
+      observerCallArtifact.getByRole('button', { name: 'Join active video' }),
+    ).toHaveCount(0);
+  } finally {
+    await leaveCallIfVisible(page);
     await observerContext.close();
   }
 });
@@ -306,7 +412,7 @@ test('second user can join an active call from the call artifact', async ({
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await starterJoinCallResponse;
     await expect(page.getByText('Call in #general')).toBeVisible();
     await expectRenderedParticipantTiles(page, 1);
@@ -323,9 +429,7 @@ test('second user can join an active call from the call artifact', async ({
         response.status() === 200,
     );
 
-    await joinerCallArtifact
-      .getByRole('button', { name: 'Join active video' })
-      .click();
+    await joinCallFromArtifact(joinerPage, joinerCallArtifact);
     await joinerJoinCallResponse;
     await expect(joinerPage.getByText('Call in #general')).toBeVisible();
 
@@ -393,7 +497,7 @@ test('call renders four participant tiles without overlap', async ({
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await starterJoinCallResponse;
     await expect(page.getByText('Call in #general')).toBeVisible();
     await expectParticipantTilesToBeLaidOut(page, 1);
@@ -419,9 +523,7 @@ test('call renders four participant tiles without overlap', async ({
           response.status() === 200,
       );
 
-      await joinerCallArtifact
-        .getByRole('button', { name: 'Join active video' })
-        .click();
+      await joinCallFromArtifact(joinerPage, joinerCallArtifact);
       await joinerJoinCallResponse;
       await expect(joinerPage.getByText('Call in #general')).toBeVisible();
     }
@@ -464,22 +566,47 @@ test('call participant metadata uses theme-aware control styles', async ({
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await joinCallResponse;
     await expect(page.getByText('Call in #general')).toBeVisible();
     await expectRenderedParticipantTiles(page, 1);
     await expect(page.getByText(authenticatedUser.user.name).first()).toBeVisible();
+
+    const turnCameraOffButton = page.getByRole('button', {
+      name: 'Turn camera off',
+    });
+    if (
+      await turnCameraOffButton
+        .isVisible({ timeout: 1_000 })
+        .catch(() => false)
+    ) {
+      await turnCameraOffButton.click();
+    } else {
+      await expect(
+        page.getByRole('button', { name: 'Use camera' }),
+      ).toBeVisible();
+    }
 
     await setTheme(page, 'light');
     await expectParticipantMetadataStyle(page, {
       backgroundColor: 'rgba(255, 255, 255, 0.85)',
       color: await expectedForegroundColor(page),
     });
+    await expectCameraOffPlaceholderStyle(page, {
+      backgroundColor: 'rgb(255, 255, 255)',
+      iconFill: 'rgb(229, 231, 235)',
+      iconFillOpacity: '1',
+    });
 
     await setTheme(page, 'dark');
     await expectParticipantMetadataStyle(page, {
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
       color: 'rgb(255, 255, 255)',
+    });
+    await expectCameraOffPlaceholderStyle(page, {
+      backgroundColor: 'rgb(29, 30, 32)',
+      iconFill: 'rgb(255, 255, 255)',
+      iconFillOpacity: '0.25',
     });
   } finally {
     await leaveCallIfVisible(page);
@@ -534,7 +661,7 @@ test('multi-user call stays active until the last participant leaves', async ({
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await starterJoinCallResponse;
     await expect(page.getByText('Call in #general')).toBeVisible();
     await expectRenderedParticipantTiles(page, 1);
@@ -551,9 +678,7 @@ test('multi-user call stays active until the last participant leaves', async ({
         response.status() === 200,
     );
 
-    await joinerCallArtifact
-      .getByRole('button', { name: 'Join active video' })
-      .click();
+    await joinCallFromArtifact(joinerPage, joinerCallArtifact);
     await joinerJoinCallResponse;
     await expect(joinerPage.getByText('Call in #general')).toBeVisible();
     await expectRenderedParticipantTiles(page, 2);
@@ -642,7 +767,7 @@ test('in-call chat messages are delivered realtime between participants', async 
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Call' }).click();
+    await startCallFromTopNav(page);
     await starterJoinCallResponse;
     await expect(page.getByText('Call in #general')).toBeVisible();
     await expectRenderedParticipantTiles(page, 1);
@@ -659,9 +784,7 @@ test('in-call chat messages are delivered realtime between participants', async 
         response.status() === 200,
     );
 
-    await joinerCallArtifact
-      .getByRole('button', { name: 'Join active video' })
-      .click();
+    await joinCallFromArtifact(joinerPage, joinerCallArtifact);
     await joinerJoinCallResponse;
     await expect(joinerPage.getByText('Call in #general')).toBeVisible();
     await expectRenderedParticipantTiles(page, 2);

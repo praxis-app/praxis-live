@@ -1,23 +1,22 @@
 use axum::http::StatusCode;
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use entity::{calls, enums::PollType, messages, polls, users};
-use livekit_api::{
-    access_token::{AccessToken, TokenVerifier, VideoGrants},
-    services::{room::RoomClient, ServiceError, TwirpError, TwirpErrorCode},
-    webhooks::WebhookReceiver,
-};
 use sea_orm::{
-    sea_query::Expr, ActiveModelTrait, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, Set, SqlErr, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection,
+    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, Set, SqlErr, TransactionTrait,
 };
 use std::collections::BTreeSet;
-use std::env;
-use tokio::time::{self, MissedTickBehavior};
 
-use super::types::{
-    CallArtifactResponse, CallResponse, CallSummaryResponse, CallUserResponse,
-    JoinCallResponse,
+use super::{
+    livekit::{
+        create_livekit_token, ensure_livekit_available,
+        settled_livekit_room_participant_count, LiveKitConfig,
+    },
+    types::{
+        CallArtifactResponse, CallResponse, CallSummaryResponse,
+        CallUserResponse, JoinCallResponse,
+    },
 };
 use crate::{
     channels,
@@ -27,141 +26,7 @@ use crate::{
     users as users_service,
 };
 
-const TOKEN_TTL_MINUTES: i64 = 30;
 const ACTIVE_STATUSES: [&str; 2] = ["starting", "active"];
-const STALE_CALL_CLEANUP_INTERVAL_SECONDS: u64 = 10;
-const STALE_STARTING_MINUTES: i64 = 15;
-const STALE_ACTIVE_HOURS: i64 = 24;
-const STALE_ENDING_MINUTES: i64 = 5;
-const EMPTY_ROOM_CLEANUP_GRACE_SECONDS: i64 = 30;
-const LEAVE_PARTICIPANT_SETTLE_MILLIS: u64 = 500;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct StaleCallCleanupSummary {
-    failed_starting: u64,
-    ended_empty: u64,
-    ended_active: u64,
-    ended_ending: u64,
-}
-
-#[derive(Clone, Debug)]
-pub struct LiveKitConfig {
-    pub(crate) url: String,
-    api_url: String,
-    api_key: String,
-    api_secret: String,
-}
-
-impl LiveKitConfig {
-    pub(crate) fn from_env() -> Option<Self> {
-        let url = livekit_url_from_env()?;
-        let api_url =
-            livekit_api_url_from_env().unwrap_or_else(|| livekit_api_url(&url));
-        let api_key = env::var("LIVEKIT_API_KEY").ok()?;
-        let api_secret = env::var("LIVEKIT_API_SECRET").ok()?;
-
-        if url.trim().is_empty()
-            || api_key.trim().is_empty()
-            || api_secret.trim().is_empty()
-        {
-            return None;
-        }
-
-        Some(Self {
-            api_url,
-            url,
-            api_key,
-            api_secret,
-        })
-    }
-
-    pub(crate) fn webhook_receiver(&self) -> WebhookReceiver {
-        WebhookReceiver::new(TokenVerifier::with_api_key(
-            &self.api_key,
-            &self.api_secret,
-        ))
-    }
-}
-
-pub(crate) fn spawn_stale_call_cleaner(
-    database: DatabaseConnection,
-    livekit: Option<LiveKitConfig>,
-) {
-    tokio::spawn(async move {
-        let mut interval = time::interval(std::time::Duration::from_secs(
-            configured_interval_seconds(
-                "STALE_CALL_CLEANUP_INTERVAL_SECONDS",
-                STALE_CALL_CLEANUP_INTERVAL_SECONDS,
-            ),
-        ));
-        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
-
-        loop {
-            interval.tick().await;
-
-            match cleanup_stale_calls(&database).await {
-                Ok(summary)
-                    if summary.failed_starting > 0
-                        || summary.ended_empty > 0
-                        || summary.ended_active > 0
-                        || summary.ended_ending > 0 =>
-                {
-                    tracing::info!(
-                        failed_starting = summary.failed_starting,
-                        ended_empty = summary.ended_empty,
-                        ended_active = summary.ended_active,
-                        ended_ending = summary.ended_ending,
-                        "Cleaned up stale calls."
-                    );
-                }
-                Ok(_) => {}
-                Err(error) => {
-                    tracing::warn!("Failed to clean up stale calls: {error}");
-                }
-            }
-
-            let Some(livekit) = livekit.as_ref() else {
-                continue;
-            };
-
-            match cleanup_empty_active_calls(&database, livekit).await {
-                Ok(0) => {}
-                Ok(ended_empty) => {
-                    tracing::info!(
-                        ended_empty,
-                        "Ended active calls with empty LiveKit rooms."
-                    );
-                }
-                Err(error) => {
-                    tracing::warn!("Failed to clean up empty calls: {error}");
-                }
-            }
-        }
-    });
-}
-
-fn livekit_url_from_env() -> Option<String> {
-    if let Ok(url) = env::var("LIVEKIT_URL") {
-        if !url.trim().is_empty() {
-            return Some(url);
-        }
-    }
-
-    let host = env::var("LIVEKIT_HOST").ok()?;
-    let port = env::var("LIVEKIT_PORT").ok()?;
-
-    if host.trim().is_empty() || port.trim().is_empty() {
-        return None;
-    }
-
-    Some(format!("ws://{host}:{port}"))
-}
-
-fn livekit_api_url_from_env() -> Option<String> {
-    env::var("LIVEKIT_API_URL")
-        .ok()
-        .filter(|url| !url.trim().is_empty())
-}
 
 pub(crate) async fn start_channel_call(
     database: &DatabaseConnection,
@@ -366,7 +231,7 @@ pub(crate) async fn broadcast_call(
     pub_sub_service: Option<&PubSubService>,
     server_id: uuid::Uuid,
     channel_id: uuid::Uuid,
-    sender_id: uuid::Uuid,
+    sender_id: Option<uuid::Uuid>,
     call: &CallArtifactResponse,
 ) -> AppResult<()> {
     let Some(pub_sub_service) = pub_sub_service else {
@@ -380,7 +245,7 @@ pub(crate) async fn broadcast_call(
         channels::get_channel_member_user_ids(database, channel_id).await?;
 
     for member_id in members {
-        if member_id == sender_id {
+        if Some(member_id) == sender_id {
             continue;
         }
 
@@ -524,64 +389,7 @@ async fn get_user(
         })
 }
 
-async fn livekit_room_participant_count(
-    livekit: &LiveKitConfig,
-    room_name: &str,
-) -> AppResult<usize> {
-    let participants = RoomClient::with_api_key(
-        &livekit.api_url,
-        &livekit.api_key,
-        &livekit.api_secret,
-    )
-    .list_participants(room_name)
-    .await;
-
-    match participants {
-        Ok(participants) => Ok(participants.len()),
-        Err(error) if is_livekit_not_found(&error) => Ok(0),
-        Err(error) => Err(internal_error(error)),
-    }
-}
-
-async fn ensure_livekit_available(livekit: &LiveKitConfig) -> AppResult<()> {
-    RoomClient::with_api_key(
-        &livekit.api_url,
-        &livekit.api_key,
-        &livekit.api_secret,
-    )
-    .list_rooms(vec!["praxis-live-health-check".to_owned()])
-    .await
-    .map(|_| ())
-    .map_err(livekit_unavailable)
-}
-
-fn is_livekit_not_found(error: &ServiceError) -> bool {
-    matches!(
-        error,
-        ServiceError::Twirp(TwirpError::Twirp(code))
-            if code.code == TwirpErrorCode::NOT_FOUND
-    )
-}
-
-async fn settled_livekit_room_participant_count(
-    livekit: &LiveKitConfig,
-    room_name: &str,
-) -> AppResult<usize> {
-    let count = livekit_room_participant_count(livekit, room_name).await?;
-
-    if count == 0 {
-        return Ok(0);
-    }
-
-    time::sleep(std::time::Duration::from_millis(
-        LEAVE_PARTICIPANT_SETTLE_MILLIS,
-    ))
-    .await;
-
-    livekit_room_participant_count(livekit, room_name).await
-}
-
-async fn end_call<C>(
+pub(super) async fn end_call<C>(
     database: &C,
     call: calls::Model,
     ended_by: Option<uuid::Uuid>,
@@ -631,124 +439,6 @@ async fn end_call_by_room_if_empty(
     end_active_call_by_room(database, room_name, reason).await
 }
 
-fn create_livekit_token(
-    livekit: &LiveKitConfig,
-    room_name: &str,
-    user: &users::Model,
-) -> AppResult<String> {
-    let name = user
-        .display_name
-        .clone()
-        .unwrap_or_else(|| user.name.clone());
-
-    let metadata = serde_json::json!({
-        "userId": user.id,
-        "name": user.name,
-        "displayName": user.display_name,
-    })
-    .to_string();
-
-    AccessToken::with_api_key(&livekit.api_key, &livekit.api_secret)
-        .with_identity(&user.id.to_string())
-        .with_name(&name)
-        .with_metadata(&metadata)
-        .with_ttl(std::time::Duration::from_secs(
-            (TOKEN_TTL_MINUTES * 60) as u64,
-        ))
-        .with_grants(VideoGrants {
-            room: room_name.to_owned(),
-            room_join: true,
-            can_subscribe: true,
-            can_publish: true,
-            can_publish_data: false,
-            ..Default::default()
-        })
-        .to_jwt()
-        .map_err(internal_error)
-}
-
-async fn cleanup_stale_calls(
-    database: &DatabaseConnection,
-) -> AppResult<StaleCallCleanupSummary> {
-    let now = Utc::now().fixed_offset();
-    let failed_starting = calls::Entity::update_many()
-        .col_expr(calls::Column::Status, Expr::value("failed"))
-        .col_expr(calls::Column::EndedReason, Expr::value("stale_starting"))
-        .col_expr(calls::Column::UpdatedAt, Expr::value(now))
-        .filter(calls::Column::Status.eq("starting"))
-        .filter(
-            calls::Column::UpdatedAt
-                .lt(now - Duration::minutes(STALE_STARTING_MINUTES)),
-        )
-        .exec(database)
-        .await
-        .map_err(internal_error)?
-        .rows_affected;
-
-    let ended_active = calls::Entity::update_many()
-        .col_expr(calls::Column::Status, Expr::value("ended"))
-        .col_expr(calls::Column::EndedReason, Expr::value("stale_active"))
-        .col_expr(calls::Column::UpdatedAt, Expr::value(now))
-        .filter(calls::Column::Status.eq("active"))
-        .filter(
-            calls::Column::UpdatedAt
-                .lt(now - Duration::hours(STALE_ACTIVE_HOURS)),
-        )
-        .exec(database)
-        .await
-        .map_err(internal_error)?
-        .rows_affected;
-
-    let ended_ending = calls::Entity::update_many()
-        .col_expr(calls::Column::Status, Expr::value("ended"))
-        .col_expr(calls::Column::EndedReason, Expr::value("stale_ending"))
-        .col_expr(calls::Column::UpdatedAt, Expr::value(now))
-        .filter(calls::Column::Status.eq("ending"))
-        .filter(
-            calls::Column::UpdatedAt
-                .lt(now - Duration::minutes(STALE_ENDING_MINUTES)),
-        )
-        .exec(database)
-        .await
-        .map_err(internal_error)?
-        .rows_affected;
-
-    Ok(StaleCallCleanupSummary {
-        failed_starting,
-        ended_empty: 0,
-        ended_active,
-        ended_ending,
-    })
-}
-
-async fn cleanup_empty_active_calls(
-    database: &DatabaseConnection,
-    livekit: &LiveKitConfig,
-) -> AppResult<u64> {
-    let active_calls = calls::Entity::find()
-        .filter(calls::Column::Status.is_in(ACTIVE_STATUSES))
-        .filter(calls::Column::UpdatedAt.lt(Utc::now().fixed_offset()
-            - Duration::seconds(EMPTY_ROOM_CLEANUP_GRACE_SECONDS)))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    let mut ended_empty = 0;
-
-    for call in active_calls {
-        let participant_count =
-            livekit_room_participant_count(livekit, &call.livekit_room).await?;
-
-        if participant_count > 0 {
-            continue;
-        }
-
-        end_call(database, call, None, "empty_livekit_room").await?;
-        ended_empty += 1;
-    }
-
-    Ok(ended_empty)
-}
-
 fn shape_call(call: calls::Model) -> CallResponse {
     CallResponse {
         id: call.id.to_string(),
@@ -759,7 +449,7 @@ fn shape_call(call: calls::Model) -> CallResponse {
     }
 }
 
-async fn shape_call_artifact(
+pub(super) async fn shape_call_artifact(
     database: &DatabaseConnection,
     call: calls::Model,
 ) -> AppResult<CallArtifactResponse> {
@@ -868,32 +558,7 @@ fn shape_call_user(
     }
 }
 
-fn configured_interval_seconds(env_key: &str, default: u64) -> u64 {
-    env::var(env_key)
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .filter(|value| *value > 0)
-        .unwrap_or(default)
-}
-
-fn livekit_api_url(livekit_url: &str) -> String {
-    livekit_url
-        .strip_prefix("wss://")
-        .map(|host| format!("https://{host}"))
-        .or_else(|| {
-            livekit_url
-                .strip_prefix("ws://")
-                .map(|host| format!("http://{host}"))
-        })
-        .unwrap_or_else(|| livekit_url.to_owned())
-}
-
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
+pub(super) fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("call request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
-}
-
-fn livekit_unavailable(error: impl std::fmt::Display) -> ApiError {
-    tracing::warn!("LiveKit is unavailable: {error}");
-    ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "LiveKit is unavailable.")
 }

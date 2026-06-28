@@ -6,10 +6,7 @@ use axum::{
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
-use super::{
-    service::{self, LiveKitConfig},
-    types::CallPath,
-};
+use super::{livekit::LiveKitConfig, service, types::CallPath};
 use crate::{
     auth::HasJwtSecret,
     channels::extractors::{ChannelWriteContext, HasDatabase},
@@ -83,7 +80,7 @@ pub(crate) async fn start_call(
                     state.pub_sub_service.as_ref(),
                     context.server_id,
                     context.channel_id,
-                    context.user_id,
+                    Some(context.user_id),
                     &call,
                 )
                 .await
@@ -152,7 +149,7 @@ pub(crate) async fn leave_call(
                     state.pub_sub_service.as_ref(),
                     context.server_id,
                     context.channel_id,
-                    context.user_id,
+                    Some(context.user_id),
                     &call,
                 )
                 .await

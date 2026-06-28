@@ -21,7 +21,7 @@ import { type ChannelRes, type FeedQuery } from '@/types/channel.types';
 import { type PollRes } from '@/types/poll.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuListTodo } from 'react-icons/lu';
 import { MdClose } from 'react-icons/md';
@@ -54,32 +54,35 @@ export const CallDecisionPanel = ({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const decisionQueryKey = [
-    'servers',
-    serverId,
-    'channels',
-    channel.id,
-    'calls',
-    callId,
-    'decisions',
-  ];
-  const channelFeedQueryKey = [
-    'servers',
-    serverId,
-    'channels',
-    channel.id,
-    'feed',
-  ];
-  const decisionFeedQueryKey = [
-    'servers',
-    serverId,
-    'channels',
-    channel.id,
-    'calls',
-    callId,
-    'decisions',
-    'feed-cache',
-  ];
+  const decisionQueryKey = useMemo(
+    () => [
+      'servers',
+      serverId,
+      'channels',
+      channel.id,
+      'calls',
+      callId,
+      'decisions',
+    ],
+    [callId, channel.id, serverId],
+  );
+  const decisionFeedQueryKey = useMemo(
+    () => [
+      'servers',
+      serverId,
+      'channels',
+      channel.id,
+      'calls',
+      callId,
+      'decisions',
+      'feed-cache',
+    ],
+    [callId, channel.id, serverId],
+  );
+  const channelFeedQueryKey = useMemo(
+    () => ['servers', serverId, 'channels', channel.id, 'feed'],
+    [channel.id, serverId],
+  );
 
   const { data: decision } = useQuery({
     queryKey: decisionQueryKey,
@@ -99,6 +102,7 @@ export const CallDecisionPanel = ({
 
   const isShowingRecentResult =
     !!decision?.recentResult && !decision?.activeItem;
+
   const displayedFeedQueryKey = decision?.activeItem
     ? decisionFeedQueryKey
     : channelFeedQueryKey;
@@ -113,10 +117,10 @@ export const CallDecisionPanel = ({
     });
   }, [decision?.activeItem, decisionFeedQueryKey, queryClient]);
 
-  const refreshDecision = () => {
+  const refreshDecision = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: decisionQueryKey });
     void queryClient.invalidateQueries({ queryKey: channelFeedQueryKey });
-  };
+  }, [channelFeedQueryKey, decisionQueryKey, queryClient]);
 
   useSubscription(
     channelPubSubTopic('new-poll', serverId, channel.id, me?.id),
@@ -130,10 +134,6 @@ export const CallDecisionPanel = ({
       enabled: !!me && !!serverId,
     },
   );
-
-  const proposalNavigate = () => {
-    proposalFormDialogContentRef.current?.scrollTo({ top: 0 });
-  };
 
   const statusText = useMemo(() => {
     if (!displayedDecision) {
@@ -231,7 +231,9 @@ export const CallDecisionPanel = ({
           <DialogDescription className="text-center md:text-left">
             {t('proposals.descriptions.create')}
           </DialogDescription>
+
           <Separator className="mt-1" />
+
           <CreateProposalForm
             channelId={channel.id}
             callId={callId}
@@ -239,7 +241,11 @@ export const CallDecisionPanel = ({
               setShowProposalForm(false);
               refreshDecision();
             }}
-            onNavigate={proposalNavigate}
+            onNavigate={() => {
+              proposalFormDialogContentRef.current?.scrollTo({
+                top: 0,
+              });
+            }}
           />
         </DialogContent>
       </Dialog>
@@ -252,6 +258,7 @@ export const CallDecisionPanel = ({
           <DialogDescription className="sr-only">
             {t('polls.descriptions.create')}
           </DialogDescription>
+
           <CreatePollForm
             channelId={channel.id}
             callId={callId}

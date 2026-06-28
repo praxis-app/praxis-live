@@ -1,13 +1,23 @@
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/shared.utils';
-import { useLocalParticipant } from '@livekit/components-react';
-import { type ReactNode } from 'react';
+import {
+  useLocalParticipant,
+  useMediaDeviceSelect,
+} from '@livekit/components-react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   LuMessageSquare,
@@ -31,11 +41,20 @@ interface CallControlTooltipProps {
   label: string;
 }
 
+interface DeviceSelectControlProps {
+  activeDeviceId: string;
+  className?: string;
+  devices: MediaDeviceInfo[];
+  label: string;
+  onDeviceChange: (deviceId: string) => void;
+}
+
 const controlButtonClassName =
   'size-11 rounded-full bg-secondary text-secondary-foreground/85 hover:bg-secondary/70';
 
-const activeControlButtonClassName =
-  'bg-primary! text-primary-foreground! hover:bg-primary/90! hover:text-primary-foreground!';
+const clearDocumentSelection = () => {
+  window.getSelection()?.removeAllRanges();
+};
 
 const CallControlTooltip = ({ children, label }: CallControlTooltipProps) => (
   <Tooltip>
@@ -44,22 +63,122 @@ const CallControlTooltip = ({ children, label }: CallControlTooltipProps) => (
   </Tooltip>
 );
 
+const DeviceSelectControl = ({
+  activeDeviceId,
+  className,
+  devices,
+  label,
+  onDeviceChange,
+}: DeviceSelectControlProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const selectableDevices = devices.filter((device) => {
+    return device.deviceId;
+  });
+  const selectedDeviceId = selectableDevices.some((device) => {
+    return device.deviceId === activeDeviceId;
+  })
+    ? activeDeviceId
+    : undefined;
+
+  const handleOpenChange = useCallback((open: boolean) => {
+    setIsOpen(open);
+    clearDocumentSelection();
+
+    if (!open) {
+      window.requestAnimationFrame(clearDocumentSelection);
+      window.setTimeout(clearDocumentSelection, 0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    clearDocumentSelection();
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      window.requestAnimationFrame(clearDocumentSelection);
+    };
+  }, [isOpen]);
+
+  return (
+    <Select
+      disabled={selectableDevices.length === 0}
+      open={isOpen}
+      value={selectedDeviceId}
+      onOpenChange={handleOpenChange}
+      onValueChange={onDeviceChange}
+    >
+      <SelectTrigger
+        aria-label={label}
+        className={cn(
+          'dark:hover:bg-secondary/70 text-secondary-foreground/85 hover:bg-secondary/70 data-placeholder:text-secondary-foreground/85 -mr-1.5 h-10 w-10 rounded-full border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent [&>span]:sr-only',
+          className,
+        )}
+      >
+        <SelectValue placeholder={label} />
+      </SelectTrigger>
+      <SelectContent className="select-none" sideOffset={6}>
+        {selectableDevices.map((device, index) => (
+          <SelectItem
+            className="select-none"
+            key={device.deviceId}
+            value={device.deviceId}
+          >
+            {device.label || `${label} ${index + 1}`}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
+
 export const CallControls = ({
   onLeave,
   onOpenChat,
   onOpenDecisions,
 }: Props) => {
+  const { t } = useTranslation();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } =
     useLocalParticipant();
-
-  const { t } = useTranslation();
+  const handleMicrophoneDeviceError = useCallback(() => {
+    toast(t('calls.errors.microphoneUnavailable'));
+  }, [t]);
+  const handleCameraDeviceError = useCallback(() => {
+    toast(t('calls.errors.cameraUnavailable'));
+  }, [t]);
+  const {
+    activeDeviceId: activeMicrophoneId,
+    devices: microphones,
+    setActiveMediaDevice: setActiveMicrophone,
+  } = useMediaDeviceSelect({
+    kind: 'audioinput',
+    onError: handleMicrophoneDeviceError,
+    requestPermissions: isMicrophoneEnabled,
+  });
+  const {
+    activeDeviceId: activeCameraId,
+    devices: cameras,
+    setActiveMediaDevice: setActiveCamera,
+  } = useMediaDeviceSelect({
+    kind: 'videoinput',
+    onError: handleCameraDeviceError,
+    requestPermissions: isCameraEnabled,
+  });
 
   const microphoneLabel = isMicrophoneEnabled
     ? t('calls.labels.muteMicrophone')
     : t('calls.labels.useMicrophone');
+  const microphoneSelectLabel = t('calls.labels.selectMicrophone');
   const cameraLabel = isCameraEnabled
     ? t('calls.labels.turnCameraOff')
     : t('calls.labels.useCamera');
+  const cameraSelectLabel = t('calls.labels.selectCamera');
 
   const openChannelChatLabel = t('calls.labels.openChannelChat');
   const openDecisionsLabel = t('calls.labels.openDecisions');
@@ -81,38 +200,72 @@ export const CallControls = ({
     }
   };
 
+  const changeMicrophone = async (deviceId: string) => {
+    try {
+      await setActiveMicrophone(deviceId, { exact: true });
+    } catch {
+      toast(t('calls.errors.microphoneUnavailable'));
+    }
+  };
+
+  const changeCamera = async (deviceId: string) => {
+    try {
+      await setActiveCamera(deviceId, { exact: true });
+    } catch {
+      toast(t('calls.errors.cameraUnavailable'));
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="flex items-center justify-center gap-2">
-        <CallControlTooltip label={microphoneLabel}>
-          <Button
-            aria-label={microphoneLabel}
-            onClick={toggleMicrophone}
-            variant="ghost"
-            size="icon"
-            className={cn(
-              controlButtonClassName,
-              isMicrophoneEnabled && activeControlButtonClassName,
-            )}
-          >
-            {isMicrophoneEnabled ? <LuMic /> : <LuMicOff />}
-          </Button>
-        </CallControlTooltip>
+        <div className="bg-secondary flex h-11 items-center gap-0 rounded-full">
+          <DeviceSelectControl
+            activeDeviceId={activeMicrophoneId}
+            devices={microphones}
+            label={microphoneSelectLabel}
+            onDeviceChange={(deviceId) => void changeMicrophone(deviceId)}
+          />
+          <CallControlTooltip label={microphoneLabel}>
+            <Button
+              aria-label={microphoneLabel}
+              onClick={toggleMicrophone}
+              variant="ghost"
+              size="icon"
+              className={cn(
+                controlButtonClassName,
+                isMicrophoneEnabled &&
+                  'bg-primary! text-primary-foreground! hover:bg-primary/90! hover:text-primary-foreground!',
+              )}
+            >
+              {isMicrophoneEnabled ? <LuMic /> : <LuMicOff />}
+            </Button>
+          </CallControlTooltip>
+        </div>
 
-        <CallControlTooltip label={cameraLabel}>
-          <Button
-            aria-label={cameraLabel}
-            onClick={toggleCamera}
-            variant="ghost"
-            size="icon"
-            className={cn(
-              controlButtonClassName,
-              isCameraEnabled && activeControlButtonClassName,
-            )}
-          >
-            {isCameraEnabled ? <LuVideo /> : <LuVideoOff />}
-          </Button>
-        </CallControlTooltip>
+        <div className="bg-secondary flex h-11 items-center gap-0 rounded-full">
+          <DeviceSelectControl
+            activeDeviceId={activeCameraId}
+            devices={cameras}
+            label={cameraSelectLabel}
+            onDeviceChange={(deviceId) => void changeCamera(deviceId)}
+          />
+          <CallControlTooltip label={cameraLabel}>
+            <Button
+              aria-label={cameraLabel}
+              onClick={toggleCamera}
+              variant="ghost"
+              size="icon"
+              className={cn(
+                controlButtonClassName,
+                isCameraEnabled &&
+                  'bg-primary! text-primary-foreground! hover:bg-primary/90! hover:text-primary-foreground!',
+              )}
+            >
+              {isCameraEnabled ? <LuVideo /> : <LuVideoOff />}
+            </Button>
+          </CallControlTooltip>
+        </div>
 
         <CallControlTooltip label={openChannelChatLabel}>
           <Button
