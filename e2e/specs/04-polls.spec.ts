@@ -55,6 +55,147 @@ type ServerRolesResponse = {
 
 const changedRoleColor = '#2196f3';
 
+async function shortenNextPollDuration(
+  page: Page,
+  channelId: string,
+  seconds: number,
+) {
+  await page.route(
+    `**/channels/${channelId}/polls`,
+    async (route) => {
+      const request = route.request();
+      if (request.method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+
+      const payload = JSON.parse(request.postData() ?? '{}') as {
+        closingAt?: string;
+      };
+      payload.closingAt = new Date(Date.now() + seconds * 1000).toISOString();
+
+      await route.continue({ postData: JSON.stringify(payload) });
+    },
+    { times: 1 },
+  );
+}
+
+async function openCreatePollDialog(
+  page: Page,
+  menuItemName: 'Create poll' | 'Create proposal' = 'Create poll',
+) {
+  await page
+    .locator('form')
+    .filter({ has: page.getByPlaceholder('Send a message...') })
+    .getByRole('button')
+    .first()
+    .click();
+  await page.getByRole('menuitem', { name: menuItemName }).click();
+}
+
+async function openCreateProposalDialog(page: Page) {
+  await page
+    .locator('form')
+    .filter({ has: page.getByPlaceholder('Send a message...') })
+    .getByRole('button')
+    .first()
+    .click();
+  await page.getByRole('menuitem', { name: 'Create proposal' }).click();
+}
+
+async function selectRadixOption(
+  scope: Locator,
+  page: Page,
+  placeholder: string,
+  optionName: string,
+) {
+  await scope.getByText(placeholder).click();
+  await page.getByRole('option', { name: optionName }).click();
+}
+
+function pollCard(page: Page, question: string) {
+  return page
+    .getByText(question)
+    .locator('xpath=ancestor::div[contains(@class, "rounded-md")][1]');
+}
+
+async function getDefaultServer(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+) {
+  const response = await request.get('/api/servers/default', {
+    headers: authorizationHeaders(user),
+  });
+
+  await expect(response).toBeOK();
+  return ((await response.json()) as ServerResponse).server;
+}
+
+async function makeProposalsRatifyWithOneAgreeVote(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+  serverId: string,
+) {
+  const response = await request.put(`/api/servers/${serverId}/configs`, {
+    headers: authorizationHeaders(user),
+    data: {
+      decisionMakingModel: 'majority-vote',
+      agreementThreshold: 51,
+      quorumEnabled: false,
+      votingTimeLimit: 0,
+    },
+  });
+
+  await expect(response).toBeOK();
+}
+
+async function getAdminRole(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+  serverId: string,
+) {
+  const response = await request.get(`/api/servers/${serverId}/roles`, {
+    headers: authorizationHeaders(user),
+  });
+
+  await expect(response).toBeOK();
+  const body = (await response.json()) as ServerRolesResponse;
+  const adminRole = body.serverRoles.find((role) => role.name === 'admin');
+  expect(adminRole).toBeTruthy();
+  return adminRole!;
+}
+
+async function getServerRole(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+  serverId: string,
+  serverRoleId: string,
+) {
+  const response = await request.get(
+    `/api/servers/${serverId}/roles/${serverRoleId}`,
+    {
+      headers: authorizationHeaders(user),
+    },
+  );
+
+  await expect(response).toBeOK();
+  return ((await response.json()) as ServerRoleResponse).serverRole;
+}
+
+function authorizationHeaders(user: AuthenticatedUser) {
+  return {
+    Authorization: `Bearer ${user.accessToken}`,
+  };
+}
+
+function minutesUntil(isoTimestamp: string) {
+  return Math.round((new Date(isoTimestamp).getTime() - Date.now()) / 60_000);
+}
+
+function secondsUntil(isoTimestamp: string) {
+  return Math.round((new Date(isoTimestamp).getTime() - Date.now()) / 1000);
+}
+
 test('authenticated user can create and vote in a poll', async ({
   context,
   page,
@@ -391,144 +532,3 @@ test('user can create and ratify a proposal to change a role', async ({
     expect.arrayContaining(adminRole.members.map((member) => member.id)),
   );
 });
-
-async function shortenNextPollDuration(
-  page: Page,
-  channelId: string,
-  seconds: number,
-) {
-  await page.route(
-    `**/channels/${channelId}/polls`,
-    async (route) => {
-      const request = route.request();
-      if (request.method() !== 'POST') {
-        await route.continue();
-        return;
-      }
-
-      const payload = JSON.parse(request.postData() ?? '{}') as {
-        closingAt?: string;
-      };
-      payload.closingAt = new Date(Date.now() + seconds * 1000).toISOString();
-
-      await route.continue({ postData: JSON.stringify(payload) });
-    },
-    { times: 1 },
-  );
-}
-
-async function openCreatePollDialog(
-  page: Page,
-  menuItemName: 'Create poll' | 'Create proposal' = 'Create poll',
-) {
-  await page
-    .locator('form')
-    .filter({ has: page.getByPlaceholder('Send a message...') })
-    .getByRole('button')
-    .first()
-    .click();
-  await page.getByRole('menuitem', { name: menuItemName }).click();
-}
-
-async function openCreateProposalDialog(page: Page) {
-  await page
-    .locator('form')
-    .filter({ has: page.getByPlaceholder('Send a message...') })
-    .getByRole('button')
-    .first()
-    .click();
-  await page.getByRole('menuitem', { name: 'Create proposal' }).click();
-}
-
-async function selectRadixOption(
-  scope: Locator,
-  page: Page,
-  placeholder: string,
-  optionName: string,
-) {
-  await scope.getByText(placeholder).click();
-  await page.getByRole('option', { name: optionName }).click();
-}
-
-function pollCard(page: Page, question: string) {
-  return page
-    .getByText(question)
-    .locator('xpath=ancestor::div[contains(@class, "rounded-md")][1]');
-}
-
-async function getDefaultServer(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-) {
-  const response = await request.get('/api/servers/default', {
-    headers: authorizationHeaders(user),
-  });
-
-  await expect(response).toBeOK();
-  return ((await response.json()) as ServerResponse).server;
-}
-
-async function makeProposalsRatifyWithOneAgreeVote(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-) {
-  const response = await request.put(`/api/servers/${serverId}/configs`, {
-    headers: authorizationHeaders(user),
-    data: {
-      decisionMakingModel: 'majority-vote',
-      agreementThreshold: 51,
-      quorumEnabled: false,
-      votingTimeLimit: 0,
-    },
-  });
-
-  await expect(response).toBeOK();
-}
-
-async function getAdminRole(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-) {
-  const response = await request.get(`/api/servers/${serverId}/roles`, {
-    headers: authorizationHeaders(user),
-  });
-
-  await expect(response).toBeOK();
-  const body = (await response.json()) as ServerRolesResponse;
-  const adminRole = body.serverRoles.find((role) => role.name === 'admin');
-  expect(adminRole).toBeTruthy();
-  return adminRole!;
-}
-
-async function getServerRole(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-  serverRoleId: string,
-) {
-  const response = await request.get(
-    `/api/servers/${serverId}/roles/${serverRoleId}`,
-    {
-      headers: authorizationHeaders(user),
-    },
-  );
-
-  await expect(response).toBeOK();
-  return ((await response.json()) as ServerRoleResponse).serverRole;
-}
-
-function authorizationHeaders(user: AuthenticatedUser) {
-  return {
-    Authorization: `Bearer ${user.accessToken}`,
-  };
-}
-
-function minutesUntil(isoTimestamp: string) {
-  return Math.round((new Date(isoTimestamp).getTime() - Date.now()) / 60_000);
-}
-
-function secondsUntil(isoTimestamp: string) {
-  return Math.round((new Date(isoTimestamp).getTime() - Date.now()) / 1000);
-}
