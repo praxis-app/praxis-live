@@ -162,24 +162,3 @@
     font-family: var(--font-inter);
   }
 }
-
-/* TODO: Convert to regular TW utilities in relevant components */
-@layer components {
-  .praxis-call-participant-tile .lk-participant-placeholder {
-    background-color: rgb(255 255 255) !important;
-  }
-
-  .praxis-call-participant-tile .lk-participant-placeholder svg path {
-    fill: rgb(229 231 235) !important;
-    fill-opacity: 1 !important;
-  }
-
-  .dark .praxis-call-participant-tile .lk-participant-placeholder {
-    background-color: rgb(29 30 32) !important;
-  }
-
-  .dark .praxis-call-participant-tile .lk-participant-placeholder svg path {
-    fill: rgb(255 255 255) !important;
-    fill-opacity: 0.25 !important;
-  }
-}
