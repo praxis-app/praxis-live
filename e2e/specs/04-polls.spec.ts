@@ -1,26 +1,20 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Locator,
-  type Page,
-} from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
   createAuthenticatedUser,
   setupAnonymousSession,
   signUpViaApi,
-  type AuthenticatedUser,
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
+import {
+  makeProposalsRatifyWithOneAgreeVote,
+  openCreatePollDialog,
+  openCreateProposalDialog,
+  pollCard,
+  selectRadixOption,
+  shortenNextPollDuration,
+} from '../lib/polls';
+import { getAdminRole, getDefaultServer, getServerRole } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
-
-type ServerResponse = {
-  server: {
-    id: string;
-    slug: string;
-    generalChannelId: string;
-  };
-};
 
 type PollResponse = {
   poll: {
@@ -39,154 +33,7 @@ type PollResponse = {
   };
 };
 
-type ServerRoleResponse = {
-  serverRole: {
-    id: string;
-    name: string;
-    color: string;
-    permissions: { subject: string; action: string[] }[];
-    members: { id: string; name: string; displayName?: string | null }[];
-  };
-};
-
-type ServerRolesResponse = {
-  serverRoles: ServerRoleResponse['serverRole'][];
-};
-
 const changedRoleColor = '#2196f3';
-
-async function shortenNextPollDuration(
-  page: Page,
-  channelId: string,
-  seconds: number,
-) {
-  await page.route(
-    `**/channels/${channelId}/polls`,
-    async (route) => {
-      const request = route.request();
-      if (request.method() !== 'POST') {
-        await route.continue();
-        return;
-      }
-
-      const payload = JSON.parse(request.postData() ?? '{}') as {
-        closingAt?: string;
-      };
-      payload.closingAt = new Date(Date.now() + seconds * 1000).toISOString();
-
-      await route.continue({ postData: JSON.stringify(payload) });
-    },
-    { times: 1 },
-  );
-}
-
-async function openCreatePollDialog(
-  page: Page,
-  menuItemName: 'Create poll' | 'Create proposal' = 'Create poll',
-) {
-  await page
-    .locator('form')
-    .filter({ has: page.getByPlaceholder('Send a message...') })
-    .getByRole('button')
-    .first()
-    .click();
-  await page.getByRole('menuitem', { name: menuItemName }).click();
-}
-
-async function openCreateProposalDialog(page: Page) {
-  await page
-    .locator('form')
-    .filter({ has: page.getByPlaceholder('Send a message...') })
-    .getByRole('button')
-    .first()
-    .click();
-  await page.getByRole('menuitem', { name: 'Create proposal' }).click();
-}
-
-async function selectRadixOption(
-  scope: Locator,
-  page: Page,
-  placeholder: string,
-  optionName: string,
-) {
-  await scope.getByText(placeholder).click();
-  await page.getByRole('option', { name: optionName }).click();
-}
-
-function pollCard(page: Page, question: string) {
-  return page
-    .getByText(question)
-    .locator('xpath=ancestor::div[contains(@class, "rounded-md")][1]');
-}
-
-async function getDefaultServer(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-) {
-  const response = await request.get('/api/servers/default', {
-    headers: authorizationHeaders(user),
-  });
-
-  await expect(response).toBeOK();
-  return ((await response.json()) as ServerResponse).server;
-}
-
-async function makeProposalsRatifyWithOneAgreeVote(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-) {
-  const response = await request.put(`/api/servers/${serverId}/configs`, {
-    headers: authorizationHeaders(user),
-    data: {
-      decisionMakingModel: 'majority-vote',
-      agreementThreshold: 51,
-      quorumEnabled: false,
-      votingTimeLimit: 0,
-    },
-  });
-
-  await expect(response).toBeOK();
-}
-
-async function getAdminRole(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-) {
-  const response = await request.get(`/api/servers/${serverId}/roles`, {
-    headers: authorizationHeaders(user),
-  });
-
-  await expect(response).toBeOK();
-  const body = (await response.json()) as ServerRolesResponse;
-  const adminRole = body.serverRoles.find((role) => role.name === 'admin');
-  expect(adminRole).toBeTruthy();
-  return adminRole!;
-}
-
-async function getServerRole(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-  serverRoleId: string,
-) {
-  const response = await request.get(
-    `/api/servers/${serverId}/roles/${serverRoleId}`,
-    {
-      headers: authorizationHeaders(user),
-    },
-  );
-
-  await expect(response).toBeOK();
-  return ((await response.json()) as ServerRoleResponse).serverRole;
-}
-
-function authorizationHeaders(user: AuthenticatedUser) {
-  return {
-    Authorization: `Bearer ${user.accessToken}`,
-  };
-}
 
 function minutesUntil(isoTimestamp: string) {
   return Math.round((new Date(isoTimestamp).getTime() - Date.now()) / 60_000);
