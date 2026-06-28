@@ -14,6 +14,7 @@ import {
   shortenNextPollDuration,
 } from '../lib/polls';
 import { getAdminRole, getDefaultServer, getServerRole } from '../lib/servers';
+import { minutesUntil, secondsUntil } from '../lib/time';
 import { ChatPage } from '../pages/chat.page';
 
 type PollResponse = {
@@ -34,14 +35,6 @@ type PollResponse = {
 };
 
 const changedRoleColor = '#2196f3';
-
-function minutesUntil(isoTimestamp: string) {
-  return Math.round((new Date(isoTimestamp).getTime() - Date.now()) / 60_000);
-}
-
-function secondsUntil(isoTimestamp: string) {
-  return Math.round((new Date(isoTimestamp).getTime() - Date.now()) / 1000);
-}
 
 test('authenticated user can create and vote in a poll', async ({
   context,
