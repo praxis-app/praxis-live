@@ -1,4 +1,5 @@
 use axum::http::StatusCode;
+use chrono::Utc;
 use entity::{
     channels,
     enums::{
@@ -11,8 +12,9 @@ use entity::{
     server_roles, users,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    EntityTrait, IntoActiveModel, QueryFilter, Set,
+    prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
+    DatabaseConnection, DatabaseTransaction, EntityTrait, IntoActiveModel,
+    QueryFilter, QuerySelect, Set, TransactionTrait,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -151,26 +153,43 @@ pub(crate) async fn create_poll_action_role(
 pub(crate) async fn implement_poll_action(
     database: &DatabaseConnection,
     poll_id: Uuid,
-) -> AppResult<()> {
+) -> AppResult<bool> {
+    let transaction = database.begin().await.map_err(internal_error)?;
     let action = match poll_actions::Entity::find()
         .filter(poll_actions::Column::PollId.eq(poll_id))
-        .one(database)
+        .lock(LockType::Update)
+        .one(&transaction)
         .await
         .map_err(internal_error)?
     {
         Some(action) => action,
-        None => return Ok(()),
+        None => {
+            transaction.commit().await.map_err(internal_error)?;
+            return Ok(false);
+        }
     };
+
+    if action.executed_at.is_some() {
+        transaction.commit().await.map_err(internal_error)?;
+        return Ok(false);
+    }
 
     match action.action_type.as_str() {
         "change-role" => {
-            implement_change_server_role(database, action.id).await
+            implement_change_server_role(&transaction, action.id).await?
         }
         "create-role" => {
-            implement_create_server_role(database, poll_id, action.id).await
+            implement_create_server_role(&transaction, poll_id, action.id)
+                .await?
         }
-        _ => Ok(()),
+        _ => {}
     }
+
+    let mut active = action.into_active_model();
+    active.executed_at = Set(Some(Utc::now().fixed_offset()));
+    active.update(&transaction).await.map_err(internal_error)?;
+    transaction.commit().await.map_err(internal_error)?;
+    Ok(true)
 }
 
 pub(crate) async fn shape_poll_action(
@@ -203,7 +222,7 @@ pub(crate) async fn shape_poll_action(
 }
 
 async fn implement_change_server_role(
-    database: &DatabaseConnection,
+    database: &DatabaseTransaction,
     poll_action_id: Uuid,
 ) -> AppResult<()> {
     let action_role = load_action_role(database, poll_action_id).await?;
@@ -237,7 +256,7 @@ async fn implement_change_server_role(
 }
 
 async fn implement_create_server_role(
-    database: &DatabaseConnection,
+    database: &DatabaseTransaction,
     poll_id: Uuid,
     poll_action_id: Uuid,
 ) -> AppResult<()> {
@@ -284,7 +303,7 @@ async fn implement_create_server_role(
 }
 
 async fn load_action_role(
-    database: &DatabaseConnection,
+    database: &DatabaseTransaction,
     poll_action_id: Uuid,
 ) -> AppResult<poll_action_roles::Model> {
     poll_action_roles::Entity::find()
@@ -298,7 +317,7 @@ async fn load_action_role(
 }
 
 async fn apply_permission_changes(
-    database: &DatabaseConnection,
+    database: &DatabaseTransaction,
     role_id: Uuid,
     action_role_id: Uuid,
 ) -> AppResult<()> {
@@ -342,7 +361,7 @@ async fn apply_permission_changes(
 }
 
 async fn copy_action_permissions(
-    database: &DatabaseConnection,
+    database: &DatabaseTransaction,
     role_id: Uuid,
     action_role_id: Uuid,
 ) -> AppResult<()> {
@@ -369,7 +388,7 @@ async fn copy_action_permissions(
 }
 
 async fn add_role_permission(
-    database: &DatabaseConnection,
+    database: &DatabaseTransaction,
     role_id: Uuid,
     subject: ServerAbilitySubject,
     action: ServerRoleAbilityAction,
@@ -399,7 +418,7 @@ async fn add_role_permission(
 }
 
 async fn apply_member_changes(
-    database: &DatabaseConnection,
+    database: &DatabaseTransaction,
     role_id: Uuid,
     action_role_id: Uuid,
 ) -> AppResult<()> {

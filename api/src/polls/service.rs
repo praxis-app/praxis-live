@@ -3,8 +3,8 @@ use chrono::{Duration, Utc};
 use entity::{
     channels as channel_entities,
     enums::{PollDecisionMakingModel, PollStage, PollType, VoteType},
-    poll_configs, poll_images, poll_option_selections, poll_options, polls,
-    users, votes,
+    poll_actions as poll_action_entities, poll_configs, poll_images,
+    poll_option_selections, poll_options, polls, users, votes,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
@@ -596,13 +596,15 @@ async fn synchronize_proposals(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
 ) -> AppResult<ProposalSyncSummary> {
+    let mut summary =
+        retry_pending_poll_actions(database, pub_sub_service).await?;
     let configs = poll_configs::Entity::find()
         .filter(poll_configs::Column::ClosingAt.is_not_null())
         .all(database)
         .await
         .map_err(internal_error)?;
     if configs.is_empty() {
-        return Ok(ProposalSyncSummary::default());
+        return Ok(summary);
     }
 
     let configs_by_poll_id = configs
@@ -618,10 +620,9 @@ async fn synchronize_proposals(
         .await
         .map_err(internal_error)?;
     if proposals.is_empty() {
-        return Ok(ProposalSyncSummary::default());
+        return Ok(summary);
     }
 
-    let mut summary = ProposalSyncSummary::default();
     for batch in proposals.chunks(PROPOSAL_SYNC_BATCH_SIZE) {
         for poll in batch {
             summary.processed += 1;
@@ -661,6 +662,54 @@ async fn synchronize_proposals(
                         "Failed to synchronize proposal: {error}"
                     );
                 }
+            }
+        }
+    }
+
+    Ok(summary)
+}
+
+async fn retry_pending_poll_actions(
+    database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
+) -> AppResult<ProposalSyncSummary> {
+    let actions = poll_action_entities::Entity::find()
+        .filter(poll_action_entities::Column::ExecutedAt.is_null())
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let mut summary = ProposalSyncSummary::default();
+
+    for action in actions {
+        let Some(poll) = polls::Entity::find_by_id(action.poll_id)
+            .filter(polls::Column::Stage.eq(PollStage::Ratified))
+            .one(database)
+            .await
+            .map_err(internal_error)?
+        else {
+            continue;
+        };
+
+        summary.processed += 1;
+        match poll_actions::service::implement_poll_action(database, poll.id)
+            .await
+        {
+            Ok(true) => {
+                broadcast_stored_poll_update(
+                    database,
+                    pub_sub_service,
+                    &poll,
+                    None,
+                )
+                .await?;
+            }
+            Ok(false) => {}
+            Err(error) => {
+                summary.failed += 1;
+                tracing::warn!(
+                    poll_id = %poll.id,
+                    "Failed to retry poll action: {error}"
+                );
             }
         }
     }
