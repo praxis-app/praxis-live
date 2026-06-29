@@ -22,6 +22,9 @@ use crate::{
     users as users_service,
 };
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) async fn create_vote(
     database: &DatabaseConnection,
     poll: polls::Model,
