@@ -5,6 +5,7 @@ import {
   type Page,
 } from '@playwright/test';
 import { authorizationHeaders, type AuthenticatedUser } from './auth';
+import { assertUuid, runDatabaseCommand } from './db';
 
 export async function makeProposalsRatifyWithOneAgreeVote(
   request: APIRequestContext,
@@ -47,6 +48,25 @@ export async function shortenNextPollDuration(
     },
     { times: 1 },
   );
+}
+
+export function expirePollDeadline(pollId: string) {
+  assertUuid(pollId, 'Poll ID');
+
+  const output = runDatabaseCommand(
+    `UPDATE poll_configs SET closing_at = now() - interval '1 second' WHERE poll_id = '${pollId}' AND EXISTS (SELECT 1 FROM polls WHERE id = '${pollId}' AND stage = 'voting');`,
+  );
+
+  expect(output).toContain('UPDATE 1');
+}
+
+export function getPollVoteSummary(pollId: string) {
+  assertUuid(pollId, 'Poll ID');
+
+  return runDatabaseCommand(
+    `SELECT COUNT(*) || ':' || COALESCE(MIN(vote_type::text), 'none') FROM votes WHERE poll_id = '${pollId}';`,
+    { tuplesOnly: true },
+  ).trim();
 }
 
 export async function openCreatePollDialog(

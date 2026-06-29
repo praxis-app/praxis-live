@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
+use chrono::Utc;
 use entity::{
-    calls, enums::VoteType, poll_actions as poll_action_entities,
+    calls, enums::VoteType, poll_actions as poll_action_entities, poll_configs,
     poll_option_selections, poll_options, polls, users, votes as vote_entities,
 };
 use sea_orm::{
@@ -27,6 +28,7 @@ pub(crate) async fn create_vote(
     user_id: Uuid,
     request: VoteRequest,
 ) -> AppResult<CreateVoteResponse> {
+    ensure_poll_accepts_vote_mutations(database, &poll).await?;
     validate_vote_request(&poll, &request)?;
 
     if vote_entities::Entity::find()
@@ -78,6 +80,7 @@ pub(crate) async fn update_vote(
     user_id: Uuid,
     request: VoteRequest,
 ) -> AppResult<UpdateVoteResponse> {
+    ensure_poll_accepts_vote_mutations(database, &poll).await?;
     validate_vote_request(&poll, &request)?;
     let vote = vote_entities::Entity::find_by_id(vote_id)
         .filter(vote_entities::Column::PollId.eq(poll.id))
@@ -112,12 +115,13 @@ pub(crate) async fn update_vote(
 
 pub(crate) async fn delete_vote(
     database: &DatabaseConnection,
-    poll_id: Uuid,
+    poll: &polls::Model,
     vote_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
+    ensure_poll_accepts_vote_mutations(database, poll).await?;
     let vote = vote_entities::Entity::find_by_id(vote_id)
-        .filter(vote_entities::Column::PollId.eq(poll_id))
+        .filter(vote_entities::Column::PollId.eq(poll.id))
         .one(database)
         .await
         .map_err(internal_error)?
@@ -310,6 +314,19 @@ pub(crate) async fn ensure_poll_accepts_vote_mutations(
     database: &DatabaseConnection,
     poll: &polls::Model,
 ) -> AppResult<()> {
+    let config = poll_configs::Entity::find()
+        .filter(poll_configs::Column::PollId.eq(poll.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll config not found.")
+        })?;
+    ensure_before_voting_deadline(
+        config.closing_at,
+        Utc::now().fixed_offset(),
+    )?;
+
     let Some(call_id) = poll.call_id else {
         return Ok(());
     };
@@ -330,6 +347,21 @@ pub(crate) async fn ensure_poll_accepts_vote_mutations(
         StatusCode::UNPROCESSABLE_ENTITY,
         "Call has ended. Votes can no longer be changed.",
     ))
+}
+
+fn ensure_before_voting_deadline(
+    closing_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+    now: chrono::DateTime<chrono::FixedOffset>,
+) -> AppResult<()> {
+    // The deadline is exclusive: vote mutations are rejected when now >= closing_at.
+    if closing_at.is_some_and(|closing_at| now >= closing_at) {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "Voting deadline has passed.",
+        ));
+    }
+
+    Ok(())
 }
 
 async fn save_poll_option_selections(

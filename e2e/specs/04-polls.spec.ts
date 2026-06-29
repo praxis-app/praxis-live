@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
 import {
+  authorizationHeaders,
   createAuthenticatedUser,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import {
+  expirePollDeadline,
+  getPollVoteSummary,
   makeProposalsRatifyWithOneAgreeVote,
   openCreatePollDialog,
   openCreateProposalDialog,
@@ -371,4 +374,116 @@ test('user can create and ratify a proposal to change a role', async ({
   expect(changedRole.members.map((member) => member.id)).toEqual(
     expect.arrayContaining(adminRole.members.map((member) => member.id)),
   );
+});
+
+test('proposal deadlines are server-controlled and reject late vote changes', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('proposal-deadline'),
+  );
+  const lateVoter = await signUpViaApi(
+    request,
+    createTestUser('proposal-deadline-late-voter'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  const lateVoterServer = await getDefaultServer(request, lateVoter);
+  expect(lateVoterServer.id).toBe(server.id);
+
+  const configResponse = await request.put(
+    `/api/servers/${server.id}/configs`,
+    {
+      headers: authorizationHeaders(proposer),
+      data: { votingTimeLimit: 30 },
+    },
+  );
+  await expect(configResponse).toBeOK();
+
+  const proposalBody = `Deadline proposal ${proposer.user.suffix}`;
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+
+  await openCreateProposalDialog(page);
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(dialog, page, 'Select an action type', 'Test');
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await shortenNextPollDuration(page, server.generalChannelId, 5);
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  const createResponse = await createProposalResponse;
+  const { poll } = (await createResponse.json()) as PollResponse;
+
+  expect(poll.config.closingAt).toBeTruthy();
+  expect(minutesUntil(poll.config.closingAt!)).toBeGreaterThanOrEqual(29);
+  expect(minutesUntil(poll.config.closingAt!)).toBeLessThanOrEqual(30);
+
+  const proposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${proposalBody}`,
+  });
+  await expect(proposal).toBeVisible();
+
+  const initialVoteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/polls/${poll.id}/votes`) &&
+      response.status() === 200,
+  );
+  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await initialVoteResponse;
+
+  expirePollDeadline(poll.id);
+
+  const lateCreateResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls/${poll.id}/votes`,
+    {
+      headers: authorizationHeaders(lateVoter),
+      data: { voteType: 'agree' },
+    },
+  );
+  expect(lateCreateResponse.status()).toBe(409);
+  await expect(lateCreateResponse.json()).resolves.toEqual({
+    error: 'Voting deadline has passed.',
+  });
+
+  const lateUpdateResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PUT' &&
+      response.url().includes(`/polls/${poll.id}/votes/`),
+  );
+  await proposal
+    .getByRole('button', { name: 'Disagree', exact: true })
+    .click();
+  const updateResponse = await lateUpdateResponse;
+  expect(updateResponse.status()).toBe(409);
+  await expect(
+    page.getByText('Voting deadline has passed.').last(),
+  ).toBeVisible();
+
+  const lateDeleteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'DELETE' &&
+      response.url().includes(`/polls/${poll.id}/votes/`),
+  );
+  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  const deleteResponse = await lateDeleteResponse;
+  expect(deleteResponse.status()).toBe(409);
+  await expect(
+    page.getByText('Voting deadline has passed.').last(),
+  ).toBeVisible();
+
+  expect(getPollVoteSummary(poll.id)).toBe('1:agree');
 });

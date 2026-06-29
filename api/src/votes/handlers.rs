@@ -97,8 +97,13 @@ pub(crate) async fn delete_vote(
     let channel_id = context.route.channel_id;
     let poll_id = context.route.poll_id;
     let user_id = context.route.user_id;
-    service::delete_vote(&state.database, poll_id, context.vote_id, user_id)
-        .await?;
+    service::delete_vote(
+        &state.database,
+        &context.route.poll,
+        context.vote_id,
+        user_id,
+    )
+    .await?;
 
     if let Err(error) = polls_service::broadcast_poll_update(
         &state.database,
