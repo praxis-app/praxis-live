@@ -180,10 +180,13 @@ pub(crate) async fn ensure_channel_membership(
     }
 }
 
-pub(crate) async fn get_channel_member_user_ids(
-    database: &DatabaseConnection,
+pub(crate) async fn get_channel_member_user_ids<C>(
+    database: &C,
     channel_id: Uuid,
-) -> AppResult<Vec<Uuid>> {
+) -> AppResult<Vec<Uuid>>
+where
+    C: ConnectionTrait,
+{
     let members = channel_members::Entity::find()
         .filter(channel_members::Column::ChannelId.eq(channel_id))
         .all(database)

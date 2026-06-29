@@ -7,9 +7,10 @@ use entity::{
     users, votes,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    DeleteResult, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
-    QuerySelect, Set,
+    prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
+    ConnectionTrait, DatabaseConnection, DeleteResult, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
+    TransactionTrait,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -527,10 +528,13 @@ pub(crate) fn upload_root() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from(".uploads"))
 }
 
-pub(crate) async fn is_poll_ratifiable(
-    database: &DatabaseConnection,
+pub(crate) async fn is_poll_ratifiable<C>(
+    database: &C,
     poll_id: Uuid,
-) -> AppResult<bool> {
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -571,10 +575,10 @@ pub(crate) async fn is_poll_ratifiable(
     }
 }
 
-pub(crate) async fn ratify_poll(
-    database: &DatabaseConnection,
-    poll_id: Uuid,
-) -> AppResult<()> {
+pub(crate) async fn ratify_poll<C>(database: &C, poll_id: Uuid) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -966,10 +970,13 @@ async fn ensure_allowed_to_create_proposal(
     Ok(())
 }
 
-async fn get_poll_member_count(
-    database: &DatabaseConnection,
+async fn get_poll_member_count<C>(
+    database: &C,
     poll_id: Uuid,
-) -> AppResult<usize> {
+) -> AppResult<usize>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -1109,25 +1116,44 @@ async fn synchronize_proposal(
     poll: &polls::Model,
     config: &poll_configs::Model,
 ) -> AppResult<ProposalSyncAction> {
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let locked_poll = polls::Entity::find_by_id(poll.id)
+        .lock(LockType::Update)
+        .one(&transaction)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+
+    if locked_poll.stage != PollStage::Voting {
+        transaction.commit().await.map_err(internal_error)?;
+        return Ok(ProposalSyncAction::None);
+    }
+
     let action = proposal_sync_action(
         config.closing_at,
-        is_poll_ratifiable(database, poll.id).await?,
+        is_poll_ratifiable(&transaction, poll.id).await?,
         Utc::now().fixed_offset(),
     );
 
     match action {
-        ProposalSyncAction::None => Ok(action),
+        ProposalSyncAction::None => {
+            transaction.commit().await.map_err(internal_error)?;
+        }
         ProposalSyncAction::Ratify => {
-            ratify_poll(database, poll.id).await?;
+            ratify_poll(&transaction, poll.id).await?;
+            transaction.commit().await.map_err(internal_error)?;
             poll_actions::service::implement_poll_action(database, poll.id)
                 .await?;
-            Ok(action)
         }
         ProposalSyncAction::Close => {
-            close_poll(database, poll.id).await?;
-            Ok(action)
+            close_poll(&transaction, poll.id).await?;
+            transaction.commit().await.map_err(internal_error)?;
         }
     }
+
+    Ok(action)
 }
 
 fn proposal_sync_action(
@@ -1164,10 +1190,10 @@ fn resolve_poll_closing_at(
         .then(|| now + Duration::minutes(i64::from(voting_time_limit)))
 }
 
-async fn close_poll(
-    database: &DatabaseConnection,
-    poll_id: Uuid,
-) -> AppResult<()> {
+async fn close_poll<C>(database: &C, poll_id: Uuid) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
