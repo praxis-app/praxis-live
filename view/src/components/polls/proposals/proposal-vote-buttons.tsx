@@ -2,6 +2,7 @@ import { api } from '@/client/api-client';
 import { Button } from '@/components/ui/button';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
+import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
@@ -23,6 +24,7 @@ interface Props {
   myVote?: VoteRes;
   pollId: string;
   stage: PollStage;
+  closingAt?: string;
   onVoteSuccess?: () => void;
 }
 
@@ -32,12 +34,14 @@ export const ProposalVoteButtons = ({
   pollId,
   myVote,
   stage,
+  closingAt,
   onVoteSuccess,
 }: Props) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { serverId } = useServerData();
   const { isLoggedIn } = useAuthData();
+  const deadlineHasPassed = useVotingDeadline(closingAt);
 
   const { mutate: castVote, isPending } = useMutation({
     mutationFn: async (voteType: VoteType) => {
@@ -174,6 +178,10 @@ export const ProposalVoteButtons = ({
       toast(t('proposals.prompts.noVotingAfterRatification'));
       return;
     }
+    if (deadlineHasPassed) {
+      toast(t('proposals.prompts.noVotingAfterDeadline'));
+      return;
+    }
     castVote(voteType);
   };
 
@@ -189,7 +197,7 @@ export const ProposalVoteButtons = ({
             myVote?.voteType === vote && 'bg-primary/15!',
           )}
           onClick={() => handleVoteBtnClick(vote)}
-          disabled={isPending}
+          disabled={isPending || stage !== 'voting' || deadlineHasPassed}
         >
           {t(`proposals.actions.${vote}`)}
         </Button>

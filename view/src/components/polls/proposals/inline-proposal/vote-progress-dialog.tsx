@@ -7,12 +7,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { ProposalRuleRow } from '@/components/polls/proposals/inline-proposal/proposal-rule-row';
+import { getProgressPercentage, getProposalRuleStatus } from '@/lib/poll.utils';
 import { type PollConfigRes } from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
-import { getProgressPercentage, getRequiredCount } from '@/lib/poll.utils';
-import { sortConsensusVotesByType, type WithVoteType } from '@/lib/vote.utils';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdHowToVote } from 'react-icons/md';
 
@@ -32,42 +31,27 @@ export const VoteProgressDialog = ({
   onOpenChange,
 }: Props) => {
   const { t } = useTranslation();
-
-  const { agreements, disagreements } = useMemo(() => {
-    const proposalVotes = votes.filter((vote) => !!vote.voteType);
-    return sortConsensusVotesByType(proposalVotes as WithVoteType[]);
-  }, [votes]);
-
-  const agreementThreshold = config.agreementThreshold ?? 0;
-  const quorumThreshold = config.quorumThreshold ?? 0;
-
-  const quorum = votes.length;
-  const yesVotes = agreements.length;
-  const noVotes = disagreements.length;
-  const participants = yesVotes + noVotes;
-
-  // Agreement progress
-  const requiredAgreements = Math.max(
-    1,
-    getRequiredCount(participants, agreementThreshold),
-  );
+  const status = getProposalRuleStatus(votes, config, memberCount);
+  const showAgreement = config.decisionMakingModel !== 'consent';
+  const showLimits = config.decisionMakingModel !== 'majority-vote';
+  const requiredAgreements = Math.max(1, status.requiredAgreements);
   const agreementsPercentage = getProgressPercentage(
-    yesVotes,
+    status.agreements,
     requiredAgreements,
   );
-  const isAgreementMet = participants > 0 && yesVotes >= requiredAgreements;
-
-  // Quorum progress
-  const requiredQuorum = getRequiredCount(memberCount, quorumThreshold);
-  const quorumPercentage = getProgressPercentage(quorum, requiredQuorum);
-  const isQuorumMet = quorum >= requiredQuorum;
+  const quorumPercentage = getProgressPercentage(
+    status.totalVotes,
+    status.requiredQuorum,
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <button className="flex cursor-pointer items-center gap-1.5">
           <MdHowToVote className="text-muted-foreground" />
-          <span>{t('proposals.labels.totalVotes', { count: quorum })}</span>
+          <span>
+            {t('proposals.labels.totalVotes', { count: status.totalVotes })}
+          </span>
         </button>
       </DialogTrigger>
 
@@ -83,32 +67,34 @@ export const VoteProgressDialog = ({
           </VisuallyHidden>
         </DialogHeader>
         <div className="space-y-6 pt-2">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">
-                {t('proposals.labels.thresholdProgress')}
-              </span>
-              <span
-                className={
-                  isAgreementMet
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-muted-foreground'
-                }
-              >
-                {isAgreementMet
-                  ? t('proposals.labels.thresholdMet')
-                  : t('proposals.labels.thresholdNotMet')}
-              </span>
+          {showAgreement && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">
+                  {t('proposals.labels.thresholdProgress')}
+                </span>
+                <span
+                  className={
+                    status.agreementMet
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-muted-foreground'
+                  }
+                >
+                  {status.agreementMet
+                    ? t('proposals.labels.thresholdMet')
+                    : t('proposals.labels.thresholdNotMet')}
+                </span>
+              </div>
+              <Progress value={agreementsPercentage} />
+              <p className="text-muted-foreground text-sm">
+                {t('proposals.descriptions.thresholdStatus', {
+                  current: status.agreements,
+                  required: requiredAgreements,
+                  threshold: config.agreementThreshold,
+                })}
+              </p>
             </div>
-            <Progress value={agreementsPercentage} />
-            <p className="text-muted-foreground text-sm">
-              {t('proposals.descriptions.thresholdStatus', {
-                current: yesVotes,
-                required: requiredAgreements,
-                threshold: config.agreementThreshold,
-              })}
-            </p>
-          </div>
+          )}
 
           {config.quorumEnabled && (
             <div className="space-y-2">
@@ -118,12 +104,12 @@ export const VoteProgressDialog = ({
                 </span>
                 <span
                   className={
-                    isQuorumMet
+                    status.quorumMet
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-muted-foreground'
                   }
                 >
-                  {isQuorumMet
+                  {status.quorumMet
                     ? t('proposals.labels.quorumMet')
                     : t('proposals.labels.quorumNotMet')}
                 </span>
@@ -131,11 +117,39 @@ export const VoteProgressDialog = ({
               <Progress value={quorumPercentage} />
               <p className="text-muted-foreground text-sm">
                 {t('proposals.descriptions.quorumStatus', {
-                  current: quorum,
-                  required: requiredQuorum,
+                  current: status.totalVotes,
+                  required: status.requiredQuorum,
                   threshold: config.quorumThreshold,
                 })}
               </p>
+            </div>
+          )}
+
+          {showLimits && (
+            <div className="grid gap-3 text-sm">
+              <ProposalRuleRow
+                label={t('proposals.labels.disagreementLimit')}
+                value={t('proposals.descriptions.voteLimitStatus', {
+                  current: status.disagreements,
+                  limit: config.disagreementsLimit ?? 0,
+                })}
+                met={status.disagreementsMet}
+              />
+              <ProposalRuleRow
+                label={t('proposals.labels.abstentionLimit')}
+                value={t('proposals.descriptions.voteLimitStatus', {
+                  current: status.abstains,
+                  limit: config.abstainsLimit ?? 0,
+                })}
+                met={status.abstainsMet}
+              />
+              <ProposalRuleRow
+                label={t('proposals.labels.blockStatus')}
+                value={t('proposals.descriptions.blockStatus', {
+                  count: status.blocks,
+                })}
+                met={status.blocksMet}
+              />
             </div>
           )}
         </div>

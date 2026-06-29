@@ -336,7 +336,7 @@ test('user can create and ratify a proposal to change a role', async ({
 
   await expect(dialog).toBeHidden();
   const proposal = page.getByRole('article', {
-    name: `Consensus Proposal: ${proposalBody}`,
+    name: `Majority Vote Proposal: ${proposalBody}`,
   });
   await expect(proposal).toBeVisible();
   await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();

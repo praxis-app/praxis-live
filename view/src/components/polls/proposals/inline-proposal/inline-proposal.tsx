@@ -1,4 +1,5 @@
 import { VoteProgressDialog } from '@/components/polls/proposals/inline-proposal/vote-progress-dialog';
+import { ProposalOutcome } from '@/components/polls/proposals/inline-proposal/proposal-outcome';
 import { ProposalAction } from '@/components/polls/proposals/proposal-actions/proposal-action';
 import { ProposalVoteButtons } from '@/components/polls/proposals/proposal-vote-buttons';
 import { FormattedText } from '@/components/shared/formatted-text';
@@ -66,9 +67,12 @@ export const InlineProposal = ({
   const truncatedName = truncate(name, 18);
   const formattedDate = timeAgo(createdAt);
 
-  const label = body
-    ? `${t('proposals.labels.consensusProposal')}: ${body}`
-    : t('proposals.labels.consensusProposal');
+  const modelLabel = {
+    consent: t('proposals.labels.consentProposal'),
+    consensus: t('proposals.labels.consensusProposal'),
+    'majority-vote': t('proposals.labels.majorityProposal'),
+  }[config.decisionMakingModel ?? 'consensus'];
+  const label = body ? `${modelLabel}: ${body}` : modelLabel;
 
   const isSourceCallActive =
     sourceCall?.status === 'starting' || sourceCall?.status === 'active';
@@ -115,7 +119,7 @@ export const InlineProposal = ({
         <Card className="before:border-l-border @container relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
           <div className="text-muted-foreground flex min-w-0 items-center gap-1.5 font-medium">
             <FaClipboard className="mb-0.5" />
-            {t('proposals.labels.consensusProposal')}
+            {modelLabel}
           </div>
 
           {body && <FormattedText text={body} className="pt-1 pb-2" />}
@@ -129,11 +133,14 @@ export const InlineProposal = ({
               feedQueryKey={feedQueryKey}
               myVote={myVote}
               stage={stage}
+              closingAt={config.closingAt}
               onVoteSuccess={onPollChange}
             />
           </CardAction>
 
           <Separator className="my-1" />
+
+          <ProposalOutcome poll={poll} />
 
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <div className="text-muted-foreground flex min-w-0 flex-wrap gap-3 text-sm">
