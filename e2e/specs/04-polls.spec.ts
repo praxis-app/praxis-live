@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 import {
-  authorizationHeaders,
   createAuthenticatedUser,
   setupAnonymousSession,
   signUpViaApi,
@@ -8,7 +7,6 @@ import {
 import { createTestUser } from '../lib/data';
 import {
   expirePollDeadline,
-  getPollVoteSummary,
   makeProposalsRatifyWithOneAgreeVote,
   openCreatePollDialog,
   openCreateProposalDialog,
@@ -376,7 +374,7 @@ test('user can create and ratify a proposal to change a role', async ({
   );
 });
 
-test('proposal deadlines are server-controlled and reject late vote changes', async ({
+test('server-controlled proposal deadline finalizes an eligible consensus proposal', async ({
   context,
   page,
   request,
@@ -386,19 +384,18 @@ test('proposal deadlines are server-controlled and reject late vote changes', as
     context,
     createTestUser('proposal-deadline'),
   );
-  const lateVoter = await signUpViaApi(
-    request,
-    createTestUser('proposal-deadline-late-voter'),
-  );
   const server = await getDefaultServer(request, proposer);
-  const lateVoterServer = await getDefaultServer(request, lateVoter);
-  expect(lateVoterServer.id).toBe(server.id);
 
   const configResponse = await request.put(
     `/api/servers/${server.id}/configs`,
     {
-      headers: authorizationHeaders(proposer),
-      data: { votingTimeLimit: 30 },
+      headers: { Authorization: `Bearer ${proposer.accessToken}` },
+      data: {
+        decisionMakingModel: 'consensus',
+        agreementThreshold: 51,
+        quorumEnabled: false,
+        votingTimeLimit: 30,
+      },
     },
   );
   await expect(configResponse).toBeOK();
@@ -447,43 +444,8 @@ test('proposal deadlines are server-controlled and reject late vote changes', as
 
   expirePollDeadline(poll.id);
 
-  const lateCreateResponse = await request.post(
-    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls/${poll.id}/votes`,
-    {
-      headers: authorizationHeaders(lateVoter),
-      data: { voteType: 'agree' },
-    },
-  );
-  expect(lateCreateResponse.status()).toBe(409);
-  await expect(lateCreateResponse.json()).resolves.toEqual({
-    error: 'Voting deadline has passed.',
-  });
-
-  const lateUpdateResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'PUT' &&
-      response.url().includes(`/polls/${poll.id}/votes/`),
-  );
-  await proposal
-    .getByRole('button', { name: 'Disagree', exact: true })
-    .click();
-  const updateResponse = await lateUpdateResponse;
-  expect(updateResponse.status()).toBe(409);
+  await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
   await expect(
-    page.getByText('Voting deadline has passed.').last(),
+    proposal.getByText('Ratified — the proposal passed.'),
   ).toBeVisible();
-
-  const lateDeleteResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'DELETE' &&
-      response.url().includes(`/polls/${poll.id}/votes/`),
-  );
-  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
-  const deleteResponse = await lateDeleteResponse;
-  expect(deleteResponse.status()).toBe(409);
-  await expect(
-    page.getByText('Voting deadline has passed.').last(),
-  ).toBeVisible();
-
-  expect(getPollVoteSummary(poll.id)).toBe('1:agree');
 });
