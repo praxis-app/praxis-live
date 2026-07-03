@@ -1356,6 +1356,30 @@ fn validate_action(
             "Polls to change server roles must include a server role.",
         ));
     }
+    if action.action_type == "change-settings" && action.server_config.is_none()
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Polls to change server settings must include server config changes.",
+        ));
+    }
+    if action.action_type == "change-settings" {
+        let config = action.server_config.as_ref().expect("checked above");
+        if config.anonymous_users_enabled.is_none()
+            && config.decision_making_model.is_none()
+            && config.disagreements_limit.is_none()
+            && config.abstains_limit.is_none()
+            && config.agreement_threshold.is_none()
+            && config.quorum_enabled.is_none()
+            && config.quorum_threshold.is_none()
+            && config.voting_time_limit.is_none()
+        {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Polls to change server settings must include at least 1 change.",
+            ));
+        }
+    }
     if action.action_type == "change-role" {
         let role = action.server_role.as_ref().expect("checked above");
 

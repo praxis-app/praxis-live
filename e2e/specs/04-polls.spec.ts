@@ -374,6 +374,96 @@ test('user can create and ratify a proposal to change a role', async ({
   );
 });
 
+test('user can create and ratify a proposal to change server settings', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('settings-proposal'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+
+  const proposalBody = `Enable anonymous users ${proposer.user.suffix}`;
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+
+  await openCreateProposalDialog(page);
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(
+    dialog,
+    page,
+    'Select an action type',
+    'Change settings',
+  );
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await expect(
+    dialog.getByRole('combobox', { name: 'Decision making model' }),
+  ).toContainText('Majority vote');
+  await expect(
+    dialog.getByRole('combobox', { name: 'Disagreements limit' }),
+  ).toContainText('2');
+  await expect(
+    dialog.getByRole('combobox', { name: 'Voting time limit' }),
+  ).toContainText('Unlimited');
+  await dialog.getByRole('button', { name: 'Next' }).click();
+  await expect(
+    dialog.getByText('Change settings proposals require at least one change.'),
+  ).toBeVisible();
+  await dialog.getByRole('switch', { name: 'Anonymous users' }).click();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await expect(
+    dialog.getByText('Anonymous users', { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByText('Disabled → Enabled')).toBeVisible();
+
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  await createProposalResponse;
+
+  const proposal = page.getByRole('article', {
+    name: `Majority Vote Proposal: ${proposalBody}`,
+  });
+  await expect(
+    proposal.getByText('Anonymous users', { exact: true }),
+  ).toBeVisible();
+  await expect(proposal.getByText('Disabled → Enabled')).toBeVisible();
+
+  const voteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/votes') &&
+      response.status() === 200,
+  );
+  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await voteResponse;
+  await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
+
+  const configResponse = await request.get(
+    `/api/servers/${server.id}/configs`,
+    { headers: { Authorization: `Bearer ${proposer.accessToken}` } },
+  );
+  await expect(configResponse).toBeOK();
+  const config = (await configResponse.json()) as {
+    serverConfig: { anonymousUsersEnabled: boolean };
+  };
+  expect(config.serverConfig.anonymousUsersEnabled).toBe(true);
+});
+
 test('user can create and ratify a majority vote proposal', async ({
   context,
   page,

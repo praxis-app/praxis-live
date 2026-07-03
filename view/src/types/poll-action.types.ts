@@ -7,6 +7,7 @@ import {
   type ServerAbilitySubject,
 } from '@/types/role.types';
 import { type UserRes } from './user.types';
+import { type ServerConfigReq } from './server-config.types';
 
 export type PollActionType = (typeof POLL_ACTION_TYPE)[number];
 
@@ -20,6 +21,7 @@ export type RoleAttributeChangeType =
 export interface PollActionReq {
   actionType: PollActionType;
   serverRole?: PollActionServerRoleReq;
+  serverConfig?: PollActionServerConfigRes;
 }
 
 export interface PollActionServerRoleReq {
@@ -45,6 +47,7 @@ export interface PollActionServerRolePermissionReq {
 export interface CreatePollActionReq {
   actionType: PollActionType;
   serverRole?: CreatePollActionServerRoleReq;
+  serverConfig?: ServerConfigReq;
 }
 
 export interface CreatePollActionServerRoleReq {
@@ -76,6 +79,18 @@ export interface PollActionRes {
   id: string;
   actionType: PollActionType;
   serverRole?: PollActionServerRoleRes;
+  serverConfig?: PollActionServerConfigRes;
+}
+
+export interface PollActionServerConfigRes extends ServerConfigReq {
+  prevAnonymousUsersEnabled?: boolean;
+  prevDecisionMakingModel?: import('./poll.types').DecisionMakingModel;
+  prevDisagreementsLimit?: number;
+  prevAbstainsLimit?: number;
+  prevAgreementThreshold?: number;
+  prevQuorumEnabled?: boolean;
+  prevQuorumThreshold?: number;
+  prevVotingTimeLimit?: number;
 }
 
 export interface PollActionServerRoleRes {

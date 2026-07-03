@@ -11,6 +11,7 @@ import { VotingTimeLimit } from '@/constants/vote.constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import * as zod from 'zod';
@@ -36,22 +37,32 @@ import { Separator } from '../ui/separator';
 import { Slider } from '../ui/slider';
 import { Switch } from '../ui/switch';
 import { useServerData } from '../../hooks/use-server-data';
+import { AnonymousUsersEnabledField } from './anonymous-users-enabled-field';
 
 interface Props {
   serverConfig: ServerConfigRes;
+  showAnonymousUsers?: boolean;
+  renderFooter?: (form: ReturnType<typeof useServerConfigForm>) => ReactNode;
 }
 
-export const PollSettingsForm = ({ serverConfig }: Props) => {
+const useServerConfigForm = (serverConfig: ServerConfigRes) =>
+  useForm<zod.infer<typeof serverConfigSchema>>({
+    resolver: zodResolver(serverConfigSchema),
+    defaultValues: serverConfig,
+    mode: 'onChange',
+  });
+
+export const PollSettingsForm = ({
+  serverConfig,
+  showAnonymousUsers = false,
+  renderFooter,
+}: Props) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const { serverId } = useServerData();
 
-  const form = useForm<zod.infer<typeof serverConfigSchema>>({
-    resolver: zodResolver(serverConfigSchema),
-    defaultValues: serverConfig,
-    mode: 'onChange',
-  });
+  const form = useServerConfigForm(serverConfig);
 
   const { mutate: updateServerConfig, isPending: isUpdatePending } =
     useMutation({
@@ -120,9 +131,22 @@ export const PollSettingsForm = ({ serverConfig }: Props) => {
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit((fv) => updateServerConfig(fv))}
+        onSubmit={
+          renderFooter
+            ? (event) => event.preventDefault()
+            : form.handleSubmit((fv) => updateServerConfig(fv))
+        }
         className="space-y-6"
       >
+        {showAnonymousUsers && (
+          <>
+            <AnonymousUsersEnabledField
+              control={form.control}
+              name="anonymousUsersEnabled"
+            />
+            <Separator />
+          </>
+        )}
         <FormField
           control={form.control}
           name="decisionMakingModel"
@@ -434,15 +458,25 @@ export const PollSettingsForm = ({ serverConfig }: Props) => {
           )}
         />
 
-        <div className="flex justify-end">
-          <Button
-            disabled={isUpdatePending || !form.formState.isDirty}
-            type="submit"
-            className="w-20"
-          >
-            {t('actions.save')}
-          </Button>
-        </div>
+        {form.formState.errors.root?.message && (
+          <p className="text-destructive text-sm">
+            {form.formState.errors.root.message}
+          </p>
+        )}
+
+        {renderFooter ? (
+          renderFooter(form)
+        ) : (
+          <div className="flex justify-end">
+            <Button
+              disabled={isUpdatePending || !form.formState.isDirty}
+              type="submit"
+              className="w-20"
+            >
+              {t('actions.save')}
+            </Button>
+          </div>
+        )}
       </form>
     </Form>
   );

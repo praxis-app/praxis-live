@@ -17,10 +17,12 @@ import {
   type CreateProposalFormSchema,
   type CreateProposalWizardContext,
 } from '../create-proposal-form.types';
+import { ServerConfigChanges } from '../../server-config-changes';
+import { getServerConfigChanges } from '../../server-config-changes.utils';
 
 export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
   const {
-    context: { selectedServerRole, usersEligibleForServerRole },
+    context: { selectedServerRole, usersEligibleForServerRole, serverConfig },
     onSubmit,
     onPrevious,
     isSubmitting,
@@ -69,6 +71,9 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
     }
     return changes;
   })();
+  const serverConfigChanges = serverConfig
+    ? getServerConfigChanges(serverConfig, formValues.serverConfig || {})
+    : {};
 
   const { t } = useTranslation();
 
@@ -114,6 +119,15 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
         });
         return;
       }
+    }
+    if (
+      action === 'change-settings' &&
+      !Object.keys(serverConfigChanges).length
+    ) {
+      form.setError('root', {
+        message: t('proposals.errors.changeSettingsRequiresChanges'),
+      });
+      return;
     }
     onSubmit();
   };
@@ -312,6 +326,31 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+        {action === 'change-settings' && serverConfig && (
+          <Card className="gap-3 py-5">
+            <CardHeader>
+              <CardTitle className="text-base">
+                {t('proposals.actionTypes.changeSettings')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ServerConfigChanges
+                changes={
+                  Object.fromEntries(
+                    Object.entries(serverConfigChanges)
+                      .map(([key, value]) => [key, value])
+                      .concat(
+                        Object.keys(serverConfigChanges).map((key) => [
+                          `prev${key[0].toUpperCase()}${key.slice(1)}`,
+                          serverConfig[key as keyof typeof serverConfig],
+                        ]),
+                      ),
+                  ) as never
+                }
+              />
             </CardContent>
           </Card>
         )}

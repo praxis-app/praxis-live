@@ -1,8 +1,8 @@
 use axum::http::StatusCode;
 use entity::{enums::ServerDecisionMakingModel, server_configs};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    EntityTrait, IntoActiveModel, QueryFilter, Set,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
+    DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, Set,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -66,6 +66,41 @@ pub(crate) async fn update_server_config(
     Ok(())
 }
 
+pub(crate) async fn apply_server_config<C: ConnectionTrait>(
+    database: &C,
+    config: server_configs::Model,
+    request: &ServerConfigRequest,
+) -> AppResult<()> {
+    validate_server_config_request(request)?;
+    let mut active = config.into_active_model();
+    if let Some(value) = request.anonymous_users_enabled {
+        active.anonymous_users_enabled = Set(value);
+    }
+    if let Some(value) = request.decision_making_model.as_deref() {
+        active.decision_making_model = Set(parse_decision_making_model(value)?);
+    }
+    if let Some(value) = request.disagreements_limit {
+        active.disagreements_limit = Set(value);
+    }
+    if let Some(value) = request.abstains_limit {
+        active.abstains_limit = Set(value);
+    }
+    if let Some(value) = request.agreement_threshold {
+        active.agreement_threshold = Set(value);
+    }
+    if let Some(value) = request.quorum_enabled {
+        active.quorum_enabled = Set(value);
+    }
+    if let Some(value) = request.quorum_threshold {
+        active.quorum_threshold = Set(value);
+    }
+    if let Some(value) = request.voting_time_limit {
+        active.voting_time_limit = Set(value);
+    }
+    active.update(database).await.map_err(internal_error)?;
+    Ok(())
+}
+
 pub(crate) async fn ensure_server_config(
     database: &DatabaseConnection,
     server_id: Uuid,
@@ -116,7 +151,7 @@ fn parse_decision_making_model(
     })
 }
 
-fn validate_server_config_request(
+pub(crate) fn validate_server_config_request(
     request: &ServerConfigRequest,
 ) -> AppResult<()> {
     if let Some(model) = request.decision_making_model.as_deref() {

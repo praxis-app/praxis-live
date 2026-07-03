@@ -24,6 +24,8 @@ import { ServerRoleAttributesStep } from './create-proposal-form-steps/server-ro
 import { ServerRoleMembersStep } from './create-proposal-form-steps/server-role-members-step';
 import { ServerRolePermissionsStep } from './create-proposal-form-steps/server-role-permissions-step';
 import { ServerRoleSelectionStep } from './create-proposal-form-steps/server-role-selection-step';
+import { ServerSettingsStep } from './create-proposal-form-steps/server-settings-step';
+import { getServerConfigChanges } from '../server-config-changes.utils';
 import {
   type CreateProposalFormSchema,
   createProposalFormSchema,
@@ -66,6 +68,16 @@ export const CreateProposalForm = ({
 
   const isRolePoll =
     actionType === 'change-role' || actionType === 'create-role';
+  const { data: serverConfigData, isLoading: isServerConfigLoading } = useQuery(
+    {
+      queryKey: ['servers', serverId, 'configs'],
+      queryFn: () => {
+        if (!serverId) throw new Error('Server ID is required');
+        return api.getServerConfig(serverId);
+      },
+      enabled: actionType === 'change-settings' && !!serverId,
+    },
+  );
 
   const { data: serverRoleData, isLoading: isServerRoleLoading } = useQuery({
     queryKey: ['servers', serverId, 'roles', selectedServerRoleId],
@@ -229,6 +241,13 @@ export const CreateProposalForm = ({
         action: {
           actionType: values.action,
           serverRole,
+          serverConfig:
+            values.action === 'change-settings' && serverConfigData
+              ? getServerConfigChanges(
+                  serverConfigData.serverConfig,
+                  values.serverConfig || {},
+                )
+              : undefined,
         },
       };
 
@@ -341,6 +360,15 @@ export const CreateProposalForm = ({
           },
         ]
       : []),
+    ...(actionType === 'change-settings'
+      ? [
+          {
+            id: 'server-settings',
+            component: ServerSettingsStep,
+            props: { isLoading: isServerConfigLoading },
+          },
+        ]
+      : []),
     {
       id: 'proposal-review',
       component: ProposalReviewStep,
@@ -378,6 +406,7 @@ export const CreateProposalForm = ({
       context={{
         selectedServerRole: serverRoleData?.serverRole,
         usersEligibleForServerRole: eligibleUsersData?.users,
+        serverConfig: serverConfigData?.serverConfig,
       }}
       onNext={handleNext}
       onPrevious={handlePrevious}

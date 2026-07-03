@@ -10,6 +10,7 @@ mod m20260420_000001_add_anonymous_users;
 mod m20260505_000001_add_call_conversations;
 mod m20260525_000001_preserve_call_decisions;
 mod m20260629_000001_add_poll_action_execution;
+mod m20260703_000001_add_poll_action_server_configs;
 
 pub struct Migrator;
 
@@ -27,6 +28,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260505_000001_add_call_conversations::Migration),
             Box::new(m20260525_000001_preserve_call_decisions::Migration),
             Box::new(m20260629_000001_add_poll_action_execution::Migration),
+            Box::new(
+                m20260703_000001_add_poll_action_server_configs::Migration,
+            ),
         ]
     }
 }
