@@ -12,6 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import * as zod from 'zod';
 import { handleError } from '../../lib/error.utils';
 import {
@@ -105,7 +106,16 @@ export const PollSettingsForm = ({ serverConfig }: Props) => {
     }
   };
 
+  const decisionMakingModel = form.watch('decisionMakingModel');
+  const majorityVoteSelected = decisionMakingModel === 'majority-vote';
   const quorumEnabled = form.watch('quorumEnabled');
+  const showMajorityVoteLimitsExplanation = () => {
+    if (majorityVoteSelected) {
+      toast.info(t('settings.descriptions.majorityVoteLimitsDisabled'), {
+        id: 'majority-vote-limits-disabled',
+      });
+    }
+  };
 
   return (
     <Form {...form}>
@@ -157,14 +167,21 @@ export const PollSettingsForm = ({ serverConfig }: Props) => {
           control={form.control}
           name="disagreementsLimit"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('settings.names.disagreementsLimit')}</FormLabel>
-              <FormDescription>
+            <FormItem onPointerDownCapture={showMajorityVoteLimitsExplanation}>
+              <FormLabel
+                className={majorityVoteSelected ? 'opacity-50' : undefined}
+              >
+                {t('settings.names.disagreementsLimit')}
+              </FormLabel>
+              <FormDescription
+                className={majorityVoteSelected ? 'opacity-50' : undefined}
+              >
                 {t('settings.descriptions.disagreementsLimit')}
               </FormDescription>
               <Select
                 onValueChange={(value) => field.onChange(Number(value))}
                 value={field.value?.toString()}
+                disabled={majorityVoteSelected}
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
@@ -194,14 +211,21 @@ export const PollSettingsForm = ({ serverConfig }: Props) => {
           control={form.control}
           name="abstainsLimit"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('settings.names.abstainsLimit')}</FormLabel>
-              <FormDescription>
+            <FormItem onPointerDownCapture={showMajorityVoteLimitsExplanation}>
+              <FormLabel
+                className={majorityVoteSelected ? 'opacity-50' : undefined}
+              >
+                {t('settings.names.abstainsLimit')}
+              </FormLabel>
+              <FormDescription
+                className={majorityVoteSelected ? 'opacity-50' : undefined}
+              >
                 {t('settings.descriptions.abstainsLimit')}
               </FormDescription>
               <Select
                 onValueChange={(value) => field.onChange(Number(value))}
                 value={field.value?.toString()}
+                disabled={majorityVoteSelected}
               >
                 <FormControl>
                   <SelectTrigger className="w-full">

@@ -582,6 +582,7 @@
       "quorumThreshold": "Set the minimum percentage of eligible members that must participate for a proposal to be valid.",
       "disagreementsLimit": "Set a limit for the acceptable number of disagreements allowed for a proposal to still be able to pass.",
       "abstainsLimit": "Set a limit for the acceptable number of abstains allowed for a proposal to still be able to pass.",
+      "majorityVoteLimitsDisabled": "Disagreement and abstention limits do not apply to majority vote, which is determined by the agreement threshold and quorum.",
       "votingTimeLimit": "Set a time limit for how long proposals can be voted on before they're closed or ratified.",
       "anonymousUsersEnabled": "Allow users to participate without creating an account or providing personal information."
     },

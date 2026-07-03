@@ -3,8 +3,9 @@
 import { useTheme } from 'next-themes';
 import { useEffect } from 'react';
 import { Toaster as Sonner, toast, type ToasterProps } from 'sonner';
+import { cn } from '@/lib/shared.utils';
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ className, ...props }: ToasterProps) => {
   const { theme = 'system' } = useTheme();
 
   useEffect(() => {
@@ -23,7 +24,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme as ToasterProps['theme']}
-      className="toaster group"
+      className={cn(
+        'toaster group **:data-icon:mt-0.5! **:data-sonner-toast:items-start!',
+        className,
+      )}
       style={
         {
           '--normal-bg': 'var(--popover)',
