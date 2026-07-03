@@ -102,6 +102,25 @@ impl TestApp {
             .await
     }
 
+    pub async fn put_json_with_bearer<T: Serialize>(
+        &self,
+        uri: &str,
+        payload: &T,
+        token: &str,
+    ) -> Response<Body> {
+        let body = serde_json::to_vec(payload)
+            .expect("expected request body serialization");
+
+        self.request(Method::PUT, uri, Body::from(body), Some(token))
+            .await
+    }
+
+    pub fn database(&self) -> &DatabaseConnection {
+        self.database
+            .as_ref()
+            .expect("expected test database to remain available")
+    }
+
     pub async fn post_multipart_with_bearer(
         &self,
         uri: &str,

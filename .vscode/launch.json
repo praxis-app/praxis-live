@@ -28,12 +28,23 @@
       "args": [],
       "cwd": "${workspaceFolder}",
       "terminal": "console"
+    },
+    {
+      "name": "LiveKit Server",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "livekit-server --dev --bind 0.0.0.0",
+      "cwd": "${workspaceFolder}"
     }
   ],
   "compounds": [
     {
       "name": "Debug App",
-      "configurations": ["Debug Server", "Debug Client"],
+      "configurations": [
+        "Debug Server",
+        "Debug Client",
+        "LiveKit Server"
+      ],
       "stopAll": true
     }
   ]
