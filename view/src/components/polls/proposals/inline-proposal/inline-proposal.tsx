@@ -133,6 +133,9 @@ export const InlineProposal = ({
               feedQueryKey={feedQueryKey}
               myVote={myVote}
               stage={stage}
+              decisionMakingModel={
+                config.decisionMakingModel ?? 'consensus'
+              }
               closingAt={config.closingAt}
               onVoteSuccess={onPollChange}
             />

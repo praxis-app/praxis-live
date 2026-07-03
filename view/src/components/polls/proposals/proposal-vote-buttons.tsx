@@ -7,7 +7,10 @@ import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
 import { type VoteRes } from '@/types/vote.types';
-import { type PollStage } from '@/types/poll.types';
+import {
+  type DecisionMakingModel,
+  type PollStage,
+} from '@/types/poll.types';
 import { VOTE_TYPES } from '@/constants/vote.constants';
 import { type VoteType } from '@/types/vote.types';
 import {
@@ -24,6 +27,7 @@ interface Props {
   myVote?: VoteRes;
   pollId: string;
   stage: PollStage;
+  decisionMakingModel: DecisionMakingModel;
   closingAt?: string;
   onVoteSuccess?: () => void;
 }
@@ -34,6 +38,7 @@ export const ProposalVoteButtons = ({
   pollId,
   myVote,
   stage,
+  decisionMakingModel,
   closingAt,
   onVoteSuccess,
 }: Props) => {
@@ -42,6 +47,10 @@ export const ProposalVoteButtons = ({
   const { serverId } = useServerData();
   const { isLoggedIn } = useAuthData();
   const deadlineHasPassed = useVotingDeadline(closingAt);
+  const voteTypes = VOTE_TYPES.filter(
+    (voteType) =>
+      decisionMakingModel !== 'majority-vote' || voteType !== 'block',
+  );
 
   const { mutate: castVote, isPending } = useMutation({
     mutationFn: async (voteType: VoteType) => {
@@ -187,7 +196,7 @@ export const ProposalVoteButtons = ({
 
   return (
     <div className="grid w-full min-w-0 grid-cols-2 gap-2 @lg:grid-cols-4">
-      {VOTE_TYPES.map((vote) => (
+      {voteTypes.map((vote) => (
         <Button
           key={vote}
           variant="outline"
