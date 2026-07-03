@@ -1,11 +1,15 @@
 use axum::http::StatusCode;
+use chrono::Utc;
 use entity::{
-    calls, enums::VoteType, poll_actions as poll_action_entities,
-    poll_option_selections, poll_options, polls, users, votes as vote_entities,
+    calls,
+    enums::{PollStage, VoteType},
+    poll_actions as poll_action_entities, poll_configs, poll_option_selections,
+    poll_options, polls, users, votes as vote_entities,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, Set,
+    prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
+    ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    PaginatorTrait, QueryFilter, QuerySelect, Set, TransactionTrait,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -21,18 +25,23 @@ use crate::{
     users as users_service,
 };
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) async fn create_vote(
     database: &DatabaseConnection,
     poll: polls::Model,
     user_id: Uuid,
     request: VoteRequest,
 ) -> AppResult<CreateVoteResponse> {
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let poll = lock_poll_for_vote_mutation(&transaction, poll.id).await?;
     validate_vote_request(&poll, &request)?;
 
     if vote_entities::Entity::find()
         .filter(vote_entities::Column::PollId.eq(poll.id))
         .filter(vote_entities::Column::UserId.eq(user_id))
-        .one(database)
+        .one(&transaction)
         .await
         .map_err(internal_error)?
         .is_some()
@@ -44,7 +53,7 @@ pub(crate) async fn create_vote(
     }
 
     let poll_option_ids = parse_poll_option_ids(&request)?;
-    validate_poll_option_ids(database, poll.id, &poll_option_ids).await?;
+    validate_poll_option_ids(&transaction, poll.id, &poll_option_ids).await?;
     let vote = vote_entities::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         poll_id: Set(poll.id),
@@ -52,13 +61,19 @@ pub(crate) async fn create_vote(
         vote_type: Set(parse_vote_type_value(request.vote_type.as_deref())?),
         ..Default::default()
     }
-    .insert(database)
+    .insert(&transaction)
     .await
     .map_err(internal_error)?;
 
-    save_poll_option_selections(database, vote.id, &poll_option_ids).await?;
+    save_poll_option_selections(&transaction, vote.id, &poll_option_ids)
+        .await?;
     let is_ratifying_vote =
-        synchronize_ratification_after_vote(database, &poll).await?;
+        synchronize_ratification_after_vote(&transaction, &poll).await?;
+
+    transaction.commit().await.map_err(internal_error)?;
+    if is_ratifying_vote {
+        poll_actions::service::implement_poll_action(database, poll.id).await?;
+    }
 
     Ok(CreateVoteResponse {
         id: vote.id.to_string(),
@@ -78,10 +93,12 @@ pub(crate) async fn update_vote(
     user_id: Uuid,
     request: VoteRequest,
 ) -> AppResult<UpdateVoteResponse> {
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let poll = lock_poll_for_vote_mutation(&transaction, poll.id).await?;
     validate_vote_request(&poll, &request)?;
     let vote = vote_entities::Entity::find_by_id(vote_id)
         .filter(vote_entities::Column::PollId.eq(poll.id))
-        .one(database)
+        .one(&transaction)
         .await
         .map_err(internal_error)?
         .ok_or_else(|| {
@@ -92,33 +109,40 @@ pub(crate) async fn update_vote(
     }
 
     let poll_option_ids = parse_poll_option_ids(&request)?;
-    validate_poll_option_ids(database, poll.id, &poll_option_ids).await?;
+    validate_poll_option_ids(&transaction, poll.id, &poll_option_ids).await?;
     let mut active = vote.into_active_model();
     active.vote_type =
         Set(parse_vote_type_value(request.vote_type.as_deref())?);
-    active.update(database).await.map_err(internal_error)?;
+    active.update(&transaction).await.map_err(internal_error)?;
 
     poll_option_selections::Entity::delete_many()
         .filter(poll_option_selections::Column::VoteId.eq(vote_id))
-        .exec(database)
+        .exec(&transaction)
         .await
         .map_err(internal_error)?;
-    save_poll_option_selections(database, vote_id, &poll_option_ids).await?;
+    save_poll_option_selections(&transaction, vote_id, &poll_option_ids)
+        .await?;
 
     let is_ratifying_vote =
-        synchronize_ratification_after_vote(database, &poll).await?;
+        synchronize_ratification_after_vote(&transaction, &poll).await?;
+    transaction.commit().await.map_err(internal_error)?;
+    if is_ratifying_vote {
+        poll_actions::service::implement_poll_action(database, poll.id).await?;
+    }
     Ok(UpdateVoteResponse { is_ratifying_vote })
 }
 
 pub(crate) async fn delete_vote(
     database: &DatabaseConnection,
-    poll_id: Uuid,
+    poll: &polls::Model,
     vote_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let poll = lock_poll_for_vote_mutation(&transaction, poll.id).await?;
     let vote = vote_entities::Entity::find_by_id(vote_id)
-        .filter(vote_entities::Column::PollId.eq(poll_id))
-        .one(database)
+        .filter(vote_entities::Column::PollId.eq(poll.id))
+        .one(&transaction)
         .await
         .map_err(internal_error)?
         .ok_or_else(|| {
@@ -128,9 +152,10 @@ pub(crate) async fn delete_vote(
         return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
     }
     vote_entities::Entity::delete_by_id(vote_id)
-        .exec(database)
+        .exec(&transaction)
         .await
         .map_err(internal_error)?;
+    transaction.commit().await.map_err(internal_error)?;
     Ok(())
 }
 
@@ -306,10 +331,53 @@ pub(crate) async fn ensure_anonymous_can_vote_on_poll(
     ))
 }
 
-pub(crate) async fn ensure_poll_accepts_vote_mutations(
-    database: &DatabaseConnection,
+async fn lock_poll_for_vote_mutation<C>(
+    database: &C,
+    poll_id: Uuid,
+) -> AppResult<polls::Model>
+where
+    C: ConnectionTrait,
+{
+    let poll = polls::Entity::find_by_id(poll_id)
+        .lock(LockType::Update)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+
+    if poll.stage != PollStage::Voting {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Poll is no longer accepting votes.",
+        ));
+    }
+
+    ensure_poll_accepts_vote_mutations(database, &poll).await?;
+    Ok(poll)
+}
+
+async fn ensure_poll_accepts_vote_mutations<C>(
+    database: &C,
     poll: &polls::Model,
-) -> AppResult<()> {
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let config = poll_configs::Entity::find()
+        .filter(poll_configs::Column::PollId.eq(poll.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll config not found.")
+        })?;
+    ensure_before_voting_deadline(
+        config.closing_at,
+        Utc::now().fixed_offset(),
+    )?;
+
     let Some(call_id) = poll.call_id else {
         return Ok(());
     };
@@ -332,11 +400,29 @@ pub(crate) async fn ensure_poll_accepts_vote_mutations(
     ))
 }
 
-async fn save_poll_option_selections(
-    database: &DatabaseConnection,
+fn ensure_before_voting_deadline(
+    closing_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+    now: chrono::DateTime<chrono::FixedOffset>,
+) -> AppResult<()> {
+    // The deadline is exclusive: vote mutations are rejected when now >= closing_at.
+    if closing_at.is_some_and(|closing_at| now >= closing_at) {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "Voting deadline has passed.",
+        ));
+    }
+
+    Ok(())
+}
+
+async fn save_poll_option_selections<C>(
+    database: &C,
     vote_id: Uuid,
     poll_option_ids: &[Uuid],
-) -> AppResult<()> {
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     for poll_option_id in poll_option_ids {
         poll_option_selections::ActiveModel {
             id: Set(NativeUuid::new_v4()),
@@ -351,17 +437,19 @@ async fn save_poll_option_selections(
     Ok(())
 }
 
-async fn synchronize_ratification_after_vote(
-    database: &DatabaseConnection,
+async fn synchronize_ratification_after_vote<C>(
+    database: &C,
     poll: &polls::Model,
-) -> AppResult<bool> {
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
     if poll.poll_type != "proposal"
         || !polls_service::is_poll_ratifiable(database, poll.id).await?
     {
         return Ok(false);
     }
     polls_service::ratify_poll(database, poll.id).await?;
-    poll_actions::service::implement_poll_action(database, poll.id).await?;
     Ok(true)
 }
 
@@ -401,11 +489,14 @@ fn parse_poll_option_ids(request: &VoteRequest) -> AppResult<Vec<Uuid>> {
         .collect()
 }
 
-async fn validate_poll_option_ids(
-    database: &DatabaseConnection,
+async fn validate_poll_option_ids<C>(
+    database: &C,
     poll_id: Uuid,
     poll_option_ids: &[Uuid],
-) -> AppResult<()> {
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     if poll_option_ids.is_empty() {
         return Ok(());
     }

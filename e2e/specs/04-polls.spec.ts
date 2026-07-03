@@ -6,6 +6,7 @@ import {
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import {
+  expirePollDeadline,
   makeProposalsRatifyWithOneAgreeVote,
   openCreatePollDialog,
   openCreateProposalDialog,
@@ -333,7 +334,7 @@ test('user can create and ratify a proposal to change a role', async ({
 
   await expect(dialog).toBeHidden();
   const proposal = page.getByRole('article', {
-    name: `Consensus Proposal: ${proposalBody}`,
+    name: `Majority Vote Proposal: ${proposalBody}`,
   });
   await expect(proposal).toBeVisible();
   await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
@@ -371,4 +372,80 @@ test('user can create and ratify a proposal to change a role', async ({
   expect(changedRole.members.map((member) => member.id)).toEqual(
     expect.arrayContaining(adminRole.members.map((member) => member.id)),
   );
+});
+
+test('server-controlled proposal deadline finalizes an eligible consensus proposal', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('proposal-deadline'),
+  );
+  const server = await getDefaultServer(request, proposer);
+
+  const configResponse = await request.put(
+    `/api/servers/${server.id}/configs`,
+    {
+      headers: { Authorization: `Bearer ${proposer.accessToken}` },
+      data: {
+        decisionMakingModel: 'consensus',
+        agreementThreshold: 51,
+        quorumEnabled: false,
+        votingTimeLimit: 30,
+      },
+    },
+  );
+  await expect(configResponse).toBeOK();
+
+  const proposalBody = `Deadline proposal ${proposer.user.suffix}`;
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+
+  await openCreateProposalDialog(page);
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(dialog, page, 'Select an action type', 'Test');
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await shortenNextPollDuration(page, server.generalChannelId, 5);
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  const createResponse = await createProposalResponse;
+  const { poll } = (await createResponse.json()) as PollResponse;
+
+  expect(poll.config.closingAt).toBeTruthy();
+  expect(minutesUntil(poll.config.closingAt!)).toBeGreaterThanOrEqual(29);
+  expect(minutesUntil(poll.config.closingAt!)).toBeLessThanOrEqual(30);
+
+  const proposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${proposalBody}`,
+  });
+  await expect(proposal).toBeVisible();
+
+  const initialVoteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/polls/${poll.id}/votes`) &&
+      response.status() === 200,
+  );
+  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await initialVoteResponse;
+
+  expirePollDeadline(poll.id);
+
+  await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
+  await expect(
+    proposal.getByText('Ratified — the proposal passed.'),
+  ).toBeVisible();
 });

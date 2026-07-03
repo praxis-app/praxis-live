@@ -1,8 +1,10 @@
 import { VoteProgressDialog } from '@/components/polls/proposals/inline-proposal/vote-progress-dialog';
+import { ProposalOutcome } from '@/components/polls/proposals/inline-proposal/proposal-outcome';
+import { ProposalMetadata } from '@/components/polls/proposals/inline-proposal/proposal-metadata';
+import { ProposalStatusBadge } from '@/components/polls/proposals/inline-proposal/proposal-status-badge';
 import { ProposalAction } from '@/components/polls/proposals/proposal-actions/proposal-action';
 import { ProposalVoteButtons } from '@/components/polls/proposals/proposal-vote-buttons';
 import { FormattedText } from '@/components/shared/formatted-text';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardAction } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
@@ -17,7 +19,6 @@ import { type CurrentUser } from '@/types/user.types';
 import { type QueryKey } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaClipboard } from 'react-icons/fa';
 
 type SourceCallContext = 'in-call' | 'this-call' | 'another-call';
 
@@ -66,9 +67,12 @@ export const InlineProposal = ({
   const truncatedName = truncate(name, 18);
   const formattedDate = timeAgo(createdAt);
 
-  const label = body
-    ? `${t('proposals.labels.consensusProposal')}: ${body}`
-    : t('proposals.labels.consensusProposal');
+  const modelLabel = {
+    consent: t('proposals.labels.consentProposal'),
+    consensus: t('proposals.labels.consensusProposal'),
+    'majority-vote': t('proposals.labels.majorityProposal'),
+  }[config.decisionMakingModel ?? 'consensus'];
+  const label = body ? `${modelLabel}: ${body}` : modelLabel;
 
   const isSourceCallActive =
     sourceCall?.status === 'starting' || sourceCall?.status === 'active';
@@ -113,10 +117,10 @@ export const InlineProposal = ({
         </div>
 
         <Card className="before:border-l-border @container relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
-          <div className="text-muted-foreground flex min-w-0 items-center gap-1.5 font-medium">
-            <FaClipboard className="mb-0.5" />
-            {t('proposals.labels.consensusProposal')}
-          </div>
+          <ProposalMetadata
+            decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
+            actionType={action?.actionType}
+          />
 
           {body && <FormattedText text={body} className="pt-1 pb-2" />}
 
@@ -129,14 +133,17 @@ export const InlineProposal = ({
               feedQueryKey={feedQueryKey}
               myVote={myVote}
               stage={stage}
+              closingAt={config.closingAt}
               onVoteSuccess={onPollChange}
             />
           </CardAction>
 
           <Separator className="my-1" />
 
+          <ProposalOutcome poll={poll} />
+
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-            <div className="text-muted-foreground flex min-w-0 flex-wrap gap-3 text-sm">
+            <div className="text-muted-foreground flex min-w-0 flex-wrap text-sm">
               <VoteProgressDialog
                 votes={votes ?? []}
                 config={config}
@@ -145,18 +152,24 @@ export const InlineProposal = ({
                 onOpenChange={setIsDialogOpen}
               />
               <div className="flex items-center">
+                <span className="px-1.5" aria-hidden="true">
+                  {MIDDOT_WITH_SPACES.trim()}
+                </span>
                 {config?.closingAt ? (
                   timeFromNow(config.closingAt, true)
                 ) : (
-                  <span className="text-lg">{t('time.infinity')}</span>
+                  <span>{t('time.infinity')}</span>
                 )}
               </div>
             </div>
-            <Badge variant="outline">{t(`proposals.labels.${stage}`)}</Badge>
+            <ProposalStatusBadge
+              poll={poll}
+              onClick={() => setIsDialogOpen(true)}
+            />
           </div>
 
           {poll.sourceCallId && stage === 'voting' && (
-            <div className="text-muted-foreground text-xs">
+            <div className="text-muted-foreground text-sm">
               {sourceCallLabel}
               {MIDDOT_WITH_SPACES}
               {isSourceCallActive && onJoinCall ? (

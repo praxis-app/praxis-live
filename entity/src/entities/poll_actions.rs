@@ -9,6 +9,7 @@ pub struct Model {
     pub id: Uuid,
     pub poll_id: Uuid,
     pub action_type: PollActionType,
+    pub executed_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

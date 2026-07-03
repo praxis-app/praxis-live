@@ -3,13 +3,14 @@ use chrono::{Duration, Utc};
 use entity::{
     channels as channel_entities,
     enums::{PollDecisionMakingModel, PollStage, PollType, VoteType},
-    poll_configs, poll_images, poll_option_selections, poll_options, polls,
-    users, votes,
+    poll_actions as poll_action_entities, poll_configs, poll_images,
+    poll_option_selections, poll_options, polls, users, votes,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    DeleteResult, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
-    QuerySelect, Set,
+    prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
+    ConnectionTrait, DatabaseConnection, DeleteResult, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
+    TransactionTrait,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -248,13 +249,12 @@ async fn create_poll_record(
     let server_config =
         server_configs::service::ensure_server_config(database, server_id)
             .await?;
-    let closing_at = request.closing_at.or_else(|| {
-        (server_config.voting_time_limit > 0).then(|| {
-            (Utc::now()
-                + Duration::minutes(server_config.voting_time_limit as i64))
-            .fixed_offset()
-        })
-    });
+    let closing_at = resolve_poll_closing_at(
+        is_proposal,
+        server_config.voting_time_limit,
+        request.closing_at,
+        Utc::now().fixed_offset(),
+    );
 
     let encrypted = match body.as_deref() {
         Some(body) => {
@@ -528,10 +528,13 @@ pub(crate) fn upload_root() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from(".uploads"))
 }
 
-pub(crate) async fn is_poll_ratifiable(
-    database: &DatabaseConnection,
+pub(crate) async fn is_poll_ratifiable<C>(
+    database: &C,
     poll_id: Uuid,
-) -> AppResult<bool> {
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -572,10 +575,10 @@ pub(crate) async fn is_poll_ratifiable(
     }
 }
 
-pub(crate) async fn ratify_poll(
-    database: &DatabaseConnection,
-    poll_id: Uuid,
-) -> AppResult<()> {
+pub(crate) async fn ratify_poll<C>(database: &C, poll_id: Uuid) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -593,13 +596,15 @@ async fn synchronize_proposals(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
 ) -> AppResult<ProposalSyncSummary> {
+    let mut summary =
+        retry_pending_poll_actions(database, pub_sub_service).await?;
     let configs = poll_configs::Entity::find()
         .filter(poll_configs::Column::ClosingAt.is_not_null())
         .all(database)
         .await
         .map_err(internal_error)?;
     if configs.is_empty() {
-        return Ok(ProposalSyncSummary::default());
+        return Ok(summary);
     }
 
     let configs_by_poll_id = configs
@@ -615,10 +620,9 @@ async fn synchronize_proposals(
         .await
         .map_err(internal_error)?;
     if proposals.is_empty() {
-        return Ok(ProposalSyncSummary::default());
+        return Ok(summary);
     }
 
-    let mut summary = ProposalSyncSummary::default();
     for batch in proposals.chunks(PROPOSAL_SYNC_BATCH_SIZE) {
         for poll in batch {
             summary.processed += 1;
@@ -658,6 +662,54 @@ async fn synchronize_proposals(
                         "Failed to synchronize proposal: {error}"
                     );
                 }
+            }
+        }
+    }
+
+    Ok(summary)
+}
+
+async fn retry_pending_poll_actions(
+    database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
+) -> AppResult<ProposalSyncSummary> {
+    let actions = poll_action_entities::Entity::find()
+        .filter(poll_action_entities::Column::ExecutedAt.is_null())
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let mut summary = ProposalSyncSummary::default();
+
+    for action in actions {
+        let Some(poll) = polls::Entity::find_by_id(action.poll_id)
+            .filter(polls::Column::Stage.eq(PollStage::Ratified))
+            .one(database)
+            .await
+            .map_err(internal_error)?
+        else {
+            continue;
+        };
+
+        summary.processed += 1;
+        match poll_actions::service::implement_poll_action(database, poll.id)
+            .await
+        {
+            Ok(true) => {
+                broadcast_stored_poll_update(
+                    database,
+                    pub_sub_service,
+                    &poll,
+                    None,
+                )
+                .await?;
+            }
+            Ok(false) => {}
+            Err(error) => {
+                summary.failed += 1;
+                tracing::warn!(
+                    poll_id = %poll.id,
+                    "Failed to retry poll action: {error}"
+                );
             }
         }
     }
@@ -967,10 +1019,13 @@ async fn ensure_allowed_to_create_proposal(
     Ok(())
 }
 
-async fn get_poll_member_count(
-    database: &DatabaseConnection,
+async fn get_poll_member_count<C>(
+    database: &C,
     poll_id: Uuid,
-) -> AppResult<usize> {
+) -> AppResult<usize>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -1110,25 +1165,44 @@ async fn synchronize_proposal(
     poll: &polls::Model,
     config: &poll_configs::Model,
 ) -> AppResult<ProposalSyncAction> {
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let locked_poll = polls::Entity::find_by_id(poll.id)
+        .lock(LockType::Update)
+        .one(&transaction)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+
+    if locked_poll.stage != PollStage::Voting {
+        transaction.commit().await.map_err(internal_error)?;
+        return Ok(ProposalSyncAction::None);
+    }
+
     let action = proposal_sync_action(
         config.closing_at,
-        is_poll_ratifiable(database, poll.id).await?,
+        is_poll_ratifiable(&transaction, poll.id).await?,
         Utc::now().fixed_offset(),
     );
 
     match action {
-        ProposalSyncAction::None => Ok(action),
+        ProposalSyncAction::None => {
+            transaction.commit().await.map_err(internal_error)?;
+        }
         ProposalSyncAction::Ratify => {
-            ratify_poll(database, poll.id).await?;
+            ratify_poll(&transaction, poll.id).await?;
+            transaction.commit().await.map_err(internal_error)?;
             poll_actions::service::implement_poll_action(database, poll.id)
                 .await?;
-            Ok(action)
         }
         ProposalSyncAction::Close => {
-            close_poll(database, poll.id).await?;
-            Ok(action)
+            close_poll(&transaction, poll.id).await?;
+            transaction.commit().await.map_err(internal_error)?;
         }
     }
+
+    Ok(action)
 }
 
 fn proposal_sync_action(
@@ -1151,10 +1225,24 @@ fn proposal_sync_action(
     }
 }
 
-async fn close_poll(
-    database: &DatabaseConnection,
-    poll_id: Uuid,
-) -> AppResult<()> {
+fn resolve_poll_closing_at(
+    is_proposal: bool,
+    voting_time_limit: i32,
+    requested_closing_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+    now: chrono::DateTime<chrono::FixedOffset>,
+) -> Option<chrono::DateTime<chrono::FixedOffset>> {
+    if !is_proposal {
+        return requested_closing_at;
+    }
+
+    (voting_time_limit > 0)
+        .then(|| now + Duration::minutes(i64::from(voting_time_limit)))
+}
+
+async fn close_poll<C>(database: &C, poll_id: Uuid) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -1352,4 +1440,52 @@ async fn broadcast_stored_poll_update(
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("poll request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{FixedOffset, TimeZone};
+
+    use super::resolve_poll_closing_at;
+
+    fn timestamp(minute: u32) -> chrono::DateTime<FixedOffset> {
+        FixedOffset::east_opt(0)
+            .expect("UTC offset should be valid")
+            .with_ymd_and_hms(2026, 6, 29, 12, minute, 0)
+            .single()
+            .expect("timestamp should be valid")
+    }
+
+    #[test]
+    fn proposal_deadline_comes_from_server_voting_duration() {
+        let now = timestamp(0);
+        let requested_closing_at = timestamp(5);
+
+        let closing_at =
+            resolve_poll_closing_at(true, 30, Some(requested_closing_at), now);
+
+        assert_eq!(closing_at, Some(timestamp(30)));
+    }
+
+    #[test]
+    fn unlimited_proposal_ignores_requested_deadline() {
+        let closing_at =
+            resolve_poll_closing_at(true, 0, Some(timestamp(5)), timestamp(0));
+
+        assert_eq!(closing_at, None);
+    }
+
+    #[test]
+    fn regular_poll_keeps_requested_deadline() {
+        let requested_closing_at = timestamp(5);
+
+        let closing_at = resolve_poll_closing_at(
+            false,
+            30,
+            Some(requested_closing_at),
+            timestamp(0),
+        );
+
+        assert_eq!(closing_at, Some(requested_closing_at));
+    }
 }

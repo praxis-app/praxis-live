@@ -249,7 +249,7 @@ export const CallArtifact = ({
                         ? t('calls.artifact.activeTitle')
                         : t('calls.artifact.endedTitle')}
                     </h3>
-                    <p className="text-muted-foreground truncate text-xs">
+                    <p className="text-muted-foreground truncate text-sm">
                       {t('calls.artifact.startedBy', {
                         name: displayName(call.startedBy),
                       })}
@@ -275,7 +275,7 @@ export const CallArtifact = ({
                       />
                     ))}
                   </div>
-                  <span className="text-muted-foreground text-xs">
+                  <span className="text-muted-foreground text-sm">
                     {participantCount}
                     {participantNames ? `: ${participantNames}` : ''}
                   </span>
@@ -284,7 +284,7 @@ export const CallArtifact = ({
                 <button
                   type="button"
                   className={cn(
-                    'text-muted-foreground flex max-w-full flex-wrap gap-x-2 gap-y-1 text-left text-xs',
+                    'text-muted-foreground flex max-w-full flex-wrap gap-x-2 gap-y-1 text-left text-sm',
                     !isActive && 'cursor-pointer',
                   )}
                   aria-label={t('calls.actions.viewDetails')}
