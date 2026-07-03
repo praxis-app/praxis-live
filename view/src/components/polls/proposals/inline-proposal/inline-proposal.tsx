@@ -160,7 +160,7 @@ export const InlineProposal = ({
               </div>
             </div>
             <ProposalStatusBadge
-              stage={stage}
+              poll={poll}
               onClick={() => setIsDialogOpen(true)}
             />
           </div>

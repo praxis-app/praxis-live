@@ -175,6 +175,7 @@
       "disagreements": "disagreement limit",
       "abstentions": "abstention limit",
       "blocks": "block present",
+      "limitReached": "Limit reached",
       "voting": "Voting",
       "createdInCall": "Created in-call",
       "createdInThisCall": "Created in this call",

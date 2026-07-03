@@ -1,16 +1,18 @@
 import { Badge } from '@/components/ui/badge';
+import { getProposalRuleStatus } from '@/lib/poll.utils';
 import { cn } from '@/lib/shared.utils';
-import { type PollStage } from '@/types/poll.types';
+import { type PollRes, type PollStage } from '@/types/poll.types';
 import { useTranslation } from 'react-i18next';
 import {
   LuCircleCheck,
   LuCircleX,
+  LuOctagonAlert,
   LuPencil,
   LuVote,
 } from 'react-icons/lu';
 
 interface Props {
-  stage: PollStage;
+  poll: PollRes;
   onClick: () => void;
 }
 
@@ -30,9 +32,19 @@ const stageIcons: Record<PollStage, typeof LuVote> = {
   closed: LuCircleX,
 };
 
-export const ProposalStatusBadge = ({ stage, onClick }: Props) => {
+export const ProposalStatusBadge = ({ poll, onClick }: Props) => {
   const { t } = useTranslation();
-  const Icon = stageIcons[stage];
+  const { stage } = poll;
+  const status = getProposalRuleStatus(
+    poll.votes ?? [],
+    poll.config,
+    poll.memberCount,
+  );
+  const limitReached =
+    stage === 'voting' &&
+    poll.config.decisionMakingModel !== 'majority-vote' &&
+    (!status.disagreementsMet || !status.abstainsMet || !status.blocksMet);
+  const Icon = limitReached ? LuOctagonAlert : stageIcons[stage];
 
   return (
     <Badge
@@ -40,12 +52,15 @@ export const ProposalStatusBadge = ({ stage, onClick }: Props) => {
       variant="outline"
       className={cn(
         'cursor-pointer gap-1.5 transition-colors hover:brightness-95 dark:hover:brightness-110',
-        stageStyles[stage],
+        limitReached
+          ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+          : stageStyles[stage],
       )}
     >
       <button type="button" onClick={onClick}>
         <Icon aria-hidden="true" />
         {t(`proposals.labels.${stage}`)}
+        {limitReached && ` · ${t('proposals.labels.limitReached')}`}
       </button>
     </Badge>
   );
