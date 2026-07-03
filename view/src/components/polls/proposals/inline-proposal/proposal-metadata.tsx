@@ -1,3 +1,4 @@
+import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { type PollActionType } from '@/types/poll-action.types';
 import { type DecisionMakingModel } from '@/types/poll.types';
 import { useTranslation } from 'react-i18next';
@@ -48,18 +49,20 @@ export const ProposalMetadata = ({
   const ActionIcon = actionType ? actionIcons[actionType] : null;
 
   return (
-    <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium">
+    <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-y-1 text-sm font-medium">
       {actionType && ActionIcon && (
-        <>
-          <span className="flex items-center gap-1.5">
-            <ActionIcon className="size-3.5" aria-hidden="true" />
-            <span>{t(actionTranslationKeys[actionType])}</span>
-          </span>
-          <span className="bg-border h-3.5 w-px" aria-hidden="true" />
-        </>
+        <span className="flex items-center gap-1.5">
+          <ActionIcon className="size-3.5" aria-hidden="true" />
+          <span>{t(actionTranslationKeys[actionType])}</span>
+        </span>
       )}
 
       <span className="flex items-center gap-1.5">
+        {actionType && ActionIcon && (
+          <span className="pr-0.25 pl-1.5" aria-hidden="true">
+            {MIDDOT_WITH_SPACES.trim()}
+          </span>
+        )}
         <LuListCheck className="size-3.5" aria-hidden="true" />
         <span>{t(modelTranslationKeys[decisionMakingModel])}</span>
       </span>

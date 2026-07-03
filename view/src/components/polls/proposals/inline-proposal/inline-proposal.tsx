@@ -143,7 +143,7 @@ export const InlineProposal = ({
           <ProposalOutcome poll={poll} />
 
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-            <div className="text-muted-foreground flex min-w-0 flex-wrap gap-3 text-sm">
+            <div className="text-muted-foreground flex min-w-0 flex-wrap text-sm">
               <VoteProgressDialog
                 votes={votes ?? []}
                 config={config}
@@ -152,10 +152,13 @@ export const InlineProposal = ({
                 onOpenChange={setIsDialogOpen}
               />
               <div className="flex items-center">
+                <span className="px-1.5" aria-hidden="true">
+                  {MIDDOT_WITH_SPACES.trim()}
+                </span>
                 {config?.closingAt ? (
                   timeFromNow(config.closingAt, true)
                 ) : (
-                  <span className="text-lg">{t('time.infinity')}</span>
+                  <span>{t('time.infinity')}</span>
                 )}
               </div>
             </div>
@@ -166,7 +169,7 @@ export const InlineProposal = ({
           </div>
 
           {poll.sourceCallId && stage === 'voting' && (
-            <div className="text-muted-foreground text-xs">
+            <div className="text-muted-foreground text-sm">
               {sourceCallLabel}
               {MIDDOT_WITH_SPACES}
               {isSourceCallActive && onJoinCall ? (
