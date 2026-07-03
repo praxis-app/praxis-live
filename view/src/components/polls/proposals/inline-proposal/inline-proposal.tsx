@@ -1,5 +1,6 @@
 import { VoteProgressDialog } from '@/components/polls/proposals/inline-proposal/vote-progress-dialog';
 import { ProposalOutcome } from '@/components/polls/proposals/inline-proposal/proposal-outcome';
+import { ProposalMetadata } from '@/components/polls/proposals/inline-proposal/proposal-metadata';
 import { ProposalStatusBadge } from '@/components/polls/proposals/inline-proposal/proposal-status-badge';
 import { ProposalAction } from '@/components/polls/proposals/proposal-actions/proposal-action';
 import { ProposalVoteButtons } from '@/components/polls/proposals/proposal-vote-buttons';
@@ -18,7 +19,6 @@ import { type CurrentUser } from '@/types/user.types';
 import { type QueryKey } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaClipboard } from 'react-icons/fa';
 
 type SourceCallContext = 'in-call' | 'this-call' | 'another-call';
 
@@ -117,10 +117,10 @@ export const InlineProposal = ({
         </div>
 
         <Card className="before:border-l-border @container relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
-          <div className="text-muted-foreground flex min-w-0 items-center gap-1.5 font-medium">
-            <FaClipboard className="mb-0.5" />
-            {modelLabel}
-          </div>
+          <ProposalMetadata
+            decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
+            actionType={action?.actionType}
+          />
 
           {body && <FormattedText text={body} className="pt-1 pb-2" />}
 
