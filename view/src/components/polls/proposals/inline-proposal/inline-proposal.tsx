@@ -1,9 +1,9 @@
 import { VoteProgressDialog } from '@/components/polls/proposals/inline-proposal/vote-progress-dialog';
 import { ProposalOutcome } from '@/components/polls/proposals/inline-proposal/proposal-outcome';
+import { ProposalStatusBadge } from '@/components/polls/proposals/inline-proposal/proposal-status-badge';
 import { ProposalAction } from '@/components/polls/proposals/proposal-actions/proposal-action';
 import { ProposalVoteButtons } from '@/components/polls/proposals/proposal-vote-buttons';
 import { FormattedText } from '@/components/shared/formatted-text';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardAction } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
@@ -159,7 +159,10 @@ export const InlineProposal = ({
                 )}
               </div>
             </div>
-            <Badge variant="outline">{t(`proposals.labels.${stage}`)}</Badge>
+            <ProposalStatusBadge
+              stage={stage}
+              onClick={() => setIsDialogOpen(true)}
+            />
           </div>
 
           {poll.sourceCallId && stage === 'voting' && (

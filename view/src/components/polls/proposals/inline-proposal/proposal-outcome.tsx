@@ -2,6 +2,10 @@ import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { getProposalRuleStatus } from '@/lib/poll.utils';
 import { type PollRes } from '@/types/poll.types';
 import { useTranslation } from 'react-i18next';
+import {
+  LuLoaderCircle,
+  LuTrendingUp,
+} from 'react-icons/lu';
 
 interface Props {
   poll: PollRes;
@@ -17,11 +21,7 @@ export const ProposalOutcome = ({ poll }: Props) => {
   );
 
   if (poll.stage === 'ratified') {
-    return (
-      <p className="text-sm text-green-700 dark:text-green-400">
-        {t('proposals.outcomes.ratified')}
-      </p>
-    );
+    return null;
   }
 
   if (poll.stage === 'closed') {
@@ -43,37 +43,40 @@ export const ProposalOutcome = ({ poll }: Props) => {
     ].filter((rule): rule is string => !!rule);
 
     return (
-      <p className="text-destructive text-sm">
-        {t('proposals.outcomes.closedWithoutConsensus')}
-        {failedRules.length > 0 &&
-          ` ${t('proposals.outcomes.failedRules', { rules: failedRules.join(', ') })}`}
-      </p>
+      failedRules.length > 0 && (
+        <p className="text-destructive text-sm">
+          {t('proposals.outcomes.failedRules', {
+            rules: failedRules.join(', '),
+          })}
+        </p>
+      )
     );
   }
 
   if (deadlineHasPassed) {
     return (
-      <p className="text-muted-foreground text-sm">
-        {t('proposals.outcomes.finalizing')}
-      </p>
+      <div className="text-muted-foreground flex items-center gap-2 text-sm">
+        <LuLoaderCircle
+          className="size-4 shrink-0 animate-spin"
+          aria-hidden="true"
+        />
+        <p>{t('proposals.outcomes.finalizing')}</p>
+      </div>
     );
   }
 
   if (status.passes) {
     return (
-      <p className="text-sm text-green-700 dark:text-green-400">
-        {poll.config.closingAt
-          ? t('proposals.outcomes.eligibleAtDeadline')
-          : t('proposals.outcomes.eligibleNow')}
-      </p>
+      <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+        <LuTrendingUp className="size-4 shrink-0" aria-hidden="true" />
+        <p>
+          {poll.config.closingAt
+            ? t('proposals.outcomes.eligibleAtDeadline')
+            : t('proposals.outcomes.eligibleNow')}
+        </p>
+      </div>
     );
   }
 
-  return (
-    <p className="text-muted-foreground text-sm">
-      {poll.config.closingAt
-        ? t('proposals.outcomes.waitingForDeadline')
-        : t('proposals.outcomes.votingInProgress')}
-    </p>
-  );
+  return null;
 };
