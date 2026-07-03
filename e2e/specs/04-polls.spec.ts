@@ -374,6 +374,87 @@ test('user can create and ratify a proposal to change a role', async ({
   );
 });
 
+test('user can create and ratify a majority vote proposal', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('majority-proposer'),
+  );
+  const server = await getDefaultServer(request, proposer);
+
+  const configResponse = await request.put(
+    `/api/servers/${server.id}/configs`,
+    {
+      headers: { Authorization: `Bearer ${proposer.accessToken}` },
+      data: {
+        decisionMakingModel: 'majority-vote',
+        agreementThreshold: 51,
+        quorumEnabled: false,
+        votingTimeLimit: 0,
+      },
+    },
+  );
+  await expect(configResponse).toBeOK();
+
+  const proposalBody = `Majority proposal ${proposer.user.suffix}`;
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+  await openCreateProposalDialog(page);
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(dialog, page, 'Select an action type', 'Test');
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  await createProposalResponse;
+  await expect(dialog).toBeHidden();
+
+  const proposal = page.getByRole('article', {
+    name: `Majority Vote Proposal: ${proposalBody}`,
+  });
+  await expect(proposal).toBeVisible();
+  await expect(
+    proposal.getByText('Majority vote', { exact: true }),
+  ).toBeVisible();
+  await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
+  await expect(
+    proposal.getByRole('button', { name: 'Block', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    proposal.getByRole('button', { name: 'Agree', exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByRole('button', { name: 'Disagree', exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByRole('button', { name: 'Abstain', exact: true }),
+  ).toBeVisible();
+
+  const voteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/votes') &&
+      response.status() === 200,
+  );
+  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await voteResponse;
+
+  await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
+});
+
 test('server-controlled proposal deadline finalizes an eligible consensus proposal', async ({
   context,
   page,
