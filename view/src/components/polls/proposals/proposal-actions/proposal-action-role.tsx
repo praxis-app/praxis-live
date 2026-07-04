@@ -189,6 +189,7 @@ const MemberValue = ({ member }: { member: PollActionServerRoleMemberRes }) => {
         userId={member.user.id}
         name={name}
         imageId={member.user.profilePicture?.id}
+        fallbackClassName="text-sm"
         className="size-5"
       />
       <span className="truncate">{name}</span>
