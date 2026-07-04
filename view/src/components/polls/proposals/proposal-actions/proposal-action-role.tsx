@@ -93,7 +93,7 @@ export const ProposalActionRole = ({ action }: { action: PollActionRes }) => {
       value={ACCORDION_ITEM_VALUE}
       summary={
         <>
-          <span className="font-bold">
+          <span>
             {t(
               action.actionType === 'change-role'
                 ? 'proposals.labels.roleChangeProposal'
