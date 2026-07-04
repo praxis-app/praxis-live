@@ -1,4 +1,3 @@
-import { cn } from '@/lib/shared.utils';
 import { type ReactNode } from 'react';
 import { LuMinus, LuPlus } from 'react-icons/lu';
 
@@ -17,12 +16,11 @@ export const ProposalActionChangeValue = ({
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-[4px] border px-1.5 py-1.5">
       <span
-        className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-[4px]',
-          isAdd
-            ? 'bg-green-500/20 text-green-600 dark:text-green-400'
-            : 'bg-red-500/20 text-red-600 dark:text-red-400',
-        )}
+        className="flex size-5 shrink-0 items-center justify-center rounded-[4px]"
+        style={{
+          backgroundColor: isAdd ? '#2e4532' : '#432d2b',
+          color: isAdd ? '#0cff4f' : '#ff2727',
+        }}
       >
         <Icon className="size-4" aria-hidden="true" />
       </span>
