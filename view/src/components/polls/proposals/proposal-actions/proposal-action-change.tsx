@@ -1,3 +1,5 @@
+import { UserAvatar } from '@/components/users/user-avatar';
+import { type UserRes } from '@/types/user.types';
 import { type ReactNode } from 'react';
 import { LuMinus, LuPlus } from 'react-icons/lu';
 
@@ -50,3 +52,29 @@ export const ProposalActionChange = ({
     </ProposalActionChangeValue>
   </div>
 );
+
+export const ProposalActionColorValue = ({ color }: { color?: string }) => (
+  <span className="flex items-center gap-2">
+    <span
+      className="inline-block size-3.5 shrink-0 rounded-full"
+      style={{ backgroundColor: color }}
+    />
+    {color}
+  </span>
+);
+
+export const ProposalActionMemberValue = ({ user }: { user: UserRes }) => {
+  const name = user.displayName || user.name;
+  return (
+    <span className="flex items-center gap-2">
+      <UserAvatar
+        userId={user.id}
+        name={name}
+        imageId={user.profilePicture?.id}
+        fallbackClassName="text-sm"
+        className="size-5"
+      />
+      <span className="truncate">{name}</span>
+    </span>
+  );
+};

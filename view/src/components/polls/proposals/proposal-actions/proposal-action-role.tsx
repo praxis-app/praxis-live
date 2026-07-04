@@ -1,18 +1,16 @@
 import { api } from '@/client/api-client';
 import { SERVER_PERMISSION_KEYS } from '@/constants/role.constants';
 import { useServerData } from '@/hooks/use-server-data';
-import {
-  type PollActionRes,
-  type PollActionServerRoleMemberRes,
-} from '@/types/poll-action.types';
+import { type PollActionRes } from '@/types/poll-action.types';
 import { type ServerPermissionKeys } from '@/types/role.types';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { UserAvatar } from '@/components/users/user-avatar';
 import { ProposalActionAccordion } from './proposal-action-accordion';
 import {
   ProposalActionChange,
   ProposalActionChangeValue,
+  ProposalActionColorValue,
+  ProposalActionMemberValue,
 } from './proposal-action-change';
 
 export const ACCORDION_ITEM_VALUE = 'role-change-proposal';
@@ -122,13 +120,16 @@ export const ProposalActionRole = ({ action }: { action: PollActionRes }) => {
       {role.color && role.color !== oldColor && (
         <ProposalActionChange
           label={t('proposals.labels.color')}
-          oldValue={<ColorValue color={oldColor} />}
-          proposedValue={<ColorValue color={role.color} />}
+          oldValue={<ProposalActionColorValue color={oldColor} />}
+          proposedValue={<ProposalActionColorValue color={role.color} />}
         />
       )}
 
       {!!permissionChanges.length && (
-        <ChangeList label={t('proposals.headers.permissions')}>
+        <div className="min-w-0 space-y-2">
+          <div className="font-semibold">
+            {t('proposals.headers.permissions')}
+          </div>
           {permissionChanges.map((permission) => (
             <ProposalActionChangeValue
               key={permission.name}
@@ -139,60 +140,24 @@ export const ProposalActionRole = ({ action }: { action: PollActionRes }) => {
               )}
             </ProposalActionChangeValue>
           ))}
-        </ChangeList>
+        </div>
       )}
 
       {!!role.members?.length && (
-        <ChangeList label={t('proposals.headers.memberChanges')}>
+        <div className="min-w-0 space-y-2">
+          <div className="font-semibold">
+            {t('proposals.headers.memberChanges')}
+          </div>
           {role.members.map((member) => (
             <ProposalActionChangeValue
               key={member.user.id}
               changeType={member.changeType}
             >
-              <MemberValue member={member} />
+              <ProposalActionMemberValue user={member.user} />
             </ProposalActionChangeValue>
           ))}
-        </ChangeList>
+        </div>
       )}
     </ProposalActionAccordion>
-  );
-};
-
-const ColorValue = ({ color }: { color?: string }) => (
-  <span className="flex items-center gap-2">
-    <span
-      className="inline-block size-3.5 shrink-0 rounded-full"
-      style={{ backgroundColor: color }}
-    />
-    {color}
-  </span>
-);
-
-const ChangeList = ({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label: string;
-}) => (
-  <div className="min-w-0 space-y-2">
-    <div className="font-semibold">{label}</div>
-    {children}
-  </div>
-);
-
-const MemberValue = ({ member }: { member: PollActionServerRoleMemberRes }) => {
-  const name = member.user.displayName || member.user.name;
-  return (
-    <span className="flex items-center gap-2">
-      <UserAvatar
-        userId={member.user.id}
-        name={name}
-        imageId={member.user.profilePicture?.id}
-        fallbackClassName="text-sm"
-        className="size-5"
-      />
-      <span className="truncate">{name}</span>
-    </span>
   );
 };

@@ -1,5 +1,10 @@
 import { type WizardStepProps } from '@/components/shared/wizard/wizard.types';
-import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
+import {
+  ProposalActionChange,
+  ProposalActionChangeValue,
+  ProposalActionColorValue,
+  ProposalActionMemberValue,
+} from '@/components/polls/proposals/proposal-actions/proposal-action-change';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
 import { type ServerPermissionKeys } from '@/types/role.types';
 import { type UserRes } from '@/types/user.types';
@@ -10,7 +15,6 @@ import {
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useWizardContext } from '../../../../shared/wizard/wizard-hooks';
-import { Badge } from '../../../../ui/badge';
 import { Button } from '../../../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../ui/card';
 import {
@@ -179,152 +183,71 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
         {action === 'change-role' && selectedServerRole && (
           <Card className="gap-3 py-5">
             <CardHeader>
-              <CardTitle className="text-base">
-                {t('proposals.headers.selectedRole')}
+              <CardTitle className="flex items-center gap-2 text-base">
+                <span
+                  className="size-3.5 rounded-full"
+                  style={{ backgroundColor: selectedServerRole.color }}
+                />
+                {t('proposals.labels.roleChangeProposal')}:{' '}
+                {selectedServerRole.name}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center space-x-2">
-                <div
-                  className="h-4 w-4 rounded-full"
-                  style={{ backgroundColor: selectedServerRole.color }}
-                />
-                <span className="font-medium">{selectedServerRole.name}</span>
-                <span className="text-muted-foreground text-sm">
-                  {MIDDOT_WITH_SPACES}
-                </span>
-                <p className="text-muted-foreground text-sm">
-                  {t('roles.labels.membersCount', {
-                    count: selectedServerRole.memberCount,
-                  })}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {action === 'change-role' &&
-          selectedServerRole &&
-          (nameChanged || colorChanged) && (
-            <Card className="gap-3 py-5">
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {t('proposals.headers.roleAttributesChanges')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {nameChanged && (
-                    <div className="space-y-1">
-                      <span className="text-sm font-medium">
-                        {t('proposals.labels.roleNameChange')}
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-muted-foreground text-sm">
-                          {selectedServerRole.name}
-                        </span>
-                        <span className="text-sm">→</span>
-                        <span className="text-sm font-medium">
-                          {serverRoleName}
-                        </span>
-                      </div>
+              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                {nameChanged && (
+                  <ProposalActionChange
+                    label={t('proposals.labels.name')}
+                    oldValue={selectedServerRole.name}
+                    proposedValue={serverRoleName}
+                  />
+                )}
+                {colorChanged && (
+                  <ProposalActionChange
+                    label={t('proposals.labels.color')}
+                    oldValue={
+                      <ProposalActionColorValue
+                        color={selectedServerRole.color}
+                      />
+                    }
+                    proposedValue={
+                      <ProposalActionColorValue color={serverRoleColor} />
+                    }
+                  />
+                )}
+                {Object.keys(permissionChanges).length > 0 && (
+                  <div className="min-w-0 space-y-2">
+                    <div className="font-semibold">
+                      {t('proposals.headers.permissions')}
                     </div>
-                  )}
-                  {colorChanged && (
-                    <div className="space-y-1">
-                      <span className="text-sm font-medium">
-                        {t('proposals.labels.roleColorChange')}
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className="h-4 w-4 rounded-full"
-                          style={{ backgroundColor: selectedServerRole.color }}
-                        />
-                        <span className="text-muted-foreground text-sm">
-                          {selectedServerRole.color}
-                        </span>
-                        <span className="text-sm">→</span>
-                        <div
-                          className="h-4 w-4 rounded-full"
-                          style={{ backgroundColor: serverRoleColor }}
-                        />
-                        <span className="text-sm font-medium">
-                          {serverRoleColor}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-        {action === 'change-role' &&
-          Object.keys(permissionChanges).length > 0 && (
-            <Card className="gap-3 py-5">
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {t('proposals.headers.permissions')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {Object.entries(permissionChanges).map(
-                    ([permissionName, permissionValue]) => (
-                      <div
-                        key={permissionName}
-                        className="flex items-center justify-between"
-                      >
-                        <span className="text-sm">
+                    {Object.entries(permissionChanges).map(
+                      ([permissionName, permissionValue]) => (
+                        <ProposalActionChangeValue
+                          key={permissionName}
+                          changeType={permissionValue ? 'add' : 'remove'}
+                        >
                           {getPermissionName(
                             permissionName as ServerPermissionKeys,
                           )}
-                        </span>
-                        <Badge
-                          variant={permissionValue ? 'default' : 'destructive'}
-                          className="w-17"
-                        >
-                          {permissionValue
-                            ? t('actions.enabled')
-                            : t('actions.disabled')}
-                        </Badge>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-        {action === 'change-role' && memberChanges.length > 0 && (
-          <Card className="gap-3 py-5">
-            <CardHeader>
-              <CardTitle className="text-base">
-                {t('proposals.headers.memberChanges')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {memberChanges.map((member) => (
-                  <div
-                    key={member.user.id}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="max-w-[150px] truncate text-sm md:max-w-[220px]">
-                      {member.user.displayName || member.user.name}
-                    </span>
-                    <Badge
-                      variant={
-                        member.changeType === 'add' ? 'default' : 'destructive'
-                      }
-                      className="w-16"
-                    >
-                      {member.changeType === 'add'
-                        ? t('actions.add')
-                        : t('actions.remove')}
-                    </Badge>
+                        </ProposalActionChangeValue>
+                      ),
+                    )}
                   </div>
-                ))}
+                )}
+                {memberChanges.length > 0 && (
+                  <div className="min-w-0 space-y-2">
+                    <div className="font-semibold">
+                      {t('proposals.headers.memberChanges')}
+                    </div>
+                    {memberChanges.map((member) => (
+                      <ProposalActionChangeValue
+                        key={member.user.id}
+                        changeType={member.changeType}
+                      >
+                        <ProposalActionMemberValue user={member.user} />
+                      </ProposalActionChangeValue>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -333,7 +256,12 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
           <Card className="gap-3 py-5">
             <CardHeader>
               <CardTitle className="text-base">
-                {t('proposals.actionTypes.changeSettings')}
+                {t('proposals.labels.settingsChangeProposal')}:{' '}
+                <span className="font-normal">
+                  {t('proposals.labels.settingChangesCount', {
+                    count: Object.keys(serverConfigChanges).length,
+                  })}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
