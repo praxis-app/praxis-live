@@ -15,10 +15,10 @@ export const ProposalActionChangeValue = ({
   const Icon = isAdd ? LuPlus : LuMinus;
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5">
+    <div className="flex min-w-0 items-center gap-2 rounded-[4px] border px-1.5 py-1.5">
       <span
         className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-sm',
+          'flex size-5 shrink-0 items-center justify-center rounded-[4px]',
           isAdd
             ? 'bg-green-500/20 text-green-600 dark:text-green-400'
             : 'bg-red-500/20 text-red-600 dark:text-red-400',
