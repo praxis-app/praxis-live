@@ -42,7 +42,11 @@ export const ServerConfigChanges = ({
           changes[
             `prev${field[0].toUpperCase()}${field.slice(1)}` as keyof PollActionServerConfigRes
           ];
-        if (value === undefined || previous === undefined) return null;
+
+        if (value == null || previous == null) {
+          return null;
+        }
+
         return (
           <ProposalActionChange
             key={field}

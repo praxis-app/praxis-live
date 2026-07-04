@@ -19,8 +19,8 @@ export const ProposalActionServerConfig = ({
     const previousKey =
       `prev${field[0].toUpperCase()}${field.slice(1)}` as keyof typeof action.serverConfig;
     return (
-      action.serverConfig?.[field] !== undefined &&
-      action.serverConfig?.[previousKey] !== undefined
+      action.serverConfig?.[field] != null &&
+      action.serverConfig?.[previousKey] != null
     );
   }).length;
 

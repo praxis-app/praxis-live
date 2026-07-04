@@ -19,7 +19,6 @@ export const ProposalActionAccordion = ({
 }: Props) => (
   <Accordion
     type="single"
-    defaultValue={value}
     collapsible
     className="mb-2.5 rounded-lg bg-black/5 px-4 dark:bg-black/10"
   >
