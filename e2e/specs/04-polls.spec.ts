@@ -339,6 +339,30 @@ test('user can create and ratify a proposal to change a role', async ({
   await expect(proposal).toBeVisible();
   await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
 
+  const roleChanges = proposal.getByRole('button', {
+    name: `Role change proposal: admin`,
+  });
+  await expect(roleChanges).toBeVisible();
+  await roleChanges.click();
+  await expect(proposal.getByText('Name', { exact: true })).toBeVisible();
+  await expect(proposal.getByText('admin', { exact: true })).toBeVisible();
+  await expect(
+    proposal.getByText(changedRoleName, { exact: true }),
+  ).toBeVisible();
+  await expect(proposal.getByText('Color', { exact: true })).toBeVisible();
+  await expect(
+    proposal.getByText(adminRole.color, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByText(changedRoleColor, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByText('Manage settings', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByText(addedMember.user.name, { exact: true }),
+  ).toBeVisible();
+
   const voteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
@@ -424,7 +448,8 @@ test('user can create and ratify a proposal to change server settings', async ({
   await expect(
     dialog.getByText('Anonymous users', { exact: true }),
   ).toBeVisible();
-  await expect(dialog.getByText('Disabled → Enabled')).toBeVisible();
+  await expect(dialog.getByText('Disabled', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Enabled', { exact: true })).toBeVisible();
 
   const createProposalResponse = page.waitForResponse(
     (response) =>
@@ -438,10 +463,16 @@ test('user can create and ratify a proposal to change server settings', async ({
   const proposal = page.getByRole('article', {
     name: `Majority Vote Proposal: ${proposalBody}`,
   });
+  const settingsChanges = proposal.getByRole('button', {
+    name: 'Settings change proposal: 1 setting change',
+  });
+  await expect(settingsChanges).toBeVisible();
+  await settingsChanges.click();
   await expect(
     proposal.getByText('Anonymous users', { exact: true }),
   ).toBeVisible();
-  await expect(proposal.getByText('Disabled → Enabled')).toBeVisible();
+  await expect(proposal.getByText('Disabled', { exact: true })).toBeVisible();
+  await expect(proposal.getByText('Enabled', { exact: true })).toBeVisible();
 
   const voteResponse = page.waitForResponse(
     (response) =>
