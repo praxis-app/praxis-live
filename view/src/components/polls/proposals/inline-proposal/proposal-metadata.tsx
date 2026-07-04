@@ -52,7 +52,7 @@ export const ProposalMetadata = ({
     <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-y-1 text-sm font-medium">
       {actionType && ActionIcon && (
         <span className="flex items-center gap-1.5">
-          <ActionIcon className="size-3.5" aria-hidden="true" />
+          <ActionIcon className="size-4" aria-hidden="true" />
           <span>{t(actionTranslationKeys[actionType])}</span>
         </span>
       )}
@@ -63,7 +63,7 @@ export const ProposalMetadata = ({
             {MIDDOT_WITH_SPACES.trim()}
           </span>
         )}
-        <LuListCheck className="size-3.5" aria-hidden="true" />
+        <LuListCheck className="size-4" aria-hidden="true" />
         <span>{t(modelTranslationKeys[decisionMakingModel])}</span>
       </span>
     </div>
