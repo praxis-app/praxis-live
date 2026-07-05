@@ -39,7 +39,10 @@ export const ServerSettingsStep = ({ isLoading }: WizardStepProps) => {
       </div>
 
       <PollSettingsForm
-        serverConfig={serverConfig}
+        serverConfig={{
+          ...serverConfig,
+          ...proposalForm.getValues('serverConfig'),
+        }}
         showAnonymousUsers
         renderFooter={(settingsForm) => (
           <div className="flex justify-between">

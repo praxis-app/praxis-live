@@ -451,6 +451,12 @@ test('user can create and ratify a proposal to change server settings', async ({
   await expect(dialog.getByText('Disabled', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Enabled', { exact: true })).toBeVisible();
 
+  await dialog.getByRole('button', { name: 'Previous' }).click();
+  await expect(
+    dialog.getByRole('switch', { name: 'Anonymous users' }),
+  ).toBeChecked();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
   const createProposalResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
