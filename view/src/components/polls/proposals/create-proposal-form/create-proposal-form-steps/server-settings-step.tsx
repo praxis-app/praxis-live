@@ -13,7 +13,7 @@ import {
 export const ServerSettingsStep = ({ isLoading }: WizardStepProps) => {
   const proposalForm = useFormContext<CreateProposalFormSchema>();
   const {
-    context: { serverConfig },
+    context: { serverConfig, proposedServerConfig },
     onNext,
     onPrevious,
   } = useWizardContext<CreateProposalWizardContext>();
@@ -41,7 +41,7 @@ export const ServerSettingsStep = ({ isLoading }: WizardStepProps) => {
       <PollSettingsForm
         serverConfig={{
           ...serverConfig,
-          ...proposalForm.getValues('serverConfig'),
+          ...proposedServerConfig,
         }}
         showAnonymousUsers
         renderFooter={(settingsForm) => (

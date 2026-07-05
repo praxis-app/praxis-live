@@ -5,7 +5,11 @@ import { type UserRes } from '@/types/user.types';
 import { POLL_ACTION_TYPE } from '@/constants/poll-action.constants';
 import { POLL_BODY_MAX } from '@/constants/poll.constants';
 import * as zod from 'zod';
-import { serverConfigSchema, type ServerConfigRes } from '@/types/server-config.types';
+import {
+  serverConfigSchema,
+  type ServerConfigReq,
+  type ServerConfigRes,
+} from '@/types/server-config.types';
 
 export const createProposalFormSchema = zod
   .object({
@@ -69,4 +73,5 @@ export interface CreateProposalWizardContext {
   selectedServerRole?: ServerRoleRes;
   usersEligibleForServerRole?: UserRes[];
   serverConfig?: ServerConfigRes;
+  proposedServerConfig?: ServerConfigReq;
 }

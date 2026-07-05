@@ -66,7 +66,6 @@ async fn create_poll_action_server_config(
     poll_action_id: Uuid,
     request: crate::servers::types::ServerConfigRequest,
 ) -> AppResult<()> {
-    servers::server_configs::service::validate_server_config_request(&request)?;
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -86,45 +85,6 @@ async fn create_poll_action_server_config(
         channel.server_id,
     )
     .await?;
-    let has_real_change = request
-        .anonymous_users_enabled
-        .map(|value| value != current.anonymous_users_enabled)
-        .unwrap_or(false)
-        || request
-            .decision_making_model
-            .as_deref()
-            .map(|value| value != current.decision_making_model.to_string())
-            .unwrap_or(false)
-        || request
-            .disagreements_limit
-            .map(|value| value != current.disagreements_limit)
-            .unwrap_or(false)
-        || request
-            .abstains_limit
-            .map(|value| value != current.abstains_limit)
-            .unwrap_or(false)
-        || request
-            .agreement_threshold
-            .map(|value| value != current.agreement_threshold)
-            .unwrap_or(false)
-        || request
-            .quorum_enabled
-            .map(|value| value != current.quorum_enabled)
-            .unwrap_or(false)
-        || request
-            .quorum_threshold
-            .map(|value| value != current.quorum_threshold)
-            .unwrap_or(false)
-        || request
-            .voting_time_limit
-            .map(|value| value != current.voting_time_limit)
-            .unwrap_or(false);
-    if !has_real_change {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Server settings proposals must include at least 1 real change.",
-        ));
-    }
     poll_action_server_configs::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         poll_action_id: Set(poll_action_id),
@@ -165,6 +125,53 @@ async fn create_poll_action_server_config(
     .insert(database)
     .await
     .map_err(internal_error)?;
+    Ok(())
+}
+
+pub(crate) fn validate_server_config_change(
+    request: &crate::servers::types::ServerConfigRequest,
+    current: &server_configs::Model,
+) -> AppResult<()> {
+    servers::server_configs::service::validate_server_config_request(request)?;
+    let has_real_change = request
+        .anonymous_users_enabled
+        .map(|value| value != current.anonymous_users_enabled)
+        .unwrap_or(false)
+        || request
+            .decision_making_model
+            .as_deref()
+            .map(|value| value != current.decision_making_model.to_string())
+            .unwrap_or(false)
+        || request
+            .disagreements_limit
+            .map(|value| value != current.disagreements_limit)
+            .unwrap_or(false)
+        || request
+            .abstains_limit
+            .map(|value| value != current.abstains_limit)
+            .unwrap_or(false)
+        || request
+            .agreement_threshold
+            .map(|value| value != current.agreement_threshold)
+            .unwrap_or(false)
+        || request
+            .quorum_enabled
+            .map(|value| value != current.quorum_enabled)
+            .unwrap_or(false)
+        || request
+            .quorum_threshold
+            .map(|value| value != current.quorum_threshold)
+            .unwrap_or(false)
+        || request
+            .voting_time_limit
+            .map(|value| value != current.voting_time_limit)
+            .unwrap_or(false);
+    if !has_real_change {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Server settings proposals must include at least 1 real change.",
+        ));
+    }
     Ok(())
 }
 

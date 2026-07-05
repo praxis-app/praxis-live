@@ -249,6 +249,17 @@ async fn create_poll_record(
     let server_config =
         server_configs::service::ensure_server_config(database, server_id)
             .await?;
+    if let Some(config_change) = request
+        .action
+        .as_ref()
+        .filter(|action| action.action_type == "change-settings")
+        .and_then(|action| action.server_config.as_ref())
+    {
+        poll_actions::service::validate_server_config_change(
+            config_change,
+            &server_config,
+        )?;
+    }
     let closing_at = resolve_poll_closing_at(
         is_proposal,
         server_config.voting_time_limit,

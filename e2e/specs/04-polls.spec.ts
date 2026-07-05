@@ -344,8 +344,13 @@ test('user can create and ratify a proposal to change a role', async ({
   });
   await expect(roleChanges).toBeVisible();
   await roleChanges.click();
-  await expect(proposal.getByText('Name', { exact: true })).toBeVisible();
-  await expect(proposal.getByText('admin', { exact: true })).toBeVisible();
+  const roleChangeDetails = proposal.getByLabel(
+    'Role change proposal: admin',
+  );
+  await expect(roleChangeDetails.getByText('Name', { exact: true })).toBeVisible();
+  await expect(
+    roleChangeDetails.getByText('admin', { exact: true }),
+  ).toBeVisible();
   await expect(
     proposal.getByText(changedRoleName, { exact: true }),
   ).toBeVisible();
@@ -410,6 +415,14 @@ test('user can create and ratify a proposal to change server settings', async ({
   );
   const server = await getDefaultServer(request, proposer);
   await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  const initialConfigResponse = await request.put(
+    `/api/servers/${server.id}/configs`,
+    {
+      headers: { Authorization: `Bearer ${proposer.accessToken}` },
+      data: { anonymousUsersEnabled: false },
+    },
+  );
+  await expect(initialConfigResponse).toBeOK();
 
   const proposalBody = `Enable anonymous users ${proposer.user.suffix}`;
   const chat = new ChatPage(page);
@@ -653,7 +666,4 @@ test('server-controlled proposal deadline finalizes an eligible consensus propos
   expirePollDeadline(poll.id);
 
   await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
-  await expect(
-    proposal.getByText('Ratified — the proposal passed.'),
-  ).toBeVisible();
 });

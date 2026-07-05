@@ -65,6 +65,7 @@ export const CreateProposalForm = ({
 
   const selectedServerRoleId = form.watch('selectedServerRoleId');
   const actionType = form.watch('action');
+  const proposedServerConfig = form.watch('serverConfig');
 
   const isRolePoll =
     actionType === 'change-role' || actionType === 'create-role';
@@ -407,6 +408,7 @@ export const CreateProposalForm = ({
         selectedServerRole: serverRoleData?.serverRole,
         usersEligibleForServerRole: eligibleUsersData?.users,
         serverConfig: serverConfigData?.serverConfig,
+        proposedServerConfig,
       }}
       onNext={handleNext}
       onPrevious={handlePrevious}
