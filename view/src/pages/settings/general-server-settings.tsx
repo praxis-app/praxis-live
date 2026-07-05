@@ -3,15 +3,8 @@ import { TopNav } from '@/components/nav/top-nav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Container } from '@/components/ui/container';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-} from '@/components/ui/form';
-import { Switch } from '@/components/ui/switch';
+import { Form } from '@/components/ui/form';
+import { AnonymousUsersEnabledField } from '@/components/settings/anonymous-users-enabled-field';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
@@ -115,28 +108,9 @@ export const GeneralServerSettings = () => {
                 )}
                 className="space-y-6"
               >
-                <FormField
+                <AnonymousUsersEnabledField
                   control={form.control}
                   name="anonymousUsersEnabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                      <div className="space-y-0.5">
-                        <FormLabel>
-                          {t('settings.names.anonymousUsersEnabled')}
-                        </FormLabel>
-                        <FormDescription>
-                          {t('settings.descriptions.anonymousUsersEnabled')}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={!!field.value}
-                          onCheckedChange={(checked) => field.onChange(checked)}
-                          aria-label={t('settings.names.anonymousUsersEnabled')}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
                 />
 
                 <div className="flex justify-end">

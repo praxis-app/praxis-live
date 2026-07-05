@@ -152,10 +152,16 @@
       "consent": "Consent",
       "majority": "Majority vote",
       "proposedSettings": "Settings proposal",
+      "settingsChangeProposal": "Settings change proposal",
+      "settingChangesCount_one": "{{count}} setting change",
+      "settingChangesCount_other": "{{count}} setting changes",
       "ratified": "Ratified",
       "revision": "Revision",
       "roleChanges": "Role changes",
+      "roleChangeProposal": "Role change proposal",
       "roleColorChange": "Role color",
+      "color": "Color",
+      "name": "Name",
       "roleNameChange": "Role name",
       "roleProposal": "Role proposal",
       "roleSelection": "Role selection",
@@ -216,6 +222,7 @@
       "viewCall": "View call"
     },
     "descriptions": {
+      "changeSettings": "Choose the server settings this proposal should change.",
       "basicInfoDescription": "Provide the basic details for your proposal",
       "body": "Enter your proposal",
       "create": "Submit a proposal to discuss and vote on.",
@@ -258,6 +265,7 @@
     "errors": {
       "registerToCreateNonTestProposals": "Anonymous users can only create test proposals. Please register to create other proposal types.",
       "changeRoleRequiresChanges": "Proposals to change roles must include at least 1 change to the selected role.",
+      "changeSettingsRequiresChanges": "Change settings proposals require at least one change.",
       "errorCreatingProposal": "Error creating proposal",
       "longBody": "Proposal body cannot exceed 6000 characters",
       "testProposalRequiresBody": "Test proposals must include a body",

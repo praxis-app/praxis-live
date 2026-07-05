@@ -1,9 +1,21 @@
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::macros::impl_enum_string_conversions;
 use super::roles::{ServerAbilitySubject, ServerRoleAbilityAction};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+)]
+#[serde(rename_all = "kebab-case")]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",

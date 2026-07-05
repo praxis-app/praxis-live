@@ -296,7 +296,7 @@ export const MessageForm = ({
     },
   });
 
-  // Focus on input when pressing space, enter, etc.
+  // Focus on input when typing a message outside another text field.
   useEffect(() => {
     if (!focusOnTyping) {
       return;
@@ -313,7 +313,7 @@ export const MessageForm = ({
       }
 
       if (
-        ['Space', 'Enter', 'Key', 'Digit', 'Slash'].some((key) =>
+        ['Space', 'Key', 'Digit', 'Slash'].some((key) =>
           e.code.includes(key),
         ) &&
         // Allow for Ctrl + C to copy

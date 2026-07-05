@@ -5,6 +5,11 @@ import { type UserRes } from '@/types/user.types';
 import { POLL_ACTION_TYPE } from '@/constants/poll-action.constants';
 import { POLL_BODY_MAX } from '@/constants/poll.constants';
 import * as zod from 'zod';
+import {
+  serverConfigSchema,
+  type ServerConfigReq,
+  type ServerConfigRes,
+} from '@/types/server-config.types';
 
 export const createProposalFormSchema = zod
   .object({
@@ -22,6 +27,7 @@ export const createProposalFormSchema = zod
       .optional(),
     serverRoleMembers: zod.array(zod.string()).optional(),
     selectedServerRoleId: zod.string().optional(),
+    serverConfig: serverConfigSchema.optional(),
   })
   .refine(
     (data) => {
@@ -51,6 +57,7 @@ export const createProposalFormSchema = zod
     (data) =>
       data.action === 'general' ||
       data.action === 'change-role' ||
+      data.action === 'change-settings' ||
       data.action === 'test',
     {
       message: t('prompts.inDev'),
@@ -65,4 +72,6 @@ export type CreateProposalFormSchema = zod.infer<
 export interface CreateProposalWizardContext {
   selectedServerRole?: ServerRoleRes;
   usersEligibleForServerRole?: UserRes[];
+  serverConfig?: ServerConfigRes;
+  proposedServerConfig?: ServerConfigReq;
 }

@@ -339,6 +339,35 @@ test('user can create and ratify a proposal to change a role', async ({
   await expect(proposal).toBeVisible();
   await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
 
+  const roleChanges = proposal.getByRole('button', {
+    name: `Role change proposal: admin`,
+  });
+  await expect(roleChanges).toBeVisible();
+  await roleChanges.click();
+  const roleChangeDetails = proposal.getByLabel(
+    'Role change proposal: admin',
+  );
+  await expect(roleChangeDetails.getByText('Name', { exact: true })).toBeVisible();
+  await expect(
+    roleChangeDetails.getByText('admin', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByText(changedRoleName, { exact: true }),
+  ).toBeVisible();
+  await expect(proposal.getByText('Color', { exact: true })).toBeVisible();
+  await expect(
+    proposal.getByText(adminRole.color, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByText(changedRoleColor, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByText('Manage settings', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    proposal.getByText(addedMember.user.name, { exact: true }),
+  ).toBeVisible();
+
   const voteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
@@ -372,6 +401,117 @@ test('user can create and ratify a proposal to change a role', async ({
   expect(changedRole.members.map((member) => member.id)).toEqual(
     expect.arrayContaining(adminRole.members.map((member) => member.id)),
   );
+});
+
+test('user can create and ratify a proposal to change server settings', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('settings-proposal'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  const initialConfigResponse = await request.put(
+    `/api/servers/${server.id}/configs`,
+    {
+      headers: { Authorization: `Bearer ${proposer.accessToken}` },
+      data: { anonymousUsersEnabled: false },
+    },
+  );
+  await expect(initialConfigResponse).toBeOK();
+
+  const proposalBody = `Enable anonymous users ${proposer.user.suffix}`;
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+
+  await openCreateProposalDialog(page);
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(
+    dialog,
+    page,
+    'Select an action type',
+    'Change settings',
+  );
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await expect(
+    dialog.getByRole('combobox', { name: 'Decision making model' }),
+  ).toContainText('Majority vote');
+  await expect(
+    dialog.getByRole('combobox', { name: 'Disagreements limit' }),
+  ).toContainText('2');
+  await expect(
+    dialog.getByRole('combobox', { name: 'Voting time limit' }),
+  ).toContainText('Unlimited');
+  await dialog.getByRole('button', { name: 'Next' }).click();
+  await expect(
+    dialog.getByText('Change settings proposals require at least one change.'),
+  ).toBeVisible();
+  await dialog.getByRole('switch', { name: 'Anonymous users' }).click();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await expect(
+    dialog.getByText('Anonymous users', { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByText('Disabled', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Enabled', { exact: true })).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Previous' }).click();
+  await expect(
+    dialog.getByRole('switch', { name: 'Anonymous users' }),
+  ).toBeChecked();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  await createProposalResponse;
+
+  const proposal = page.getByRole('article', {
+    name: `Majority Vote Proposal: ${proposalBody}`,
+  });
+  const settingsChanges = proposal.getByRole('button', {
+    name: 'Settings change proposal: 1 setting change',
+  });
+  await expect(settingsChanges).toBeVisible();
+  await settingsChanges.click();
+  await expect(
+    proposal.getByText('Anonymous users', { exact: true }),
+  ).toBeVisible();
+  await expect(proposal.getByText('Disabled', { exact: true })).toBeVisible();
+  await expect(proposal.getByText('Enabled', { exact: true })).toBeVisible();
+
+  const voteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/votes') &&
+      response.status() === 200,
+  );
+  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await voteResponse;
+  await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
+
+  const configResponse = await request.get(
+    `/api/servers/${server.id}/configs`,
+    { headers: { Authorization: `Bearer ${proposer.accessToken}` } },
+  );
+  await expect(configResponse).toBeOK();
+  const config = (await configResponse.json()) as {
+    serverConfig: { anonymousUsersEnabled: boolean };
+  };
+  expect(config.serverConfig.anonymousUsersEnabled).toBe(true);
 });
 
 test('user can create and ratify a majority vote proposal', async ({
@@ -526,7 +666,4 @@ test('server-controlled proposal deadline finalizes an eligible consensus propos
   expirePollDeadline(poll.id);
 
   await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
-  await expect(
-    proposal.getByText('Ratified — the proposal passed.'),
-  ).toBeVisible();
 });

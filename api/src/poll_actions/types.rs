@@ -1,10 +1,13 @@
+use entity::enums::PollActionType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CreatePollActionRequest {
-    pub(crate) action_type: String,
+    pub(crate) action_type: PollActionType,
     pub(crate) server_role: Option<CreatePollActionServerRoleRequest>,
+    pub(crate) server_config:
+        Option<crate::servers::types::ServerConfigRequest>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,9 +45,32 @@ pub(crate) struct PollActionPermissionChangeRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollActionResponse {
     pub(crate) id: String,
-    pub(crate) action_type: String,
+    pub(crate) action_type: PollActionType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) server_role: Option<PollActionServerRoleResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) server_config: Option<PollActionServerConfigResponse>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PollActionServerConfigResponse {
+    pub(crate) anonymous_users_enabled: Option<bool>,
+    pub(crate) prev_anonymous_users_enabled: Option<bool>,
+    pub(crate) decision_making_model: Option<String>,
+    pub(crate) prev_decision_making_model: Option<String>,
+    pub(crate) disagreements_limit: Option<i32>,
+    pub(crate) prev_disagreements_limit: Option<i32>,
+    pub(crate) abstains_limit: Option<i32>,
+    pub(crate) prev_abstains_limit: Option<i32>,
+    pub(crate) agreement_threshold: Option<i32>,
+    pub(crate) prev_agreement_threshold: Option<i32>,
+    pub(crate) quorum_enabled: Option<bool>,
+    pub(crate) prev_quorum_enabled: Option<bool>,
+    pub(crate) quorum_threshold: Option<i32>,
+    pub(crate) prev_quorum_threshold: Option<i32>,
+    pub(crate) voting_time_limit: Option<i32>,
+    pub(crate) prev_voting_time_limit: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize)]

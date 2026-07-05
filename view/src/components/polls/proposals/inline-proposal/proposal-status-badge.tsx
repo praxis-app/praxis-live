@@ -17,7 +17,7 @@ interface Props {
 }
 
 const stageStyles: Record<PollStage, string> = {
-  voting: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
+  voting: 'border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300',
   ratified:
     'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   revision:

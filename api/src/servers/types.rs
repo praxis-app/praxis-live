@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::users::UserImageRef;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ServerPath {
     pub(crate) server_id: Uuid,

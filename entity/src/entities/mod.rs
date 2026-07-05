@@ -13,6 +13,7 @@ pub mod messages;
 pub mod poll_action_permissions;
 pub mod poll_action_role_members;
 pub mod poll_action_roles;
+pub mod poll_action_server_configs;
 pub mod poll_actions;
 pub mod poll_configs;
 pub mod poll_images;

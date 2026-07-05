@@ -26,6 +26,8 @@ pub enum Relation {
     Poll,
     #[sea_orm(has_one = "super::poll_action_roles::Entity")]
     ServerRole,
+    #[sea_orm(has_one = "super::poll_action_server_configs::Entity")]
+    ServerConfig,
 }
 
 impl Related<super::polls::Entity> for Entity {
@@ -37,6 +39,12 @@ impl Related<super::polls::Entity> for Entity {
 impl Related<super::poll_action_roles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ServerRole.def()
+    }
+}
+
+impl Related<super::poll_action_server_configs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ServerConfig.def()
     }
 }
 

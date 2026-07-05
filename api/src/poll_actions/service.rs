@@ -8,8 +8,8 @@ use entity::{
         PollActionType, ServerAbilitySubject, ServerRoleAbilityAction,
     },
     poll_action_permissions, poll_action_role_members, poll_action_roles,
-    poll_actions, polls, server_role_members, server_role_permissions,
-    server_roles, users,
+    poll_action_server_configs, poll_actions, polls, server_configs,
+    server_role_members, server_role_permissions, server_roles, users,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
@@ -23,10 +23,10 @@ use crate::{
     poll_actions::types::{
         CreatePollActionRequest, CreatePollActionServerRoleRequest,
         PollActionPermissionResponse, PollActionResponse,
-        PollActionServerRoleMemberResponse, PollActionServerRoleResponse,
-        PollActionUserResponse,
+        PollActionServerConfigResponse, PollActionServerRoleMemberResponse,
+        PollActionServerRoleResponse, PollActionUserResponse,
     },
-    users as users_service,
+    servers, users as users_service,
 };
 
 pub(crate) async fn create_poll_action(
@@ -37,18 +37,150 @@ pub(crate) async fn create_poll_action(
     let action = poll_actions::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         poll_id: Set(poll_id),
-        action_type: Set(parse_poll_action_type(&request.action_type)?),
+        action_type: Set(request.action_type),
         ..Default::default()
     }
     .insert(database)
     .await
     .map_err(internal_error)?;
 
-    if let Some(server_role) = request.server_role {
-        create_poll_action_role(database, action.id, server_role).await?;
+    match request.action_type {
+        PollActionType::ChangeSettings => {
+            if let Some(server_config) = request.server_config {
+                create_poll_action_server_config(
+                    database,
+                    poll_id,
+                    action.id,
+                    server_config,
+                )
+                .await?;
+            }
+        }
+        PollActionType::ChangeRole | PollActionType::CreateRole => {
+            if let Some(server_role) = request.server_role {
+                create_poll_action_role(database, action.id, server_role)
+                    .await?;
+            }
+        }
+        _ => {}
     }
 
     Ok(action)
+}
+
+async fn create_poll_action_server_config(
+    database: &DatabaseConnection,
+    poll_id: Uuid,
+    poll_action_id: Uuid,
+    request: crate::servers::types::ServerConfigRequest,
+) -> AppResult<()> {
+    let poll = polls::Entity::find_by_id(poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+    let channel = channels::Entity::find_by_id(poll.channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
+        })?;
+    let current = servers::server_configs::service::ensure_server_config(
+        database,
+        channel.server_id,
+    )
+    .await?;
+    poll_action_server_configs::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        poll_action_id: Set(poll_action_id),
+        anonymous_users_enabled: Set(request.anonymous_users_enabled),
+        prev_anonymous_users_enabled: Set(request
+            .anonymous_users_enabled
+            .map(|_| current.anonymous_users_enabled)),
+        decision_making_model: Set(request.decision_making_model.clone()),
+        prev_decision_making_model: Set(request
+            .decision_making_model
+            .map(|_| current.decision_making_model.to_string())),
+        disagreements_limit: Set(request.disagreements_limit),
+        prev_disagreements_limit: Set(request
+            .disagreements_limit
+            .map(|_| current.disagreements_limit)),
+        abstains_limit: Set(request.abstains_limit),
+        prev_abstains_limit: Set(request
+            .abstains_limit
+            .map(|_| current.abstains_limit)),
+        agreement_threshold: Set(request.agreement_threshold),
+        prev_agreement_threshold: Set(request
+            .agreement_threshold
+            .map(|_| current.agreement_threshold)),
+        quorum_enabled: Set(request.quorum_enabled),
+        prev_quorum_enabled: Set(request
+            .quorum_enabled
+            .map(|_| current.quorum_enabled)),
+        quorum_threshold: Set(request.quorum_threshold),
+        prev_quorum_threshold: Set(request
+            .quorum_threshold
+            .map(|_| current.quorum_threshold)),
+        voting_time_limit: Set(request.voting_time_limit),
+        prev_voting_time_limit: Set(request
+            .voting_time_limit
+            .map(|_| current.voting_time_limit)),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}
+
+pub(crate) fn validate_server_config_change(
+    request: &crate::servers::types::ServerConfigRequest,
+    current: &server_configs::Model,
+) -> AppResult<()> {
+    servers::server_configs::service::validate_server_config_request(request)?;
+    let has_real_change = request
+        .anonymous_users_enabled
+        .map(|value| value != current.anonymous_users_enabled)
+        .unwrap_or(false)
+        || request
+            .decision_making_model
+            .as_deref()
+            .map(|value| value != current.decision_making_model.to_string())
+            .unwrap_or(false)
+        || request
+            .disagreements_limit
+            .map(|value| value != current.disagreements_limit)
+            .unwrap_or(false)
+        || request
+            .abstains_limit
+            .map(|value| value != current.abstains_limit)
+            .unwrap_or(false)
+        || request
+            .agreement_threshold
+            .map(|value| value != current.agreement_threshold)
+            .unwrap_or(false)
+        || request
+            .quorum_enabled
+            .map(|value| value != current.quorum_enabled)
+            .unwrap_or(false)
+        || request
+            .quorum_threshold
+            .map(|value| value != current.quorum_threshold)
+            .unwrap_or(false)
+        || request
+            .voting_time_limit
+            .map(|value| value != current.voting_time_limit)
+            .unwrap_or(false);
+    if !has_real_change {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Server settings proposals must include at least 1 real change.",
+        ));
+    }
+    Ok(())
 }
 
 pub(crate) async fn create_poll_action_role(
@@ -174,12 +306,16 @@ pub(crate) async fn implement_poll_action(
         return Ok(false);
     }
 
-    match action.action_type.as_str() {
-        "change-role" => {
+    match action.action_type {
+        PollActionType::ChangeRole => {
             implement_change_server_role(&transaction, action.id).await?
         }
-        "create-role" => {
+        PollActionType::CreateRole => {
             implement_create_server_role(&transaction, poll_id, action.id)
+                .await?
+        }
+        PollActionType::ChangeSettings => {
+            implement_change_server_config(&transaction, poll_id, action.id)
                 .await?
         }
         _ => {}
@@ -214,11 +350,92 @@ pub(crate) async fn shape_poll_action(
         Some(role) => Some(shape_poll_action_role(database, role).await?),
         None => None,
     };
+    let server_config = poll_action_server_configs::Entity::find()
+        .filter(poll_action_server_configs::Column::PollActionId.eq(action.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .map(|config| PollActionServerConfigResponse {
+            anonymous_users_enabled: config.anonymous_users_enabled,
+            prev_anonymous_users_enabled: config.prev_anonymous_users_enabled,
+            decision_making_model: config.decision_making_model,
+            prev_decision_making_model: config.prev_decision_making_model,
+            disagreements_limit: config.disagreements_limit,
+            prev_disagreements_limit: config.prev_disagreements_limit,
+            abstains_limit: config.abstains_limit,
+            prev_abstains_limit: config.prev_abstains_limit,
+            agreement_threshold: config.agreement_threshold,
+            prev_agreement_threshold: config.prev_agreement_threshold,
+            quorum_enabled: config.quorum_enabled,
+            prev_quorum_enabled: config.prev_quorum_enabled,
+            quorum_threshold: config.quorum_threshold,
+            prev_quorum_threshold: config.prev_quorum_threshold,
+            voting_time_limit: config.voting_time_limit,
+            prev_voting_time_limit: config.prev_voting_time_limit,
+        });
     Ok(Some(PollActionResponse {
         id: action.id.to_string(),
-        action_type: action.action_type.to_string(),
+        action_type: action.action_type,
         server_role,
+        server_config,
     }))
+}
+
+async fn implement_change_server_config(
+    database: &DatabaseTransaction,
+    poll_id: Uuid,
+    poll_action_id: Uuid,
+) -> AppResult<()> {
+    let change = poll_action_server_configs::Entity::find()
+        .filter(
+            poll_action_server_configs::Column::PollActionId.eq(poll_action_id),
+        )
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Server config changes are required.",
+            )
+        })?;
+    let poll = polls::Entity::find_by_id(poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+    let channel = channels::Entity::find_by_id(poll.channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
+        })?;
+    let config = server_configs::Entity::find()
+        .filter(server_configs::Column::ServerId.eq(channel.server_id))
+        .lock(LockType::Update)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Server config not found.")
+        })?;
+    let request = crate::servers::types::ServerConfigRequest {
+        anonymous_users_enabled: change.anonymous_users_enabled,
+        decision_making_model: change.decision_making_model,
+        disagreements_limit: change.disagreements_limit,
+        abstains_limit: change.abstains_limit,
+        agreement_threshold: change.agreement_threshold,
+        quorum_enabled: change.quorum_enabled,
+        quorum_threshold: change.quorum_threshold,
+        voting_time_limit: change.voting_time_limit,
+    };
+    servers::server_configs::service::apply_server_config(
+        database, config, &request,
+    )
+    .await
 }
 
 async fn implement_change_server_role(
@@ -532,15 +749,6 @@ async fn shape_poll_action_role(
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("poll action request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
-}
-
-fn parse_poll_action_type(value: &str) -> AppResult<PollActionType> {
-    value.parse().map_err(|_| {
-        ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll action type is invalid.",
-        )
-    })
 }
 
 fn parse_poll_action_permission_subject(
