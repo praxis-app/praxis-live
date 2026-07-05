@@ -29,8 +29,10 @@ export const ProposalActionServerConfig = ({
       value="settings-change-proposal"
       summary={
         <>
-          <span>{t('proposals.labels.settingsChangeProposal')}:</span>{' '}
-          {t('proposals.labels.settingChangesCount', { count: changeCount })}
+          {t('proposals.labels.settingsChangeProposal')}:{' '}
+          <span className="font-normal">
+            {t('proposals.labels.settingChangesCount', { count: changeCount })}
+          </span>
         </>
       }
     >

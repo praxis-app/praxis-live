@@ -91,21 +91,19 @@ export const ProposalActionRole = ({ action }: { action: PollActionRes }) => {
       value={ACCORDION_ITEM_VALUE}
       summary={
         <>
-          <span>
-            {t(
-              action.actionType === 'change-role'
-                ? 'proposals.labels.roleChangeProposal'
-                : 'proposals.labels.roleProposal',
-            )}
-            :
-          </span>{' '}
+          {t(
+            action.actionType === 'change-role'
+              ? 'proposals.labels.roleChangeProposal'
+              : 'proposals.labels.roleProposal',
+          )}
+          :{' '}
           {summaryColor && (
             <span
               className="mr-1 inline-block size-3.5 rounded-full align-[-1px]"
               style={{ backgroundColor: summaryColor }}
             />
           )}
-          {summaryName}
+          <span className="font-normal">{summaryName}</span>
         </>
       }
     >
@@ -127,7 +125,7 @@ export const ProposalActionRole = ({ action }: { action: PollActionRes }) => {
 
       {!!permissionChanges.length && (
         <div className="min-w-0 space-y-2">
-          <div className="font-semibold">
+          <div className="font-medium">
             {t('proposals.headers.permissions')}
           </div>
           {permissionChanges.map((permission) => (
@@ -145,7 +143,7 @@ export const ProposalActionRole = ({ action }: { action: PollActionRes }) => {
 
       {!!role.members?.length && (
         <div className="min-w-0 space-y-2">
-          <div className="font-semibold">
+          <div className="font-medium">
             {t('proposals.headers.memberChanges')}
           </div>
           {role.members.map((member) => (

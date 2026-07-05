@@ -43,7 +43,7 @@ export const ProposalActionChange = ({
   proposedValue,
 }: Props) => (
   <div className="min-w-0 space-y-2">
-    <div className="font-semibold">{label}</div>
+    <div className="font-medium">{label}</div>
     <ProposalActionChangeValue changeType="remove">
       {oldValue}
     </ProposalActionChangeValue>
