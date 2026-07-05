@@ -20,7 +20,7 @@ export const ProposalActionAccordion = ({
   <Accordion
     type="single"
     collapsible
-    className="mb-2.5 rounded-lg bg-black/5 px-4 dark:bg-black/10"
+    className="mb-2.5 rounded-lg bg-black/2 px-4 dark:bg-black/10"
   >
     <AccordionItem value={value}>
       <AccordionTrigger className="cursor-pointer justify-start gap-2 py-4 text-base hover:no-underline [&>svg]:order-first [&>svg]:size-5">
