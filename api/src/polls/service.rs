@@ -536,9 +536,7 @@ pub(crate) async fn delete_poll(
 }
 
 pub(crate) fn upload_root() -> PathBuf {
-    std::env::var("UPLOAD_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from(".uploads"))
+    crate::common::storage::upload_root()
 }
 
 pub(crate) async fn is_poll_ratifiable<C>(

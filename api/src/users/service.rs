@@ -424,11 +424,7 @@ pub(crate) async fn is_default_server_member(
 }
 
 pub(crate) fn upload_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("content")
+    crate::common::storage::upload_root()
 }
 
 async fn authorize_user_image_access(

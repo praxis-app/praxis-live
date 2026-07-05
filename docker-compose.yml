@@ -10,6 +10,9 @@ services:
       LIVEKIT_URL: ${LIVEKIT_URL}
       LIVEKIT_API_URL: http://livekit:${LIVEKIT_PORT}
       LIVEKIT_HOST: livekit
+      UPLOAD_ROOT: /app/uploads
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       database:
         condition: service_healthy
@@ -76,3 +79,4 @@ services:
 volumes:
   postgres_data:
   cache:
+  uploads:
