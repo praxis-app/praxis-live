@@ -306,15 +306,15 @@ pub(crate) async fn implement_poll_action(
         return Ok(false);
     }
 
-    match action.action_type.as_str() {
-        "change-role" => {
+    match action.action_type {
+        PollActionType::ChangeRole => {
             implement_change_server_role(&transaction, action.id).await?
         }
-        "create-role" => {
+        PollActionType::CreateRole => {
             implement_create_server_role(&transaction, poll_id, action.id)
                 .await?
         }
-        "change-settings" => {
+        PollActionType::ChangeSettings => {
             implement_change_server_config(&transaction, poll_id, action.id)
                 .await?
         }
