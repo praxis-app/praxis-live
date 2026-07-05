@@ -1351,20 +1351,19 @@ fn validate_action(
             "Polls with this action must include a body.",
         ));
     }
-    if action.action_type == PollActionType::ChangeRole
-        && action.server_role.is_none()
-    {
+    let payload_matches_action = match action.action_type {
+        PollActionType::ChangeSettings => {
+            action.server_role.is_none() && action.server_config.is_some()
+        }
+        PollActionType::ChangeRole | PollActionType::CreateRole => {
+            action.server_role.is_some() && action.server_config.is_none()
+        }
+        _ => action.server_role.is_none() && action.server_config.is_none(),
+    };
+    if !payload_matches_action {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
-            "Polls to change server roles must include a server role.",
-        ));
-    }
-    if action.action_type == PollActionType::ChangeSettings
-        && action.server_config.is_none()
-    {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Polls to change server settings must include server config changes.",
+            "Poll action payload does not match its action type.",
         ));
     }
     if action.action_type == PollActionType::ChangeSettings {

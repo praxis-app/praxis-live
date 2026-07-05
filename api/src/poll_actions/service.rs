@@ -5,7 +5,7 @@ use entity::{
     enums::{
         PollActionPermissionAbilityAction, PollActionPermissionChangeType,
         PollActionPermissionSubject, PollActionRoleMemberChangeType,
-        ServerAbilitySubject, ServerRoleAbilityAction,
+        PollActionType, ServerAbilitySubject, ServerRoleAbilityAction,
     },
     poll_action_permissions, poll_action_role_members, poll_action_roles,
     poll_action_server_configs, poll_actions, polls, server_configs,
@@ -44,17 +44,25 @@ pub(crate) async fn create_poll_action(
     .await
     .map_err(internal_error)?;
 
-    if let Some(server_role) = request.server_role {
-        create_poll_action_role(database, action.id, server_role).await?;
-    }
-    if let Some(server_config) = request.server_config {
-        create_poll_action_server_config(
-            database,
-            poll_id,
-            action.id,
-            server_config,
-        )
-        .await?;
+    match request.action_type {
+        PollActionType::ChangeSettings => {
+            if let Some(server_config) = request.server_config {
+                create_poll_action_server_config(
+                    database,
+                    poll_id,
+                    action.id,
+                    server_config,
+                )
+                .await?;
+            }
+        }
+        PollActionType::ChangeRole | PollActionType::CreateRole => {
+            if let Some(server_role) = request.server_role {
+                create_poll_action_role(database, action.id, server_role)
+                    .await?;
+            }
+        }
+        _ => {}
     }
 
     Ok(action)
