@@ -6,8 +6,9 @@ import {
   type AbilityAction,
   type ServerAbilitySubject,
 } from '@/types/role.types';
-import { type UserRes } from './user.types';
+import type { DecisionMakingModel } from './poll.types';
 import { type ServerConfigReq } from './server-config.types';
+import { type UserRes } from './user.types';
 
 export type PollActionType = (typeof POLL_ACTION_TYPE)[number];
 
@@ -84,7 +85,7 @@ export interface PollActionRes {
 
 export interface PollActionServerConfigRes extends ServerConfigReq {
   prevAnonymousUsersEnabled?: boolean;
-  prevDecisionMakingModel?: import('./poll.types').DecisionMakingModel;
+  prevDecisionMakingModel?: DecisionMakingModel;
   prevDisagreementsLimit?: number;
   prevAbstainsLimit?: number;
   prevAgreementThreshold?: number;
