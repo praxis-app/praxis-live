@@ -5,7 +5,7 @@ use entity::{
     enums::{
         PollActionPermissionAbilityAction, PollActionPermissionChangeType,
         PollActionPermissionSubject, PollActionRoleMemberChangeType,
-        PollActionType, ServerAbilitySubject, ServerRoleAbilityAction,
+        ServerAbilitySubject, ServerRoleAbilityAction,
     },
     poll_action_permissions, poll_action_role_members, poll_action_roles,
     poll_action_server_configs, poll_actions, polls, server_configs,
@@ -37,7 +37,7 @@ pub(crate) async fn create_poll_action(
     let action = poll_actions::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         poll_id: Set(poll_id),
-        action_type: Set(parse_poll_action_type(&request.action_type)?),
+        action_type: Set(request.action_type),
         ..Default::default()
     }
     .insert(database)
@@ -367,7 +367,7 @@ pub(crate) async fn shape_poll_action(
         });
     Ok(Some(PollActionResponse {
         id: action.id.to_string(),
-        action_type: action.action_type.to_string(),
+        action_type: action.action_type,
         server_role,
         server_config,
     }))
@@ -741,15 +741,6 @@ async fn shape_poll_action_role(
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("poll action request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
-}
-
-fn parse_poll_action_type(value: &str) -> AppResult<PollActionType> {
-    value.parse().map_err(|_| {
-        ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll action type is invalid.",
-        )
-    })
 }
 
 fn parse_poll_action_permission_subject(

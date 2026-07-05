@@ -1,9 +1,10 @@
+use entity::enums::PollActionType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CreatePollActionRequest {
-    pub(crate) action_type: String,
+    pub(crate) action_type: PollActionType,
     pub(crate) server_role: Option<CreatePollActionServerRoleRequest>,
     pub(crate) server_config:
         Option<crate::servers::types::ServerConfigRequest>,
@@ -44,7 +45,7 @@ pub(crate) struct PollActionPermissionChangeRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollActionResponse {
     pub(crate) id: String,
-    pub(crate) action_type: String,
+    pub(crate) action_type: PollActionType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) server_role: Option<PollActionServerRoleResponse>,
     #[serde(skip_serializing_if = "Option::is_none")]

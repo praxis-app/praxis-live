@@ -2,7 +2,9 @@ use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{
     channels as channel_entities,
-    enums::{PollDecisionMakingModel, PollStage, PollType, VoteType},
+    enums::{
+        PollActionType, PollDecisionMakingModel, PollStage, PollType, VoteType,
+    },
     poll_actions as poll_action_entities, poll_configs, poll_images,
     poll_option_selections, poll_options, polls, users, votes,
 };
@@ -252,7 +254,7 @@ async fn create_poll_record(
     if let Some(config_change) = request
         .action
         .as_ref()
-        .filter(|action| action.action_type == "change-settings")
+        .filter(|action| action.action_type == PollActionType::ChangeSettings)
         .and_then(|action| action.server_config.as_ref())
     {
         poll_actions::service::validate_server_config_change(
@@ -1339,42 +1341,33 @@ fn validate_action(
     let action = action.ok_or_else(|| {
         ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "Action is required.")
     })?;
-    if !matches!(
-        action.action_type.as_str(),
-        "general"
-            | "change-settings"
-            | "change-role"
-            | "create-role"
-            | "plan-event"
-            | "test"
-    ) {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Action type is invalid.",
-        ));
-    }
-    if matches!(action.action_type.as_str(), "general" | "test")
-        && body.map(str::trim).map(str::is_empty).unwrap_or(true)
+    if matches!(
+        action.action_type,
+        PollActionType::General | PollActionType::Test
+    ) && body.map(str::trim).map(str::is_empty).unwrap_or(true)
     {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Polls with this action must include a body.",
         ));
     }
-    if action.action_type == "change-role" && action.server_role.is_none() {
+    if action.action_type == PollActionType::ChangeRole
+        && action.server_role.is_none()
+    {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Polls to change server roles must include a server role.",
         ));
     }
-    if action.action_type == "change-settings" && action.server_config.is_none()
+    if action.action_type == PollActionType::ChangeSettings
+        && action.server_config.is_none()
     {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Polls to change server settings must include server config changes.",
         ));
     }
-    if action.action_type == "change-settings" {
+    if action.action_type == PollActionType::ChangeSettings {
         let config = action.server_config.as_ref().expect("checked above");
         if config.anonymous_users_enabled.is_none()
             && config.decision_making_model.is_none()
@@ -1391,7 +1384,7 @@ fn validate_action(
             ));
         }
     }
-    if action.action_type == "change-role" {
+    if action.action_type == PollActionType::ChangeRole {
         let role = action.server_role.as_ref().expect("checked above");
 
         if role.server_role_to_update_id.is_none() {
