@@ -172,6 +172,10 @@ pub(crate) async fn livekit_webhook(
     headers: HeaderMap,
     body: String,
 ) -> AppResult<StatusCode> {
+    if state.livekit.is_none() {
+        return Ok(StatusCode::NO_CONTENT);
+    }
+
     let livekit = livekit_config(&state)?;
     let authorization = headers
         .get(axum::http::header::AUTHORIZATION)

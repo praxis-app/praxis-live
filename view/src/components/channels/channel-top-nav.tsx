@@ -30,6 +30,7 @@ interface Props {
   serverName?: string;
   isJoiningCall: boolean;
   isPreJoinOpen: boolean;
+  videoCallsEnabled: boolean;
   onCancelPreJoin: () => void;
   onConfirmJoinCall: (preferences: CallJoinPreferences) => void;
   onJoinCall: () => void;
@@ -43,6 +44,7 @@ export const ChannelTopNav = ({
   serverName,
   isJoiningCall,
   isPreJoinOpen,
+  videoCallsEnabled,
   onCancelPreJoin,
   onConfirmJoinCall,
   onJoinCall,
@@ -113,7 +115,7 @@ export const ChannelTopNav = ({
       </div>
 
       <div className="flex items-center gap-1">
-        {channel && (
+        {channel && videoCallsEnabled && (
           <ChannelCallButton
             callConfig={callConfig}
             callPreferences={callPreferences}

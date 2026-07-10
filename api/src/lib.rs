@@ -114,7 +114,11 @@ fn build_router_with_pub_sub(
         .merge(auth::router(database.clone(), jwt_secret.clone()))
         .merge(invites::router(database.clone(), jwt_secret.clone()))
         .merge(users::router(database.clone(), jwt_secret.clone()))
-        .merge(instance::router(database.clone(), jwt_secret.clone()))
+        .merge(instance::router(
+            database.clone(),
+            jwt_secret.clone(),
+            livekit_config.is_some(),
+        ))
         .merge(servers::router(
             database.clone(),
             jwt_secret.clone(),

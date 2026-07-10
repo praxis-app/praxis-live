@@ -18,6 +18,7 @@ import {
   type InstanceConfigReq,
   type InstanceConfigRes,
 } from '@/types/instance-config.types';
+import { type InstanceCapabilitiesRes } from '@/types/instance-capabilities.types';
 import { type CreateInviteReq, type InviteRes } from '@/types/invite.types';
 import { type MessageRes } from '@/types/message.types';
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
@@ -586,12 +587,9 @@ class ApiClient {
   // Instance Config
   // -------------------------------------------------------------------------
 
-  getInstanceConfig = async () => {
-    const path = `/instance/config`;
-    return this.executeRequest<{ instanceConfig: InstanceConfigRes }>(
-      'get',
-      path,
-    );
+  getInstanceCapabilities = async () => {
+    const path = '/instance/capabilities';
+    return this.executeRequest<InstanceCapabilitiesRes>('get', path);
   };
 
   updateInstanceConfig = async (data: InstanceConfigReq) => {
