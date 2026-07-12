@@ -16,7 +16,9 @@ use crate::{
     auth::HasJwtSecret,
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
-    common::{request::multipart_file, ApiError, AppResult},
+    common::{
+        request::multipart_file, storage::upload_root, ApiError, AppResult,
+    },
     pub_sub::PubSubService,
 };
 
@@ -38,7 +40,7 @@ impl PollsState {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
             pub_sub_service,
-            upload_root: Arc::new(service::upload_root()),
+            upload_root: Arc::new(upload_root()),
         }
     }
 }

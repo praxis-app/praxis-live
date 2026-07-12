@@ -15,7 +15,7 @@ use sea_orm::{
     TransactionTrait,
 };
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::time::{self, MissedTickBehavior};
 use uuid::Uuid as NativeUuid;
 
@@ -533,10 +533,6 @@ pub(crate) async fn delete_poll(
         .exec(database)
         .await
         .map_err(internal_error)
-}
-
-pub(crate) fn upload_root() -> PathBuf {
-    crate::common::storage::upload_root()
 }
 
 pub(crate) async fn is_poll_ratifiable<C>(
