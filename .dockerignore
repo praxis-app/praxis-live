@@ -1,6 +1,7 @@
 target/
 node_modules/
 view/dist/
+dist/
 .git/
 .gitignore
 .env
