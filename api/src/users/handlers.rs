@@ -15,6 +15,7 @@ use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     common::{
         request::{multipart_file, parse_uuid},
+        storage::upload_root,
         ApiError, AppResult,
     },
     servers,
@@ -35,7 +36,7 @@ impl UsersState {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
-            upload_root: Arc::new(service::upload_root()),
+            upload_root: Arc::new(upload_root()),
         }
     }
 }

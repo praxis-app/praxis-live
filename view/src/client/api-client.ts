@@ -6,18 +6,19 @@ import {
   type LoginReq,
   type SignUpReq,
 } from '@/types/auth.types';
+import { type CallDecisionRes, type JoinCallRes } from '@/types/call.types';
 import {
   type ChannelRes,
   type CreateChannelReq,
   type FeedItemRes,
   type UpdateChannelReq,
 } from '@/types/channel.types';
-import { type CallDecisionRes, type JoinCallRes } from '@/types/call.types';
 import { type ImageRes } from '@/types/image.types';
 import {
+  type InstanceCapabilitiesRes,
   type InstanceConfigReq,
   type InstanceConfigRes,
-} from '@/types/instance-config.types';
+} from '@/types/instance.types';
 import { type CreateInviteReq, type InviteRes } from '@/types/invite.types';
 import { type MessageRes } from '@/types/message.types';
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
@@ -586,12 +587,9 @@ class ApiClient {
   // Instance Config
   // -------------------------------------------------------------------------
 
-  getInstanceConfig = async () => {
-    const path = `/instance/config`;
-    return this.executeRequest<{ instanceConfig: InstanceConfigRes }>(
-      'get',
-      path,
-    );
+  getInstanceCapabilities = async () => {
+    const path = '/instance/capabilities';
+    return this.executeRequest<InstanceCapabilitiesRes>('get', path);
   };
 
   updateInstanceConfig = async (data: InstanceConfigReq) => {

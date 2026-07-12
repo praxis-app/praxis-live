@@ -7,6 +7,7 @@ import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { useInstanceCapabilitiesQuery } from '@/hooks/use-instance-capabilities-query';
 import { useServerData } from '@/hooks/use-server-data';
 import { useSubscription } from '@/hooks/use-subscription';
 import { useAuthStore } from '@/store/auth.store';
@@ -61,7 +62,9 @@ export const ChannelView = ({ channel }: Props) => {
   const isDesktop = useIsDesktop();
 
   const { me, isMeSuccess, isAuthError } = useAuthData();
+  const { data: capabilities } = useInstanceCapabilitiesQuery();
   const { server, serverId } = useServerData();
+  const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
 
   const {
     callConfig,
@@ -340,6 +343,7 @@ export const ChannelView = ({ channel }: Props) => {
           serverName={server?.name}
           isJoiningCall={isJoining}
           isPreJoinOpen={isPreJoinOpen}
+          videoCallsEnabled={videoCallsEnabled}
           onCancelPreJoin={cancelPreJoin}
           onConfirmJoinCall={confirmJoinCall}
           onJoinCall={joinCall}
@@ -354,7 +358,7 @@ export const ChannelView = ({ channel }: Props) => {
           feedQueryKey={feedQueryKey}
           isLastPage={isLastPage}
           isJoiningCall={isJoining}
-          onJoinCall={joinCall}
+          onJoinCall={videoCallsEnabled ? joinCall : undefined}
         />
 
         <MessageForm

@@ -7,3 +7,7 @@ export interface InstanceConfigRes {
 export interface InstanceConfigReq {
   defaultServerId: string;
 }
+
+export interface InstanceCapabilitiesRes {
+  videoCallsEnabled: boolean;
+}

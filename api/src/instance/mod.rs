@@ -1,3 +1,4 @@
+mod capabilities;
 pub(crate) mod instance_roles;
 mod routes;
 mod service;

@@ -486,14 +486,6 @@ pub(crate) async fn load_call_message(
     Ok(message)
 }
 
-pub(crate) fn upload_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("content")
-}
-
 fn resolve_upload_path(upload_root: &Path, storage_key: &str) -> PathBuf {
     upload_root.join(storage_key)
 }

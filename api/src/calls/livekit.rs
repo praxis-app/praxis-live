@@ -23,6 +23,10 @@ pub struct LiveKitConfig {
 
 impl LiveKitConfig {
     pub(crate) fn from_env() -> Option<Self> {
+        if video_calls_disabled() {
+            return None;
+        }
+
         let url = livekit_url_from_env()?;
         let api_url =
             livekit_api_url_from_env().unwrap_or_else(|| livekit_api_url(&url));
@@ -50,6 +54,12 @@ impl LiveKitConfig {
             &self.api_secret,
         ))
     }
+}
+
+fn video_calls_disabled() -> bool {
+    env::var("VIDEO_CALLS_ENABLED")
+        .map(|value| !value.eq_ignore_ascii_case("true"))
+        .unwrap_or(true)
 }
 
 pub(super) async fn ensure_livekit_available(

@@ -38,6 +38,10 @@ pub(crate) fn spawn_stale_call_cleaner(
     pub_sub_service: PubSubService,
     livekit: Option<LiveKitConfig>,
 ) {
+    let Some(livekit) = livekit else {
+        return;
+    };
+
     tokio::spawn(async move {
         let mut interval = time::interval(std::time::Duration::from_secs(
             configured_interval_seconds(
@@ -78,11 +82,7 @@ pub(crate) fn spawn_stale_call_cleaner(
                 }
             }
 
-            let Some(livekit) = livekit.as_ref() else {
-                continue;
-            };
-
-            match cleanup_empty_active_calls(&database, livekit).await {
+            match cleanup_empty_active_calls(&database, &livekit).await {
                 Ok(cleaned_calls) if cleaned_calls.is_empty() => {}
                 Ok(cleaned_calls) => {
                     tracing::info!(

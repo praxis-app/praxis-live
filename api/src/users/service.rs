@@ -6,7 +6,7 @@ use sea_orm::{
     SqlErr,
 };
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use uuid::Uuid as NativeUuid;
 
 use super::models::{
@@ -421,14 +421,6 @@ pub(crate) async fn is_default_server_member(
         .map_err(internal_error)?;
 
     Ok(membership.is_some())
-}
-
-pub(crate) fn upload_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("content")
 }
 
 async fn authorize_user_image_access(
