@@ -59,7 +59,7 @@ impl LiveKitConfig {
 fn video_calls_disabled() -> bool {
     env::var("VIDEO_CALLS_ENABLED")
         .map(|value| !value.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 pub(super) async fn ensure_livekit_available(
