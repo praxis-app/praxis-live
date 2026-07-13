@@ -14,6 +14,7 @@ services:
       retries: 30
 
   web:
+    platform: linux/amd64
     build: .
     ports:
       - '3210:3210'
@@ -37,6 +38,7 @@ services:
       LIVEKIT_PORT: 7880
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: secret
+      VIDEO_CALLS_ENABLED: true
       STALE_CALL_CLEANUP_INTERVAL_SECONDS: 5
     depends_on:
       database:
