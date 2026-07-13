@@ -40,6 +40,24 @@ export const useSubscription = (
     // the same component with `share` set to `true`
     share: true,
     shouldReconnect: () => isLoggedIn,
+
+    // Logging to help with debugging websocket connection issues
+    onOpen: () => {
+      console.info('WebSocket connection opened');
+    },
+    onClose: (event) => {
+      console.warn('WebSocket connection closed', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        online: navigator.onLine,
+      });
+    },
+    onError: (event) => {
+      console.error('WebSocket connection error', event);
+    },
+
+    // Ensure passed options take precedence over the above
     ...getOptions(),
   });
 
