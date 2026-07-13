@@ -4,11 +4,12 @@ FROM node:24.14.1-bookworm-slim AS frontend-builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+RUN npm ci
+
 COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
 COPY vite.config.ts components.json ./
 COPY view ./view
 
-RUN npm ci
 RUN npm run build
 
 # Runtime stage
