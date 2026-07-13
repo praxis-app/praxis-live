@@ -42,9 +42,6 @@ export const useSubscription = (
     shouldReconnect: () => isLoggedIn,
 
     // Logging to help with debugging websocket connection issues
-    onOpen: () => {
-      console.info('WebSocket connection opened');
-    },
     onClose: (event) => {
       console.warn('WebSocket connection closed', {
         code: event.code,
