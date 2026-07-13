@@ -48,10 +48,14 @@ export const useSubscription = (
         reason: event.reason,
         wasClean: event.wasClean,
         online: navigator.onLine,
+        timestamp: new Date().toISOString(),
       });
     },
     onError: (event) => {
-      console.error('WebSocket connection error', event);
+      console.error('WebSocket connection error', {
+        timestamp: new Date().toISOString(),
+        event,
+      });
     },
 
     // Ensure passed options take precedence over the above
