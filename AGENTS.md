@@ -8,7 +8,7 @@ Praxis Live is a video calling app with collaborative decision-making (CDM) feat
 
 **Tech Stack**:
 
-- Rust 1.93.0
+- Rust 1.97.0
 - React/Vite
 - TypeScript
 - PostgreSQL
