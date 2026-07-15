@@ -3,6 +3,7 @@ pub mod calls;
 pub mod channel_keys;
 pub mod channel_members;
 pub mod channels;
+pub mod forum_posts;
 pub mod instance_configs;
 pub mod instance_role_members;
 pub mod instance_role_permissions;

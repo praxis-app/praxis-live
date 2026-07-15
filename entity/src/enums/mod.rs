@@ -1,8 +1,11 @@
+pub mod forums;
 mod macros;
 pub mod poll_actions;
 pub mod polls;
 pub mod roles;
 pub mod votes;
+
+pub use forums::{ChannelType, ForumPostStatus};
 
 pub use poll_actions::{
     PollActionPermissionAbilityAction, PollActionPermissionChangeType,

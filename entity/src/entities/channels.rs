@@ -1,5 +1,7 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::ChannelType;
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "channels")]
 pub struct Model {
@@ -8,6 +10,7 @@ pub struct Model {
     pub server_id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    pub channel_type: ChannelType,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -26,6 +29,8 @@ pub enum Relation {
     Messages,
     #[sea_orm(has_many = "super::channel_members::Entity")]
     Members,
+    #[sea_orm(has_many = "super::forum_posts::Entity")]
+    ForumPosts,
 }
 
 impl Related<super::servers::Entity> for Entity {
@@ -43,6 +48,12 @@ impl Related<super::messages::Entity> for Entity {
 impl Related<super::channel_members::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Members.def()
+    }
+}
+
+impl Related<super::forum_posts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ForumPosts.def()
     }
 }
 

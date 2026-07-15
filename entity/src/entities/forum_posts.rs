@@ -1,21 +1,24 @@
 use sea_orm::entity::prelude::*;
 
+use crate::enums::ForumPostStatus;
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "messages")]
+#[sea_orm(table_name = "forum_posts")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub ciphertext: Option<Vec<u8>>,
-    pub iv: Option<Vec<u8>>,
-    pub tag: Option<Vec<u8>>,
     pub channel_id: Uuid,
-    pub call_id: Option<Uuid>,
     pub user_id: Uuid,
-    pub bot_id: Option<Uuid>,
-    pub command_status: Option<String>,
-    pub key_id: Option<Uuid>,
-    pub thread_root_id: Option<Uuid>,
-    pub parent_message_id: Option<Uuid>,
+    #[sea_orm(unique)]
+    pub root_message_id: Uuid,
+    #[sea_orm(unique)]
+    pub poll_id: Option<Uuid>,
+    pub ciphertext: Vec<u8>,
+    pub iv: Vec<u8>,
+    pub tag: Vec<u8>,
+    pub key_id: Uuid,
+    pub status: ForumPostStatus,
+    pub latest_activity_at: DateTimeWithTimeZone,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -39,33 +42,21 @@ pub enum Relation {
     )]
     User,
     #[sea_orm(
-        belongs_to = "super::calls::Entity",
-        from = "Column::CallId",
-        to = "super::calls::Column::Id",
+        belongs_to = "super::messages::Entity",
+        from = "Column::RootMessageId",
+        to = "super::messages::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
     )]
-    Call,
-    #[sea_orm(has_many = "super::message_images::Entity")]
-    Images,
+    RootMessage,
     #[sea_orm(
-        belongs_to = "Entity",
-        from = "Column::ThreadRootId",
-        to = "Column::Id",
+        belongs_to = "super::polls::Entity",
+        from = "Column::PollId",
+        to = "super::polls::Column::Id",
         on_update = "Cascade",
-        on_delete = "Cascade"
+        on_delete = "SetNull"
     )]
-    ThreadRoot,
-    #[sea_orm(
-        belongs_to = "Entity",
-        from = "Column::ParentMessageId",
-        to = "Column::Id",
-        on_update = "Cascade",
-        on_delete = "Cascade"
-    )]
-    ParentMessage,
-    #[sea_orm(has_one = "super::forum_posts::Entity")]
-    RootForumPost,
+    Poll,
 }
 
 impl Related<super::channels::Entity> for Entity {
@@ -80,21 +71,15 @@ impl Related<super::users::Entity> for Entity {
     }
 }
 
-impl Related<super::calls::Entity> for Entity {
+impl Related<super::messages::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Call.def()
+        Relation::RootMessage.def()
     }
 }
 
-impl Related<super::message_images::Entity> for Entity {
+impl Related<super::polls::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Images.def()
-    }
-}
-
-impl Related<super::forum_posts::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::RootForumPost.def()
+        Relation::Poll.def()
     }
 }
 
