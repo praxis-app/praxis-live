@@ -5,14 +5,14 @@ use super::macros::impl_enum_string_conversions;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "channel_type")]
 pub enum ChannelType {
-    #[sea_orm(string_value = "chat")]
-    Chat,
+    #[sea_orm(string_value = "text")]
+    Text,
     #[sea_orm(string_value = "forum")]
     Forum,
 }
 
 impl_enum_string_conversions!(ChannelType {
-    Chat => "chat",
+    Text => "text",
     Forum => "forum",
 });
 

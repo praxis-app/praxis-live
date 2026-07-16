@@ -7,7 +7,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        create_enum_type(manager, "channel_type", &["chat", "forum"]).await?;
+        create_enum_type(manager, "channel_type", &["text", "forum"]).await?;
         create_enum_type(manager, "forum_post_status", &["open", "closed"])
             .await?;
 
@@ -19,10 +19,10 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Channels::ChannelType)
                             .enumeration(
                                 Alias::new("channel_type"),
-                                [Alias::new("chat"), Alias::new("forum")],
+                                [Alias::new("text"), Alias::new("forum")],
                             )
                             .not_null()
-                            .default("chat"),
+                            .default("text"),
                     )
                     .to_owned(),
             )

@@ -421,12 +421,12 @@ fn validate_channel_request(
     let channel_type = request
         .channel_type
         .as_deref()
-        .unwrap_or("chat")
+        .unwrap_or("text")
         .parse()
         .map_err(|_| {
             ApiError::new(
                 StatusCode::UNPROCESSABLE_ENTITY,
-                "Channel type must be chat or forum.",
+                "Channel type must be text or forum.",
             )
         })?;
 
