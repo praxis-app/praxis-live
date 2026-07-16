@@ -39,7 +39,7 @@ pub(crate) async fn get_channel_message_feed(
         .await
         .map_err(internal_error)?;
 
-    shape_message_feed(database, messages).await
+    shape_messages(database, messages).await
 }
 
 pub(crate) async fn get_call_message_feed(
@@ -63,7 +63,7 @@ pub(crate) async fn get_call_message_feed(
         .await
         .map_err(internal_error)?;
 
-    shape_message_feed(database, messages).await
+    shape_messages(database, messages).await
 }
 
 pub(crate) async fn create_message(
@@ -275,11 +275,13 @@ async fn create_message_record(
         bot_id: None,
         bot: None,
         command_status: None,
+        thread_root_id: message.thread_root_id.map(|id| id.to_string()),
+        parent_message_id: message.parent_message_id.map(|id| id.to_string()),
         created_at: serialize_timestamp(message.created_at),
     })
 }
 
-async fn shape_message_feed(
+pub(crate) async fn shape_messages(
     database: &DatabaseConnection,
     messages: Vec<messages::Model>,
 ) -> AppResult<Vec<MessageResponse>> {
@@ -516,6 +518,8 @@ fn shape_message<'a>(
         bot_id: None,
         bot: None,
         command_status: None,
+        thread_root_id: message.thread_root_id.map(|id| id.to_string()),
+        parent_message_id: message.parent_message_id.map(|id| id.to_string()),
         created_at: serialize_timestamp(message.created_at),
     }
 }

@@ -9,7 +9,8 @@ use super::handlers::{
     get_joined_channels, update_channel, ChannelsState,
 };
 use crate::{
-    calls, calls::LiveKitConfig, feeds, messages, polls, pub_sub::PubSubService,
+    calls, calls::LiveKitConfig, feeds, forum, messages, polls,
+    pub_sub::PubSubService,
 };
 
 pub(crate) fn router(
@@ -31,6 +32,14 @@ pub(crate) fn router(
         .nest(
             "/{channelId}/feed",
             feeds::channel_feed_router(database.clone(), jwt_secret.clone()),
+        )
+        .nest(
+            "/{channelId}/forum",
+            forum::router(
+                database.clone(),
+                jwt_secret.clone(),
+                pub_sub_service.clone(),
+            ),
         )
         .nest(
             "/{channelId}/messages",
