@@ -36,16 +36,20 @@ const formSchema = zod.object({
 interface Props {
   channelId?: string;
   callId?: string;
+  forumPostId?: string;
   focusOnTyping?: boolean;
   showActions?: boolean;
+  disabled?: boolean;
   onSend?(): void;
 }
 
 export const MessageForm = ({
   channelId,
   callId,
+  forumPostId,
   focusOnTyping = true,
   showActions = true,
+  disabled = false,
   onSend,
 }: Props) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -73,9 +77,11 @@ export const MessageForm = ({
   const isEmptyBody = !getValues('body') && !formState.dirtyFields.body;
   const isEmpty = isEmptyBody && !images.length;
 
-  const draftKey = callId
-    ? `message-draft-${serverId}-${channelId}-call-${callId}`
-    : `message-draft-${serverId}-${channelId}`;
+  const draftKey = forumPostId
+    ? `message-draft-${serverId}-${channelId}-forum-post-${forumPostId}`
+    : callId
+      ? `message-draft-${serverId}-${channelId}-call-${callId}`
+      : `message-draft-${serverId}-${channelId}`;
 
   const feedQueryKey = callId
     ? ['servers', serverId, 'channels', channelId, 'calls', callId, 'feed']
@@ -99,20 +105,33 @@ export const MessageForm = ({
       const currentImages = [...images];
       validateImageInput(currentImages);
 
-      const { message } = callId
-        ? await api.sendCallMessage(
-            serverId,
-            channelId,
-            callId,
-            body,
-            currentImages.length,
-          )
-        : await api.sendMessage(
-            serverId,
-            channelId,
-            body,
-            currentImages.length,
-          );
+      let message: MessageRes;
+      if (forumPostId) {
+        const response = await api.createForumReply(
+          serverId,
+          channelId,
+          forumPostId,
+          { body, imageCount: currentImages.length },
+        );
+        message = response.reply;
+      } else if (callId) {
+        const response = await api.sendCallMessage(
+          serverId,
+          channelId,
+          callId,
+          body,
+          currentImages.length,
+        );
+        message = response.message;
+      } else {
+        const response = await api.sendMessage(
+          serverId,
+          channelId,
+          body,
+          currentImages.length,
+        );
+        message = response.message;
+      }
       const messageImages: ImageRes[] = [];
 
       if (currentImages.length && message.images) {
@@ -150,12 +169,6 @@ export const MessageForm = ({
       if (!serverId || !channelId) {
         throw new Error('Server ID and channel ID are required');
       }
-
-      await queryClient.cancelQueries({
-        queryKey: feedQueryKey,
-      });
-
-      const previousFeed = queryClient.getQueryData<FeedQuery>(feedQueryKey);
 
       const currentImages = [...images];
       const optimisticImageUrls = currentImages.map((file) =>
@@ -199,6 +212,16 @@ export const MessageForm = ({
         type: 'message',
       };
 
+      if (forumPostId) {
+        return { previousFeed: undefined, optimisticImages };
+      }
+
+      await queryClient.cancelQueries({
+        queryKey: feedQueryKey,
+      });
+
+      const previousFeed = queryClient.getQueryData<FeedQuery>(feedQueryKey);
+
       queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
         if (!oldData) {
           return {
@@ -240,42 +263,48 @@ export const MessageForm = ({
         type: 'message',
       };
 
-      queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
-        if (!oldData) {
-          return {
-            pages: [{ feed: [newFeedItem] }],
-            pageParams: [0],
-          };
-        }
-
-        const pages = oldData.pages.map((page, index) => {
-          if (index === 0) {
-            const feedWithoutOptimistic = page.feed.filter(
-              (item) =>
-                !(item.type === 'message' && item.id.startsWith('temp-')),
-            );
-            const alreadyExists = feedWithoutOptimistic.some(
-              (item) => item.type === 'message' && item.id === message.id,
-            );
-            if (alreadyExists) {
-              return {
-                feed: feedWithoutOptimistic.map((item) =>
-                  item.type === 'message' && item.id === message.id
-                    ? newFeedItem
-                    : item,
-                ),
-              };
-            }
-            const sortedFeed = sortFeedByDate([
-              newFeedItem,
-              ...feedWithoutOptimistic,
-            ]);
-            return { feed: sortedFeed };
-          }
-          return page;
+      if (forumPostId) {
+        void queryClient.invalidateQueries({
+          queryKey: ['servers', serverId, 'channels', channelId, 'forum'],
         });
-        return { pages, pageParams: oldData.pageParams };
-      });
+      } else {
+        queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
+          if (!oldData) {
+            return {
+              pages: [{ feed: [newFeedItem] }],
+              pageParams: [0],
+            };
+          }
+
+          const pages = oldData.pages.map((page, index) => {
+            if (index === 0) {
+              const feedWithoutOptimistic = page.feed.filter(
+                (item) =>
+                  !(item.type === 'message' && item.id.startsWith('temp-')),
+              );
+              const alreadyExists = feedWithoutOptimistic.some(
+                (item) => item.type === 'message' && item.id === message.id,
+              );
+              if (alreadyExists) {
+                return {
+                  feed: feedWithoutOptimistic.map((item) =>
+                    item.type === 'message' && item.id === message.id
+                      ? newFeedItem
+                      : item,
+                  ),
+                };
+              }
+              const sortedFeed = sortFeedByDate([
+                newFeedItem,
+                ...feedWithoutOptimistic,
+              ]);
+              return { feed: sortedFeed };
+            }
+            return page;
+          });
+          return { pages, pageParams: oldData.pageParams };
+        });
+      }
 
       if (images.length) {
         setImagesInputKey(Date.now());
@@ -388,14 +417,14 @@ export const MessageForm = ({
   }, 100);
 
   const isDisabled = () => {
-    if (isMessageSending) {
+    if (disabled || isMessageSending) {
       return true;
     }
     return isEmpty;
   };
 
   const handleSendMessage = () => {
-    if (isEmpty) {
+    if (disabled || isEmpty) {
       return;
     }
     if (!isLoggedIn) {
@@ -444,7 +473,7 @@ export const MessageForm = ({
               setShowMenu={setShowMenu}
               channelId={channelId}
               callId={callId}
-              disabled={isMessageSending}
+              disabled={disabled || isMessageSending}
             />
           )}
 
@@ -465,7 +494,7 @@ export const MessageForm = ({
                     saveDraft(e.target.value);
                     field.onChange(e);
                   }}
-                  disabled={isMessageSending}
+                  disabled={disabled || isMessageSending}
                   ref={inputRef}
                   rows={1}
                 />
@@ -475,7 +504,7 @@ export const MessageForm = ({
             <ImageInput
               key={imagesInputKey}
               setImages={setImages}
-              disabled={isMessageSending}
+              disabled={disabled || isMessageSending}
               iconClassName="text-muted-foreground size-6 self-center"
               multiple
             />
@@ -501,6 +530,7 @@ export const MessageForm = ({
           ) : (
             <Button
               className="bg-input/30 hover:bg-input/40 size-11 rounded-full"
+              disabled={disabled}
               onClick={(e) => {
                 e.preventDefault();
                 toast(t('prompts.inDev'));

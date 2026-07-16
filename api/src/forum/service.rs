@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
     enums::{ChannelType, ForumPostStatus, PollType},
-    forum_posts, messages, polls, users,
+    forum_posts, message_images, messages, polls, users,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
@@ -248,10 +248,21 @@ pub(crate) async fn create_forum_reply(
     request: CreateForumReplyRequest,
 ) -> AppResult<(MessageResponse, ForumPostSummaryResponse)> {
     ensure_forum_access(database, server_id, channel_id, user_id).await?;
-    let body = validate_body(&request.body, "A forum reply body is required.")?;
-    let (key, unwrapped_key) =
-        channels::get_unwrapped_channel_key(database, channel_id).await?;
-    let encrypted = encryption::encrypt_text(&body, &unwrapped_key)?;
+    messages_service::validate_message_content(
+        Some(&request.body),
+        request.image_count,
+    )?;
+    let body = sanitize_text(&request.body);
+    let body = (!body.is_empty()).then_some(body);
+    let encrypted = match body.as_deref() {
+        Some(body) => {
+            let (key, unwrapped_key) =
+                channels::get_unwrapped_channel_key(database, channel_id)
+                    .await?;
+            Some((key.id, encryption::encrypt_text(body, &unwrapped_key)?))
+        }
+        None => None,
+    };
     let reply_id = NativeUuid::new_v4();
     let now = Utc::now().fixed_offset();
 
@@ -277,10 +288,12 @@ pub(crate) async fn create_forum_reply(
         id: Set(reply_id),
         channel_id: Set(channel_id),
         user_id: Set(user_id),
-        key_id: Set(Some(key.id)),
-        ciphertext: Set(Some(encrypted.ciphertext)),
-        iv: Set(Some(encrypted.iv)),
-        tag: Set(Some(encrypted.tag)),
+        key_id: Set(encrypted.as_ref().map(|(key_id, _)| *key_id)),
+        ciphertext: Set(encrypted
+            .as_ref()
+            .map(|(_, value)| value.ciphertext.clone())),
+        iv: Set(encrypted.as_ref().map(|(_, value)| value.iv.clone())),
+        tag: Set(encrypted.as_ref().map(|(_, value)| value.tag.clone())),
         thread_root_id: Set(Some(post.root_message_id)),
         parent_message_id: Set(Some(parent_message_id)),
         created_at: Set(now),
@@ -290,6 +303,16 @@ pub(crate) async fn create_forum_reply(
     .insert(&transaction)
     .await
     .map_err(internal_error)?;
+    for _ in 0..request.image_count {
+        message_images::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
+            message_id: Set(reply.id),
+            ..Default::default()
+        }
+        .insert(&transaction)
+        .await
+        .map_err(internal_error)?;
+    }
     let mut active = post.into_active_model();
     active.latest_activity_at = Set(now);
     active.update(&transaction).await.map_err(internal_error)?;

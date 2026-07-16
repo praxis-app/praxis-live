@@ -346,7 +346,12 @@
     },
     "form": {
       "name": "Name",
-      "description": "Description"
+      "description": "Description",
+      "type": "Channel type"
+    },
+    "descriptions": {
+      "textChannel": "Send messages, images, polls, proposals, and more.",
+      "forumChannel": "Turn casual chats into structured group decisions."
     },
     "headers": {
       "channelSettings": "Channel Settings",
@@ -354,12 +359,66 @@
     },
     "labels": {
       "channel": "Channel",
-      "channelSettings": "Channel settings"
+      "channelSettings": "Channel settings",
+      "textChannel": "Text",
+      "forumChannel": "Forum"
     },
     "prompts": {
       "createChannel": "Create a new channel",
       "creatingChannel": "Creating...",
       "startConversation": "Start a conversation around a topic or idea."
+    }
+  },
+
+  "forums": {
+    "actions": {
+      "allPosts": "All posts",
+      "closePost": "Close post",
+      "closePostPane": "Close post pane",
+      "createPost": "Create post",
+      "creatingPost": "Creating...",
+      "createProposal": "Create proposal",
+      "newPost": "New post",
+      "reply": "Reply",
+      "saveProposal": "Save association"
+    },
+    "descriptions": {
+      "channel": "Start a focused discussion with a forum post.",
+      "createPost": "Give the discussion a clear title and opening message."
+    },
+    "filters": {
+      "all": "All posts",
+      "closed": "Closed",
+      "open": "Open"
+    },
+    "form": {
+      "body": "Message",
+      "proposal": "Proposal (optional)",
+      "title": "Title"
+    },
+    "labels": {
+      "active": "Active {{time}}",
+      "closed": "Closed",
+      "filter": "Filter posts",
+      "noProposal": "No proposal",
+      "proposal": "Proposal",
+      "replies_one": "{{count}} reply",
+      "replies_other": "{{count}} replies",
+      "replyCount_one": "{{count}} reply",
+      "replyCount_other": "{{count}} replies",
+      "sort": "Sort posts",
+      "untitledProposal": "Untitled proposal"
+    },
+    "prompts": {
+      "closedPost": "This post is closed.",
+      "noPosts": "No forum posts match these filters.",
+      "noProposal": "No proposal is associated with this post.",
+      "noReplies": "No replies yet.",
+      "reply": "Write a reply..."
+    },
+    "sort": {
+      "newest": "Newest",
+      "recent": "Recent activity"
     }
   },
 

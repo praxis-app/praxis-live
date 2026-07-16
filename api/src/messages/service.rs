@@ -552,20 +552,25 @@ fn decrypt_message_body(
 }
 
 fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
-    if request.image_count > MAX_IMAGE_COUNT {
+    validate_message_content(request.body.as_deref(), request.image_count)
+}
+
+pub(crate) fn validate_message_content(
+    body: Option<&str>,
+    image_count: usize,
+) -> AppResult<()> {
+    if image_count > MAX_IMAGE_COUNT {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             format!("A message can include at most {MAX_IMAGE_COUNT} images."),
         ));
     }
 
-    let has_body = request
-        .body
-        .as_ref()
+    let has_body = body
         .map(|body| !sanitize_text(body).is_empty())
         .unwrap_or(false);
 
-    if has_body || request.image_count > 0 {
+    if has_body || image_count > 0 {
         Ok(())
     } else {
         Err(ApiError::new(

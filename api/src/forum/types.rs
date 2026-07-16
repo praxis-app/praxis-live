@@ -55,6 +55,8 @@ pub(crate) struct UpdateForumPostRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CreateForumReplyRequest {
     pub(crate) body: String,
+    #[serde(default)]
+    pub(crate) image_count: usize,
     pub(crate) parent_message_id: Option<Uuid>,
 }
 

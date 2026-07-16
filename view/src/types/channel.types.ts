@@ -6,6 +6,7 @@ export interface ChannelRes {
   id: string;
   name: string;
   description: string | null;
+  channelType?: 'text' | 'forum';
   server?: {
     id: string;
     slug: string;
@@ -15,6 +16,7 @@ export interface ChannelRes {
 export interface CreateChannelReq {
   name: string;
   description?: string;
+  channelType: 'text' | 'forum';
 }
 
 export interface UpdateChannelReq {

@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import { AuthenticatedUser, authorizationHeaders } from './auth';
+import { authorizationHeaders, type AuthenticatedUser } from './auth';
 
 export async function createInvite(
   request: APIRequestContext,

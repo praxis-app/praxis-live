@@ -4,7 +4,7 @@ import { truncate } from '@/lib/text.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdSettings, MdTag } from 'react-icons/md';
+import { MdForum, MdSettings, MdTag } from 'react-icons/md';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ContextMenu,
@@ -55,6 +55,7 @@ export const ChannelListItemDesktop = ({
     channel.name,
     isHovering || isActive ? 21 : 23,
   );
+  const ChannelIcon = channel.channelType === 'forum' ? MdForum : MdTag;
 
   return (
     <Dialog
@@ -76,7 +77,7 @@ export const ChannelListItemDesktop = ({
               to={channelPath}
               className="mr-1.5 flex flex-1 items-center gap-2 py-[0.225rem] pl-2"
             >
-              <MdTag className="size-6" />
+              <ChannelIcon className="size-6" />
               <div className="text-[0.925rem]">{truncatedChannelName}</div>
             </Link>
             {showSettingsBtn && (

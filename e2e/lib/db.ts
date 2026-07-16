@@ -17,7 +17,7 @@ export function assertUuid(value: string, label = 'ID') {
 export function runDatabaseCommand(
   command: string,
   { tuplesOnly = false }: DatabaseCommandOptions = {},
-) {
+): string {
   return execFileSync(
     'docker',
     [
@@ -40,7 +40,7 @@ export function runDatabaseCommand(
     ],
     {
       cwd: process.cwd(),
-      encoding: 'utf8',
+      encoding: 'utf8' as const,
     },
   );
 }
