@@ -15,6 +15,7 @@ pub(crate) struct ChannelPath {
 pub(crate) struct ChannelRequest {
     pub(crate) name: String,
     pub(crate) description: Option<String>,
+    pub(crate) channel_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -24,9 +25,11 @@ pub(crate) struct ChannelServer {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChannelResponse {
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) description: Option<String>,
+    pub(crate) channel_type: String,
     pub(crate) server: ChannelServer,
 }

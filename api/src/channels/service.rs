@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
 use entity::{
-    channel_keys, channel_members, channels, server_members, servers,
+    channel_keys, channel_members, channels, enums::ChannelType,
+    server_members, servers,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
@@ -87,13 +88,14 @@ pub(crate) async fn create_channel(
     request: ChannelRequest,
 ) -> AppResult<ChannelResponse> {
     let server = servers_service::load_server(database, server_id).await?;
-    let (name, description) = validate_channel_request(request)?;
+    let (name, description, channel_type) = validate_channel_request(request)?;
 
     let channel = channels::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         server_id: Set(server_id),
         name: Set(name),
         description: Set(description),
+        channel_type: Set(channel_type),
         ..Default::default()
     }
     .insert(database)
@@ -127,7 +129,7 @@ pub(crate) async fn update_channel(
     channel_id: Uuid,
     request: ChannelRequest,
 ) -> AppResult<()> {
-    let (name, description) = validate_channel_request(request)?;
+    let (name, description, _) = validate_channel_request(request)?;
     let channel = get_channel(database, server_id, channel_id).await?;
     let mut active = channel.into_active_model();
     active.name = Set(name);
@@ -381,6 +383,7 @@ fn shape_channel(
         id: channel.id.to_string(),
         name: channel.name,
         description: channel.description,
+        channel_type: channel.channel_type.to_string(),
         server: ChannelServer {
             id: server.id.to_string(),
             slug: server.slug.clone(),
@@ -390,7 +393,7 @@ fn shape_channel(
 
 fn validate_channel_request(
     request: ChannelRequest,
-) -> AppResult<(String, Option<String>)> {
+) -> AppResult<(String, Option<String>, ChannelType)> {
     let name = sanitize_text(&request.name).to_ascii_lowercase();
     if !(2..=30).contains(&name.chars().count()) {
         return Err(ApiError::new(
@@ -415,7 +418,19 @@ fn validate_channel_request(
         ));
     }
 
-    Ok((name, description))
+    let channel_type = request
+        .channel_type
+        .as_deref()
+        .unwrap_or("chat")
+        .parse()
+        .map_err(|_| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Channel type must be chat or forum.",
+            )
+        })?;
+
+    Ok((name, description, channel_type))
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
