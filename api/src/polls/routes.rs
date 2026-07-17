@@ -6,7 +6,7 @@ use sea_orm::DatabaseConnection;
 
 use super::handlers::{
     create_call_poll, create_poll, delete_poll, get_call_decision,
-    get_poll_image, upload_poll_image, PollsState,
+    get_poll_image, move_proposal_to_forum, upload_poll_image, PollsState,
 };
 use crate::{pub_sub::PubSubService, votes};
 
@@ -18,6 +18,7 @@ pub(crate) fn router(
     Router::new()
         .route("/", post(create_poll))
         .route("/{pollId}", delete(delete_poll))
+        .route("/{pollId}/move-to-forum", post(move_proposal_to_forum))
         .route("/{pollId}/images/{imageId}", get(get_poll_image))
         .route("/{pollId}/images/{imageId}/upload", post(upload_poll_image))
         .route(

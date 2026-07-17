@@ -45,6 +45,14 @@ pub(crate) struct CreateForumPostRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct MoveProposalToForumRequest {
+    pub(crate) destination_channel_id: Uuid,
+    pub(crate) title: String,
+    pub(crate) body: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct UpdateForumPostRequest {
     pub(crate) title: Option<String>,
     pub(crate) body: Option<String>,
@@ -82,4 +90,22 @@ pub(crate) struct ForumPostResponse {
     pub(crate) body: String,
     pub(crate) replies: Vec<MessageResponse>,
     pub(crate) proposal: Option<PollResponse>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProposalForumReferenceResponse {
+    pub(crate) id: String,
+    pub(crate) proposal_id: String,
+    pub(crate) source_channel_id: String,
+    pub(crate) destination_channel_id: String,
+    pub(crate) forum_post_id: String,
+    pub(crate) created_at: String,
+    pub(crate) moved_at: String,
+}
+
+pub(crate) struct MoveProposalToForumResponse {
+    pub(crate) post: ForumPostResponse,
+    pub(crate) source_reference: ProposalForumReferenceResponse,
+    pub(crate) destination_channel_id: Uuid,
 }

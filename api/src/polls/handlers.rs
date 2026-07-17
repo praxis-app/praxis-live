@@ -10,10 +10,10 @@ use std::{path::PathBuf, sync::Arc};
 use super::{
     extractors::{PollDeleteContext, PollImageUploadContext},
     service,
-    types::{CallDecisionResponse, CreatePollRequest, PollImagePath},
+    types::{CallDecisionResponse, CreatePollRequest, PollImagePath, PollPath},
 };
 use crate::{
-    auth::HasJwtSecret,
+    auth::{AuthenticatedUser, HasJwtSecret},
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
@@ -85,6 +85,61 @@ pub(super) async fn create_poll(
     }
 
     Ok(Json(serde_json::json!({ "poll": poll })))
+}
+
+pub(super) async fn move_proposal_to_forum(
+    State(state): State<PollsState>,
+    Path(path): Path<PollPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    Json(payload): Json<crate::forum::types::MoveProposalToForumRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let result = crate::forum::service::move_proposal_to_forum(
+        &state.database,
+        path.server_id,
+        path.channel_id,
+        path.poll_id,
+        user_id,
+        payload,
+    )
+    .await?;
+    let destination_channel_id = result.destination_channel_id;
+
+    crate::forum::service::broadcast_proposal_forum_reference(
+        &state.database,
+        &state.pub_sub_service,
+        path.server_id,
+        path.channel_id,
+        user_id,
+        &result.source_reference,
+    )
+    .await;
+    crate::forum::service::broadcast_forum_post(
+        &state.database,
+        &state.pub_sub_service,
+        path.server_id,
+        destination_channel_id,
+        user_id,
+        "created",
+        &result.post,
+    )
+    .await;
+    if let Err(error) = service::broadcast_poll_update(
+        &state.database,
+        &state.pub_sub_service,
+        path.server_id,
+        destination_channel_id,
+        Some(user_id),
+        path.poll_id,
+    )
+    .await
+    {
+        tracing::warn!("failed to broadcast moved proposal: {error}");
+    }
+
+    Ok(Json(serde_json::json!({
+        "post": result.post,
+        "sourceReference": result.source_reference,
+    })))
 }
 
 pub(super) async fn create_call_poll(

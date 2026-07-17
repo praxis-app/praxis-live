@@ -8,6 +8,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub channel_id: Uuid,
+    pub source_channel_id: Option<Uuid>,
     pub user_id: Uuid,
     #[sea_orm(unique)]
     pub root_message_id: Uuid,
@@ -57,6 +58,14 @@ pub enum Relation {
         on_delete = "Restrict"
     )]
     Poll,
+    #[sea_orm(
+        belongs_to = "super::channels::Entity",
+        from = "Column::SourceChannelId",
+        to = "super::channels::Column::Id",
+        on_update = "Cascade",
+        on_delete = "SetNull"
+    )]
+    SourceChannel,
 }
 
 impl Related<super::channels::Entity> for Entity {

@@ -74,6 +74,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(ForumPosts::ChannelId).uuid().not_null(),
                     )
+                    .col(ColumnDef::new(ForumPosts::SourceChannelId).uuid())
                     .col(ColumnDef::new(ForumPosts::UserId).uuid().not_null())
                     .col(
                         ColumnDef::new(ForumPosts::RootMessageId)
@@ -107,6 +108,17 @@ impl MigrationTrait for Migration {
                             .from(ForumPosts::Table, ForumPosts::ChannelId)
                             .to(Channels::Table, Channels::Id)
                             .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("forum-posts-source-channel-id-fkey")
+                            .from(
+                                ForumPosts::Table,
+                                ForumPosts::SourceChannelId,
+                            )
+                            .to(Channels::Table, Channels::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
@@ -192,6 +204,19 @@ impl MigrationTrait for Migration {
                     .table(Messages::Table)
                     .col(Messages::ParentMessageId)
                     .col(Messages::CreatedAt)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("forum-posts-source-channel-id-idx")
+                    .table(ForumPosts::Table)
+                    .col(ForumPosts::SourceChannelId)
+                    .and_where(
+                        Expr::col(ForumPosts::SourceChannelId).is_not_null(),
+                    )
                     .to_owned(),
             )
             .await
@@ -295,6 +320,7 @@ enum ForumPosts {
     Table,
     Id,
     ChannelId,
+    SourceChannelId,
     UserId,
     RootMessageId,
     PollId,
