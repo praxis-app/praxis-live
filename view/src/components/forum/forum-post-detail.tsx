@@ -1,4 +1,5 @@
 import { api } from '@/client/api-client';
+import { ForumPostMenu } from '@/components/forum/forum-post-menu';
 import { ForumPostProposal } from '@/components/forum/forum-post-proposal';
 import { Message } from '@/components/messages/message';
 import { MessageForm } from '@/components/messages/message-form';
@@ -8,11 +9,10 @@ import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
-import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
 import { MdClose, MdLockOutline } from 'react-icons/md';
@@ -28,7 +28,6 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const { t } = useTranslation();
   const { me } = useAuthData();
   const { serverId, serverPath } = useServerData();
-  const queryClient = useQueryClient();
   const feedQueryKey = ['servers', serverId, 'channels', channel.id, 'feed'];
   const postQueryKey = [
     'servers',
@@ -49,19 +48,6 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
     enabled: !!serverId,
   });
   const post = data?.post;
-
-  const { mutate: closePost, isPending: isClosing } = useMutation({
-    mutationFn: () => {
-      if (!serverId) throw new Error('Server ID is required');
-      return api.closeForumPost(serverId, channel.id, postId);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ['servers', serverId, 'channels', channel.id, 'forum'],
-      });
-    },
-    onError: handleError,
-  });
 
   if (!post) {
     return isPane ? (
@@ -86,36 +72,17 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const detailContent = (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 md:px-8',
-        isPane && 'max-w-none px-5',
+        'mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 py-6 md:px-4',
+        isPane && 'max-w-none px-4',
       )}
     >
-      {(!isPane || (isAuthor && post.status === 'open')) && (
-        <div
-          className={cn(
-            'flex items-center justify-between gap-3',
-            isPane && 'justify-end',
-          )}
-        >
-          {!isPane && (
-            <Button variant="ghost" asChild>
-              <Link to={`${serverPath}/c/${channel.id}`}>
-                <LuArrowLeft />
-                {t('forums.actions.allPosts')}
-              </Link>
-            </Button>
-          )}
-          {isAuthor && post.status === 'open' && (
-            <Button
-              variant="outline"
-              disabled={isClosing}
-              onClick={() => closePost()}
-            >
-              <MdLockOutline />
-              {t('forums.actions.closePost')}
-            </Button>
-          )}
-        </div>
+      {!isPane && (
+        <Button variant="ghost" className="self-start" asChild>
+          <Link to={`${serverPath}/c/${channel.id}`}>
+            <LuArrowLeft />
+            {t('forums.actions.allPosts')}
+          </Link>
+        </Button>
       )}
 
       <article>
@@ -127,19 +94,24 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
             imageId={post.user.profilePicture?.id}
           />
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
                 <h1 className="text-xl font-semibold">{post.title}</h1>
                 <p className="text-muted-foreground text-sm">
                   {author} · {timeAgo(post.createdAt)}
                 </p>
               </div>
-              {post.status === 'closed' && (
-                <span className="text-muted-foreground flex items-center gap-1 text-sm">
-                  <MdLockOutline />
-                  {t('forums.labels.closed')}
-                </span>
-              )}
+              <div className="flex shrink-0 items-center gap-1">
+                {post.status === 'closed' && (
+                  <span className="text-muted-foreground flex items-center gap-1 text-sm">
+                    <MdLockOutline />
+                    {t('forums.labels.closed')}
+                  </span>
+                )}
+                {isAuthor && (post.status === 'open' || !post.proposal) && (
+                  <ForumPostMenu channel={channel} post={post} />
+                )}
+              </div>
             </div>
             <FormattedText text={post.body} className="mt-4" />
             <ForumPostProposal
@@ -152,10 +124,15 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
       </article>
 
       <section className="space-y-4">
-        <h2 className="font-medium">
-          {t('forums.labels.replies', { count: post.replyCount })}
-        </h2>
-        <Separator />
+        <div
+          className="text-muted-foreground flex items-center gap-3 text-xs font-medium"
+          role="separator"
+          aria-label={t('forums.labels.discussion')}
+        >
+          <Separator className="flex-1" />
+          <span>{t('forums.labels.discussion')}</span>
+          <Separator className="flex-1" />
+        </div>
         {post.replies.map((reply) => (
           <Message
             key={reply.id}

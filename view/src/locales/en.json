@@ -387,6 +387,7 @@
       "moveProposal": "Move proposal",
       "movingProposal": "Moving...",
       "newPost": "New post",
+      "openPostMenu": "Open post menu",
       "reply": "Reply",
       "saveProposal": "Save association",
       "viewPost": "View forum post"
@@ -409,10 +410,10 @@
     "labels": {
       "active": "Active {{time}}",
       "closed": "Closed",
+      "discussion": "Discussion",
       "filter": "Filter posts",
       "noProposal": "No proposal",
       "proposal": "Proposal",
-      "proposalCreated": "Proposal created by {{author}} · {{time}}",
       "replies_one": "{{count}} reply",
       "replies_other": "{{count}} replies",
       "replyCount_one": "{{count}} reply",

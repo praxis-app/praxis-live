@@ -74,6 +74,7 @@ export const ProposalContent = ({
       <ProposalMetadata
         decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
         actionType={action?.actionType}
+        createdAt={variant === 'forum' ? poll.createdAt : undefined}
       />
 
       {body && <FormattedText text={body} className="pt-1 pb-2" />}
