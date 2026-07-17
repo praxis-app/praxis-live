@@ -23,7 +23,7 @@ export function runDatabaseCommand(
     [
       'compose',
       '-f',
-      'docker-compose.e2e.yml',
+      'e2e/docker-compose.e2e.yml',
       'exec',
       '-T',
       'database',

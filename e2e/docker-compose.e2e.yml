@@ -1,3 +1,5 @@
+name: praxis-live-e2e
+
 services:
   database:
     image: postgres:16
@@ -14,8 +16,9 @@ services:
       retries: 30
 
   web:
-    platform: linux/amd64
-    build: .
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile
     ports:
       - '3210:3210'
     environment:
