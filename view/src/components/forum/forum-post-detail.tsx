@@ -12,11 +12,7 @@ import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
 import { MdClose, MdLockOutline } from 'react-icons/md';
@@ -122,7 +118,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
         </div>
       )}
 
-      <article className="rounded-lg border p-4 md:p-5">
+      <article>
         <div className="flex items-start gap-3">
           <UserAvatar
             className="mt-1 shrink-0"
@@ -146,15 +142,14 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
               )}
             </div>
             <FormattedText text={post.body} className="mt-4" />
+            <ForumPostProposal
+              channel={channel}
+              post={post}
+              feedQueryKey={feedQueryKey}
+            />
           </div>
         </div>
       </article>
-
-      <ForumPostProposal
-        channel={channel}
-        post={post}
-        feedQueryKey={feedQueryKey}
-      />
 
       <section className="space-y-4">
         <h2 className="font-medium">

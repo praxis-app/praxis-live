@@ -1,6 +1,6 @@
 import { api } from '@/client/api-client';
+import { ForumProposalPresentation } from '@/components/forum/forum-proposal-presentation';
 import { CreateProposalForm } from '@/components/polls/proposals/create-proposal-form/create-proposal-form';
-import { InlineProposal } from '@/components/polls/proposals/inline-proposal/inline-proposal';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,11 +25,7 @@ interface Props {
   feedQueryKey: QueryKey;
 }
 
-export const ForumPostProposal = ({
-  channel,
-  post,
-  feedQueryKey,
-}: Props) => {
+export const ForumPostProposal = ({ channel, post, feedQueryKey }: Props) => {
   const { t } = useTranslation();
   const { me } = useAuthData();
   const { serverId } = useServerData();
@@ -56,31 +52,32 @@ export const ForumPostProposal = ({
   };
 
   return (
-    <section className="space-y-3 rounded-lg border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-medium">{t('forums.labels.proposal')}</h2>
-        {isAuthor && !post.proposal && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsCreateOpen(true)}
-          >
-            {t('forums.actions.createProposalFromDiscussion')}
-          </Button>
-        )}
-      </div>
-
+    <>
       {post.proposal ? (
-        <InlineProposal
-          poll={post.proposal}
+        <ForumProposalPresentation
           channel={channel}
+          post={post}
           feedQueryKey={feedQueryKey}
           me={me}
         />
       ) : (
-        <p className="text-muted-foreground text-sm">
-          {t('forums.prompts.noProposal')}
-        </p>
+        <section className="mt-5 space-y-3 border-t pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-medium">{t('forums.labels.proposal')}</h2>
+            {isAuthor && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateOpen(true)}
+              >
+                {t('forums.actions.createProposalFromDiscussion')}
+              </Button>
+            )}
+          </div>
+          <p className="text-muted-foreground text-sm">
+            {t('forums.prompts.noProposal')}
+          </p>
+        </section>
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -105,6 +102,6 @@ export const ForumPostProposal = ({
           />
         </DialogContent>
       </Dialog>
-    </section>
+    </>
   );
 };

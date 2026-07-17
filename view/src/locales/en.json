@@ -412,6 +412,7 @@
       "filter": "Filter posts",
       "noProposal": "No proposal",
       "proposal": "Proposal",
+      "proposalCreated": "Proposal created by {{author}} · {{time}}",
       "replies_one": "{{count}} reply",
       "replies_other": "{{count}} replies",
       "replyCount_one": "{{count}} reply",
