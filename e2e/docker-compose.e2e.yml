@@ -18,7 +18,7 @@ services:
   web:
     build:
       context: ..
-      dockerfile: e2e/Dockerfile
+      target: e2e
     ports:
       - '3210:3210'
     environment:
