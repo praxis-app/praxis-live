@@ -72,7 +72,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const detailContent = (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 py-6 md:px-4',
+        'mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 py-6 md:px-5',
         isPane && 'max-w-none px-4',
       )}
     >
