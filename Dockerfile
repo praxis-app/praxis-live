@@ -26,9 +26,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.e2e.json ./
-COPY vite.config.ts playwright.config.ts components.json ./
-COPY e2e ./e2e
+COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
+COPY vite.config.ts components.json ./
 COPY view ./view
 
 RUN npm run build
