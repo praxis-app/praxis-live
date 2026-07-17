@@ -1,26 +1,24 @@
 import { ProposalContent } from '@/components/polls/proposals/inline-proposal/proposal-content';
 import { type ChannelRes } from '@/types/channel.types';
-import { type ForumPostRes } from '@/types/forum.types';
+import { type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
 import { type QueryKey } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
   channel: ChannelRes;
-  post: ForumPostRes;
+  proposal: PollRes;
   feedQueryKey: QueryKey;
   me?: CurrentUser;
 }
 
 export const ForumProposalPresentation = ({
   channel,
-  post,
+  proposal,
   feedQueryKey,
   me,
 }: Props) => {
   const { t } = useTranslation();
-  const proposal = post.proposal;
-  if (!proposal) return null;
 
   return (
     <section

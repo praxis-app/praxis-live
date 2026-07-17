@@ -1,6 +1,6 @@
 import { api } from '@/client/api-client';
 import { ForumPostMenu } from '@/components/forum/forum-post-menu';
-import { ForumPostProposal } from '@/components/forum/forum-post-proposal';
+import { ForumProposalPresentation } from '@/components/forum/forum-proposal-presentation';
 import { Message } from '@/components/messages/message';
 import { MessageForm } from '@/components/messages/message-form';
 import { FormattedText } from '@/components/shared/formatted-text';
@@ -114,11 +114,14 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
               </div>
             </div>
             <FormattedText text={post.body} className="mt-4" />
-            <ForumPostProposal
-              channel={channel}
-              post={post}
-              feedQueryKey={feedQueryKey}
-            />
+            {post.proposal && (
+              <ForumProposalPresentation
+                channel={channel}
+                proposal={post.proposal}
+                feedQueryKey={feedQueryKey}
+                me={me}
+              />
+            )}
           </div>
         </div>
       </article>
