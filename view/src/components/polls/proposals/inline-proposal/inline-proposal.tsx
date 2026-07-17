@@ -4,6 +4,7 @@ import { ProposalMetadata } from '@/components/polls/proposals/inline-proposal/p
 import { ProposalStatusBadge } from '@/components/polls/proposals/inline-proposal/proposal-status-badge';
 import { ProposalAction } from '@/components/polls/proposals/proposal-actions/proposal-action';
 import { ProposalVoteButtons } from '@/components/polls/proposals/proposal-vote-buttons';
+import { ProposalMenu } from '@/components/polls/proposals/proposal-menu';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { Card, CardAction } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -33,6 +34,7 @@ interface Props {
   sourceCall?: CallArtifactRes;
   sourceCallContext?: SourceCallContext;
   isJoiningSourceCall?: boolean;
+  canMoveToForum?: boolean;
 }
 
 export const InlineProposal = ({
@@ -46,6 +48,7 @@ export const InlineProposal = ({
   sourceCall,
   sourceCallContext = 'in-call',
   isJoiningSourceCall = false,
+  canMoveToForum = false,
 }: Props) => {
   const { t } = useTranslation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -117,6 +120,14 @@ export const InlineProposal = ({
         </div>
 
         <Card className="before:border-l-border @container relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
+          {canMoveToForum && (
+            <ProposalMenu
+              poll={poll}
+              channel={channel}
+              feedQueryKey={feedQueryKey}
+              me={me}
+            />
+          )}
           <ProposalMetadata
             decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
             actionType={action?.actionType}
@@ -133,9 +144,7 @@ export const InlineProposal = ({
               feedQueryKey={feedQueryKey}
               myVote={myVote}
               stage={stage}
-              decisionMakingModel={
-                config.decisionMakingModel ?? 'consensus'
-              }
+              decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
               closingAt={config.closingAt}
               onVoteSuccess={onPollChange}
             />

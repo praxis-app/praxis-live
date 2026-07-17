@@ -21,6 +21,8 @@ import {
   type ForumPostSort,
   type ForumPostStatus,
   type ForumPostSummaryRes,
+  type MoveProposalToForumReq,
+  type ProposalForumReferenceRes,
   type UpdateForumPostReq,
 } from '@/types/forum.types';
 import {
@@ -298,6 +300,19 @@ class ApiClient {
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/close`;
     return this.executeRequest<{ post: ForumPostRes }>('post', path);
+  };
+
+  moveProposalToForum = async (
+    serverId: string,
+    sourceChannelId: string,
+    proposalId: string,
+    data: MoveProposalToForumReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/${sourceChannelId}/polls/${proposalId}/move-to-forum`;
+    return this.executeRequest<{
+      post: ForumPostRes;
+      sourceReference: ProposalForumReferenceRes;
+    }>('post', path, { data });
   };
 
   createForumReply = async (

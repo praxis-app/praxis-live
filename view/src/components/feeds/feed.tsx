@@ -4,6 +4,7 @@ import { BotMessage } from '@/components/messages/bot-message';
 import { Message } from '@/components/messages/message';
 import { InlinePoll } from '@/components/polls/inline-poll';
 import { InlineProposal } from '@/components/polls/proposals/inline-proposal/inline-proposal';
+import { ProposalForumReference } from '@/components/polls/proposals/proposal-forum-reference';
 import { LocalStorageKeys } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useInView } from '@/hooks/use-in-view';
@@ -160,6 +161,7 @@ export const Feed = ({
                 isJoiningSourceCall={isJoiningCall}
                 onJoinCall={onJoinCall}
                 onViewCall={setOpenCallDetailsId}
+                canMoveToForum
               />
             );
           }
@@ -170,6 +172,14 @@ export const Feed = ({
               channel={channel}
               feedQueryKey={feedQueryKey}
               me={me}
+            />
+          );
+        }
+        if (item.type === 'proposalMoved') {
+          return (
+            <ProposalForumReference
+              key={`proposal-moved-${item.id}`}
+              reference={item}
             />
           );
         }

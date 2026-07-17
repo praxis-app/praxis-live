@@ -219,6 +219,8 @@
       "block": "Block",
       "create": "Create proposal",
       "disagree": "Disagree",
+      "moveToForum": "Move to forum",
+      "openMenu": "Open proposal menu",
       "viewCall": "View call"
     },
     "descriptions": {
@@ -382,9 +384,12 @@
       "createProposal": "Create proposal",
       "createProposalFromDiscussion": "Create proposal from discussion",
       "createWithProposal": "Create with proposal",
+      "moveProposal": "Move proposal",
+      "movingProposal": "Moving...",
       "newPost": "New post",
       "reply": "Reply",
-      "saveProposal": "Save association"
+      "saveProposal": "Save association",
+      "viewPost": "View forum post"
     },
     "descriptions": {
       "channel": "Start a focused discussion with a forum post.",
@@ -398,6 +403,7 @@
     "form": {
       "body": "Message",
       "proposal": "Proposal (optional)",
+      "destinationChannel": "Forum channel",
       "title": "Title"
     },
     "labels": {
@@ -418,6 +424,10 @@
       "noPosts": "No forum posts match these filters.",
       "noProposal": "No proposal is associated with this post.",
       "noReplies": "No replies yet.",
+      "movedProposal": "This proposal continued in a forum post.",
+      "movedProposalDiscussion": "Continue the discussion for this proposal.",
+      "moveProposal": "Choose a forum channel and review the new post before moving this proposal.",
+      "noForumChannels": "You do not have access to a forum channel.",
       "reply": "Write a reply..."
     },
     "sort": {

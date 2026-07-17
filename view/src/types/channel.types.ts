@@ -1,6 +1,7 @@
 import { type CallArtifactRes } from './call.types';
 import { type MessageRes } from './message.types';
 import { type PollRes } from './poll.types';
+import { type ProposalForumReferenceRes } from './forum.types';
 
 export interface ChannelRes {
   id: string;
@@ -27,6 +28,7 @@ export interface UpdateChannelReq {
 export type FeedItemRes =
   | (MessageRes & { type: 'message' })
   | (PollRes & { type: 'poll' })
+  | (ProposalForumReferenceRes & { type: 'proposalMoved' })
   | CallArtifactRes;
 
 export interface FeedQueryPage {

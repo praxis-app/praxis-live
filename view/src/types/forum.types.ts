@@ -40,3 +40,19 @@ export interface CreateForumReplyReq {
   imageCount: number;
   parentMessageId?: string;
 }
+
+export interface MoveProposalToForumReq {
+  destinationChannelId: string;
+  title: string;
+  body: string;
+}
+
+export interface ProposalForumReferenceRes {
+  id: string;
+  proposalId: string;
+  sourceChannelId: string;
+  destinationChannelId: string;
+  forumPostId: string;
+  createdAt: string;
+  movedAt: string;
+}
