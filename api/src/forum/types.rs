@@ -1,7 +1,8 @@
 use sea_orm::prelude::Uuid;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::messages::types::{MessageResponse, MessageUser};
+use crate::polls::types::{CreatePollRequest, PollResponse};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,20 +36,18 @@ pub(crate) struct ListForumPostsQuery {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct CreateForumPostRequest {
     pub(crate) title: String,
     pub(crate) body: String,
-    pub(crate) poll_id: Option<Uuid>,
+    pub(crate) proposal: Option<CreatePollRequest>,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct UpdateForumPostRequest {
     pub(crate) title: Option<String>,
     pub(crate) body: Option<String>,
-    #[serde(default, deserialize_with = "deserialize_optional_field")]
-    pub(crate) poll_id: Option<Option<Uuid>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,14 +81,5 @@ pub(crate) struct ForumPostResponse {
     pub(crate) post: ForumPostSummaryResponse,
     pub(crate) body: String,
     pub(crate) replies: Vec<MessageResponse>,
-}
-
-fn deserialize_optional_field<'de, D, T>(
-    deserializer: D,
-) -> Result<Option<Option<T>>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::<T>::deserialize(deserializer).map(Some)
+    pub(crate) proposal: Option<PollResponse>,
 }

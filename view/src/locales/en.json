@@ -373,11 +373,15 @@
   "forums": {
     "actions": {
       "allPosts": "All posts",
+      "back": "Back",
       "closePost": "Close post",
       "closePostPane": "Close post pane",
       "createPost": "Create post",
+      "createDiscussion": "Create discussion",
       "creatingPost": "Creating...",
       "createProposal": "Create proposal",
+      "createProposalFromDiscussion": "Create proposal from discussion",
+      "createWithProposal": "Create with proposal",
       "newPost": "New post",
       "reply": "Reply",
       "saveProposal": "Save association"

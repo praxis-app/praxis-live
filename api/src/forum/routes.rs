@@ -5,9 +5,9 @@ use axum::{
 use sea_orm::DatabaseConnection;
 
 use super::handlers::{
-    close_forum_post, create_forum_post, create_forum_reply,
-    delete_forum_reply, get_forum_post, list_forum_posts, update_forum_post,
-    ForumState,
+    close_forum_post, create_forum_post, create_forum_post_proposal,
+    create_forum_reply, delete_forum_reply, get_forum_post, list_forum_posts,
+    update_forum_post, ForumState,
 };
 use crate::pub_sub::PubSubService;
 
@@ -23,6 +23,7 @@ pub(crate) fn router(
             get(get_forum_post).put(update_forum_post),
         )
         .route("/posts/{postId}/close", post(close_forum_post))
+        .route("/posts/{postId}/proposal", post(create_forum_post_proposal))
         .route("/posts/{postId}/replies", post(create_forum_reply))
         .route(
             "/posts/{postId}/replies/{replyId}",

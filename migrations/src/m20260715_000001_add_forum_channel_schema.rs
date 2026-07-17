@@ -130,7 +130,7 @@ impl MigrationTrait for Migration {
                             .name("forum-posts-poll-id-fkey")
                             .from(ForumPosts::Table, ForumPosts::PollId)
                             .to(Polls::Table, Polls::Id)
-                            .on_delete(ForeignKeyAction::SetNull)
+                            .on_delete(ForeignKeyAction::Restrict)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .index(

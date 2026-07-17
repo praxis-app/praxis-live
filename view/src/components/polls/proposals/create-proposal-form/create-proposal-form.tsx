@@ -36,6 +36,7 @@ interface Props {
   callId?: string;
   onSuccess: (poll: PollRes) => void;
   onNavigate: () => void;
+  createProposal?: (request: CreatePollReq) => Promise<{ poll: PollRes }>;
 }
 
 export const CreateProposalForm = ({
@@ -43,6 +44,7 @@ export const CreateProposalForm = ({
   callId,
   onSuccess,
   onNavigate,
+  createProposal,
 }: Props) => {
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -252,6 +254,9 @@ export const CreateProposalForm = ({
         },
       };
 
+      if (createProposal) {
+        return createProposal(request);
+      }
       return callId
         ? api.createCallPoll(serverId, channelId, callId, request)
         : api.createPoll(serverId, channelId, request);

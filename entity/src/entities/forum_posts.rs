@@ -54,7 +54,7 @@ pub enum Relation {
         from = "Column::PollId",
         to = "super::polls::Column::Id",
         on_update = "Cascade",
-        on_delete = "SetNull"
+        on_delete = "Restrict"
     )]
     Poll,
 }

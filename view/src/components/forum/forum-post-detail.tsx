@@ -12,9 +12,7 @@ import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
-import { type PollRes } from '@/types/poll.types';
 import {
-  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
@@ -54,24 +52,6 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
     },
     enabled: !!serverId,
   });
-  const { data: feedData } = useInfiniteQuery({
-    queryKey: feedQueryKey,
-    queryFn: ({ pageParam }) => {
-      if (!serverId) throw new Error('Server ID is required');
-      return api.getChannelFeed(serverId, channel.id, pageParam, 100);
-    },
-    getNextPageParam: (_lastPage, pages) =>
-      pages.flatMap((page) => page.feed).length,
-    initialPageParam: 0,
-    enabled: !!serverId,
-  });
-  const proposals =
-    feedData?.pages
-      .flatMap((page) => page.feed)
-      .filter(
-        (item): item is PollRes & { type: 'poll' } =>
-          item.type === 'poll' && item.pollType === 'proposal',
-      ) ?? [];
   const post = data?.post;
 
   const { mutate: closePost, isPending: isClosing } = useMutation({
@@ -102,6 +82,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
     <MessageForm
       channelId={channel.id}
       forumPostId={post.id}
+      showActions={false}
       disabled={post.status === 'closed'}
     />
   );
@@ -172,7 +153,6 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
       <ForumPostProposal
         channel={channel}
         post={post}
-        proposals={proposals}
         feedQueryKey={feedQueryKey}
       />
 

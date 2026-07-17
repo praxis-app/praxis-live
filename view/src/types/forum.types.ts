@@ -1,4 +1,5 @@
 import { type MessageRes } from './message.types';
+import { type CreatePollReq, type PollRes } from './poll.types';
 import { type UserRes } from './user.types';
 
 export type ForumPostSort = 'recent' | 'newest';
@@ -20,18 +21,18 @@ export interface ForumPostSummaryRes {
 export interface ForumPostRes extends ForumPostSummaryRes {
   body: string;
   replies: MessageRes[];
+  proposal: PollRes | null;
 }
 
 export interface CreateForumPostReq {
   title: string;
   body: string;
-  pollId?: string;
+  proposal?: CreatePollReq;
 }
 
 export interface UpdateForumPostReq {
   title?: string;
   body?: string;
-  pollId?: string | null;
 }
 
 export interface CreateForumReplyReq {

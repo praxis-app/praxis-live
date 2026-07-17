@@ -16,6 +16,7 @@ use super::{
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
     common::AppResult,
+    polls::{self, types::CreatePollRequest},
     pub_sub::PubSubService,
 };
 
@@ -77,6 +78,10 @@ pub(super) async fn create_forum_post(
         payload,
     )
     .await?;
+    let proposal_id = post
+        .proposal
+        .as_ref()
+        .and_then(|proposal| proposal.id.parse().ok());
     service::broadcast_forum_post(
         &state.database,
         &state.pub_sub_service,
@@ -87,6 +92,66 @@ pub(super) async fn create_forum_post(
         &post,
     )
     .await;
+    if let Some(proposal_id) = proposal_id {
+        if let Err(error) = polls::service::broadcast_poll_update(
+            &state.database,
+            &state.pub_sub_service,
+            path.server_id,
+            path.channel_id,
+            Some(user_id),
+            proposal_id,
+        )
+        .await
+        {
+            tracing::warn!("failed to broadcast forum proposal: {error}");
+        }
+    }
+    Ok(Json(serde_json::json!({ "post": post })))
+}
+
+pub(super) async fn create_forum_post_proposal(
+    State(state): State<ForumState>,
+    Path(path): Path<ForumPostPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    Json(payload): Json<CreatePollRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let post = service::create_forum_post_proposal(
+        &state.database,
+        path.server_id,
+        path.channel_id,
+        path.post_id,
+        user_id,
+        payload,
+    )
+    .await?;
+    service::broadcast_forum_post(
+        &state.database,
+        &state.pub_sub_service,
+        path.server_id,
+        path.channel_id,
+        user_id,
+        "updated",
+        &post,
+    )
+    .await;
+    if let Some(proposal_id) = post
+        .proposal
+        .as_ref()
+        .and_then(|proposal| proposal.id.parse().ok())
+    {
+        if let Err(error) = polls::service::broadcast_poll_update(
+            &state.database,
+            &state.pub_sub_service,
+            path.server_id,
+            path.channel_id,
+            Some(user_id),
+            proposal_id,
+        )
+        .await
+        {
+            tracing::warn!("failed to broadcast forum proposal: {error}");
+        }
+    }
     Ok(Json(serde_json::json!({ "post": post })))
 }
 

@@ -1,8 +1,8 @@
 use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
-    enums::{ChannelType, ForumPostStatus, PollType},
-    forum_posts, message_images, messages, polls, users,
+    enums::{ChannelType, ForumPostStatus},
+    forum_posts, message_images, messages, users,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
@@ -20,6 +20,7 @@ use crate::{
     channels,
     common::{encryption, text::sanitize_text, ApiError, AppResult},
     messages::{self as messages_service, types::MessageResponse},
+    polls::service as polls_service,
     pub_sub::{PubSubService, PubSubTopic},
     users as users_service,
 };
@@ -65,6 +66,15 @@ pub(crate) async fn create_forum_post(
     ensure_forum_access(database, server_id, channel_id, user_id).await?;
     let title = validate_title(&request.title)?;
     let body = validate_body(&request.body, "A forum post body is required.")?;
+    let prepared_proposal = match request.proposal {
+        Some(proposal) => Some(
+            polls_service::prepare_forum_proposal(
+                database, server_id, channel_id, user_id, proposal,
+            )
+            .await?,
+        ),
+        None => None,
+    };
     let (key, unwrapped_key) =
         channels::get_unwrapped_channel_key(database, channel_id).await?;
     let encrypted_title = encryption::encrypt_text(&title, &unwrapped_key)?;
@@ -74,8 +84,18 @@ pub(crate) async fn create_forum_post(
     let root_message_id = NativeUuid::new_v4();
 
     let transaction = database.begin().await.map_err(internal_error)?;
-    validate_poll_association(&transaction, channel_id, request.poll_id, None)
-        .await?;
+    let proposal = match prepared_proposal {
+        Some(prepared) => Some(
+            polls_service::insert_prepared_poll(
+                &transaction,
+                None,
+                user_id,
+                prepared,
+            )
+            .await?,
+        ),
+        None => None,
+    };
 
     messages::ActiveModel {
         id: Set(root_message_id),
@@ -98,7 +118,7 @@ pub(crate) async fn create_forum_post(
         channel_id: Set(channel_id),
         user_id: Set(user_id),
         root_message_id: Set(root_message_id),
-        poll_id: Set(request.poll_id),
+        poll_id: Set(proposal.as_ref().map(|proposal| proposal.id)),
         ciphertext: Set(encrypted_title.ciphertext),
         iv: Set(encrypted_title.iv),
         tag: Set(encrypted_title.tag),
@@ -124,8 +144,12 @@ pub(crate) async fn get_forum_post(
     user_id: Uuid,
 ) -> AppResult<ForumPostResponse> {
     ensure_forum_access(database, server_id, channel_id, user_id).await?;
-    shape_forum_post(database, load_post(database, channel_id, post_id).await?)
-        .await
+    shape_forum_post(
+        database,
+        load_post(database, channel_id, post_id).await?,
+        user_id,
+    )
+    .await
 }
 
 pub(crate) async fn update_forum_post(
@@ -137,10 +161,7 @@ pub(crate) async fn update_forum_post(
     request: UpdateForumPostRequest,
 ) -> AppResult<ForumPostResponse> {
     ensure_forum_access(database, server_id, channel_id, user_id).await?;
-    if request.title.is_none()
-        && request.body.is_none()
-        && request.poll_id.is_none()
-    {
+    if request.title.is_none() && request.body.is_none() {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "A forum post update is required.",
@@ -173,16 +194,6 @@ pub(crate) async fn update_forum_post(
     let post = load_post_for_update(&transaction, channel_id, post_id).await?;
     ensure_owner(post.user_id, user_id, "Only the post author can edit it.")?;
     let root_message_id = post.root_message_id;
-    if let Some(poll_id) = request.poll_id {
-        validate_poll_association(
-            &transaction,
-            channel_id,
-            poll_id,
-            Some(post_id),
-        )
-        .await?;
-    }
-
     let now = Utc::now().fixed_offset();
     let mut active = post.into_active_model();
     if let Some((key_id, Some(encrypted_title), _)) = encrypted.as_ref() {
@@ -190,9 +201,6 @@ pub(crate) async fn update_forum_post(
         active.ciphertext = Set(encrypted_title.ciphertext.clone());
         active.iv = Set(encrypted_title.iv.clone());
         active.tag = Set(encrypted_title.tag.clone());
-    }
-    if let Some(poll_id) = request.poll_id {
-        active.poll_id = Set(poll_id);
     }
     active.updated_at = Set(now);
     active.update(&transaction).await.map_err(internal_error)?;
@@ -215,6 +223,48 @@ pub(crate) async fn update_forum_post(
     }
 
     transaction.commit().await.map_err(internal_error)?;
+    get_forum_post(database, server_id, channel_id, post_id, user_id).await
+}
+
+pub(crate) async fn create_forum_post_proposal(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    post_id: Uuid,
+    user_id: Uuid,
+    request: crate::polls::types::CreatePollRequest,
+) -> AppResult<ForumPostResponse> {
+    ensure_forum_access(database, server_id, channel_id, user_id).await?;
+    let prepared = polls_service::prepare_forum_proposal(
+        database, server_id, channel_id, user_id, request,
+    )
+    .await?;
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let post = load_post_for_update(&transaction, channel_id, post_id).await?;
+    ensure_owner(
+        post.user_id,
+        user_id,
+        "Only the post author can create its proposal.",
+    )?;
+    if post.poll_id.is_some() {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "This forum post already has a proposal.",
+        ));
+    }
+    let proposal = polls_service::insert_prepared_poll(
+        &transaction,
+        None,
+        user_id,
+        prepared,
+    )
+    .await?;
+    let mut active = post.into_active_model();
+    active.poll_id = Set(Some(proposal.id));
+    active.updated_at = Set(Utc::now().fixed_offset());
+    active.update(&transaction).await.map_err(internal_error)?;
+    transaction.commit().await.map_err(internal_error)?;
+
     get_forum_post(database, server_id, channel_id, post_id, user_id).await
 }
 
@@ -439,6 +489,7 @@ pub(crate) async fn broadcast_forum_reply(
 async fn shape_forum_post(
     database: &DatabaseConnection,
     post: forum_posts::Model,
+    user_id: Uuid,
 ) -> AppResult<ForumPostResponse> {
     let root = messages::Entity::find_by_id(post.root_message_id)
         .one(database)
@@ -463,6 +514,19 @@ async fn shape_forum_post(
     let root = shaped_messages.next().ok_or_else(|| {
         internal_consistency_error("Post root message not found.")
     })?;
+    let proposal = match post.poll_id {
+        Some(poll_id) => Some(
+            polls_service::get_poll_response(
+                database,
+                Uuid::nil(),
+                post.channel_id,
+                poll_id,
+                Some(user_id),
+            )
+            .await?,
+        ),
+        None => None,
+    };
     let summary = shape_post_summaries(database, vec![post])
         .await?
         .into_iter()
@@ -473,6 +537,7 @@ async fn shape_forum_post(
         post: summary,
         body: root.body.unwrap_or_default(),
         replies: shaped_messages.collect(),
+        proposal,
     })
 }
 
@@ -606,52 +671,6 @@ where
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Post not found."))
-}
-
-async fn validate_poll_association<C>(
-    database: &C,
-    channel_id: Uuid,
-    poll_id: Option<Uuid>,
-    current_post_id: Option<Uuid>,
-) -> AppResult<()>
-where
-    C: ConnectionTrait,
-{
-    let Some(poll_id) = poll_id else {
-        return Ok(());
-    };
-    let poll = polls::Entity::find_by_id(poll_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
-        })?;
-    if poll.channel_id != channel_id || poll.poll_type != PollType::Proposal {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "A forum post can only reference a proposal in the same channel.",
-        ));
-    }
-
-    let mut association = forum_posts::Entity::find()
-        .filter(forum_posts::Column::PollId.eq(poll_id));
-    if let Some(current_post_id) = current_post_id {
-        association =
-            association.filter(forum_posts::Column::Id.ne(current_post_id));
-    }
-    if association
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .is_some()
-    {
-        return Err(ApiError::new(
-            StatusCode::CONFLICT,
-            "Proposal is already associated with a forum post.",
-        ));
-    }
-    Ok(())
 }
 
 async fn validate_reply_parent<C>(

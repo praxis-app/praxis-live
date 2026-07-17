@@ -281,6 +281,16 @@ class ApiClient {
     return this.executeRequest<{ post: ForumPostRes }>('put', path, { data });
   };
 
+  createForumPostProposal = async (
+    serverId: string,
+    channelId: string,
+    postId: string,
+    data: CreatePollReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/proposal`;
+    return this.executeRequest<{ post: ForumPostRes }>('post', path, { data });
+  };
+
   closeForumPost = async (
     serverId: string,
     channelId: string,
