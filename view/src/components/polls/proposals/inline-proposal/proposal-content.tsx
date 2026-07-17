@@ -94,7 +94,7 @@ export const ProposalContent = ({
         />
       </CardAction>
 
-      <Separator className="my-1" />
+      <Separator className="mt-5 mb-2.5" />
 
       <ProposalOutcome poll={poll} />
 
