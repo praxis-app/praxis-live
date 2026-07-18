@@ -28,7 +28,6 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const { t } = useTranslation();
   const { me } = useAuthData();
   const { serverId, serverPath } = useServerData();
-  const feedQueryKey = ['servers', serverId, 'channels', channel.id, 'feed'];
   const postQueryKey = [
     'servers',
     serverId,
@@ -118,7 +117,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
               <ForumProposalPresentation
                 channel={channel}
                 proposal={post.proposal}
-                feedQueryKey={feedQueryKey}
+                postQueryKey={postQueryKey}
                 me={me}
               />
             )}

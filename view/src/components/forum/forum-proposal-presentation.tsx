@@ -1,24 +1,41 @@
 import { ProposalContent } from '@/components/polls/proposals/inline-proposal/proposal-content';
 import { type ChannelRes } from '@/types/channel.types';
+import { type ForumPostRes } from '@/types/forum.types';
 import { type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
-import { type QueryKey } from '@tanstack/react-query';
+import { type QueryKey, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
   channel: ChannelRes;
   proposal: PollRes;
-  feedQueryKey: QueryKey;
+  postQueryKey: QueryKey;
   me?: CurrentUser;
 }
 
 export const ForumProposalPresentation = ({
   channel,
   proposal,
-  feedQueryKey,
+  postQueryKey,
   me,
 }: Props) => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  const updateCachedProposal = (
+    update: (cachedProposal: PollRes) => PollRes,
+  ) => {
+    queryClient.setQueryData<{ post: ForumPostRes }>(postQueryKey, (old) => {
+      if (!old?.post.proposal) return old;
+      return {
+        ...old,
+        post: {
+          ...old.post,
+          proposal: update(old.post.proposal),
+        },
+      };
+    });
+  };
 
   return (
     <section
@@ -28,9 +45,9 @@ export const ForumProposalPresentation = ({
       <ProposalContent
         poll={proposal}
         channel={channel}
-        feedQueryKey={feedQueryKey}
         me={me}
         variant="forum"
+        updateCachedProposal={updateCachedProposal}
       />
     </section>
   );

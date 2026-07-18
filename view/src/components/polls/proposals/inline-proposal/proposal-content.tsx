@@ -24,7 +24,7 @@ export type SourceCallContext = 'in-call' | 'this-call' | 'another-call';
 interface Props {
   poll: PollRes;
   channel: ChannelRes;
-  feedQueryKey: QueryKey;
+  feedQueryKey?: QueryKey;
   me?: CurrentUser;
   onPollChange?: () => void;
   onViewCall?: (callId: string) => void;
@@ -34,6 +34,7 @@ interface Props {
   isJoiningSourceCall?: boolean;
   canMoveToForum?: boolean;
   variant?: 'inline' | 'forum';
+  updateCachedProposal?: (update: (proposal: PollRes) => PollRes) => void;
 }
 
 export const ProposalContent = ({
@@ -49,6 +50,7 @@ export const ProposalContent = ({
   isJoiningSourceCall = false,
   canMoveToForum = false,
   variant = 'inline',
+  updateCachedProposal,
 }: Props) => {
   const { t } = useTranslation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -63,7 +65,7 @@ export const ProposalContent = ({
 
   return (
     <>
-      {canMoveToForum && (
+      {canMoveToForum && feedQueryKey && (
         <ProposalMenu
           poll={poll}
           channel={channel}
@@ -91,6 +93,7 @@ export const ProposalContent = ({
           decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
           closingAt={config.closingAt}
           onVoteSuccess={onPollChange}
+          updateCachedProposal={updateCachedProposal}
         />
       </CardAction>
 
