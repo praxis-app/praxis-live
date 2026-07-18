@@ -398,6 +398,7 @@ pub(crate) async fn move_proposal_to_forum(
         source_channel_id: source_channel_id.to_string(),
         destination_channel_id: destination_channel_id.to_string(),
         forum_post_id: post_id.to_string(),
+        user: post.post.user.clone(),
         created_at: proposal_created_at.to_rfc3339(),
         moved_at: now.to_rfc3339(),
     };
@@ -434,6 +435,18 @@ pub(crate) async fn list_proposal_forum_references(
         .into_iter()
         .map(|proposal| (proposal.id, proposal))
         .collect::<HashMap<_, _>>();
+    let user_ids = posts.iter().map(|post| post.user_id).collect::<Vec<_>>();
+    let users = users::Entity::find()
+        .filter(users::Column::Id.is_in(user_ids.iter().copied()))
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|user| (user.id, user))
+        .collect::<HashMap<_, _>>();
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
 
     let mut references = posts
         .into_iter()
@@ -453,12 +466,21 @@ pub(crate) async fn list_proposal_forum_references(
                     "Proposal move link is inconsistent.",
                 ));
             }
+            let user = users.get(&post.user_id).ok_or_else(|| {
+                internal_consistency_error("Moved proposal author not found.")
+            })?;
             Ok(ProposalForumReferenceResponse {
                 id: proposal.id.to_string(),
                 proposal_id: proposal.id.to_string(),
                 source_channel_id: source_channel_id.to_string(),
                 destination_channel_id: post.channel_id.to_string(),
                 forum_post_id: post.id.to_string(),
+                user: crate::messages::types::MessageUser {
+                    id: user.id.to_string(),
+                    name: user.name.clone(),
+                    display_name: user.display_name.clone(),
+                    profile_picture: profile_pictures.get(&user.id).cloned(),
+                },
                 created_at: proposal.created_at.to_rfc3339(),
                 moved_at: post.created_at.to_rfc3339(),
             })

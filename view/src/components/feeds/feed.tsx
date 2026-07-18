@@ -180,6 +180,7 @@ export const Feed = ({
             <ProposalForumReference
               key={`proposal-moved-${item.id}`}
               reference={item}
+              me={me}
             />
           );
         }

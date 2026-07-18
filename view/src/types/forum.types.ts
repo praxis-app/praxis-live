@@ -53,6 +53,7 @@ export interface ProposalForumReferenceRes {
   sourceChannelId: string;
   destinationChannelId: string;
   forumPostId: string;
+  user?: UserRes;
   createdAt: string;
   movedAt: string;
 }
