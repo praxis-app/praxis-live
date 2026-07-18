@@ -13,6 +13,7 @@ import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
 import { MdClose, MdLockOutline } from 'react-icons/md';
@@ -28,6 +29,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const { t } = useTranslation();
   const { me } = useAuthData();
   const { serverId, serverPath } = useServerData();
+
   const postQueryKey = [
     'servers',
     serverId,
@@ -48,6 +50,22 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   });
   const post = data?.post;
 
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
+  const shouldScrollAfterReplyRef = useRef(false);
+  const replyCount = post?.replies.length;
+
+  useEffect(() => {
+    if (!shouldScrollAfterReplyRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      shouldScrollAfterReplyRef.current = false;
+      const container = scrollContainerRef.current;
+      container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [replyCount]);
+
   if (!post) {
     return isPane ? (
       <aside className="bg-background min-w-0 flex-1 border-l md:max-w-[720px]" />
@@ -65,6 +83,9 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
       forumPostId={post.id}
       showActions={false}
       disabled={post.status === 'closed'}
+      onSend={() => {
+        shouldScrollAfterReplyRef.current = true;
+      }}
     />
   );
 
@@ -169,13 +190,27 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
             </Link>
           </Button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto">{detailContent}</div>
+        <div
+          ref={(element) => {
+            scrollContainerRef.current = element;
+          }}
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
+          {detailContent}
+        </div>
         <div className="shrink-0">{replyForm}</div>
       </aside>
     );
   }
 
   return (
-    <main className="min-h-0 flex-1 overflow-y-auto">{detailContent}</main>
+    <main
+      ref={(element) => {
+        scrollContainerRef.current = element;
+      }}
+      className="min-h-0 flex-1 overflow-y-auto"
+    >
+      {detailContent}
+    </main>
   );
 };
