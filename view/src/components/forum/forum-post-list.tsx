@@ -17,14 +17,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useServerData } from '@/hooks/use-server-data';
+import { useInView } from '@/hooks/use-in-view';
+import { useScrollDirection } from '@/hooks/use-scroll-direction';
+import { throttle } from '@/lib/shared.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { type ForumPostSort, type ForumPostStatus } from '@/types/forum.types';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdAdd } from 'react-icons/md';
 
 const FORUM_POSTS_PAGE_SIZE = 20;
+const LOAD_MORE_THROTTLE_MS = 1500;
+const IN_VIEW_THRESHOLD = 50;
 
 interface Props {
   channel: ChannelRes;
@@ -38,45 +43,74 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
   const [status, setStatus] = useState<ForumPostStatus | 'all'>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-  } = useInfiniteQuery({
-    queryKey: [
-      'servers',
-      serverId,
-      'channels',
-      channel.id,
-      'forum',
-      'posts',
-      sort,
-      status,
-    ],
-    queryFn: ({ pageParam }) => {
-      if (!serverId) throw new Error('Server ID is required');
-      return api.getForumPosts(
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    useInfiniteQuery({
+      queryKey: [
+        'servers',
         serverId,
+        'channels',
         channel.id,
+        'forum',
+        'posts',
         sort,
-        status === 'all' ? undefined : status,
-        pageParam,
-        FORUM_POSTS_PAGE_SIZE,
-      );
+        status,
+      ],
+      queryFn: ({ pageParam }) => {
+        if (!serverId) throw new Error('Server ID is required');
+        return api.getForumPosts(
+          serverId,
+          channel.id,
+          sort,
+          status === 'all' ? undefined : status,
+          pageParam,
+          FORUM_POSTS_PAGE_SIZE,
+        );
+      },
+      initialPageParam: 0,
+      getNextPageParam: (lastPage, pages) =>
+        lastPage.posts.length < FORUM_POSTS_PAGE_SIZE
+          ? undefined
+          : pages.flatMap((page) => page.posts).length,
+      enabled: !!serverId,
+    });
+
+  const posts = Array.from(
+    new Map(
+      data?.pages.flatMap((page) => page.posts).map((post) => [post.id, post]),
+    ).values(),
+  );
+
+  const listRef = useRef<HTMLElement>(null);
+  const listBottomRef = useRef<HTMLDivElement>(null);
+  const scrollDirection = useScrollDirection(listRef);
+
+  const fetchNextPageRef = useRef<() => void>(() => undefined);
+  fetchNextPageRef.current = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  };
+
+  const throttledFetchNextPage = useRef(
+    throttle(() => fetchNextPageRef.current(), LOAD_MORE_THROTTLE_MS),
+  ).current;
+
+  const { setViewed } = useInView(
+    listBottomRef,
+    `${IN_VIEW_THRESHOLD}px`,
+    () => {
+      if (scrollDirection !== 'down') return;
+      setViewed(false);
+      throttledFetchNextPage();
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, pages) =>
-      lastPage.posts.length === 0
-        ? undefined
-        : pages.flatMap((page) => page.posts).length,
-    enabled: !!serverId,
-  });
-  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
+  );
 
   return (
-    <main className="min-h-0 flex-1 overflow-y-auto">
+    <main
+      ref={listRef}
+      data-testid="forum-post-list"
+      className="min-h-0 flex-1 overflow-y-auto"
+    >
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-8">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
@@ -137,18 +171,7 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
               {t('forums.prompts.noPosts')}
             </div>
           )}
-          {hasNextPage && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isFetchingNextPage}
-              onClick={() => void fetchNextPage()}
-            >
-              {isFetchingNextPage
-                ? t('actions.loading')
-                : t('forums.actions.loadMore')}
-            </Button>
-          )}
+          <div ref={listBottomRef} className="h-px" aria-hidden="true" />
         </div>
       </div>
 

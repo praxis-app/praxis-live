@@ -57,12 +57,12 @@ pub(crate) async fn list_forum_posts(
         select = select.filter(forum_posts::Column::Status.eq(status));
     }
     select = match sort {
-        ForumPostSort::Recent => {
-            select.order_by_desc(forum_posts::Column::LatestActivityAt)
-        }
-        ForumPostSort::Newest => {
-            select.order_by_desc(forum_posts::Column::CreatedAt)
-        }
+        ForumPostSort::Recent => select
+            .order_by_desc(forum_posts::Column::LatestActivityAt)
+            .order_by_desc(forum_posts::Column::Id),
+        ForumPostSort::Newest => select
+            .order_by_desc(forum_posts::Column::CreatedAt)
+            .order_by_desc(forum_posts::Column::Id),
     };
 
     let posts = select
