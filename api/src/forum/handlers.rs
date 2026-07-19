@@ -53,12 +53,17 @@ pub(super) async fn list_forum_posts(
     AuthenticatedUser(user_id): AuthenticatedUser,
     Query(query): Query<ListForumPostsQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
+    let limit = query.limit.unwrap_or(50).min(100);
+    let offset = query.offset.unwrap_or(0);
     let posts = service::list_forum_posts(
         &state.database,
         path.server_id,
         path.channel_id,
         user_id,
-        query,
+        query.sort.as_deref(),
+        query.status.as_deref(),
+        offset,
+        limit,
     )
     .await?;
     Ok(Json(serde_json::json!({ "posts": posts })))

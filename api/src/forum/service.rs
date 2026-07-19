@@ -6,16 +6,17 @@ use entity::{
     forum_posts, message_images, messages, polls, users, votes,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter,
-    QueryOrder, QuerySelect, Set, TransactionTrait,
+    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait,
+    ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult,
+    IntoActiveModel, ModelTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    TransactionTrait,
 };
 use std::collections::HashMap;
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
     CreateForumPostRequest, CreateForumReplyRequest, ForumPostResponse,
-    ForumPostSummaryResponse, ListForumPostsQuery, MoveProposalToForumRequest,
+    ForumPostSummaryResponse, MoveProposalToForumRequest,
     MoveProposalToForumResponse, ProposalForumReferenceResponse,
     UpdateForumPostRequest,
 };
@@ -30,17 +31,26 @@ use crate::{
 
 const MAX_POST_TITLE_LENGTH: usize = 100;
 
+#[derive(FromQueryResult)]
+struct ReplyCount {
+    thread_root_id: Option<Uuid>,
+    reply_count: i64,
+}
+
 pub(crate) async fn list_forum_posts(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
     user_id: Uuid,
-    query: ListForumPostsQuery,
+    sort: Option<&str>,
+    status: Option<&str>,
+    offset: u64,
+    limit: u64,
 ) -> AppResult<Vec<ForumPostSummaryResponse>> {
     ensure_forum_access(database, server_id, channel_id, user_id).await?;
 
-    let status = parse_status_filter(query.status.as_deref())?;
-    let sort = parse_sort(query.sort.as_deref())?;
+    let status = parse_status_filter(status)?;
+    let sort = parse_sort(sort)?;
     let mut select = forum_posts::Entity::find()
         .filter(forum_posts::Column::ChannelId.eq(channel_id));
     if let Some(status) = status {
@@ -55,7 +65,12 @@ pub(crate) async fn list_forum_posts(
         }
     };
 
-    let posts = select.all(database).await.map_err(internal_error)?;
+    let posts = select
+        .offset(offset)
+        .limit(limit)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
     shape_post_summaries(database, posts).await
 }
 
@@ -993,17 +1008,23 @@ async fn shape_post_summaries(
         .iter()
         .map(|post| post.root_message_id)
         .collect::<Vec<_>>();
-    let replies = messages::Entity::find()
+    let reply_counts = messages::Entity::find()
+        .select_only()
+        .column(messages::Column::ThreadRootId)
+        .column_as(Expr::col(messages::Column::Id).count(), "reply_count")
         .filter(messages::Column::ThreadRootId.is_in(root_ids))
+        .group_by(messages::Column::ThreadRootId)
+        .into_model::<ReplyCount>()
         .all(database)
         .await
-        .map_err(internal_error)?;
-    let mut reply_counts = HashMap::<Uuid, usize>::new();
-    for reply in replies {
-        if let Some(root_id) = reply.thread_root_id {
-            *reply_counts.entry(root_id).or_default() += 1;
-        }
-    }
+        .map_err(internal_error)?
+        .into_iter()
+        .filter_map(|count| {
+            count
+                .thread_root_id
+                .map(|root_id| (root_id, count.reply_count as usize))
+        })
+        .collect::<HashMap<_, _>>();
 
     posts
         .into_iter()

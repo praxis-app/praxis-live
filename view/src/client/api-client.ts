@@ -248,10 +248,12 @@ class ApiClient {
     channelId: string,
     sort: ForumPostSort,
     status?: ForumPostStatus,
+    offset = 0,
+    limit = 20,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts`;
     return this.executeRequest<{ posts: ForumPostSummaryRes[] }>('get', path, {
-      params: { sort, status },
+      params: { sort, status, offset, limit },
     });
   };
 

@@ -19,10 +19,12 @@ import {
 import { useServerData } from '@/hooks/use-server-data';
 import { type ChannelRes } from '@/types/channel.types';
 import { type ForumPostSort, type ForumPostStatus } from '@/types/forum.types';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdAdd } from 'react-icons/md';
+
+const FORUM_POSTS_PAGE_SIZE = 20;
 
 interface Props {
   channel: ChannelRes;
@@ -36,7 +38,13 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
   const [status, setStatus] = useState<ForumPostStatus | 'all'>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useInfiniteQuery({
     queryKey: [
       'servers',
       serverId,
@@ -47,17 +55,25 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
       sort,
       status,
     ],
-    queryFn: () => {
+    queryFn: ({ pageParam }) => {
       if (!serverId) throw new Error('Server ID is required');
       return api.getForumPosts(
         serverId,
         channel.id,
         sort,
         status === 'all' ? undefined : status,
+        pageParam,
+        FORUM_POSTS_PAGE_SIZE,
       );
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.posts.length === 0
+        ? undefined
+        : pages.flatMap((page) => page.posts).length,
     enabled: !!serverId,
   });
+  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto">
@@ -108,7 +124,7 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
         </div>
 
         <div className="grid gap-3">
-          {data?.posts.map((post) => (
+          {posts.map((post) => (
             <ForumPostListItem
               key={post.id}
               post={post}
@@ -116,10 +132,22 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
               isSelected={post.id === selectedPostId}
             />
           ))}
-          {!isLoading && !data?.posts.length && (
+          {!isLoading && !posts.length && (
             <div className="text-muted-foreground rounded-lg border border-dashed p-10 text-center">
               {t('forums.prompts.noPosts')}
             </div>
+          )}
+          {hasNextPage && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isFetchingNextPage}
+              onClick={() => void fetchNextPage()}
+            >
+              {isFetchingNextPage
+                ? t('actions.loading')
+                : t('forums.actions.loadMore')}
+            </Button>
           )}
         </div>
       </div>
