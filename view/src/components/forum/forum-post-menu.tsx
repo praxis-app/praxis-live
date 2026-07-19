@@ -23,7 +23,8 @@ import { type CreatePollReq } from '@/types/poll.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdAdd, MdLockOutline, MdMoreHoriz } from 'react-icons/md';
+import { LuListTodo } from 'react-icons/lu';
+import { MdLockOutline, MdMoreHoriz } from 'react-icons/md';
 
 interface Props {
   channel: ChannelRes;
@@ -83,7 +84,7 @@ export const ForumPostMenu = ({ channel, post }: Props) => {
         <DropdownMenuContent align="end">
           {!post.proposal && (
             <DropdownMenuItem onSelect={() => setIsCreateOpen(true)}>
-              <MdAdd />
+              <LuListTodo />
               {t('forums.actions.createProposalFromDiscussion')}
             </DropdownMenuItem>
           )}
