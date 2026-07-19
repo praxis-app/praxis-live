@@ -390,7 +390,7 @@
       "openPostMenu": "Open post menu",
       "reply": "Reply",
       "saveProposal": "Save association",
-      "viewPost": "View forum post"
+      "viewPost": "View in forum"
     },
     "descriptions": {
       "channel": "Start a focused discussion with a forum post.",
@@ -427,6 +427,7 @@
       "noProposal": "No proposal is associated with this post.",
       "noReplies": "No replies yet.",
       "movedProposal": "Moved this proposal to a forum channel.",
+      "movedProposalWithChannel": "Moved this proposal to <channelLink>#{{channelName}}</channelLink>.",
       "movedProposalDiscussion": "Continue the discussion for this proposal.",
       "moveProposal": "Choose a forum channel and review the new post before moving this proposal.",
       "noForumChannels": "You do not have access to a forum channel.",

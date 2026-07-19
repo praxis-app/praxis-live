@@ -52,6 +52,7 @@ export interface ProposalForumReferenceRes {
   proposalId: string;
   sourceChannelId: string;
   destinationChannelId: string;
+  destinationChannelName?: string;
   forumPostId: string;
   user?: UserRes;
   createdAt: string;

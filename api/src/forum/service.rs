@@ -397,6 +397,7 @@ pub(crate) async fn move_proposal_to_forum(
         proposal_id: poll_id.to_string(),
         source_channel_id: source_channel_id.to_string(),
         destination_channel_id: destination_channel_id.to_string(),
+        destination_channel_name: destination_channel.name.clone(),
         forum_post_id: post_id.to_string(),
         user: post.post.user.clone(),
         created_at: proposal_created_at.to_rfc3339(),
@@ -423,6 +424,7 @@ pub(crate) async fn list_proposal_forum_references(
     if posts.is_empty() {
         return Ok(vec![]);
     }
+
     let poll_ids = posts
         .iter()
         .filter_map(|post| post.poll_id)
@@ -435,7 +437,22 @@ pub(crate) async fn list_proposal_forum_references(
         .into_iter()
         .map(|proposal| (proposal.id, proposal))
         .collect::<HashMap<_, _>>();
+
     let user_ids = posts.iter().map(|post| post.user_id).collect::<Vec<_>>();
+    let destination_channel_ids =
+        posts.iter().map(|post| post.channel_id).collect::<Vec<_>>();
+    let destination_channels = channel_entities::Entity::find()
+        .filter(
+            channel_entities::Column::Id
+                .is_in(destination_channel_ids.iter().copied()),
+        )
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|channel| (channel.id, channel))
+        .collect::<HashMap<_, _>>();
+
     let users = users::Entity::find()
         .filter(users::Column::Id.is_in(user_ids.iter().copied()))
         .all(database)
@@ -444,6 +461,7 @@ pub(crate) async fn list_proposal_forum_references(
         .into_iter()
         .map(|user| (user.id, user))
         .collect::<HashMap<_, _>>();
+
     let profile_pictures =
         users_service::get_user_profile_pictures_map(database, &user_ids)
             .await?;
@@ -469,11 +487,20 @@ pub(crate) async fn list_proposal_forum_references(
             let user = users.get(&post.user_id).ok_or_else(|| {
                 internal_consistency_error("Moved proposal author not found.")
             })?;
+            let destination_channel = destination_channels
+                .get(&post.channel_id)
+                .ok_or_else(|| {
+                    internal_consistency_error(
+                        "Moved proposal destination channel not found.",
+                    )
+                })?;
+
             Ok(ProposalForumReferenceResponse {
                 id: proposal.id.to_string(),
                 proposal_id: proposal.id.to_string(),
                 source_channel_id: source_channel_id.to_string(),
                 destination_channel_id: post.channel_id.to_string(),
+                destination_channel_name: destination_channel.name.clone(),
                 forum_post_id: post.id.to_string(),
                 user: crate::messages::types::MessageUser {
                     id: user.id.to_string(),

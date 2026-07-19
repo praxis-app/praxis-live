@@ -6,7 +6,7 @@ import { truncate } from '@/lib/text.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type ProposalForumReferenceRes } from '@/types/forum.types';
 import { type CurrentUser } from '@/types/user.types';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { MdArrowForward, MdForum } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 
@@ -69,8 +69,24 @@ export const ProposalForumReference = ({ reference, me }: Props) => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">
-              {t('forums.prompts.movedProposal')}
+              {reference.destinationChannelName ? (
+                <Trans
+                  i18nKey="forums.prompts.movedProposalWithChannel"
+                  values={{ channelName: reference.destinationChannelName }}
+                  components={{
+                    channelLink: (
+                      <Link
+                        className="text-primary underline-offset-4 hover:underline"
+                        to={`${serverPath}/c/${reference.destinationChannelId}`}
+                      />
+                    ),
+                  }}
+                />
+              ) : (
+                t('forums.prompts.movedProposal')
+              )}
             </p>
+
             <Link
               className="text-primary mt-0.5 flex w-fit items-center gap-1 text-sm font-medium underline-offset-4 hover:underline"
               to={`${serverPath}/c/${reference.destinationChannelId}/posts/${reference.forumPostId}`}

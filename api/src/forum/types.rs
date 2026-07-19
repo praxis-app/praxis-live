@@ -99,6 +99,7 @@ pub(crate) struct ProposalForumReferenceResponse {
     pub(crate) proposal_id: String,
     pub(crate) source_channel_id: String,
     pub(crate) destination_channel_id: String,
+    pub(crate) destination_channel_name: String,
     pub(crate) forum_post_id: String,
     pub(crate) user: MessageUser,
     pub(crate) created_at: String,
