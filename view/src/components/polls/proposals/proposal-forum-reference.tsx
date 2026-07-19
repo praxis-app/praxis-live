@@ -63,7 +63,7 @@ export const ProposalForumReference = ({ reference, me }: Props) => {
             {timeAgo(reference.createdAt)}
           </div>
         </div>
-        <Card className="bg-muted/30 max-w-full flex-row items-center gap-3 rounded-lg px-3.5 py-3 shadow-none">
+        <Card className="before:border-l-border @container relative max-w-full min-w-0 flex-row items-start gap-3 rounded-md px-3 py-3.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3 sm:items-center">
           <div className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-full">
             <MdForum className="size-5" />
           </div>
