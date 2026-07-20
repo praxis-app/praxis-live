@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:rust": "./scripts/build-linux-artifact.sh",
     "types": "tsc -b",
     "types:e2e": "tsc -b tsconfig.e2e.json",
     "lint": "eslint .",
