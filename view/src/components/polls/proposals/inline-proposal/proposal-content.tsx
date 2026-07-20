@@ -52,16 +52,20 @@ export const ProposalContent = ({
   variant = 'inline',
   updateCachedProposal,
 }: Props) => {
-  const { t } = useTranslation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { id, body, myVote, config, action, stage, votes, memberCount } = poll;
+
+  const { t } = useTranslation();
+
   const isSourceCallActive =
     sourceCall?.status === 'starting' || sourceCall?.status === 'active';
+
   const sourceCallLabel = {
     'in-call': t('proposals.labels.createdInCall'),
     'this-call': t('proposals.labels.createdInThisCall'),
     'another-call': t('proposals.labels.createdInAnotherCall'),
   }[sourceCallContext];
+
+  const { id, body, myVote, config, action, stage, votes, memberCount } = poll;
 
   return (
     <>
