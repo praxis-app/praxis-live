@@ -125,8 +125,9 @@ async fn broadcast_event(
         if member_id == sender_id {
             continue;
         }
-        let topic = PubSubTopic::forum_posts(server_id, channel_id, member_id)
-            .to_string();
+        let topic =
+            PubSubTopic::new_forum_post(server_id, channel_id, member_id)
+                .to_string();
         if let Err(error) = pub_sub_service.publish(&topic, body.clone()).await
         {
             tracing::warn!("failed to broadcast forum event: {error}");

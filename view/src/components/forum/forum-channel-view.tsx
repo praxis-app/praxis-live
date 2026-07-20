@@ -36,7 +36,7 @@ export const ForumChannelView = ({ channel }: Props) => {
   } = useChannelCall(serverId, channel.id);
 
   useSubscription(
-    channelPubSubTopic('forum-posts', serverId, channel.id, me?.id),
+    channelPubSubTopic('new-forum-post', serverId, channel.id, me?.id),
     {
       onMessage: () => {
         void queryClient.invalidateQueries({
