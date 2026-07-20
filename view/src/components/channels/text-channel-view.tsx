@@ -63,7 +63,7 @@ interface Props {
   channel?: ChannelRes;
 }
 
-export const ChatChannelView = ({ channel }: Props) => {
+export const TextChannelView = ({ channel }: Props) => {
   const { inviteToken } = useAuthStore();
   const [isLastPage, setIsLastPage] = useState(false);
 

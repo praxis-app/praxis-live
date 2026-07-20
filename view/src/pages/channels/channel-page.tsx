@@ -1,5 +1,6 @@
 import { api } from '@/client/api-client';
-import { ChannelView } from '@/components/channels/channel-view';
+import { TextChannelView } from '@/components/channels/text-channel-view';
+import { ForumChannelView } from '@/components/forum/forum-channel-view';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import { useAuthStore } from '@/store/auth.store';
@@ -42,5 +43,9 @@ export const ChannelPage = () => {
     throw new Error(channelError.message);
   }
 
-  return <ChannelView channel={channel} />;
+  if (channel?.channelType === 'forum') {
+    return <ForumChannelView channel={channel} />;
+  }
+
+  return <TextChannelView channel={channel} />;
 };
