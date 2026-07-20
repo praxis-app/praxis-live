@@ -100,22 +100,24 @@ export const ProposalSettingsDialog = ({
           </VisuallyHidden>
         </DialogHeader>
 
-        <div>
+        <dl>
           {settings.map(({ name, description, value }, index) => (
             <div key={name}>
               {index > 0 && <Separator />}
-              <div className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+              <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
                 <div className="space-y-1">
-                  <div className="font-medium">{name}</div>
-                  <p className="text-muted-foreground text-sm">{description}</p>
+                  <dt className="font-medium">{name}</dt>
+                  <dd className="text-muted-foreground text-sm">
+                    {description}
+                  </dd>
                 </div>
-                <div className="bg-muted flex min-h-12 shrink-0 items-center justify-center rounded-md px-4 py-3 text-center sm:min-w-36">
+                <dd className="bg-muted/40 text-foreground flex min-h-12 w-full max-w-full shrink-0 items-center justify-center self-start rounded-lg px-3.5 py-2.5 text-center text-base leading-snug sm:w-auto sm:min-w-36 sm:self-auto">
                   {value}
-                </div>
+                </dd>
               </div>
             </div>
           ))}
-        </div>
+        </dl>
       </DialogContent>
     </Dialog>
   );
