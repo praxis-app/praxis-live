@@ -6,49 +6,40 @@ use entity::{
     forum_posts, message_images, messages, polls, users, votes,
 };
 use sea_orm::{
-    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait,
-    ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult,
-    IntoActiveModel, ModelTrait, QueryFilter, QueryOrder, QuerySelect, Set,
-    TransactionTrait,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
+    DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter,
+    QueryOrder, QuerySelect, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use uuid::Uuid as NativeUuid;
 
-use super::types::{
-    CreateForumPostRequest, CreateForumReplyRequest, ForumPostResponse,
-    ForumPostSummaryResponse, MoveProposalToForumRequest,
-    MoveProposalToForumResponse, ProposalForumReferenceResponse,
-    UpdateForumPostRequest,
+use super::{
+    responses::{shape_forum_post, shape_post_summaries},
+    types::{
+        CreateForumPostRequest, CreateForumReplyRequest, ForumPostResponse,
+        ForumPostSummaryResponse, MoveProposalToForumRequest,
+        MoveProposalToForumResponse, ProposalForumReferenceResponse,
+        UpdateForumPostRequest,
+    },
 };
 use crate::{
     channels,
     common::{encryption, text::sanitize_text, ApiError, AppResult},
     messages::{self as messages_service, types::MessageResponse},
     polls::service as polls_service,
-    pub_sub::{PubSubService, PubSubTopic},
     users as users_service,
 };
 
 const MAX_POST_TITLE_LENGTH: usize = 100;
 
-#[derive(FromQueryResult)]
-struct ReplyCount {
-    thread_root_id: Option<Uuid>,
-    reply_count: i64,
-}
-
 pub(crate) async fn list_forum_posts(
     database: &DatabaseConnection,
-    server_id: Uuid,
     channel_id: Uuid,
-    user_id: Uuid,
     sort: Option<&str>,
     status: Option<&str>,
     offset: u64,
     limit: u64,
 ) -> AppResult<Vec<ForumPostSummaryResponse>> {
-    ensure_forum_access(database, server_id, channel_id, user_id).await?;
-
     let status = parse_status_filter(status)?;
     let sort = parse_sort(sort)?;
     let mut select = forum_posts::Entity::find()
@@ -81,7 +72,6 @@ pub(crate) async fn create_forum_post(
     user_id: Uuid,
     request: CreateForumPostRequest,
 ) -> AppResult<ForumPostResponse> {
-    ensure_forum_access(database, server_id, channel_id, user_id).await?;
     let title = validate_title(&request.title)?;
     let body = validate_body(&request.body, "A forum post body is required.")?;
     let prepared_proposal = match request.proposal {
@@ -152,7 +142,7 @@ pub(crate) async fn create_forum_post(
     .map_err(internal_error)?;
     transaction.commit().await.map_err(internal_error)?;
 
-    get_forum_post(database, server_id, channel_id, post_id, user_id).await
+    get_forum_post(database, channel_id, post_id, user_id).await
 }
 
 pub(crate) async fn move_proposal_to_forum(
@@ -399,14 +389,9 @@ pub(crate) async fn move_proposal_to_forum(
 
     transaction.commit().await.map_err(internal_error)?;
 
-    let post = get_forum_post(
-        database,
-        server_id,
-        destination_channel_id,
-        post_id,
-        user_id,
-    )
-    .await?;
+    let post =
+        get_forum_post(database, destination_channel_id, post_id, user_id)
+            .await?;
     let source_reference = ProposalForumReferenceResponse {
         id: poll_id.to_string(),
         proposal_id: poll_id.to_string(),
@@ -538,12 +523,10 @@ pub(crate) async fn list_proposal_forum_references(
 
 pub(crate) async fn get_forum_post(
     database: &DatabaseConnection,
-    server_id: Uuid,
     channel_id: Uuid,
     post_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<ForumPostResponse> {
-    ensure_forum_access(database, server_id, channel_id, user_id).await?;
     shape_forum_post(
         database,
         load_post(database, channel_id, post_id).await?,
@@ -554,13 +537,11 @@ pub(crate) async fn get_forum_post(
 
 pub(crate) async fn update_forum_post(
     database: &DatabaseConnection,
-    server_id: Uuid,
     channel_id: Uuid,
     post_id: Uuid,
     user_id: Uuid,
     request: UpdateForumPostRequest,
 ) -> AppResult<ForumPostResponse> {
-    ensure_forum_access(database, server_id, channel_id, user_id).await?;
     if request.title.is_none() && request.body.is_none() {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
@@ -623,7 +604,7 @@ pub(crate) async fn update_forum_post(
     }
 
     transaction.commit().await.map_err(internal_error)?;
-    get_forum_post(database, server_id, channel_id, post_id, user_id).await
+    get_forum_post(database, channel_id, post_id, user_id).await
 }
 
 pub(crate) async fn create_forum_post_proposal(
@@ -634,7 +615,6 @@ pub(crate) async fn create_forum_post_proposal(
     user_id: Uuid,
     request: crate::polls::types::CreatePollRequest,
 ) -> AppResult<ForumPostResponse> {
-    ensure_forum_access(database, server_id, channel_id, user_id).await?;
     let prepared = polls_service::prepare_forum_proposal(
         database, server_id, channel_id, user_id, request,
     )
@@ -665,17 +645,15 @@ pub(crate) async fn create_forum_post_proposal(
     active.update(&transaction).await.map_err(internal_error)?;
     transaction.commit().await.map_err(internal_error)?;
 
-    get_forum_post(database, server_id, channel_id, post_id, user_id).await
+    get_forum_post(database, channel_id, post_id, user_id).await
 }
 
 pub(crate) async fn close_forum_post(
     database: &DatabaseConnection,
-    server_id: Uuid,
     channel_id: Uuid,
     post_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<ForumPostResponse> {
-    ensure_forum_access(database, server_id, channel_id, user_id).await?;
     let transaction = database.begin().await.map_err(internal_error)?;
     let post = load_post_for_update(&transaction, channel_id, post_id).await?;
     ensure_owner(post.user_id, user_id, "Only the post author can close it.")?;
@@ -686,18 +664,16 @@ pub(crate) async fn close_forum_post(
         active.update(&transaction).await.map_err(internal_error)?;
     }
     transaction.commit().await.map_err(internal_error)?;
-    get_forum_post(database, server_id, channel_id, post_id, user_id).await
+    get_forum_post(database, channel_id, post_id, user_id).await
 }
 
 pub(crate) async fn create_forum_reply(
     database: &DatabaseConnection,
-    server_id: Uuid,
     channel_id: Uuid,
     post_id: Uuid,
     user_id: Uuid,
     request: CreateForumReplyRequest,
 ) -> AppResult<(MessageResponse, ForumPostSummaryResponse)> {
-    ensure_forum_access(database, server_id, channel_id, user_id).await?;
     messages_service::validate_message_content(
         Some(&request.body),
         request.image_count,
@@ -784,13 +760,11 @@ pub(crate) async fn create_forum_reply(
 
 pub(crate) async fn delete_forum_reply(
     database: &DatabaseConnection,
-    server_id: Uuid,
     channel_id: Uuid,
     post_id: Uuid,
     reply_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<ForumPostSummaryResponse> {
-    ensure_forum_access(database, server_id, channel_id, user_id).await?;
     let transaction = database.begin().await.map_err(internal_error)?;
     let post = load_post_for_update(&transaction, channel_id, post_id).await?;
     let reply = messages::Entity::find_by_id(reply_id)
@@ -829,259 +803,6 @@ pub(crate) async fn delete_forum_reply(
         .into_iter()
         .next()
         .ok_or_else(|| internal_consistency_error("Post not found."))
-}
-
-pub(crate) async fn broadcast_forum_post(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    channel_id: Uuid,
-    sender_id: Uuid,
-    action: &'static str,
-    post: &ForumPostResponse,
-) {
-    broadcast_event(
-        database,
-        pub_sub_service,
-        server_id,
-        channel_id,
-        sender_id,
-        serde_json::json!({
-            "type": "forumPost",
-            "action": action,
-            "post": post,
-        }),
-    )
-    .await;
-}
-
-pub(crate) async fn broadcast_proposal_forum_reference(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    source_channel_id: Uuid,
-    sender_id: Uuid,
-    reference: &ProposalForumReferenceResponse,
-) {
-    let members = match channels::get_channel_member_user_ids(
-        database,
-        source_channel_id,
-    )
-    .await
-    {
-        Ok(members) => members,
-        Err(error) => {
-            tracing::warn!("failed to load proposal move recipients: {error}");
-            return;
-        }
-    };
-    let body = serde_json::json!({
-        "type": "proposalMoved",
-        "reference": reference,
-    });
-    for member_id in members {
-        if member_id == sender_id {
-            continue;
-        }
-        let topic =
-            PubSubTopic::new_poll(server_id, source_channel_id, member_id)
-                .to_string();
-        if let Err(error) = pub_sub_service.publish(&topic, body.clone()).await
-        {
-            tracing::warn!("failed to broadcast proposal move: {error}");
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn broadcast_forum_reply(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    channel_id: Uuid,
-    sender_id: Uuid,
-    action: &'static str,
-    post_id: Uuid,
-    reply: Option<&MessageResponse>,
-    reply_id: Option<Uuid>,
-    post: &ForumPostSummaryResponse,
-) {
-    broadcast_event(
-        database,
-        pub_sub_service,
-        server_id,
-        channel_id,
-        sender_id,
-        serde_json::json!({
-            "type": "forumReply",
-            "action": action,
-            "postId": post_id,
-            "reply": reply,
-            "replyId": reply_id,
-            "post": post,
-        }),
-    )
-    .await;
-}
-
-async fn shape_forum_post(
-    database: &DatabaseConnection,
-    post: forum_posts::Model,
-    user_id: Uuid,
-) -> AppResult<ForumPostResponse> {
-    let root = messages::Entity::find_by_id(post.root_message_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            internal_consistency_error("Post root message not found.")
-        })?;
-    let replies = messages::Entity::find()
-        .filter(messages::Column::ThreadRootId.eq(post.root_message_id))
-        .order_by_asc(messages::Column::CreatedAt)
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    let mut records = Vec::with_capacity(replies.len() + 1);
-    records.push(root);
-    records.extend(replies);
-    let mut shaped_messages =
-        messages_service::shape_messages(database, records)
-            .await?
-            .into_iter();
-    let root = shaped_messages.next().ok_or_else(|| {
-        internal_consistency_error("Post root message not found.")
-    })?;
-    let proposal = match post.poll_id {
-        Some(poll_id) => Some(
-            polls_service::get_poll_response(
-                database,
-                Uuid::nil(),
-                post.channel_id,
-                poll_id,
-                Some(user_id),
-            )
-            .await?,
-        ),
-        None => None,
-    };
-    let summary = shape_post_summaries(database, vec![post])
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| internal_consistency_error("Post not found."))?;
-
-    Ok(ForumPostResponse {
-        post: summary,
-        body: root.body.unwrap_or_default(),
-        replies: shaped_messages.collect(),
-        proposal,
-    })
-}
-
-async fn shape_post_summaries(
-    database: &DatabaseConnection,
-    posts: Vec<forum_posts::Model>,
-) -> AppResult<Vec<ForumPostSummaryResponse>> {
-    if posts.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let user_ids = posts.iter().map(|post| post.user_id).collect::<Vec<_>>();
-    let users = users::Entity::find()
-        .filter(users::Column::Id.is_in(user_ids.iter().copied()))
-        .all(database)
-        .await
-        .map_err(internal_error)?
-        .into_iter()
-        .map(|user| (user.id, user))
-        .collect::<HashMap<_, _>>();
-    let profile_pictures =
-        users_service::get_user_profile_pictures_map(database, &user_ids)
-            .await?;
-    let key_map = channels::get_unwrapped_channel_key_map(
-        database,
-        posts.iter().map(|post| post.key_id).collect(),
-    )
-    .await?;
-    let root_ids = posts
-        .iter()
-        .map(|post| post.root_message_id)
-        .collect::<Vec<_>>();
-    let reply_counts = messages::Entity::find()
-        .select_only()
-        .column(messages::Column::ThreadRootId)
-        .column_as(Expr::col(messages::Column::Id).count(), "reply_count")
-        .filter(messages::Column::ThreadRootId.is_in(root_ids))
-        .group_by(messages::Column::ThreadRootId)
-        .into_model::<ReplyCount>()
-        .all(database)
-        .await
-        .map_err(internal_error)?
-        .into_iter()
-        .filter_map(|count| {
-            count
-                .thread_root_id
-                .map(|root_id| (root_id, count.reply_count as usize))
-        })
-        .collect::<HashMap<_, _>>();
-
-    posts
-        .into_iter()
-        .map(|post| {
-            let user = users.get(&post.user_id).ok_or_else(|| {
-                internal_consistency_error("Post author not found.")
-            })?;
-            let key = key_map.get(&post.key_id).ok_or_else(|| {
-                internal_consistency_error("Post encryption key not found.")
-            })?;
-            let title = encryption::decrypt_text(
-                &post.ciphertext,
-                &post.iv,
-                &post.tag,
-                key,
-            )?;
-            Ok(ForumPostSummaryResponse {
-                id: post.id.to_string(),
-                title,
-                root_message_id: post.root_message_id.to_string(),
-                poll_id: post.poll_id.map(|id| id.to_string()),
-                status: post.status.to_string(),
-                user: crate::messages::types::MessageUser {
-                    id: user.id.to_string(),
-                    name: user.name.clone(),
-                    display_name: user.display_name.clone(),
-                    profile_picture: profile_pictures.get(&user.id).cloned(),
-                },
-                reply_count: reply_counts
-                    .get(&post.root_message_id)
-                    .copied()
-                    .unwrap_or_default(),
-                latest_activity_at: post.latest_activity_at.to_rfc3339(),
-                created_at: post.created_at.to_rfc3339(),
-                updated_at: post.updated_at.to_rfc3339(),
-            })
-        })
-        .collect()
-}
-
-async fn ensure_forum_access(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()> {
-    let channel =
-        channels::get_channel(database, server_id, channel_id).await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
-    if channel.channel_type == ChannelType::Forum {
-        Ok(())
-    } else {
-        Err(ApiError::new(
-            StatusCode::NOT_FOUND,
-            "Forum channel not found.",
-        ))
-    }
 }
 
 async fn load_channel_for_move<C>(
@@ -1193,38 +914,6 @@ where
         ));
     }
     Ok(())
-}
-
-async fn broadcast_event(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    channel_id: Uuid,
-    sender_id: Uuid,
-    body: serde_json::Value,
-) {
-    let members =
-        match channels::get_channel_member_user_ids(database, channel_id).await
-        {
-            Ok(members) => members,
-            Err(error) => {
-                tracing::warn!(
-                    "failed to load forum event recipients: {error}"
-                );
-                return;
-            }
-        };
-    for member_id in members {
-        if member_id == sender_id {
-            continue;
-        }
-        let topic = PubSubTopic::forum_posts(server_id, channel_id, member_id)
-            .to_string();
-        if let Err(error) = pub_sub_service.publish(&topic, body.clone()).await
-        {
-            tracing::warn!("failed to broadcast forum event: {error}");
-        }
-    }
 }
 
 fn validate_title(value: &str) -> AppResult<String> {

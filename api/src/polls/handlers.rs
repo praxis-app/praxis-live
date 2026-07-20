@@ -104,7 +104,7 @@ pub(super) async fn move_proposal_to_forum(
     .await?;
     let destination_channel_id = result.destination_channel_id;
 
-    crate::forum::service::broadcast_proposal_forum_reference(
+    crate::forum::events::broadcast_proposal_forum_reference(
         &state.database,
         &state.pub_sub_service,
         path.server_id,
@@ -113,7 +113,7 @@ pub(super) async fn move_proposal_to_forum(
         &result.source_reference,
     )
     .await;
-    crate::forum::service::broadcast_forum_post(
+    crate::forum::events::broadcast_forum_post(
         &state.database,
         &state.pub_sub_service,
         path.server_id,
