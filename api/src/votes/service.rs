@@ -20,7 +20,7 @@ use super::types::{
 use crate::{
     channels,
     common::{request::parse_uuid, ApiError, AppResult},
-    invites, poll_actions,
+    forum, invites, poll_actions,
     polls::service as polls_service,
     users as users_service,
 };
@@ -69,6 +69,12 @@ pub(crate) async fn create_vote(
         .await?;
     let is_ratifying_vote =
         synchronize_ratification_after_vote(&transaction, &poll).await?;
+    forum::service::touch_forum_post_activity_for_poll(
+        &transaction,
+        poll.id,
+        vote.updated_at,
+    )
+    .await?;
 
     transaction.commit().await.map_err(internal_error)?;
     if is_ratifying_vote {
@@ -113,7 +119,8 @@ pub(crate) async fn update_vote(
     let mut active = vote.into_active_model();
     active.vote_type =
         Set(parse_vote_type_value(request.vote_type.as_deref())?);
-    active.update(&transaction).await.map_err(internal_error)?;
+    active.updated_at = Set(Utc::now().fixed_offset());
+    let vote = active.update(&transaction).await.map_err(internal_error)?;
 
     poll_option_selections::Entity::delete_many()
         .filter(poll_option_selections::Column::VoteId.eq(vote_id))
@@ -125,6 +132,12 @@ pub(crate) async fn update_vote(
 
     let is_ratifying_vote =
         synchronize_ratification_after_vote(&transaction, &poll).await?;
+    forum::service::touch_forum_post_activity_for_poll(
+        &transaction,
+        poll.id,
+        vote.updated_at,
+    )
+    .await?;
     transaction.commit().await.map_err(internal_error)?;
     if is_ratifying_vote {
         poll_actions::service::implement_poll_action(database, poll.id).await?;
@@ -155,6 +168,8 @@ pub(crate) async fn delete_vote(
         .exec(&transaction)
         .await
         .map_err(internal_error)?;
+    forum::service::refresh_forum_post_activity_for_poll(&transaction, poll.id)
+        .await?;
     transaction.commit().await.map_err(internal_error)?;
     Ok(())
 }

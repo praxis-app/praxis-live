@@ -1,10 +1,13 @@
 use axum::http::StatusCode;
 use chrono::Utc;
-use entity::{enums::ForumPostStatus, forum_posts, message_images, messages};
+use entity::{
+    enums::ForumPostStatus, forum_posts, message_images, messages,
+    votes as vote_entities,
+};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter,
-    QueryOrder, QuerySelect, Set, TransactionTrait,
+    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait,
+    ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    ModelTrait, QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -355,8 +358,9 @@ pub(crate) async fn create_forum_reply(
         .await
         .map_err(internal_error)?;
     }
+    let latest_activity_at = post.latest_activity_at.max(now);
     let mut active = post.into_active_model();
-    active.latest_activity_at = Set(now);
+    active.latest_activity_at = Set(latest_activity_at);
     active.update(&transaction).await.map_err(internal_error)?;
     transaction.commit().await.map_err(internal_error)?;
 
@@ -399,18 +403,7 @@ pub(crate) async fn delete_forum_reply(
     )?;
     reply.delete(&transaction).await.map_err(internal_error)?;
 
-    let latest_reply = messages::Entity::find()
-        .filter(messages::Column::ThreadRootId.eq(post.root_message_id))
-        .order_by_desc(messages::Column::CreatedAt)
-        .one(&transaction)
-        .await
-        .map_err(internal_error)?;
-    let latest_activity_at = latest_reply
-        .map(|reply| reply.created_at)
-        .unwrap_or(post.created_at);
-    let mut active = post.into_active_model();
-    active.latest_activity_at = Set(latest_activity_at);
-    active.update(&transaction).await.map_err(internal_error)?;
+    refresh_forum_post_activity(&transaction, post).await?;
     transaction.commit().await.map_err(internal_error)?;
 
     let post = load_post(database, channel_id, post_id).await?;
@@ -419,6 +412,91 @@ pub(crate) async fn delete_forum_reply(
         .into_iter()
         .next()
         .ok_or_else(|| internal_consistency_error("Post not found."))
+}
+
+pub(crate) async fn touch_forum_post_activity_for_poll<C>(
+    database: &C,
+    poll_id: Uuid,
+    activity_at: chrono::DateTime<chrono::FixedOffset>,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    forum_posts::Entity::update_many()
+        .col_expr(
+            forum_posts::Column::LatestActivityAt,
+            Expr::value(activity_at.clone()),
+        )
+        .filter(forum_posts::Column::PollId.eq(poll_id))
+        .filter(forum_posts::Column::LatestActivityAt.lt(activity_at))
+        .exec(database)
+        .await
+        .map_err(internal_error)?;
+    Ok(())
+}
+
+pub(crate) async fn refresh_forum_post_activity_for_poll<C>(
+    database: &C,
+    poll_id: Uuid,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let post = forum_posts::Entity::find()
+        .filter(forum_posts::Column::PollId.eq(poll_id))
+        .lock_exclusive()
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    if let Some(post) = post {
+        refresh_forum_post_activity(database, post).await?;
+    }
+    Ok(())
+}
+
+async fn refresh_forum_post_activity<C>(
+    database: &C,
+    post: forum_posts::Model,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let latest_reply = messages::Entity::find()
+        .filter(messages::Column::ThreadRootId.eq(post.root_message_id))
+        .order_by_desc(messages::Column::CreatedAt)
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    let latest_vote = match post.poll_id {
+        Some(poll_id) => vote_entities::Entity::find()
+            .filter(vote_entities::Column::PollId.eq(poll_id))
+            .order_by_desc(vote_entities::Column::UpdatedAt)
+            .one(database)
+            .await
+            .map_err(internal_error)?,
+        None => None,
+    };
+    let latest_activity_at = latest_forum_activity(
+        post.created_at,
+        latest_reply.map(|reply| reply.created_at),
+        latest_vote.map(|vote| vote.updated_at),
+    );
+    let mut active = post.into_active_model();
+    active.latest_activity_at = Set(latest_activity_at);
+    active.update(database).await.map_err(internal_error)?;
+    Ok(())
+}
+
+fn latest_forum_activity(
+    post_created_at: chrono::DateTime<chrono::FixedOffset>,
+    latest_reply_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+    latest_vote_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+) -> chrono::DateTime<chrono::FixedOffset> {
+    [Some(post_created_at), latest_reply_at, latest_vote_at]
+        .into_iter()
+        .flatten()
+        .max()
+        .expect("post creation always provides forum activity")
 }
 
 async fn load_post<C>(
@@ -560,4 +638,39 @@ fn internal_consistency_error(message: &'static str) -> ApiError {
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("forum request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{DateTime, FixedOffset};
+
+    use super::latest_forum_activity;
+
+    fn timestamp(value: &str) -> DateTime<FixedOffset> {
+        DateTime::parse_from_rfc3339(value).expect("valid test timestamp")
+    }
+
+    #[test]
+    fn latest_activity_includes_proposal_votes() {
+        let created_at = timestamp("2026-07-20T10:00:00-04:00");
+        let reply_at = timestamp("2026-07-20T10:05:00-04:00");
+        let vote_at = timestamp("2026-07-20T10:10:00-04:00");
+
+        assert_eq!(
+            latest_forum_activity(created_at, Some(reply_at), Some(vote_at)),
+            vote_at
+        );
+    }
+
+    #[test]
+    fn later_reply_remains_the_latest_activity() {
+        let created_at = timestamp("2026-07-20T10:00:00-04:00");
+        let vote_at = timestamp("2026-07-20T10:05:00-04:00");
+        let reply_at = timestamp("2026-07-20T10:10:00-04:00");
+
+        assert_eq!(
+            latest_forum_activity(created_at, Some(reply_at), Some(vote_at)),
+            reply_at
+        );
+    }
 }

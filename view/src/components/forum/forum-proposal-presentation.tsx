@@ -35,6 +35,7 @@ export const ForumProposalPresentation = ({
         },
       };
     });
+    void queryClient.invalidateQueries({ queryKey: postQueryKey.slice(0, 5) });
   };
 
   return (
