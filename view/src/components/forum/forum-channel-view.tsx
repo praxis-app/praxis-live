@@ -48,6 +48,18 @@ export const ForumChannelView = ({ channel }: Props) => {
   );
 
   useSubscription(
+    channelPubSubTopic('new-poll', serverId, channel.id, me?.id),
+    {
+      onMessage: () => {
+        void queryClient.invalidateQueries({
+          queryKey: ['servers', serverId, 'channels', channel.id, 'forum'],
+        });
+      },
+      enabled: !!serverId && !!me,
+    },
+  );
+
+  useSubscription(
     channelPubSubTopic('new-message', serverId, channel.id, me?.id),
     {
       onMessage: () => {

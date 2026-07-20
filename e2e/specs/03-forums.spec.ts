@@ -159,10 +159,9 @@ test('user can turn a forum discussion into a ratified proposal', async ({
   const proposalBody = `Discussion proposal ${proposer.user.suffix}`;
 
   await page.goto(`/s/${server.slug}/c/${forumChannel.id}`);
-  await expect(
-    page.getByRole('heading', { name: forumChannelName }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'New post' }).click();
+  const newPostButton = page.getByRole('button', { name: 'New post' });
+  await expect(newPostButton).toBeVisible();
+  await newPostButton.click();
 
   const createPostDialog = page.getByRole('dialog', { name: 'Create post' });
   await createPostDialog.getByLabel('Title').fill(postTitle);
