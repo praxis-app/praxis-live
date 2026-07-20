@@ -69,14 +69,13 @@ export const ProposalContent = ({
 
   return (
     <>
-      {canMoveToForum && feedQueryKey && (
-        <ProposalMenu
-          poll={poll}
-          channel={channel}
-          feedQueryKey={feedQueryKey}
-          me={me}
-        />
-      )}
+      <ProposalMenu
+        me={me}
+        poll={poll}
+        channel={channel}
+        canMoveToForum={canMoveToForum}
+        feedQueryKey={feedQueryKey}
+      />
       <ProposalMetadata
         decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
         actionType={action?.actionType}

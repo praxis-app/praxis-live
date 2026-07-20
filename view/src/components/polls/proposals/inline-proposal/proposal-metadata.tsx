@@ -52,7 +52,7 @@ export const ProposalMetadata = ({
   const ActionIcon = actionType ? actionIcons[actionType] : null;
 
   return (
-    <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-y-1 text-sm font-medium">
+    <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-y-1 pr-8 text-sm font-medium">
       {actionType && ActionIcon && (
         <span className="flex items-center gap-1.5">
           <ActionIcon className="size-4" aria-hidden="true" />

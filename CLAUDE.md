@@ -20,6 +20,7 @@ Refer to `README.md` for more information.
 ## Frontend architecture
 
 - Prefer one React component per file. When a feature needs multiple related components, place them in a dedicated folder and split each component into its own file, with shared non-component helpers in separate utility files.
+- Within React components, generally declare state hooks first, then other hooks, then derived state and values.
 
 ## Backend architecture
 
