@@ -186,7 +186,8 @@
       "createdInCall": "Created in-call",
       "createdInThisCall": "Created in this call",
       "createdInAnotherCall": "Created in another call",
-      "createdInChannel": "Created in channel"
+      "createdInChannel": "Created in channel",
+      "votingDeadline": "Voting deadline"
     },
     "headers": {
       "availableRoles": "Available Roles",
@@ -205,7 +206,8 @@
       "selectRole": "Select Role",
       "selectedRole": "Selected Role",
       "selectedRoleInfo": "Selected Role Information",
-      "voteProgress": "Vote Progress"
+      "voteProgress": "Vote Progress",
+      "proposalSettings": "Proposal Settings"
     },
     "placeholders": {
       "action": "Select an action type",
@@ -221,9 +223,11 @@
       "disagree": "Disagree",
       "moveToForum": "Move to forum",
       "openMenu": "Open proposal menu",
-      "viewCall": "View call"
+      "viewCall": "View call",
+      "viewSettings": "View settings"
     },
     "descriptions": {
+      "actionType": "The type of change or decision this proposal represents.",
       "changeSettings": "Choose the server settings this proposal should change.",
       "basicInfoDescription": "Provide the basic details for your proposal",
       "body": "Enter your proposal",
@@ -236,7 +240,9 @@
       "roleAttributesDescription": "Modify the role's name and color",
       "roleMembersDescription": "Add or remove members from the role",
       "rolesPermissionsDescription": "Configure the roles and permissions changes",
-      "selectRoleDescription": "Choose the role you want to modify"
+      "selectRoleDescription": "Choose the role you want to modify",
+      "proposalSettings": "The decision rules captured when this proposal was created.",
+      "votingDeadline": "The date and time when voting ends."
     },
     "actionTypes": {
       "changeRole": "Change role",

@@ -41,7 +41,7 @@ export const ForumProposalPresentation = ({
   return (
     <section
       aria-label={t('forums.labels.proposal')}
-      className="@container mt-5 space-y-3 border-t pt-5"
+      className="@container relative mt-5 space-y-3 border-t pt-5"
     >
       <ProposalContent
         poll={proposal}
