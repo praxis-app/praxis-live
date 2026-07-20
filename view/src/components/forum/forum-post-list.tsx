@@ -112,49 +112,46 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
       className="min-h-0 flex-1 overflow-y-auto"
     >
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 md:px-8">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="text-xl font-semibold">{channel.name}</h1>
-            <p className="text-muted-foreground text-sm">
-              {channel.description || t('forums.descriptions.channel')}
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Select
+              value={sort}
+              onValueChange={(value) => setSort(value as ForumPostSort)}
+            >
+              <SelectTrigger aria-label={t('forums.labels.sort')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">
+                  {t('forums.sort.recent')}
+                </SelectItem>
+                <SelectItem value="newest">
+                  {t('forums.sort.newest')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={status}
+              onValueChange={(value) =>
+                setStatus(value as ForumPostStatus | 'all')
+              }
+            >
+              <SelectTrigger aria-label={t('forums.labels.filter')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('forums.filters.all')}</SelectItem>
+                <SelectItem value="open">{t('forums.filters.open')}</SelectItem>
+                <SelectItem value="closed">
+                  {t('forums.filters.closed')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Button onClick={() => setIsCreateOpen(true)}>
+          <Button className="shrink-0" onClick={() => setIsCreateOpen(true)}>
             <MdAdd />
             {t('forums.actions.newPost')}
           </Button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Select
-            value={sort}
-            onValueChange={(value) => setSort(value as ForumPostSort)}
-          >
-            <SelectTrigger aria-label={t('forums.labels.sort')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="recent">{t('forums.sort.recent')}</SelectItem>
-              <SelectItem value="newest">{t('forums.sort.newest')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={status}
-            onValueChange={(value) =>
-              setStatus(value as ForumPostStatus | 'all')
-            }
-          >
-            <SelectTrigger aria-label={t('forums.labels.filter')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('forums.filters.all')}</SelectItem>
-              <SelectItem value="open">{t('forums.filters.open')}</SelectItem>
-              <SelectItem value="closed">
-                {t('forums.filters.closed')}
-              </SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="grid gap-3">
