@@ -13,7 +13,7 @@ import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
 import { MdClose, MdLockOutline } from 'react-icons/md';
@@ -52,19 +52,56 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
 
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   const shouldScrollAfterReplyRef = useRef(false);
+  const wasNearBottomRef = useRef(true);
+  const previousReplyCountRef = useRef<number | undefined>(undefined);
   const replyCount = post?.replies.length;
 
   useEffect(() => {
-    if (!shouldScrollAfterReplyRef.current) return;
+    shouldScrollAfterReplyRef.current = false;
+    wasNearBottomRef.current = true;
+    previousReplyCountRef.current = undefined;
+  }, [postId]);
+
+  useEffect(() => {
+    const previousReplyCount = previousReplyCountRef.current;
+    previousReplyCountRef.current = replyCount;
+    if (replyCount === undefined) return;
+
+    const receivedNewReply =
+      previousReplyCount !== undefined && replyCount > previousReplyCount;
+    if (
+      !shouldScrollAfterReplyRef.current &&
+      !(receivedNewReply && wasNearBottomRef.current)
+    ) {
+      return;
+    }
 
     const frame = requestAnimationFrame(() => {
       shouldScrollAfterReplyRef.current = false;
       const container = scrollContainerRef.current;
       container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      wasNearBottomRef.current = true;
     });
 
     return () => cancelAnimationFrame(frame);
   }, [replyCount]);
+
+  const setScrollContainer = useCallback((element: HTMLElement | null) => {
+    scrollContainerRef.current = element;
+    if (element) {
+      wasNearBottomRef.current =
+        element.scrollHeight - element.scrollTop - element.clientHeight <= 200;
+    }
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      wasNearBottomRef.current =
+        container.scrollHeight - container.scrollTop - container.clientHeight <=
+        200;
+    }
+  }, []);
 
   if (!post) {
     return isPane ? (
@@ -191,9 +228,8 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
           </Button>
         </header>
         <div
-          ref={(element) => {
-            scrollContainerRef.current = element;
-          }}
+          ref={setScrollContainer}
+          onScroll={handleScroll}
           className="min-h-0 flex-1 overflow-y-auto"
         >
           {detailContent}
@@ -205,9 +241,8 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
 
   return (
     <main
-      ref={(element) => {
-        scrollContainerRef.current = element;
-      }}
+      ref={setScrollContainer}
+      onScroll={handleScroll}
       className="min-h-0 flex-1 overflow-y-auto"
     >
       {detailContent}
