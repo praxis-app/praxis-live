@@ -227,6 +227,7 @@
       "viewSettings": "View settings"
     },
     "descriptions": {
+      "actionType": "The type of change or decision this proposal represents.",
       "changeSettings": "Choose the server settings this proposal should change.",
       "basicInfoDescription": "Provide the basic details for your proposal",
       "body": "Enter your proposal",

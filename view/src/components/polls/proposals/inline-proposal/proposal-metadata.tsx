@@ -1,4 +1,8 @@
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
+import {
+  ACTION_TRANSLATION_KEYS,
+  MODEL_TRANSLATION_KEYS,
+} from '@/components/polls/proposals/inline-proposal/proposal-metadata.constants';
 import { timeAgo } from '@/lib/time.utils';
 import { type PollActionType } from '@/types/poll-action.types';
 import { type DecisionMakingModel } from '@/types/poll.types';
@@ -17,6 +21,7 @@ interface Props {
   decisionMakingModel: DecisionMakingModel;
   actionType?: PollActionType;
   createdAt?: string;
+  onClick: () => void;
 }
 
 const actionIcons: Record<PollActionType, typeof LuMessageSquare> = {
@@ -28,55 +33,45 @@ const actionIcons: Record<PollActionType, typeof LuMessageSquare> = {
   test: LuFlaskConical,
 };
 
-const actionTranslationKeys = {
-  general: 'proposals.actionTypes.general',
-  'change-settings': 'proposals.actionTypes.changeSettings',
-  'change-role': 'proposals.actionTypes.changeRole',
-  'create-role': 'proposals.actionTypes.createRole',
-  'plan-event': 'proposals.actionTypes.planEvent',
-  test: 'proposals.actionTypes.test',
-} as const satisfies Record<PollActionType, string>;
-
-const modelTranslationKeys = {
-  consent: 'proposals.labels.consent',
-  consensus: 'proposals.labels.consensus',
-  'majority-vote': 'proposals.labels.majority',
-} as const;
-
 export const ProposalMetadata = ({
   decisionMakingModel,
   actionType,
   createdAt,
+  onClick,
 }: Props) => {
   const { t } = useTranslation();
   const ActionIcon = actionType ? actionIcons[actionType] : null;
 
   return (
-    <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-y-1 pr-8 text-sm font-medium">
+    <button
+      type="button"
+      className="text-muted-foreground focus-visible:ring-ring flex max-w-full min-w-0 cursor-pointer flex-col items-start gap-1 rounded-sm pr-8 text-left text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none @sm:flex-row @sm:items-center @sm:gap-0"
+      onClick={onClick}
+    >
       {actionType && ActionIcon && (
         <span className="flex items-center gap-1.5">
           <ActionIcon className="size-4" aria-hidden="true" />
-          <span>{t(actionTranslationKeys[actionType])}</span>
+          <span>{t(ACTION_TRANSLATION_KEYS[actionType])}</span>
         </span>
       )}
 
       <span className="flex items-center gap-1.5">
         {actionType && ActionIcon && (
-          <span className="pr-0.25 pl-1.5" aria-hidden="true">
+          <span className="hidden pr-0.25 pl-1.5 @sm:inline" aria-hidden="true">
             {MIDDOT_WITH_SPACES.trim()}
           </span>
         )}
         <LuListCheck className="size-4" aria-hidden="true" />
-        <span>{t(modelTranslationKeys[decisionMakingModel])}</span>
+        <span>{t(MODEL_TRANSLATION_KEYS[decisionMakingModel])}</span>
       </span>
       {createdAt && (
         <span className="flex items-center">
-          <span className="px-1.5" aria-hidden="true">
+          <span className="hidden px-1.5 @sm:inline" aria-hidden="true">
             {MIDDOT_WITH_SPACES.trim()}
           </span>
           <span>{timeAgo(createdAt)}</span>
         </span>
       )}
-    </div>
+    </button>
   );
 };

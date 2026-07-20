@@ -4,6 +4,7 @@ import { ProposalStatusBadge } from '@/components/polls/proposals/inline-proposa
 import { VoteProgressDialog } from '@/components/polls/proposals/inline-proposal/vote-progress-dialog';
 import { ProposalAction } from '@/components/polls/proposals/proposal-actions/proposal-action';
 import { ProposalMenu } from '@/components/polls/proposals/proposal-menu';
+import { ProposalSettingsDialog } from '@/components/polls/proposals/proposal-settings-dialog';
 import { ProposalVoteButtons } from '@/components/polls/proposals/proposal-vote-buttons';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { CardAction } from '@/components/ui/card';
@@ -52,7 +53,9 @@ export const ProposalContent = ({
   variant = 'inline',
   updateCachedProposal,
 }: Props) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [isVoteProgressDialogOpen, setIsVoteProgressDialogOpen] =
+    useState(false);
 
   const { t } = useTranslation();
 
@@ -75,11 +78,19 @@ export const ProposalContent = ({
         channel={channel}
         canMoveToForum={canMoveToForum}
         feedQueryKey={feedQueryKey}
+        onViewSettings={() => setIsSettingsDialogOpen(true)}
       />
       <ProposalMetadata
         decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
         actionType={action?.actionType}
         createdAt={variant === 'forum' ? poll.createdAt : undefined}
+        onClick={() => setIsSettingsDialogOpen(true)}
+      />
+      <ProposalSettingsDialog
+        actionType={action?.actionType}
+        config={config}
+        open={isSettingsDialogOpen}
+        onOpenChange={setIsSettingsDialogOpen}
       />
 
       {body && <FormattedText text={body} className="pt-1 pb-2" />}
@@ -115,8 +126,8 @@ export const ProposalContent = ({
             votes={votes ?? []}
             config={config}
             memberCount={memberCount}
-            isOpen={isDialogOpen}
-            onOpenChange={setIsDialogOpen}
+            isOpen={isVoteProgressDialogOpen}
+            onOpenChange={setIsVoteProgressDialogOpen}
           />
           <div className="flex items-center">
             <span className="px-1.5" aria-hidden="true">
@@ -131,7 +142,7 @@ export const ProposalContent = ({
         </div>
         <ProposalStatusBadge
           poll={poll}
-          onClick={() => setIsDialogOpen(true)}
+          onClick={() => setIsVoteProgressDialogOpen(true)}
         />
       </div>
 

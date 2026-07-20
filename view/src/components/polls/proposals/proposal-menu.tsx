@@ -1,5 +1,4 @@
 import { MoveProposalToForumDialog } from '@/components/polls/proposals/move-proposal-to-forum-dialog';
-import { ProposalSettingsDialog } from '@/components/polls/proposals/proposal-settings-dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,6 +20,7 @@ interface Props {
   feedQueryKey?: QueryKey;
   me?: CurrentUser;
   canMoveToForum?: boolean;
+  onViewSettings: () => void;
 }
 
 export const ProposalMenu = ({
@@ -29,9 +29,9 @@ export const ProposalMenu = ({
   channel,
   feedQueryKey,
   canMoveToForum = false,
+  onViewSettings,
 }: Props) => {
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
 
   const { t } = useTranslation();
 
@@ -57,7 +57,7 @@ export const ProposalMenu = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setIsSettingsDialogOpen(true)}>
+          <DropdownMenuItem onSelect={onViewSettings}>
             <MdSettings />
             {t('proposals.actions.viewSettings')}
           </DropdownMenuItem>
@@ -70,11 +70,6 @@ export const ProposalMenu = ({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ProposalSettingsDialog
-        open={isSettingsDialogOpen}
-        onOpenChange={setIsSettingsDialogOpen}
-        config={poll.config}
-      />
       {canMove && feedQueryKey && (
         <MoveProposalToForumDialog
           open={isMoveDialogOpen}

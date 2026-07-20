@@ -1,4 +1,8 @@
 import {
+  ACTION_TRANSLATION_KEYS,
+  MODEL_TRANSLATION_KEYS,
+} from '@/components/polls/proposals/inline-proposal/proposal-metadata.constants';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -6,17 +10,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { type PollActionType } from '@/types/poll-action.types';
 import { type PollConfigRes } from '@/types/poll.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
+  actionType?: PollActionType;
   config: PollConfigRes;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export const ProposalSettingsDialog = ({
+  actionType,
   config,
   open,
   onOpenChange,
@@ -26,13 +33,15 @@ export const ProposalSettingsDialog = ({
   const showAgreementThreshold = decisionMakingModel !== 'consent';
   const showVoteLimits = decisionMakingModel !== 'majority-vote';
 
-  const modelLabel = {
-    consent: t('proposals.labels.consent'),
-    consensus: t('proposals.labels.consensus'),
-    'majority-vote': t('proposals.labels.majority'),
-  }[decisionMakingModel];
+  const modelLabel = t(MODEL_TRANSLATION_KEYS[decisionMakingModel]);
 
   const settings = [
+    {
+      name: t('proposals.labels.actionType'),
+      description: t('proposals.descriptions.actionType'),
+      value: actionType ? t(ACTION_TRANSLATION_KEYS[actionType]) : '',
+      visible: !!actionType,
+    },
     {
       name: t('settings.names.decisionMakingModel'),
       description: t('settings.explanations.decisionMakingModel'),
