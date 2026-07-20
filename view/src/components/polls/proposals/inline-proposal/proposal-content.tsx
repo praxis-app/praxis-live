@@ -133,11 +133,15 @@ export const ProposalContent = ({
             <span className="px-1.5" aria-hidden="true">
               {MIDDOT_WITH_SPACES.trim()}
             </span>
-            {config.closingAt ? (
-              timeFromNow(config.closingAt, true)
-            ) : (
-              <span>{t('time.infinity')}</span>
-            )}
+            <button
+              type="button"
+              className="focus-visible:ring-ring cursor-pointer rounded-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              onClick={() => setIsSettingsDialogOpen(true)}
+            >
+              {config.closingAt
+                ? timeFromNow(config.closingAt, true)
+                : t('time.infinity')}
+            </button>
           </div>
         </div>
         <ProposalStatusBadge

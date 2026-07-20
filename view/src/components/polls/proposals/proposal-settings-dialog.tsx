@@ -90,7 +90,7 @@ export const ProposalSettingsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="md:max-w-2xl">
+      <DialogContent className="md:max-h-[calc(100dvh-2rem)] md:max-w-2xl md:overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('proposals.headers.proposalSettings')}</DialogTitle>
           <VisuallyHidden>
