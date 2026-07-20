@@ -57,6 +57,10 @@ pub(crate) struct MessageResponse {
     pub(crate) bot_id: Option<String>,
     pub(crate) bot: Option<serde_json::Value>,
     pub(crate) command_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) thread_root_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) parent_message_id: Option<String>,
     pub(crate) created_at: String,
 }
 

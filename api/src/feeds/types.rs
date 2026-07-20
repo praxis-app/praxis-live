@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{calls, messages, polls};
+use crate::{calls, forum, messages, polls};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct FeedQuery {
@@ -18,7 +18,27 @@ pub(super) struct FeedResponse {
 pub(super) enum FeedItem {
     Message(FeedMessageResponse),
     Poll(FeedPollResponse),
+    ProposalForumReference(FeedProposalForumReferenceResponse),
     Call(calls::types::CallArtifactResponse),
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct FeedProposalForumReferenceResponse {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    #[serde(flatten)]
+    pub(super) reference: forum::types::ProposalForumReferenceResponse,
+}
+
+impl FeedProposalForumReferenceResponse {
+    pub(super) fn new(
+        reference: forum::types::ProposalForumReferenceResponse,
+    ) -> Self {
+        Self {
+            kind: "proposalMoved",
+            reference,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]

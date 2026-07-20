@@ -43,6 +43,9 @@ export const useSubscription = (
 
     // Logging to help with debugging websocket connection issues
     onClose: (event) => {
+      if (event.wasClean) {
+        return;
+      }
       console.warn('WebSocket connection closed', {
         code: event.code,
         reason: event.reason,

@@ -10,6 +10,10 @@ export const channelsRouter: RouteObject = {
       element: <ChannelPage />,
     },
     {
+      path: ':channelId/posts/:postId',
+      element: <ChannelPage />,
+    },
+    {
       path: ':channelId/settings',
       element: <ChannelSettings />,
     },

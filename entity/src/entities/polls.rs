@@ -56,6 +56,8 @@ pub enum Relation {
     Votes,
     #[sea_orm(has_many = "super::poll_images::Entity")]
     Images,
+    #[sea_orm(has_one = "super::forum_posts::Entity")]
+    ForumPost,
 }
 
 impl Related<super::channels::Entity> for Entity {
@@ -103,6 +105,12 @@ impl Related<super::votes::Entity> for Entity {
 impl Related<super::poll_images::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Images.def()
+    }
+}
+
+impl Related<super::forum_posts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ForumPost.def()
     }
 }
 

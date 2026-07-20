@@ -8,7 +8,7 @@ import {
   type CreatePollActionServerRoleMemberReq,
   type CreatePollActionServerRolePermissionReq,
 } from '@/types/poll-action.types';
-import { type CreatePollReq } from '@/types/poll.types';
+import { type CreatePollReq, type PollRes } from '@/types/poll.types';
 import { type ServerPermissionKeys } from '@/types/role.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,8 +34,9 @@ import {
 interface Props {
   channelId?: string;
   callId?: string;
-  onSuccess: () => void;
+  onSuccess: (poll: PollRes) => void;
   onNavigate: () => void;
+  createProposal?: (request: CreatePollReq) => Promise<{ poll: PollRes }>;
 }
 
 export const CreateProposalForm = ({
@@ -43,6 +44,7 @@ export const CreateProposalForm = ({
   callId,
   onSuccess,
   onNavigate,
+  createProposal,
 }: Props) => {
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -252,6 +254,9 @@ export const CreateProposalForm = ({
         },
       };
 
+      if (createProposal) {
+        return createProposal(request);
+      }
       return callId
         ? api.createCallPoll(serverId, channelId, callId, request)
         : api.createPoll(serverId, channelId, request);
@@ -313,7 +318,7 @@ export const CreateProposalForm = ({
         );
       }
 
-      onSuccess();
+      onSuccess(poll);
     },
     onError(error: Error) {
       if (error instanceof AxiosError && error.response?.data) {

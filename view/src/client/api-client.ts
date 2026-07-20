@@ -15,6 +15,17 @@ import {
 } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
 import {
+  type CreateForumPostReq,
+  type CreateForumReplyReq,
+  type ForumPostRes,
+  type ForumPostSort,
+  type ForumPostStatus,
+  type ForumPostSummaryRes,
+  type MoveProposalToForumReq,
+  type ProposalForumReferenceRes,
+  type UpdateForumPostReq,
+} from '@/types/forum.types';
+import {
   type InstanceCapabilitiesRes,
   type InstanceConfigReq,
   type InstanceConfigRes,
@@ -230,6 +241,90 @@ class ApiClient {
   deleteChannel = async (serverId: string, channelId: string) => {
     const path = `/servers/${serverId}/channels/${channelId}`;
     return this.executeRequest<void>('delete', path);
+  };
+
+  getForumPosts = async (
+    serverId: string,
+    channelId: string,
+    sort: ForumPostSort,
+    status?: ForumPostStatus,
+    offset = 0,
+    limit = 20,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts`;
+    return this.executeRequest<{ posts: ForumPostSummaryRes[] }>('get', path, {
+      params: { sort, status, offset, limit },
+    });
+  };
+
+  createForumPost = async (
+    serverId: string,
+    channelId: string,
+    data: CreateForumPostReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts`;
+    return this.executeRequest<{ post: ForumPostRes }>('post', path, { data });
+  };
+
+  getForumPost = async (
+    serverId: string,
+    channelId: string,
+    postId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}`;
+    return this.executeRequest<{ post: ForumPostRes }>('get', path);
+  };
+
+  updateForumPost = async (
+    serverId: string,
+    channelId: string,
+    postId: string,
+    data: UpdateForumPostReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}`;
+    return this.executeRequest<{ post: ForumPostRes }>('put', path, { data });
+  };
+
+  createForumPostProposal = async (
+    serverId: string,
+    channelId: string,
+    postId: string,
+    data: CreatePollReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/proposal`;
+    return this.executeRequest<{ post: ForumPostRes }>('post', path, { data });
+  };
+
+  closeForumPost = async (
+    serverId: string,
+    channelId: string,
+    postId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/close`;
+    return this.executeRequest<{ post: ForumPostRes }>('post', path);
+  };
+
+  moveProposalToForum = async (
+    serverId: string,
+    sourceChannelId: string,
+    proposalId: string,
+    data: MoveProposalToForumReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/${sourceChannelId}/polls/${proposalId}/move-to-forum`;
+    return this.executeRequest<{
+      post: ForumPostRes;
+      sourceReference: ProposalForumReferenceRes;
+    }>('post', path, { data });
+  };
+
+  createForumReply = async (
+    serverId: string,
+    channelId: string,
+    postId: string,
+    data: CreateForumReplyReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/replies`;
+    return this.executeRequest<{ reply: MessageRes }>('post', path, { data });
   };
 
   joinChannelCall = async (serverId: string, channelId: string) => {

@@ -63,6 +63,7 @@ enum PubSubTopicKind {
     NewMessage,
     NewPoll,
     NewCall,
+    NewForumPost,
 }
 
 impl PubSubTopicKind {
@@ -71,6 +72,7 @@ impl PubSubTopicKind {
             Self::NewMessage => "new-message",
             Self::NewPoll => "new-poll",
             Self::NewCall => "new-call",
+            Self::NewForumPost => "new-forum-post",
         }
     }
 
@@ -79,6 +81,7 @@ impl PubSubTopicKind {
             "new-message" => Some(Self::NewMessage),
             "new-poll" => Some(Self::NewPoll),
             "new-call" => Some(Self::NewCall),
+            "new-forum-post" => Some(Self::NewForumPost),
             _ => None,
         }
     }
@@ -146,6 +149,20 @@ impl PubSubTopic {
     ) -> Self {
         Self {
             kind: PubSubTopicKind::NewCall,
+            server_id,
+            channel_id,
+            call_id: None,
+            user_id,
+        }
+    }
+
+    pub(crate) fn new_forum_post(
+        server_id: Uuid,
+        channel_id: Uuid,
+        user_id: Uuid,
+    ) -> Self {
+        Self {
+            kind: PubSubTopicKind::NewForumPost,
             server_id,
             channel_id,
             call_id: None,

@@ -1,4 +1,5 @@
-import { type FeedItemRes } from '@/types/channel.types';
+import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
+import { type ProposalForumReferenceRes } from '@/types/forum.types';
 import { type ImageRes } from '@/types/image.types';
 
 type MessageFeedItem = Extract<FeedItemRes, { type: 'message' }>;
@@ -24,7 +25,9 @@ export const preserveMessageImages = (
     }
 
     const merged =
-      existing.src && !image.src ? { ...image, src: existing.src } : { ...image };
+      existing.src && !image.src
+        ? { ...image, src: existing.src }
+        : { ...image };
     if (!existing.isPlaceholder && merged.isPlaceholder) {
       delete merged.isPlaceholder;
     }
@@ -56,4 +59,28 @@ export const preserveFeedImages = (
     }
     return preserveFeedItemImages(existingMessages.get(item.id), item);
   });
+};
+
+export const replaceProposalWithForumReference = (
+  data: FeedQuery | undefined,
+  reference: ProposalForumReferenceRes,
+): FeedQuery | undefined => {
+  if (!data) {
+    return data;
+  }
+  const replacement: FeedItemRes = {
+    ...reference,
+    type: 'proposalMoved',
+  };
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      feed: page.feed.map((item) =>
+        item.type === 'poll' && item.id === reference.proposalId
+          ? replacement
+          : item,
+      ),
+    })),
+  };
 };

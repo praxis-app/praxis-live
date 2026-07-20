@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { TestUser } from '../lib/test-data';
+import type { TestUser } from '../lib/data';
 
 export class AuthPage {
   constructor(private readonly page: Page) {}

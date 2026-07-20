@@ -35,13 +35,6 @@ type AuthResponse = {
   access_token?: string | null;
 };
 
-type ServerResponse = {
-  server: {
-    id: string;
-    generalChannelId: string;
-  };
-};
-
 export async function signUpViaApi(
   request: APIRequestContext,
   user: TestUser = createTestUser(),

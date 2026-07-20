@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { MdForum, MdTag } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 import * as zod from 'zod';
 import { handleError } from '../../lib/error.utils';
@@ -35,6 +36,7 @@ interface CreateChannelFormProps {
 const createChannelFormSchema = zod.object({
   name: zod.string(),
   description: zod.string(),
+  channelType: zod.enum(['text', 'forum']),
 });
 
 export const CreateChannelFormSubmitButton = ({
@@ -66,6 +68,7 @@ export const CreateChannelForm = ({
     defaultValues: {
       name: '',
       description: '',
+      channelType: 'text',
     },
   });
 
@@ -101,6 +104,60 @@ export const CreateChannelForm = ({
         onSubmit={form.handleSubmit((fv) => createChannel(fv))}
         className={cn('space-y-4 pb-4', className)}
       >
+        <FormField
+          control={form.control}
+          name="channelType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('channels.form.type')}</FormLabel>
+              <FormControl>
+                <div className="space-y-1" role="radiogroup">
+                  <label className="hover:bg-accent flex cursor-pointer items-start gap-3 rounded-md px-2 py-2.5">
+                    <input
+                      type="radio"
+                      name={field.name}
+                      value="text"
+                      checked={field.value === 'text'}
+                      onChange={() => field.onChange('text')}
+                      className="border-muted-foreground checked:border-primary focus-visible:ring-ring mt-1 size-5 shrink-0 appearance-none rounded-full border-2 checked:border-[6px] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                    />
+                    <MdTag className="mt-0.5 size-6 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block font-medium">
+                        {t('channels.labels.textChannel')}
+                      </span>
+                      <span className="text-muted-foreground block text-sm font-normal">
+                        {t('channels.descriptions.textChannel')}
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="hover:bg-accent flex cursor-pointer items-start gap-3 rounded-md px-2 py-2.5">
+                    <input
+                      type="radio"
+                      name={field.name}
+                      value="forum"
+                      checked={field.value === 'forum'}
+                      onChange={() => field.onChange('forum')}
+                      className="border-muted-foreground checked:border-primary focus-visible:ring-ring mt-1 size-5 shrink-0 appearance-none rounded-full border-2 checked:border-[6px] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                    />
+                    <MdForum className="mt-0.5 size-6 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block font-medium">
+                        {t('channels.labels.forumChannel')}
+                      </span>
+                      <span className="text-muted-foreground block text-sm font-normal">
+                        {t('channels.descriptions.forumChannel')}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="name"

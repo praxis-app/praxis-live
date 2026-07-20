@@ -17,6 +17,8 @@ export interface MessageRes {
   botId: string | null;
   bot: BotRes | null;
   commandStatus?: CommandStatus | null;
+  threadRootId?: string;
+  parentMessageId?: string;
   createdAt: string;
 }
 

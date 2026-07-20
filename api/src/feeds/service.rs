@@ -1,8 +1,11 @@
 use chrono::{DateTime, FixedOffset};
 use sea_orm::prelude::Uuid;
 
-use super::types::{FeedItem, FeedMessageResponse, FeedPollResponse};
-use crate::{calls, common::AppResult, messages, polls};
+use super::types::{
+    FeedItem, FeedMessageResponse, FeedPollResponse,
+    FeedProposalForumReferenceResponse,
+};
+use crate::{calls, common::AppResult, forum, messages, polls};
 
 pub(crate) async fn get_channel_feed(
     database: &sea_orm::DatabaseConnection,
@@ -38,6 +41,14 @@ pub(crate) async fn get_channel_feed(
         fetch_limit,
     )
     .await?;
+    let proposal_references =
+        forum::proposal_moves::list_proposal_forum_references(
+            database,
+            channel_id,
+            0,
+            fetch_limit,
+        )
+        .await?;
 
     let mut feed = messages
         .into_iter()
@@ -45,6 +56,11 @@ pub(crate) async fn get_channel_feed(
         .map(FeedItem::Message)
         .collect();
     append_polls(&mut feed, polls);
+    for reference in proposal_references {
+        feed.push(FeedItem::ProposalForumReference(
+            FeedProposalForumReferenceResponse::new(reference),
+        ));
+    }
     for call in calls {
         feed.push(FeedItem::Call(call));
     }
@@ -108,6 +124,9 @@ fn created_at(item: &FeedItem) -> &str {
     match item {
         FeedItem::Message(message) => &message.message.created_at,
         FeedItem::Poll(poll) => &poll.poll.created_at,
+        FeedItem::ProposalForumReference(reference) => {
+            &reference.reference.created_at
+        }
         FeedItem::Call(call) => &call.created_at,
     }
 }
@@ -116,6 +135,7 @@ fn id_string(item: &FeedItem) -> &str {
     match item {
         FeedItem::Message(message) => &message.message.id,
         FeedItem::Poll(poll) => &poll.poll.id,
+        FeedItem::ProposalForumReference(reference) => &reference.reference.id,
         FeedItem::Call(call) => &call.id,
     }
 }

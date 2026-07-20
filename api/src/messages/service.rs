@@ -39,7 +39,7 @@ pub(crate) async fn get_channel_message_feed(
         .await
         .map_err(internal_error)?;
 
-    shape_message_feed(database, messages).await
+    shape_messages(database, messages).await
 }
 
 pub(crate) async fn get_call_message_feed(
@@ -63,7 +63,7 @@ pub(crate) async fn get_call_message_feed(
         .await
         .map_err(internal_error)?;
 
-    shape_message_feed(database, messages).await
+    shape_messages(database, messages).await
 }
 
 pub(crate) async fn create_message(
@@ -275,11 +275,13 @@ async fn create_message_record(
         bot_id: None,
         bot: None,
         command_status: None,
+        thread_root_id: message.thread_root_id.map(|id| id.to_string()),
+        parent_message_id: message.parent_message_id.map(|id| id.to_string()),
         created_at: serialize_timestamp(message.created_at),
     })
 }
 
-async fn shape_message_feed(
+pub(crate) async fn shape_messages(
     database: &DatabaseConnection,
     messages: Vec<messages::Model>,
 ) -> AppResult<Vec<MessageResponse>> {
@@ -516,6 +518,8 @@ fn shape_message<'a>(
         bot_id: None,
         bot: None,
         command_status: None,
+        thread_root_id: message.thread_root_id.map(|id| id.to_string()),
+        parent_message_id: message.parent_message_id.map(|id| id.to_string()),
         created_at: serialize_timestamp(message.created_at),
     }
 }
@@ -548,20 +552,25 @@ fn decrypt_message_body(
 }
 
 fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
-    if request.image_count > MAX_IMAGE_COUNT {
+    validate_message_content(request.body.as_deref(), request.image_count)
+}
+
+pub(crate) fn validate_message_content(
+    body: Option<&str>,
+    image_count: usize,
+) -> AppResult<()> {
+    if image_count > MAX_IMAGE_COUNT {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             format!("A message can include at most {MAX_IMAGE_COUNT} images."),
         ));
     }
 
-    let has_body = request
-        .body
-        .as_ref()
+    let has_body = body
         .map(|body| !sanitize_text(body).is_empty())
         .unwrap_or(false);
 
-    if has_body || request.image_count > 0 {
+    if has_body || image_count > 0 {
         Ok(())
     } else {
         Err(ApiError::new(

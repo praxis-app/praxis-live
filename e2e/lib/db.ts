@@ -17,13 +17,13 @@ export function assertUuid(value: string, label = 'ID') {
 export function runDatabaseCommand(
   command: string,
   { tuplesOnly = false }: DatabaseCommandOptions = {},
-) {
+): string {
   return execFileSync(
     'docker',
     [
       'compose',
       '-f',
-      'docker-compose.e2e.yml',
+      'e2e/docker-compose.e2e.yml',
       'exec',
       '-T',
       'database',
@@ -40,7 +40,7 @@ export function runDatabaseCommand(
     ],
     {
       cwd: process.cwd(),
-      encoding: 'utf8',
+      encoding: 'utf8' as const,
     },
   );
 }

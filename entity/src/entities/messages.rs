@@ -14,6 +14,8 @@ pub struct Model {
     pub bot_id: Option<Uuid>,
     pub command_status: Option<String>,
     pub key_id: Option<Uuid>,
+    pub thread_root_id: Option<Uuid>,
+    pub parent_message_id: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
@@ -46,6 +48,24 @@ pub enum Relation {
     Call,
     #[sea_orm(has_many = "super::message_images::Entity")]
     Images,
+    #[sea_orm(
+        belongs_to = "Entity",
+        from = "Column::ThreadRootId",
+        to = "Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    ThreadRoot,
+    #[sea_orm(
+        belongs_to = "Entity",
+        from = "Column::ParentMessageId",
+        to = "Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    ParentMessage,
+    #[sea_orm(has_one = "super::forum_posts::Entity")]
+    RootForumPost,
 }
 
 impl Related<super::channels::Entity> for Entity {
@@ -69,6 +89,12 @@ impl Related<super::calls::Entity> for Entity {
 impl Related<super::message_images::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Images.def()
+    }
+}
+
+impl Related<super::forum_posts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::RootForumPost.def()
     }
 }
 

@@ -20,9 +20,14 @@ import {
 import { type CallArtifactRes } from '@/types/call.types';
 import { type MessageRes } from '@/types/message.types';
 import { type PollRes } from '@/types/poll.types';
+import { type ProposalForumReferenceRes } from '@/types/forum.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
-import { preserveFeedImages, preserveFeedItemImages } from '@/lib/feed.utils';
+import {
+  preserveFeedImages,
+  preserveFeedItemImages,
+  replaceProposalWithForumReference,
+} from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -35,6 +40,11 @@ interface NewMessagePayload {
 interface NewPollPayload {
   type: PubSubMessageType.POLL;
   poll: PollRes;
+}
+
+interface ProposalMovedPayload {
+  type: PubSubMessageType.PROPOSAL_MOVED;
+  reference: ProposalForumReferenceRes;
 }
 
 interface NewCallPayload {
@@ -53,7 +63,7 @@ interface Props {
   channel?: ChannelRes;
 }
 
-export const ChannelView = ({ channel }: Props) => {
+export const TextChannelView = ({ channel }: Props) => {
   const { inviteToken } = useAuthStore();
   const [isLastPage, setIsLastPage] = useState(false);
 
@@ -223,7 +233,8 @@ export const ChannelView = ({ channel }: Props) => {
     channelPubSubTopic('new-poll', serverId, channel?.id, me?.id),
     {
       onMessage: (event) => {
-        const { body }: PubSubMessage<NewPollPayload> = JSON.parse(event.data);
+        const { body }: PubSubMessage<NewPollPayload | ProposalMovedPayload> =
+          JSON.parse(event.data);
         if (!body) {
           return;
         }
@@ -262,6 +273,12 @@ export const ChannelView = ({ channel }: Props) => {
             });
             return { pages, pageParams: oldData.pageParams };
           });
+        }
+        if (body.type === PubSubMessageType.PROPOSAL_MOVED) {
+          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) =>
+            replaceProposalWithForumReference(oldData, body.reference),
+          );
+          return;
         }
         scrollToBottom();
       },

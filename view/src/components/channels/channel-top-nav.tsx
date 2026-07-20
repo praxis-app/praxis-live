@@ -20,7 +20,7 @@ import {
 } from '@/types/call.types';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
-import { MdChevronRight, MdSearch, MdTag } from 'react-icons/md';
+import { MdChevronRight, MdForum, MdSearch, MdTag } from 'react-icons/md';
 import { toast } from 'sonner';
 
 interface Props {
@@ -63,6 +63,7 @@ export const ChannelTopNav = ({
     isDesktop ? 23 : 25,
   );
   const searchLabel = t('actions.search');
+  const ChannelIcon = channel?.channelType === 'forum' ? MdForum : MdTag;
 
   return (
     <header className="flex h-[55px] items-center justify-between border-b border-[--color-border] px-2 md:pl-6">
@@ -83,7 +84,7 @@ export const ChannelTopNav = ({
               channel={channel}
               trigger={
                 <div className="flex flex-1 items-center text-[15px] font-medium select-none">
-                  <MdTag className="text-muted-foreground m-1 mr-[0.3rem] size-5" />
+                  <ChannelIcon className="text-muted-foreground m-1 mr-[0.3rem] size-5" />
                   <div className="tracking-[0.015rem]">
                     {truncatedChannelName}
                   </div>

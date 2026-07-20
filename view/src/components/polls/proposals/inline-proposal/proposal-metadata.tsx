@@ -1,4 +1,5 @@
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
+import { timeAgo } from '@/lib/time.utils';
 import { type PollActionType } from '@/types/poll-action.types';
 import { type DecisionMakingModel } from '@/types/poll.types';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +16,7 @@ import {
 interface Props {
   decisionMakingModel: DecisionMakingModel;
   actionType?: PollActionType;
+  createdAt?: string;
 }
 
 const actionIcons: Record<PollActionType, typeof LuMessageSquare> = {
@@ -44,6 +46,7 @@ const modelTranslationKeys = {
 export const ProposalMetadata = ({
   decisionMakingModel,
   actionType,
+  createdAt,
 }: Props) => {
   const { t } = useTranslation();
   const ActionIcon = actionType ? actionIcons[actionType] : null;
@@ -66,6 +69,14 @@ export const ProposalMetadata = ({
         <LuListCheck className="size-4" aria-hidden="true" />
         <span>{t(modelTranslationKeys[decisionMakingModel])}</span>
       </span>
+      {createdAt && (
+        <span className="flex items-center">
+          <span className="px-1.5" aria-hidden="true">
+            {MIDDOT_WITH_SPACES.trim()}
+          </span>
+          <span>{timeAgo(createdAt)}</span>
+        </span>
+      )}
     </div>
   );
 };

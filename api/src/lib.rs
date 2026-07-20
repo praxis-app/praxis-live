@@ -6,6 +6,7 @@ mod calls;
 mod channels;
 mod common;
 mod feeds;
+mod forum;
 mod health;
 mod instance;
 mod invites;

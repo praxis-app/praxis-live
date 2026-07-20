@@ -3,4 +3,5 @@ export enum PubSubMessageType {
   POLL = 'poll',
   CALL = 'call',
   IMAGE = 'image',
+  PROPOSAL_MOVED = 'proposalMoved',
 }

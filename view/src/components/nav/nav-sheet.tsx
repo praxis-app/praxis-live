@@ -25,7 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuChevronRight } from 'react-icons/lu';
-import { MdExitToApp, MdPersonAdd, MdTag } from 'react-icons/md';
+import { MdExitToApp, MdForum, MdPersonAdd, MdTag } from 'react-icons/md';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -139,7 +139,11 @@ export const NavSheet = ({ trigger }: Props) => {
               onClick={() => setIsNavSheetOpen(false)}
               className="flex items-center gap-1.5 font-light tracking-[0.01em]"
             >
-              <MdTag className="mr-1 size-6" />
+              {channel.channelType === 'forum' ? (
+                <MdForum className="mr-1 size-6" />
+              ) : (
+                <MdTag className="mr-1 size-6" />
+              )}
               <div>{channel.name}</div>
             </Link>
           ))}

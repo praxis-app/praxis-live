@@ -6,11 +6,9 @@ import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
+import { type PollRes } from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
-import {
-  type DecisionMakingModel,
-  type PollStage,
-} from '@/types/poll.types';
+import { type DecisionMakingModel, type PollStage } from '@/types/poll.types';
 import { VOTE_TYPES } from '@/constants/vote.constants';
 import { type VoteType } from '@/types/vote.types';
 import {
@@ -23,13 +21,14 @@ import { toast } from 'sonner';
 
 interface Props {
   channel: ChannelRes;
-  feedQueryKey: QueryKey;
+  feedQueryKey?: QueryKey;
   myVote?: VoteRes;
   pollId: string;
   stage: PollStage;
   decisionMakingModel: DecisionMakingModel;
   closingAt?: string;
   onVoteSuccess?: () => void;
+  updateCachedProposal?: (update: (proposal: PollRes) => PollRes) => void;
 }
 
 export const ProposalVoteButtons = ({
@@ -41,6 +40,7 @@ export const ProposalVoteButtons = ({
   decisionMakingModel,
   closingAt,
   onVoteSuccess,
+  updateCachedProposal,
 }: Props) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -97,72 +97,78 @@ export const ProposalVoteButtons = ({
       if (!serverId) {
         throw new Error('Server ID is required');
       }
-      queryClient.setQueryData<{
-        pages: { feed: FeedItemRes[] }[];
-        pageParams: number[];
-      }>(feedQueryKey, (oldData) => {
-        if (!oldData) {
-          return oldData;
+      const updateProposal = (proposal: PollRes): PollRes => {
+        let agreementVoteCount = proposal.agreementVoteCount;
+        let votes: VoteRes[] = proposal.votes ? [...proposal.votes] : [];
+
+        if (result.action === 'delete') {
+          if (myVote?.voteType === 'agree') {
+            agreementVoteCount -= 1;
+          }
+          votes = votes.filter((vote) => vote.id !== result.voteId);
+          return {
+            ...proposal,
+            votes,
+            agreementVoteCount,
+            myVote: undefined,
+          };
         }
-        const pages = oldData.pages.map((page) => {
-          const feed = page.feed.map((item) => {
-            if (
-              item.id !== pollId ||
-              item.type !== 'poll' ||
-              item.pollType !== 'proposal'
-            ) {
-              return item;
-            }
 
-            let agreementVoteCount = item.agreementVoteCount;
-            let votes: VoteRes[] = item.votes ? [...item.votes] : [];
+        if (result.action === 'create') {
+          if (result.voteType === 'agree') {
+            agreementVoteCount += 1;
+          }
+          votes.push({ id: result.voteId, voteType: result.voteType! });
+        }
 
-            if (result.action === 'delete') {
-              if (myVote?.voteType === 'agree') {
-                agreementVoteCount -= 1;
+        if (result.action === 'update') {
+          if (myVote?.voteType !== 'agree' && result.voteType === 'agree') {
+            agreementVoteCount += 1;
+          }
+          if (myVote?.voteType === 'agree' && result.voteType !== 'agree') {
+            agreementVoteCount -= 1;
+          }
+          votes = votes.map((vote) =>
+            vote.id === result.voteId
+              ? { ...vote, voteType: result.voteType! }
+              : vote,
+          );
+        }
+
+        return {
+          ...proposal,
+          votes,
+          agreementVoteCount,
+          stage: result.isRatifyingVote ? 'ratified' : proposal.stage,
+          myVote: { id: result.voteId, voteType: result.voteType! },
+        };
+      };
+
+      if (feedQueryKey) {
+        queryClient.setQueryData<{
+          pages: { feed: FeedItemRes[] }[];
+          pageParams: number[];
+        }>(feedQueryKey, (oldData) => {
+          if (!oldData) {
+            return oldData;
+          }
+          const pages = oldData.pages.map((page) => ({
+            feed: page.feed.map((item) => {
+              if (
+                item.id !== pollId ||
+                item.type !== 'poll' ||
+                item.pollType !== 'proposal'
+              ) {
+                return item;
               }
-              votes = votes.filter((vote) => vote.id !== result.voteId);
-              return {
-                ...item,
-                votes,
-                agreementVoteCount,
-                myVote: undefined,
-              };
-            }
-
-            if (result.action === 'create') {
-              if (result.voteType === 'agree') {
-                agreementVoteCount += 1;
-              }
-              votes.push({ id: result.voteId, voteType: result.voteType! });
-            }
-
-            if (result.action === 'update') {
-              if (myVote?.voteType !== 'agree' && result.voteType === 'agree') {
-                agreementVoteCount += 1;
-              }
-              if (myVote?.voteType === 'agree' && result.voteType !== 'agree') {
-                agreementVoteCount -= 1;
-              }
-              votes = votes.map((vote) =>
-                vote.id === result.voteId
-                  ? { ...vote, voteType: result.voteType! }
-                  : vote,
-              );
-            }
-
-            return {
-              ...item,
-              votes,
-              agreementVoteCount,
-              stage: result.isRatifyingVote ? 'ratified' : item.stage,
-              myVote: { id: result.voteId, voteType: result.voteType! },
-            };
-          });
-          return { feed };
+              return { ...updateProposal(item), type: 'poll' as const };
+            }),
+          }));
+          return { pages, pageParams: oldData.pageParams };
         });
-        return { pages, pageParams: oldData.pageParams };
-      });
+      }
+
+      updateCachedProposal?.(updateProposal);
 
       if (result.isRatifyingVote) {
         toast(t('proposals.prompts.ratifiedSuccess'));

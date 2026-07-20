@@ -5,8 +5,9 @@ use entity::{
     enums::{
         PollActionType, PollDecisionMakingModel, PollStage, PollType, VoteType,
     },
-    poll_actions as poll_action_entities, poll_configs, poll_images,
-    poll_option_selections, poll_options, polls, users, votes,
+    forum_posts, poll_actions as poll_action_entities, poll_configs,
+    poll_images, poll_option_selections, poll_options, polls,
+    server_configs as server_config_entities, users, votes,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
@@ -142,7 +143,15 @@ pub(crate) async fn create_poll(
     user_id: Uuid,
     request: CreatePollRequest,
 ) -> AppResult<PollResponse> {
-    create_poll_record(database, server_id, channel_id, None, user_id, request)
+    let prepared = prepare_poll_creation(
+        database, server_id, channel_id, user_id, request, false,
+    )
+    .await?;
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let poll =
+        insert_prepared_poll(&transaction, None, user_id, prepared).await?;
+    transaction.commit().await.map_err(internal_error)?;
+    get_poll_response(database, server_id, channel_id, poll.id, Some(user_id))
         .await
 }
 
@@ -156,15 +165,17 @@ pub(crate) async fn create_call_poll(
 ) -> AppResult<PollResponse> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
-    create_poll_record(
-        database,
-        server_id,
-        channel_id,
-        Some(call_id),
-        user_id,
-        request,
+    let prepared = prepare_poll_creation(
+        database, server_id, channel_id, user_id, request, false,
     )
-    .await
+    .await?;
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let poll =
+        insert_prepared_poll(&transaction, Some(call_id), user_id, prepared)
+            .await?;
+    transaction.commit().await.map_err(internal_error)?;
+    get_poll_response(database, server_id, channel_id, poll.id, Some(user_id))
+        .await
 }
 
 pub(crate) async fn broadcast_poll_update(
@@ -230,14 +241,42 @@ pub(crate) async fn broadcast_poll_image_upload(
     .await
 }
 
-async fn create_poll_record(
+pub(crate) struct PreparedPollCreation {
+    request: CreatePollRequest,
+    channel_id: Uuid,
+    poll_type: PollType,
+    server_config: server_config_entities::Model,
+    encrypted: Option<(Uuid, encryption::EncryptedBytes)>,
+    closing_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+}
+
+pub(crate) async fn prepare_forum_proposal(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    call_id: Option<Uuid>,
     user_id: Uuid,
     request: CreatePollRequest,
-) -> AppResult<PollResponse> {
+) -> AppResult<PreparedPollCreation> {
+    if request.poll_type != "proposal" {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "A forum post can only include a proposal.",
+        ));
+    }
+    prepare_poll_creation(
+        database, server_id, channel_id, user_id, request, true,
+    )
+    .await
+}
+
+async fn prepare_poll_creation(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    user_id: Uuid,
+    request: CreatePollRequest,
+    allow_forum_proposal: bool,
+) -> AppResult<PreparedPollCreation> {
     validate_create_poll(&request)?;
 
     let body = request
@@ -247,6 +286,17 @@ async fn create_poll_record(
         .filter(|value| !value.is_empty());
     let poll_type = parse_poll_type(&request.poll_type)?;
     let is_proposal = poll_type == PollType::Proposal;
+    let channel =
+        channels::get_channel(database, server_id, channel_id).await?;
+    if is_proposal
+        && channel.channel_type == entity::enums::ChannelType::Forum
+        && !allow_forum_proposal
+    {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "Forum proposals must be created as part of a forum post.",
+        ));
+    }
     ensure_allowed_to_create_proposal(database, user_id, &request).await?;
     let server_config =
         server_configs::service::ensure_server_config(database, server_id)
@@ -279,6 +329,31 @@ async fn create_poll_record(
         None => None,
     };
 
+    Ok(PreparedPollCreation {
+        request,
+        channel_id,
+        poll_type,
+        server_config,
+        encrypted,
+        closing_at,
+    })
+}
+
+pub(crate) async fn insert_prepared_poll<C: ConnectionTrait>(
+    database: &C,
+    call_id: Option<Uuid>,
+    user_id: Uuid,
+    prepared: PreparedPollCreation,
+) -> AppResult<polls::Model> {
+    let PreparedPollCreation {
+        request,
+        channel_id,
+        poll_type,
+        server_config,
+        encrypted,
+        closing_at,
+    } = prepared;
+    let is_proposal = poll_type == PollType::Proposal;
     let poll = polls::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         key_id: Set(encrypted.as_ref().map(|(key_id, _)| *key_id)),
@@ -321,7 +396,10 @@ async fn create_poll_record(
     if is_proposal {
         if let Some(action) = request.action {
             poll_actions::service::create_poll_action(
-                database, poll.id, action,
+                database,
+                poll.id,
+                action,
+                &server_config,
             )
             .await?;
         }
@@ -350,7 +428,7 @@ async fn create_poll_record(
         .map_err(internal_error)?;
     }
 
-    shape_poll(database, poll, Some(user_id)).await
+    Ok(poll)
 }
 
 pub(crate) async fn get_inline_polls(
@@ -515,6 +593,18 @@ pub(crate) async fn delete_poll(
     upload_root: &Path,
     poll: &polls::Model,
 ) -> AppResult<DeleteResult> {
+    if forum_posts::Entity::find()
+        .filter(forum_posts::Column::PollId.eq(poll.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .is_some()
+    {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "A proposal linked to a forum post cannot be deleted separately.",
+        ));
+    }
     let images = poll_images::Entity::find()
         .filter(poll_images::Column::PollId.eq(poll.id))
         .all(database)

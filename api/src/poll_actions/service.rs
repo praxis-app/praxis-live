@@ -13,8 +13,8 @@ use entity::{
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
-    DatabaseConnection, DatabaseTransaction, EntityTrait, IntoActiveModel,
-    QueryFilter, QuerySelect, Set, TransactionTrait,
+    ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
+    IntoActiveModel, QueryFilter, QuerySelect, Set, TransactionTrait,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -29,10 +29,11 @@ use crate::{
     servers, users as users_service,
 };
 
-pub(crate) async fn create_poll_action(
-    database: &DatabaseConnection,
+pub(crate) async fn create_poll_action<C: ConnectionTrait>(
+    database: &C,
     poll_id: Uuid,
     request: CreatePollActionRequest,
+    current_server_config: &server_configs::Model,
 ) -> AppResult<poll_actions::Model> {
     let action = poll_actions::ActiveModel {
         id: Set(NativeUuid::new_v4()),
@@ -49,9 +50,9 @@ pub(crate) async fn create_poll_action(
             if let Some(server_config) = request.server_config {
                 create_poll_action_server_config(
                     database,
-                    poll_id,
                     action.id,
                     server_config,
+                    current_server_config,
                 )
                 .await?;
             }
@@ -68,31 +69,12 @@ pub(crate) async fn create_poll_action(
     Ok(action)
 }
 
-async fn create_poll_action_server_config(
-    database: &DatabaseConnection,
-    poll_id: Uuid,
+async fn create_poll_action_server_config<C: ConnectionTrait>(
+    database: &C,
     poll_action_id: Uuid,
     request: crate::servers::types::ServerConfigRequest,
+    current: &server_configs::Model,
 ) -> AppResult<()> {
-    let poll = polls::Entity::find_by_id(poll_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
-        })?;
-    let channel = channels::Entity::find_by_id(poll.channel_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
-        })?;
-    let current = servers::server_configs::service::ensure_server_config(
-        database,
-        channel.server_id,
-    )
-    .await?;
     poll_action_server_configs::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         poll_action_id: Set(poll_action_id),
@@ -183,8 +165,8 @@ pub(crate) fn validate_server_config_change(
     Ok(())
 }
 
-pub(crate) async fn create_poll_action_role(
-    database: &DatabaseConnection,
+pub(crate) async fn create_poll_action_role<C: ConnectionTrait>(
+    database: &C,
     poll_action_id: Uuid,
     request: CreatePollActionServerRoleRequest,
 ) -> AppResult<poll_action_roles::Model> {

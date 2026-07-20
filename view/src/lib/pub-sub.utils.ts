@@ -1,4 +1,8 @@
-type PubSubTopicKind = 'new-message' | 'new-poll' | 'new-call';
+type PubSubTopicKind =
+  | 'new-message'
+  | 'new-poll'
+  | 'new-call'
+  | 'new-forum-post';
 
 const PUB_SUB_TOPIC_DELIMITER = ':';
 
