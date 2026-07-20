@@ -93,7 +93,7 @@ pub(super) async fn move_proposal_to_forum(
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<crate::forum::types::MoveProposalToForumRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let result = crate::forum::service::move_proposal_to_forum(
+    let result = crate::forum::proposal_moves::move_proposal_to_forum(
         &state.database,
         path.server_id,
         path.channel_id,

@@ -41,13 +41,14 @@ pub(crate) async fn get_channel_feed(
         fetch_limit,
     )
     .await?;
-    let proposal_references = forum::service::list_proposal_forum_references(
-        database,
-        channel_id,
-        0,
-        fetch_limit,
-    )
-    .await?;
+    let proposal_references =
+        forum::proposal_moves::list_proposal_forum_references(
+            database,
+            channel_id,
+            0,
+            fetch_limit,
+        )
+        .await?;
 
     let mut feed = messages
         .into_iter()
