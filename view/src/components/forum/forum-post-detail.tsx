@@ -134,7 +134,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const detailContent = (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 pt-6 md:px-5 md:py-6',
+        'mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 px-3 pt-6 md:px-5 md:py-6',
         isPane && 'max-w-none px-4',
       )}
     >
@@ -173,17 +173,19 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
                 )}
               </div>
             </div>
-            <FormattedText text={post.body} className="mt-4" />
-            {post.proposal && (
-              <ForumProposalPresentation
-                channel={channel}
-                proposal={post.proposal}
-                postQueryKey={postQueryKey}
-                me={me}
-              />
-            )}
           </div>
         </div>
+        <FormattedText text={post.body} className="mt-4 sm:ml-13" />
+        {post.proposal && (
+          <div className="sm:ml-13">
+            <ForumProposalPresentation
+              channel={channel}
+              proposal={post.proposal}
+              postQueryKey={postQueryKey}
+              me={me}
+            />
+          </div>
+        )}
       </article>
 
       {post.proposal && (
@@ -195,7 +197,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
         />
       )}
 
-      <section className="space-y-4">
+      <section className="flex flex-1 flex-col gap-4">
         <div
           className="text-muted-foreground flex items-center gap-3 text-xs font-medium"
           role="separator"
@@ -215,13 +217,11 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
           />
         ))}
         {!post.replies.length && (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground flex min-h-24 flex-1 items-center justify-center text-center text-base">
             {t('forums.prompts.noReplies')}
           </p>
         )}
       </section>
-
-      {!isPane && <div className="-mx-3">{replyForm}</div>}
     </div>
   );
 
@@ -252,12 +252,15 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   }
 
   return (
-    <main
-      ref={setScrollContainer}
-      onScroll={handleScroll}
-      className="min-h-0 flex-1 overflow-y-auto"
-    >
-      {detailContent}
+    <main className="flex min-h-0 flex-1 flex-col">
+      <div
+        ref={setScrollContainer}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
+        {detailContent}
+      </div>
+      <div className="shrink-0">{replyForm}</div>
     </main>
   );
 };

@@ -1,4 +1,5 @@
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
+import { cn } from '@/lib/shared.utils';
 import {
   ACTION_TRANSLATION_KEYS,
   MODEL_TRANSLATION_KEYS,
@@ -21,6 +22,7 @@ interface Props {
   decisionMakingModel: DecisionMakingModel;
   actionType?: PollActionType;
   createdAt?: string;
+  variant?: 'inline' | 'forum';
   onClick: () => void;
 }
 
@@ -37,6 +39,7 @@ export const ProposalMetadata = ({
   decisionMakingModel,
   actionType,
   createdAt,
+  variant = 'inline',
   onClick,
 }: Props) => {
   const { t } = useTranslation();
@@ -45,7 +48,12 @@ export const ProposalMetadata = ({
   return (
     <button
       type="button"
-      className="text-muted-foreground focus-visible:ring-ring flex max-w-full min-w-0 cursor-pointer flex-col items-start gap-1 rounded-sm pr-8 text-left text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none @sm:flex-row @sm:items-center @sm:gap-0"
+      className={cn(
+        'text-muted-foreground focus-visible:ring-ring flex max-w-full min-w-0 cursor-pointer items-start rounded-sm pr-8 text-left text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none',
+        variant === 'forum'
+          ? 'flex-row items-center gap-0'
+          : 'flex-col gap-1 @sm:flex-row @sm:items-center @sm:gap-0',
+      )}
       onClick={onClick}
     >
       {actionType && ActionIcon && (
@@ -57,7 +65,13 @@ export const ProposalMetadata = ({
 
       <span className="flex items-center gap-1.5">
         {actionType && ActionIcon && (
-          <span className="hidden pr-0.25 pl-1.5 @sm:inline" aria-hidden="true">
+          <span
+            className={cn(
+              'pr-0.25 pl-1.5',
+              variant !== 'forum' && 'hidden @sm:inline',
+            )}
+            aria-hidden="true"
+          >
             {MIDDOT_WITH_SPACES.trim()}
           </span>
         )}
@@ -66,7 +80,13 @@ export const ProposalMetadata = ({
       </span>
       {createdAt && (
         <span className="flex items-center">
-          <span className="hidden px-1.5 @sm:inline" aria-hidden="true">
+          <span
+            className={cn(
+              'px-1.5',
+              variant !== 'forum' && 'hidden @sm:inline',
+            )}
+            aria-hidden="true"
+          >
             {MIDDOT_WITH_SPACES.trim()}
           </span>
           <span>{timeAgo(createdAt)}</span>

@@ -86,6 +86,7 @@ export const ProposalContent = ({
         decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
         actionType={action?.actionType}
         createdAt={variant === 'forum' ? poll.createdAt : undefined}
+        variant={variant}
         onClick={() => setIsSettingsDialogOpen(true)}
       />
       <ProposalSettingsDialog
