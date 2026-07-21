@@ -103,7 +103,7 @@ export const ForumPostMenu = ({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 shrink-0"
+            className="size-8 shrink-0 text-gray-500 dark:text-gray-400"
             aria-label={t('forums.actions.openPostMenu')}
             onPointerDown={(event) => event.preventDefault()}
             onPointerUp={() => setIsMenuOpen((open) => !open)}
