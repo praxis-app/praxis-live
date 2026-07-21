@@ -137,7 +137,7 @@ export const NavSheet = ({ trigger }: Props) => {
               key={channel.id}
               to={`${channelsPath}/${channel.id}`}
               onClick={() => setIsNavSheetOpen(false)}
-              className="flex items-center gap-1.5 font-light tracking-[0.01em]"
+              className="flex items-center gap-1.5 text-lg tracking-[0.01em]"
             >
               {channel.channelType === 'forum' ? (
                 <MdForum className="mr-1 size-6" />
