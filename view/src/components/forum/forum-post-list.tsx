@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useInView } from '@/hooks/use-in-view';
 import { useScrollDirection } from '@/hooks/use-scroll-direction';
@@ -37,11 +38,14 @@ interface Props {
 }
 
 export const ForumPostList = ({ channel, selectedPostId }: Props) => {
-  const { t } = useTranslation();
-  const { serverId, serverPath } = useServerData();
   const [sort, setSort] = useState<ForumPostSort>('recent');
   const [status, setStatus] = useState<ForumPostStatus | 'all'>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const { serverId, serverPath } = useServerData();
+  const { isLoggedIn } = useAuthData();
+
+  const { t } = useTranslation();
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteQuery({
@@ -148,7 +152,11 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
               </SelectContent>
             </Select>
           </div>
-          <Button className="shrink-0" onClick={() => setIsCreateOpen(true)}>
+          <Button
+            className="shrink-0 disabled:pointer-events-auto disabled:cursor-not-allowed"
+            disabled={!isLoggedIn}
+            onClick={() => setIsCreateOpen(true)}
+          >
             <MdAdd />
             {t('forums.actions.newPost')}
           </Button>
