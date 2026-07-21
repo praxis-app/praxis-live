@@ -169,7 +169,7 @@ export const NavSheet = ({ trigger }: Props) => {
               {!isLoggedIn && (
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-base font-light"
+                  className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
                   onClick={() => {
                     navigate(NavigationPaths.Login);
                     setIsNavSheetOpen(false);
