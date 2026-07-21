@@ -27,6 +27,7 @@ interface Props {
   stage: PollStage;
   decisionMakingModel: DecisionMakingModel;
   closingAt?: string;
+  disabled?: boolean;
   onVoteSuccess?: () => void;
   updateCachedProposal?: (update: (proposal: PollRes) => PollRes) => void;
 }
@@ -39,14 +40,18 @@ export const ProposalVoteButtons = ({
   stage,
   decisionMakingModel,
   closingAt,
+  disabled = false,
   onVoteSuccess,
   updateCachedProposal,
 }: Props) => {
-  const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const deadlineHasPassed = useVotingDeadline(closingAt);
+
   const { serverId } = useServerData();
   const { isLoggedIn } = useAuthData();
-  const deadlineHasPassed = useVotingDeadline(closingAt);
+
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
   const voteTypes = VOTE_TYPES.filter(
     (voteType) =>
       decisionMakingModel !== 'majority-vote' || voteType !== 'block',
@@ -200,6 +205,9 @@ export const ProposalVoteButtons = ({
     castVote(voteType);
   };
 
+  const isVotingDisabled =
+    disabled || isPending || stage !== 'voting' || deadlineHasPassed;
+
   return (
     <div className="grid w-full min-w-0 grid-cols-2 gap-2 @lg:grid-cols-4">
       {voteTypes.map((vote) => (
@@ -212,7 +220,7 @@ export const ProposalVoteButtons = ({
             myVote?.voteType === vote && 'bg-primary/15!',
           )}
           onClick={() => handleVoteBtnClick(vote)}
-          disabled={isPending || stage !== 'voting' || deadlineHasPassed}
+          disabled={isVotingDisabled}
         >
           {t(`proposals.actions.${vote}`)}
         </Button>

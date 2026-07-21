@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createAuthenticatedUser } from '../lib/auth';
+import { authorizationHeaders, createAuthenticatedUser } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { createForumChannel } from '../lib/forums';
 import {
@@ -108,10 +108,20 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
     forumProposal.getByRole('button', { name: 'Open proposal menu' }),
   ).toHaveCount(0);
 
+  const activeCloseResponse = await request.post(
+    `/api/servers/${server.id}/channels/${forumChannel.id}/forum/posts/${post.id}/close`,
+    { headers: authorizationHeaders(proposer) },
+  );
+  expect(activeCloseResponse.status()).toBe(409);
+  expect(await activeCloseResponse.json()).toMatchObject({
+    error: 'Forum posts cannot be closed while their proposal is voting.',
+  });
+
   await page.getByRole('button', { name: 'Open post menu' }).click();
-  await page
-    .getByRole('menuitem', { name: 'View proposal settings' })
-    .click();
+  await expect(page.getByRole('menuitem', { name: 'Close post' })).toHaveCount(
+    0,
+  );
+  await page.getByRole('menuitem', { name: 'View proposal settings' }).click();
 
   const proposalSettingsDialog = page.getByRole('dialog', {
     name: 'Proposal Settings',
@@ -143,6 +153,11 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
   await voteResponse;
   await expect(
     forumProposal.getByText('Ratified', { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Open post menu' }).click();
+  await expect(
+    page.getByRole('menuitem', { name: 'Close post' }),
   ).toBeVisible();
 });
 

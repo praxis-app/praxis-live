@@ -11,6 +11,7 @@ interface Props {
   proposal: PollRes;
   postQueryKey: QueryKey;
   me?: CurrentUser;
+  votingDisabled?: boolean;
 }
 
 export const ForumProposalPresentation = ({
@@ -18,6 +19,7 @@ export const ForumProposalPresentation = ({
   proposal,
   postQueryKey,
   me,
+  votingDisabled = false,
 }: Props) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -48,6 +50,7 @@ export const ForumProposalPresentation = ({
         channel={channel}
         me={me}
         variant="forum"
+        votingDisabled={votingDisabled}
         updateCachedProposal={updateCachedProposal}
       />
     </section>

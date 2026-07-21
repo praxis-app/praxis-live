@@ -24,7 +24,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuListTodo } from 'react-icons/lu';
-import { MdLockOutline, MdMoreHoriz, MdSettings } from 'react-icons/md';
+import {
+  MdLockOpen,
+  MdLockOutline,
+  MdMoreHoriz,
+  MdSettings,
+} from 'react-icons/md';
 
 interface Props {
   channel: ChannelRes;
@@ -39,29 +44,44 @@ export const ForumPostMenu = ({
   isAuthor,
   onViewProposalSettings,
 }: Props) => {
-  const { t } = useTranslation();
-  const { serverId } = useServerData();
-  const queryClient = useQueryClient();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  const { serverId } = useServerData();
+
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  const showClosePostButton =
+    isAuthor && post.status === 'open' && post.proposal?.stage !== 'voting';
+
+  const showCreateProposalButton =
+    isAuthor && post.status === 'open' && !post.proposal;
 
   const invalidateForum = () =>
     queryClient.invalidateQueries({
       queryKey: ['servers', serverId, 'channels', channel.id, 'forum'],
     });
 
-  const { mutate: closePost, isPending: isClosing } = useMutation({
-    mutationFn: () => {
-      if (!serverId) throw new Error('Server ID is required');
-      return api.closeForumPost(serverId, channel.id, post.id);
+  const { mutate: updatePostStatus, isPending: isUpdatingStatus } = useMutation(
+    {
+      mutationFn: () => {
+        if (!serverId) throw new Error('Server ID is required');
+        return post.status === 'open'
+          ? api.closeForumPost(serverId, channel.id, post.id)
+          : api.reopenForumPost(serverId, channel.id, post.id);
+      },
+      onSuccess: () => void invalidateForum(),
+      onError: handleError,
     },
-    onSuccess: () => void invalidateForum(),
-    onError: handleError,
-  });
+  );
 
   const createProposal = async (request: CreatePollReq) => {
     if (!serverId) throw new Error('Server ID is required');
+    if (post.status === 'closed') {
+      throw new Error(t('forums.prompts.closedPost'));
+    }
     const { post: updatedPost } = await api.createForumPostProposal(
       serverId,
       channel.id,
@@ -83,7 +103,7 @@ export const ForumPostMenu = ({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 shrink-0"
+            className="size-8 shrink-0 text-gray-500 dark:text-gray-400"
             aria-label={t('forums.actions.openPostMenu')}
             onPointerDown={(event) => event.preventDefault()}
             onPointerUp={() => setIsMenuOpen((open) => !open)}
@@ -98,22 +118,37 @@ export const ForumPostMenu = ({
               {t('forums.actions.viewProposalSettings')}
             </DropdownMenuItem>
           )}
-          {isAuthor && !post.proposal && (
+          {showCreateProposalButton && (
             <DropdownMenuItem onSelect={() => setIsCreateOpen(true)}>
               <LuListTodo />
               {t('forums.actions.createProposalFromDiscussion')}
             </DropdownMenuItem>
           )}
-          {isAuthor && post.status === 'open' && (
-            <DropdownMenuItem disabled={isClosing} onSelect={() => closePost()}>
+          {showClosePostButton && (
+            <DropdownMenuItem
+              disabled={isUpdatingStatus}
+              onSelect={() => updatePostStatus()}
+            >
               <MdLockOutline />
               {t('forums.actions.closePost')}
+            </DropdownMenuItem>
+          )}
+          {isAuthor && post.status === 'closed' && (
+            <DropdownMenuItem
+              disabled={isUpdatingStatus}
+              onSelect={() => updatePostStatus()}
+            >
+              <MdLockOpen />
+              {t('forums.actions.reopenPost')}
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog
+        open={post.status === 'open' && isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+      >
         <DialogContent
           ref={dialogRef}
           className="max-h-[90vh] overflow-y-auto md:w-xl"

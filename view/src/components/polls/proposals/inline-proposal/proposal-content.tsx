@@ -35,6 +35,7 @@ interface Props {
   isJoiningSourceCall?: boolean;
   canMoveToForum?: boolean;
   variant?: 'inline' | 'forum';
+  votingDisabled?: boolean;
   updateCachedProposal?: (update: (proposal: PollRes) => PollRes) => void;
 }
 
@@ -51,6 +52,7 @@ export const ProposalContent = ({
   isJoiningSourceCall = false,
   canMoveToForum = false,
   variant = 'inline',
+  votingDisabled = false,
   updateCachedProposal,
 }: Props) => {
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
@@ -86,6 +88,7 @@ export const ProposalContent = ({
         decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
         actionType={action?.actionType}
         createdAt={variant === 'forum' ? poll.createdAt : undefined}
+        variant={variant}
         onClick={() => setIsSettingsDialogOpen(true)}
       />
       <ProposalSettingsDialog
@@ -108,6 +111,7 @@ export const ProposalContent = ({
           stage={stage}
           decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
           closingAt={config.closingAt}
+          disabled={votingDisabled}
           onVoteSuccess={onPollChange}
           updateCachedProposal={updateCachedProposal}
         />
@@ -120,7 +124,7 @@ export const ProposalContent = ({
       <div
         className={cn(
           'flex min-w-0 flex-wrap items-center justify-between gap-2',
-          variant === 'forum' && 'pt-2',
+          variant === 'forum' && 'pt-3',
         )}
       >
         <div className="text-muted-foreground flex min-w-0 flex-wrap text-sm">

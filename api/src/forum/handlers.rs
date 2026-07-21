@@ -230,6 +230,30 @@ pub(super) async fn close_forum_post(
     Ok(Json(serde_json::json!({ "post": post })))
 }
 
+pub(super) async fn reopen_forum_post(
+    State(state): State<ForumState>,
+    context: ForumPostAccessContext,
+) -> AppResult<Json<serde_json::Value>> {
+    let post = service::reopen_forum_post(
+        &state.database,
+        context.channel_id,
+        context.post_id,
+        context.user_id,
+    )
+    .await?;
+    events::broadcast_forum_post(
+        &state.database,
+        &state.pub_sub_service,
+        context.server_id,
+        context.channel_id,
+        context.user_id,
+        "reopened",
+        &post,
+    )
+    .await;
+    Ok(Json(serde_json::json!({ "post": post })))
+}
+
 pub(super) async fn create_forum_reply(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
