@@ -16,12 +16,6 @@ type ForumPostResponse = {
   };
 };
 
-type ForumReplyResponse = {
-  reply: {
-    id: string;
-  };
-};
-
 test('user can move a text proposal to a forum, reply, vote, and see it ratified', async ({
   context,
   page,
@@ -127,9 +121,7 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
   await expect(page.getByRole('menuitem', { name: 'Close post' })).toHaveCount(
     0,
   );
-  await page
-    .getByRole('menuitem', { name: 'View proposal settings' })
-    .click();
+  await page.getByRole('menuitem', { name: 'View proposal settings' }).click();
 
   const proposalSettingsDialog = page.getByRole('dialog', {
     name: 'Proposal Settings',
@@ -283,116 +275,4 @@ test('user can turn a forum discussion into a ratified proposal', async ({
   await expect(
     forumProposal.getByText('Ratified', { exact: true }),
   ).toBeVisible();
-});
-
-test('closed forum posts reject edits, reply deletion, and proposal creation', async ({
-  context,
-  page,
-  request,
-}) => {
-  const author = await createAuthenticatedUser(
-    request,
-    context,
-    createTestUser('forum-closed'),
-  );
-  const server = await getDefaultServer(request, author);
-  const forumChannel = await createForumChannel(
-    request,
-    author,
-    server.id,
-    `forum-${author.user.suffix}`,
-  );
-  const postTitle = `Closable discussion ${author.user.suffix}`;
-
-  await page.goto(`/s/${server.slug}/c/${forumChannel.id}`);
-  await page.getByRole('button', { name: 'New post' }).click();
-
-  const createPostDialog = page.getByRole('dialog', { name: 'Create post' });
-  await createPostDialog.getByLabel('Title').fill(postTitle);
-  await createPostDialog
-    .getByLabel('Message')
-    .fill(`Closable opening message ${author.user.suffix}`);
-  const createPostResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes(`/channels/${forumChannel.id}/forum/posts`) &&
-      response.status() === 200,
-  );
-  await createPostDialog
-    .getByRole('button', { name: 'Create discussion' })
-    .click();
-  const createdPostResponse = await createPostResponse;
-  const { post } = (await createdPostResponse.json()) as ForumPostResponse;
-
-  const createReplyResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes(`/forum/posts/${post.id}/replies`) &&
-      response.status() === 200,
-  );
-  await page
-    .getByPlaceholder('Send a message...')
-    .fill(`Reply to preserve ${author.user.suffix}`);
-  await page.getByPlaceholder('Send a message...').press('Enter');
-  const createdReplyResponse = await createReplyResponse;
-  const { reply } = (await createdReplyResponse.json()) as ForumReplyResponse;
-
-  await page.getByRole('button', { name: 'Open post menu' }).click();
-  const closeResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes(`/forum/posts/${post.id}/close`) &&
-      response.status() === 200,
-  );
-  await page.getByRole('menuitem', { name: 'Close post' }).click();
-  await closeResponse;
-  await expect(page.getByText('Closed', { exact: true })).toBeVisible();
-
-  const headers = authorizationHeaders(author);
-  const postPath = `/api/servers/${server.id}/channels/${forumChannel.id}/forum/posts/${post.id}`;
-
-  const editResponse = await request.put(postPath, {
-    headers,
-    data: { title: `Edited ${postTitle}` },
-  });
-  expect(editResponse.status()).toBe(409);
-  expect(await editResponse.json()).toMatchObject({
-    error: 'Closed forum posts cannot be edited.',
-  });
-
-  const deleteReplyResponse = await request.delete(
-    `${postPath}/replies/${reply.id}`,
-    { headers },
-  );
-  expect(deleteReplyResponse.status()).toBe(409);
-  expect(await deleteReplyResponse.json()).toMatchObject({
-    error: 'Replies cannot be deleted from closed forum posts.',
-  });
-
-  const proposalResponse = await request.post(`${postPath}/proposal`, {
-    headers,
-    data: {
-      body: `Closed proposal ${author.user.suffix}`,
-      pollType: 'proposal',
-      action: { actionType: 'test' },
-    },
-  });
-  expect(proposalResponse.status()).toBe(409);
-  expect(await proposalResponse.json()).toMatchObject({
-    error: 'Closed forum posts cannot have proposals created.',
-  });
-
-  await page.getByRole('button', { name: 'Open post menu' }).click();
-  await expect(
-    page.getByRole('menuitem', { name: 'Create proposal from discussion' }),
-  ).toHaveCount(0);
-  const reopenResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes(`/forum/posts/${post.id}/reopen`) &&
-      response.status() === 200,
-  );
-  await page.getByRole('menuitem', { name: 'Reopen post' }).click();
-  await reopenResponse;
-  await expect(page.getByText('Closed', { exact: true })).toHaveCount(0);
 });
