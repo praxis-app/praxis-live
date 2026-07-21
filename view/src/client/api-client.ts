@@ -304,6 +304,15 @@ class ApiClient {
     return this.executeRequest<{ post: ForumPostRes }>('post', path);
   };
 
+  reopenForumPost = async (
+    serverId: string,
+    channelId: string,
+    postId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/reopen`;
+    return this.executeRequest<{ post: ForumPostRes }>('post', path);
+  };
+
   moveProposalToForum = async (
     serverId: string,
     sourceChannelId: string,
