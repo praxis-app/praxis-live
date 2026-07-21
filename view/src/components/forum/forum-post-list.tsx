@@ -153,12 +153,16 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
             </Select>
           </div>
           <Button
+            aria-label={t('forums.actions.newPost')}
             className="shrink-0 disabled:pointer-events-auto disabled:cursor-not-allowed"
             disabled={!isLoggedIn}
             onClick={() => setIsCreateOpen(true)}
           >
             <MdAdd />
-            {t('forums.actions.newPost')}
+            <span className="sm:hidden">{t('forums.actions.post')}</span>
+            <span className="hidden sm:inline">
+              {t('forums.actions.newPost')}
+            </span>
           </Button>
         </div>
 
