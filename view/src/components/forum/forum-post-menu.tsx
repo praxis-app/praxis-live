@@ -24,19 +24,27 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuListTodo } from 'react-icons/lu';
-import { MdLockOutline, MdMoreHoriz } from 'react-icons/md';
+import { MdLockOutline, MdMoreHoriz, MdSettings } from 'react-icons/md';
 
 interface Props {
   channel: ChannelRes;
   post: ForumPostRes;
+  isAuthor: boolean;
+  onViewProposalSettings: () => void;
 }
 
-export const ForumPostMenu = ({ channel, post }: Props) => {
+export const ForumPostMenu = ({
+  channel,
+  post,
+  isAuthor,
+  onViewProposalSettings,
+}: Props) => {
   const { t } = useTranslation();
   const { serverId } = useServerData();
   const queryClient = useQueryClient();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const invalidateForum = () =>
     queryClient.invalidateQueries({
@@ -69,7 +77,7 @@ export const ForumPostMenu = ({ channel, post }: Props) => {
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             type="button"
@@ -77,18 +85,26 @@ export const ForumPostMenu = ({ channel, post }: Props) => {
             size="icon"
             className="size-8 shrink-0"
             aria-label={t('forums.actions.openPostMenu')}
+            onPointerDown={(event) => event.preventDefault()}
+            onPointerUp={() => setIsMenuOpen((open) => !open)}
           >
             <MdMoreHoriz className="size-5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {!post.proposal && (
+          {post.proposal && (
+            <DropdownMenuItem onSelect={onViewProposalSettings}>
+              <MdSettings />
+              {t('forums.actions.viewProposalSettings')}
+            </DropdownMenuItem>
+          )}
+          {isAuthor && !post.proposal && (
             <DropdownMenuItem onSelect={() => setIsCreateOpen(true)}>
               <LuListTodo />
               {t('forums.actions.createProposalFromDiscussion')}
             </DropdownMenuItem>
           )}
-          {post.status === 'open' && (
+          {isAuthor && post.status === 'open' && (
             <DropdownMenuItem disabled={isClosing} onSelect={() => closePost()}>
               <MdLockOutline />
               {t('forums.actions.closePost')}

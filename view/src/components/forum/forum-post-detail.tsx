@@ -3,6 +3,7 @@ import { ForumPostMenu } from '@/components/forum/forum-post-menu';
 import { ForumProposalPresentation } from '@/components/forum/forum-proposal-presentation';
 import { Message } from '@/components/messages/message';
 import { MessageForm } from '@/components/messages/message-form';
+import { ProposalSettingsDialog } from '@/components/polls/proposals/proposal-settings-dialog';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -13,9 +14,8 @@ import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuArrowLeft } from 'react-icons/lu';
 import { MdClose, MdLockOutline } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 
@@ -26,6 +26,7 @@ interface Props {
 }
 
 export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
+  const [isProposalSettingsOpen, setIsProposalSettingsOpen] = useState(false);
   const { t } = useTranslation();
   const { me } = useAuthData();
   const { serverId, serverPath } = useServerData();
@@ -57,6 +58,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const replyCount = post?.replies.length;
 
   useEffect(() => {
+    setIsProposalSettingsOpen(false);
     shouldScrollAfterReplyRef.current = false;
     wasNearBottomRef.current = true;
     previousReplyCountRef.current = undefined;
@@ -114,6 +116,9 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const author = post.user.displayName || post.user.name;
   const isAuthor = me?.id === post.user.id;
 
+  const showForumPostMenu =
+    post.proposal || (isAuthor && (post.status === 'open' || !post.proposal));
+
   const replyForm = (
     <MessageForm
       channelId={channel.id}
@@ -133,15 +138,6 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
         isPane && 'max-w-none px-4',
       )}
     >
-      {!isPane && (
-        <Button variant="ghost" className="self-start" asChild>
-          <Link to={`${serverPath}/c/${channel.id}`}>
-            <LuArrowLeft />
-            {t('forums.actions.allPosts')}
-          </Link>
-        </Button>
-      )}
-
       <article>
         <div className="flex items-start gap-3">
           <UserAvatar
@@ -165,8 +161,15 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
                     {t('forums.labels.closed')}
                   </span>
                 )}
-                {isAuthor && (post.status === 'open' || !post.proposal) && (
-                  <ForumPostMenu channel={channel} post={post} />
+                {showForumPostMenu && (
+                  <ForumPostMenu
+                    channel={channel}
+                    post={post}
+                    isAuthor={isAuthor}
+                    onViewProposalSettings={() =>
+                      setIsProposalSettingsOpen(true)
+                    }
+                  />
                 )}
               </div>
             </div>
@@ -182,6 +185,15 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
           </div>
         </div>
       </article>
+
+      {post.proposal && (
+        <ProposalSettingsDialog
+          actionType={post.proposal.action?.actionType}
+          config={post.proposal.config}
+          open={isProposalSettingsOpen}
+          onOpenChange={setIsProposalSettingsOpen}
+        />
+      )}
 
       <section className="space-y-4">
         <div

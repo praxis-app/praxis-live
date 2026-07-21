@@ -72,14 +72,16 @@ export const ProposalContent = ({
 
   return (
     <>
-      <ProposalMenu
-        me={me}
-        poll={poll}
-        channel={channel}
-        canMoveToForum={canMoveToForum}
-        feedQueryKey={feedQueryKey}
-        onViewSettings={() => setIsSettingsDialogOpen(true)}
-      />
+      {variant === 'inline' && (
+        <ProposalMenu
+          me={me}
+          poll={poll}
+          channel={channel}
+          canMoveToForum={canMoveToForum}
+          feedQueryKey={feedQueryKey}
+          onViewSettings={() => setIsSettingsDialogOpen(true)}
+        />
+      )}
       <ProposalMetadata
         decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
         actionType={action?.actionType}
