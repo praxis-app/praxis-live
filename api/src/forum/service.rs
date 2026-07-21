@@ -137,14 +137,14 @@ pub(crate) async fn create_forum_post(
     .map_err(internal_error)?;
     transaction.commit().await.map_err(internal_error)?;
 
-    get_forum_post(database, channel_id, post_id, user_id).await
+    get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
 
 pub(crate) async fn get_forum_post(
     database: &DatabaseConnection,
     channel_id: Uuid,
     post_id: Uuid,
-    user_id: Uuid,
+    user_id: Option<Uuid>,
 ) -> AppResult<ForumPostResponse> {
     shape_forum_post(
         database,
@@ -223,7 +223,7 @@ pub(crate) async fn update_forum_post(
     }
 
     transaction.commit().await.map_err(internal_error)?;
-    get_forum_post(database, channel_id, post_id, user_id).await
+    get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
 
 pub(crate) async fn create_forum_post_proposal(
@@ -264,7 +264,7 @@ pub(crate) async fn create_forum_post_proposal(
     active.update(&transaction).await.map_err(internal_error)?;
     transaction.commit().await.map_err(internal_error)?;
 
-    get_forum_post(database, channel_id, post_id, user_id).await
+    get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
 
 pub(crate) async fn close_forum_post(
@@ -283,7 +283,7 @@ pub(crate) async fn close_forum_post(
         active.update(&transaction).await.map_err(internal_error)?;
     }
     transaction.commit().await.map_err(internal_error)?;
-    get_forum_post(database, channel_id, post_id, user_id).await
+    get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
 
 pub(crate) async fn create_forum_reply(

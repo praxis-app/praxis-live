@@ -7,15 +7,82 @@ use sea_orm::prelude::Uuid;
 
 use super::types::{ForumChannelPath, ForumPostPath, ForumReplyPath};
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     channels::{self, extractors::HasDatabase},
     common::ApiError,
+    servers,
 };
+
+pub(super) struct ForumReadContext {
+    pub(super) channel_id: Uuid,
+}
+
+pub(super) struct ForumPostReadContext {
+    pub(super) channel_id: Uuid,
+    pub(super) post_id: Uuid,
+    pub(super) user_id: Option<Uuid>,
+}
 
 pub(super) struct ForumAccessContext {
     pub(super) server_id: Uuid,
     pub(super) channel_id: Uuid,
     pub(super) user_id: Uuid,
+}
+
+impl<S> FromRequestParts<S> for ForumReadContext
+where
+    S: HasDatabase + HasJwtSecret + Send + Sync,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) = forum_channel_path(parts, state).await?;
+        let AuthenticatedUserOptional(user_id) =
+            AuthenticatedUserOptional::from_request_parts(parts, state).await?;
+        ensure_forum_read_access(
+            state,
+            path.server_id,
+            path.channel_id,
+            user_id,
+        )
+        .await?;
+
+        Ok(Self {
+            channel_id: path.channel_id,
+        })
+    }
+}
+
+impl<S> FromRequestParts<S> for ForumPostReadContext
+where
+    S: HasDatabase + HasJwtSecret + Send + Sync,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) = forum_post_path(parts, state).await?;
+        let AuthenticatedUserOptional(user_id) =
+            AuthenticatedUserOptional::from_request_parts(parts, state).await?;
+        ensure_forum_read_access(
+            state,
+            path.server_id,
+            path.channel_id,
+            user_id,
+        )
+        .await?;
+
+        Ok(Self {
+            channel_id: path.channel_id,
+            post_id: path.post_id,
+            user_id,
+        })
+    }
 }
 
 pub(super) struct ForumPostAccessContext {
@@ -43,15 +110,7 @@ where
         parts: &mut Parts,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let Path(path) =
-            Path::<ForumChannelPath>::from_request_parts(parts, state)
-                .await
-                .map_err(|_| {
-                    ApiError::new(
-                        StatusCode::BAD_REQUEST,
-                        "Invalid route path.",
-                    )
-                })?;
+        let Path(path) = forum_channel_path(parts, state).await?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
         ensure_forum_access(state, path.server_id, path.channel_id, user_id)
@@ -75,15 +134,7 @@ where
         parts: &mut Parts,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let Path(path) =
-            Path::<ForumPostPath>::from_request_parts(parts, state)
-                .await
-                .map_err(|_| {
-                    ApiError::new(
-                        StatusCode::BAD_REQUEST,
-                        "Invalid route path.",
-                    )
-                })?;
+        let Path(path) = forum_post_path(parts, state).await?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
         ensure_forum_access(state, path.server_id, path.channel_id, user_id)
@@ -95,6 +146,54 @@ where
             post_id: path.post_id,
             user_id,
         })
+    }
+}
+
+async fn forum_channel_path<S>(
+    parts: &mut Parts,
+    state: &S,
+) -> Result<Path<ForumChannelPath>, ApiError>
+where
+    S: Send + Sync,
+{
+    Path::<ForumChannelPath>::from_request_parts(parts, state)
+        .await
+        .map_err(|_| invalid_route_path())
+}
+
+async fn forum_post_path<S>(
+    parts: &mut Parts,
+    state: &S,
+) -> Result<Path<ForumPostPath>, ApiError>
+where
+    S: Send + Sync,
+{
+    Path::<ForumPostPath>::from_request_parts(parts, state)
+        .await
+        .map_err(|_| invalid_route_path())
+}
+
+async fn ensure_forum_read_access<S>(
+    state: &S,
+    server_id: Uuid,
+    channel_id: Uuid,
+    user_id: Option<Uuid>,
+) -> Result<(), ApiError>
+where
+    S: HasDatabase + Send + Sync,
+{
+    ensure_forum_channel(state, server_id, channel_id).await?;
+    if let Some(user_id) = user_id {
+        channels::ensure_channel_membership(
+            state.database(),
+            channel_id,
+            user_id,
+        )
+        .await
+    } else if servers::default_server_id(state.database()).await? == server_id {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
     }
 }
 
@@ -141,16 +240,31 @@ async fn ensure_forum_access<S>(
 where
     S: HasDatabase + Send + Sync,
 {
-    let channel =
-        channels::get_channel(state.database(), server_id, channel_id).await?;
+    ensure_forum_channel(state, server_id, channel_id).await?;
     channels::ensure_channel_membership(state.database(), channel_id, user_id)
         .await?;
-    if channel.channel_type == ChannelType::Forum {
-        Ok(())
-    } else {
-        Err(ApiError::new(
+    Ok(())
+}
+
+async fn ensure_forum_channel<S>(
+    state: &S,
+    server_id: Uuid,
+    channel_id: Uuid,
+) -> Result<entity::channels::Model, ApiError>
+where
+    S: HasDatabase + Send + Sync,
+{
+    let channel =
+        channels::get_channel(state.database(), server_id, channel_id).await?;
+    if channel.channel_type != ChannelType::Forum {
+        return Err(ApiError::new(
             StatusCode::NOT_FOUND,
             "Forum channel not found.",
-        ))
+        ));
     }
+    Ok(channel)
+}
+
+fn invalid_route_path() -> ApiError {
+    ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
 }

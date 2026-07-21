@@ -24,7 +24,7 @@ struct ReplyCount {
 pub(super) async fn shape_forum_post(
     database: &DatabaseConnection,
     post: forum_posts::Model,
-    user_id: Uuid,
+    user_id: Option<Uuid>,
 ) -> AppResult<ForumPostResponse> {
     let root = messages::Entity::find_by_id(post.root_message_id)
         .one(database)
@@ -56,7 +56,7 @@ pub(super) async fn shape_forum_post(
                 Uuid::nil(),
                 post.channel_id,
                 poll_id,
-                Some(user_id),
+                user_id,
             )
             .await?,
         ),

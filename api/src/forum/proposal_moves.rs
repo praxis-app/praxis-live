@@ -271,9 +271,13 @@ pub(crate) async fn move_proposal_to_forum(
 
     transaction.commit().await.map_err(internal_error)?;
 
-    let post =
-        get_forum_post(database, destination_channel_id, post_id, user_id)
-            .await?;
+    let post = get_forum_post(
+        database,
+        destination_channel_id,
+        post_id,
+        Some(user_id),
+    )
+    .await?;
     let source_reference = ProposalForumReferenceResponse {
         id: poll_id.to_string(),
         proposal_id: poll_id.to_string(),
