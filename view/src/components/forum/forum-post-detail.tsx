@@ -136,6 +136,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
       className={cn(
         'mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 px-3 pt-6 md:px-5 md:py-6',
         isPane && 'max-w-none px-4',
+        post.proposal && 'gap-4',
       )}
     >
       <article>

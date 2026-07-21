@@ -124,7 +124,7 @@ export const ProposalContent = ({
       <div
         className={cn(
           'flex min-w-0 flex-wrap items-center justify-between gap-2',
-          variant === 'forum' && 'pt-2',
+          variant === 'forum' && 'pt-3',
         )}
       >
         <div className="text-muted-foreground flex min-w-0 flex-wrap text-sm">
