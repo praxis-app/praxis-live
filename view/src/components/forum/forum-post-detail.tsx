@@ -105,7 +105,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
 
   if (!post) {
     return isPane ? (
-      <aside className="bg-background min-w-0 flex-1 border-l md:max-w-[720px]" />
+      <aside className="bg-background min-w-0 flex-1 border-l md:max-w-180" />
     ) : (
       <main className="min-h-0 flex-1" />
     );
@@ -129,7 +129,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const detailContent = (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 py-6 md:px-5',
+        'mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 pt-6 md:px-5 md:py-6',
         isPane && 'max-w-none px-4',
       )}
     >
@@ -209,14 +209,14 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
         )}
       </section>
 
-      {!isPane && replyForm}
+      {!isPane && <div className="-mx-3">{replyForm}</div>}
     </div>
   );
 
   if (isPane) {
     return (
-      <aside className="bg-background flex min-w-0 flex-1 flex-col border-l md:max-w-[720px]">
-        <header className="flex h-[55px] shrink-0 items-center justify-between gap-3 border-b px-4">
+      <aside className="bg-background flex min-w-0 flex-1 flex-col border-l md:max-w-180">
+        <header className="flex h-13.75 shrink-0 items-center justify-between gap-3 border-b px-4">
           <h2 className="truncate font-medium">{post.title}</h2>
           <Button variant="ghost" size="icon" asChild>
             <Link
