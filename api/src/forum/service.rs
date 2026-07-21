@@ -1,8 +1,8 @@
 use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
-    enums::ForumPostStatus, forum_posts, message_images, messages,
-    votes as vote_entities,
+    enums::{ForumPostStatus, PollStage},
+    forum_posts, message_images, messages, polls, votes as vote_entities,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait,
@@ -193,6 +193,7 @@ pub(crate) async fn update_forum_post(
     let transaction = database.begin().await.map_err(internal_error)?;
     let post = load_post_for_update(&transaction, channel_id, post_id).await?;
     ensure_owner(post.user_id, user_id, "Only the post author can edit it.")?;
+    ensure_post_is_open(&post, "Closed forum posts cannot be edited.")?;
     let root_message_id = post.root_message_id;
     let now = Utc::now().fixed_offset();
     let mut active = post.into_active_model();
@@ -304,6 +305,9 @@ async fn set_forum_post_status(
     let transaction = database.begin().await.map_err(internal_error)?;
     let post = load_post_for_update(&transaction, channel_id, post_id).await?;
     ensure_owner(post.user_id, user_id, owner_error)?;
+    if status == ForumPostStatus::Closed {
+        ensure_post_can_close(&transaction, &post).await?;
+    }
     if post.status != status {
         let mut active = post.into_active_model();
         active.status = Set(status);
@@ -415,6 +419,10 @@ pub(crate) async fn delete_forum_reply(
 ) -> AppResult<ForumPostSummaryResponse> {
     let transaction = database.begin().await.map_err(internal_error)?;
     let post = load_post_for_update(&transaction, channel_id, post_id).await?;
+    ensure_post_is_open(
+        &post,
+        "Replies cannot be deleted from closed forum posts.",
+    )?;
     let reply = messages::Entity::find_by_id(reply_id)
         .filter(messages::Column::ChannelId.eq(channel_id))
         .filter(messages::Column::ThreadRootId.eq(post.root_message_id))
@@ -625,6 +633,43 @@ fn ensure_owner(
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, message))
     }
+}
+
+fn ensure_post_is_open(
+    post: &forum_posts::Model,
+    message: &'static str,
+) -> AppResult<()> {
+    if post.status == ForumPostStatus::Open {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::CONFLICT, message))
+    }
+}
+
+async fn ensure_post_can_close<C>(
+    database: &C,
+    post: &forum_posts::Model,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let Some(poll_id) = post.poll_id else {
+        return Ok(());
+    };
+    let poll = polls::Entity::find_by_id(poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            internal_consistency_error("Forum post proposal not found.")
+        })?;
+    if poll.stage == PollStage::Voting {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "Forum posts cannot be closed while their proposal is voting.",
+        ));
+    }
+    Ok(())
 }
 
 fn ensure_post_accepts_proposal(

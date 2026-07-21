@@ -2,9 +2,9 @@ use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
     calls,
-    enums::{PollStage, VoteType},
-    poll_actions as poll_action_entities, poll_configs, poll_option_selections,
-    poll_options, polls, users, votes as vote_entities,
+    enums::{ForumPostStatus, PollStage, VoteType},
+    forum_posts, poll_actions as poll_action_entities, poll_configs,
+    poll_option_selections, poll_options, polls, users, votes as vote_entities,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
@@ -380,6 +380,20 @@ async fn ensure_poll_accepts_vote_mutations<C>(
 where
     C: ConnectionTrait,
 {
+    if forum_posts::Entity::find()
+        .filter(forum_posts::Column::PollId.eq(poll.id))
+        .filter(forum_posts::Column::Status.eq(ForumPostStatus::Closed))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .is_some()
+    {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "Votes on proposals attached to closed forum posts cannot be changed.",
+        ));
+    }
+
     let config = poll_configs::Entity::find()
         .filter(poll_configs::Column::PollId.eq(poll.id))
         .one(database)

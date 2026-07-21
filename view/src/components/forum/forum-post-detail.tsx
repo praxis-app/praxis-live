@@ -179,10 +179,11 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
         {post.proposal && (
           <div className="sm:ml-13">
             <ForumProposalPresentation
+              me={me}
               channel={channel}
               proposal={post.proposal}
               postQueryKey={postQueryKey}
-              me={me}
+              votingDisabled={post.status === 'closed'}
             />
           </div>
         )}

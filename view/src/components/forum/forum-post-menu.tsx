@@ -44,12 +44,20 @@ export const ForumPostMenu = ({
   isAuthor,
   onViewProposalSettings,
 }: Props) => {
-  const { t } = useTranslation();
-  const { serverId } = useServerData();
-  const queryClient = useQueryClient();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  const { serverId } = useServerData();
+
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  const showClosePostButton =
+    isAuthor && post.status === 'open' && post.proposal?.stage !== 'voting';
+
+  const showCreateProposalButton =
+    isAuthor && post.status === 'open' && !post.proposal;
 
   const invalidateForum = () =>
     queryClient.invalidateQueries({
@@ -110,13 +118,13 @@ export const ForumPostMenu = ({
               {t('forums.actions.viewProposalSettings')}
             </DropdownMenuItem>
           )}
-          {isAuthor && post.status === 'open' && !post.proposal && (
+          {showCreateProposalButton && (
             <DropdownMenuItem onSelect={() => setIsCreateOpen(true)}>
               <LuListTodo />
               {t('forums.actions.createProposalFromDiscussion')}
             </DropdownMenuItem>
           )}
-          {isAuthor && post.status === 'open' && (
+          {showClosePostButton && (
             <DropdownMenuItem
               disabled={isUpdatingStatus}
               onSelect={() => updatePostStatus()}
