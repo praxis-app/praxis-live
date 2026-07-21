@@ -3,21 +3,12 @@ import { ChannelDetailsDrawer } from '@/components/channels/channel-details-draw
 import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { NavSheet } from '@/components/nav/nav-sheet';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { truncate } from '@/lib/text.utils';
 import { useAppStore } from '@/store/app.store';
 import { type ChannelRes } from '@/types/channel.types';
-import {
-  type CallJoinPreferences,
-  type JoinCallRes,
-} from '@/types/call.types';
+import { type CallJoinPreferences, type JoinCallRes } from '@/types/call.types';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft } from 'react-icons/lu';
 import { MdChevronRight, MdForum, MdSearch, MdTag } from 'react-icons/md';
@@ -66,7 +57,7 @@ export const ChannelTopNav = ({
   const ChannelIcon = channel?.channelType === 'forum' ? MdForum : MdTag;
 
   return (
-    <header className="flex h-[55px] items-center justify-between border-b border-[--color-border] px-2 md:pl-6">
+    <header className="flex h-13.75 items-center justify-between border-b border-[--color-border] px-2 md:pl-6">
       <div className="mr-1 flex flex-1 items-center gap-2.5">
         {!isDesktop && !isAppLoading && (
           <NavSheet
@@ -131,21 +122,14 @@ export const ChannelTopNav = ({
           />
         )}
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={searchLabel}
-                onClick={() => toast(t('prompts.inDev'))}
-                variant="ghost"
-                size="icon"
-              >
-                <MdSearch className="size-6" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{searchLabel}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button
+          aria-label={searchLabel}
+          onClick={() => toast(t('prompts.inDev'))}
+          variant="ghost"
+          size="icon"
+        >
+          <MdSearch className="size-6" />
+        </Button>
       </div>
     </header>
   );
