@@ -6,13 +6,12 @@ use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 use super::{
+    extractors::ChannelFeedAccessContext,
     service,
     types::{FeedQuery, FeedResponse},
 };
 use crate::{
-    auth::{AuthenticatedUserOptional, HasJwtSecret},
-    channels,
-    common::AppResult,
+    auth::HasJwtSecret, channels::extractors::HasDatabase, common::AppResult,
 };
 
 #[derive(Clone, Debug)]
@@ -39,21 +38,26 @@ impl HasJwtSecret for FeedsState {
     }
 }
 
+impl HasDatabase for FeedsState {
+    fn database(&self) -> &DatabaseConnection {
+        &self.database
+    }
+}
+
 pub(super) async fn get_channel_feed(
     State(feeds_state): State<FeedsState>,
-    Path(path): Path<channels::types::ChannelPath>,
+    context: ChannelFeedAccessContext,
     Query(query): Query<FeedQuery>,
-    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Json<FeedResponse>> {
     let limit = query.limit.unwrap_or(50).min(100);
     let offset = query.offset.unwrap_or(0);
     let feed = service::get_channel_feed(
         &feeds_state.database,
-        path.server_id,
-        path.channel_id,
+        context.server_id,
+        context.channel_id,
         offset,
         limit,
-        user_id,
+        context.user_id,
     )
     .await?;
 

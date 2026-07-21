@@ -137,7 +137,7 @@ export const NavSheet = ({ trigger }: Props) => {
               key={channel.id}
               to={`${channelsPath}/${channel.id}`}
               onClick={() => setIsNavSheetOpen(false)}
-              className="flex items-center gap-1.5 font-light tracking-[0.01em]"
+              className="flex items-center gap-1.5 text-lg tracking-[0.01em]"
             >
               {channel.channelType === 'forum' ? (
                 <MdForum className="mr-1 size-6" />
@@ -169,7 +169,7 @@ export const NavSheet = ({ trigger }: Props) => {
               {!isLoggedIn && (
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-base font-light"
+                  className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
                   onClick={() => {
                     navigate(NavigationPaths.Login);
                     setIsNavSheetOpen(false);

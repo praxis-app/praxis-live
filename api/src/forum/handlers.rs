@@ -8,7 +8,8 @@ use std::sync::Arc;
 use super::{
     events,
     extractors::{
-        ForumAccessContext, ForumPostAccessContext, ForumReplyAccessContext,
+        ForumAccessContext, ForumPostAccessContext, ForumPostReadContext,
+        ForumReadContext, ForumReplyAccessContext,
     },
     service,
     types::{
@@ -59,7 +60,7 @@ impl HasDatabase for ForumState {
 
 pub(super) async fn list_forum_posts(
     State(state): State<ForumState>,
-    context: ForumAccessContext,
+    context: ForumReadContext,
     Query(query): Query<ListForumPostsQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let limit = query.limit.unwrap_or(50).min(100);
@@ -167,7 +168,7 @@ pub(super) async fn create_forum_post_proposal(
 
 pub(super) async fn get_forum_post(
     State(state): State<ForumState>,
-    context: ForumPostAccessContext,
+    context: ForumPostReadContext,
 ) -> AppResult<Json<serde_json::Value>> {
     let post = service::get_forum_post(
         &state.database,

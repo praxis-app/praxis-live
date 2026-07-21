@@ -104,6 +104,21 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
 
   const forumProposal = page.getByRole('region', { name: 'Proposal' });
   await expect(forumProposal.getByText(proposalBody)).toBeVisible();
+  await expect(
+    forumProposal.getByRole('button', { name: 'Open proposal menu' }),
+  ).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Open post menu' }).click();
+  await page
+    .getByRole('menuitem', { name: 'View proposal settings' })
+    .click();
+
+  const proposalSettingsDialog = page.getByRole('dialog', {
+    name: 'Proposal Settings',
+  });
+  await expect(proposalSettingsDialog).toBeVisible();
+  await proposalSettingsDialog.getByRole('button', { name: 'Close' }).click();
+  await expect(proposalSettingsDialog).toBeHidden();
 
   const replyResponse = page.waitForResponse(
     (response) =>

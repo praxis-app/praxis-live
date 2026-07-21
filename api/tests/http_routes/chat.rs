@@ -85,6 +85,44 @@ async fn create_message_and_upload_image_support_text_and_images() {
     assert_eq!(image_response.headers()["content-type"], "image/png");
 }
 
+#[tokio::test]
+async fn logged_out_users_cannot_read_non_default_server_channel_feeds() {
+    let app = TestApp::new().await;
+    let token = signup_and_get_token(&app).await;
+
+    let server_response = app
+        .post_json_with_bearer(
+            "/api/servers",
+            &json!({
+                "name": "Private server",
+                "slug": "private-server",
+                "description": null,
+                "isDefaultServer": false
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(server_response.status(), StatusCode::OK);
+    let server_id = json_body(server_response).await["server"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let channels_response =
+        app.get(&format!("/api/servers/{server_id}/channels")).await;
+    let channel_id = json_body(channels_response).await["channels"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let feed_response = app
+        .get(&format!(
+            "/api/servers/{server_id}/channels/{channel_id}/feed"
+        ))
+        .await;
+    assert_eq!(feed_response.status(), StatusCode::FORBIDDEN);
+}
+
 async fn default_server_id(app: &TestApp) -> String {
     let response = app.get("/api/servers/default").await;
     let body = json_body(response).await;

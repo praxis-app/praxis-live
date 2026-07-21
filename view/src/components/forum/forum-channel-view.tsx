@@ -2,6 +2,7 @@ import { ChannelTopNav } from '@/components/channels/channel-top-nav';
 import { ForumPostDetail } from '@/components/forum/forum-post-detail';
 import { ForumPostList } from '@/components/forum/forum-post-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
+import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
 import { useInstanceCapabilitiesQuery } from '@/hooks/use-instance-capabilities-query';
@@ -11,7 +12,8 @@ import { useSubscription } from '@/hooks/use-subscription';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface Props {
   channel: ChannelRes;
@@ -21,9 +23,10 @@ export const ForumChannelView = ({ channel }: Props) => {
   const queryClient = useQueryClient();
   const isDesktop = useIsDesktop();
   const { postId } = useParams();
+  const navigate = useNavigate();
   const { me } = useAuthData();
   const { data: capabilities } = useInstanceCapabilitiesQuery();
-  const { server, serverId } = useServerData();
+  const { server, serverId, serverPath } = useServerData();
   const {
     callConfig,
     callPreferences,
@@ -34,6 +37,21 @@ export const ForumChannelView = ({ channel }: Props) => {
     joinCall,
     leaveCall,
   } = useChannelCall(serverId, channel.id);
+
+  useEffect(() => {
+    if (!isDesktop || !postId) return;
+
+    const closePostOnEscape = (event: KeyboardEvent) => {
+      if (event.key === KeyCodes.Escape) {
+        navigate(`${serverPath}/c/${channel.id}`);
+      }
+    };
+
+    window.addEventListener(BrowserEvents.Keydown, closePostOnEscape);
+    return () => {
+      window.removeEventListener(BrowserEvents.Keydown, closePostOnEscape);
+    };
+  }, [channel.id, isDesktop, navigate, postId, serverPath]);
 
   useSubscription(
     channelPubSubTopic('new-forum-post', serverId, channel.id, me?.id),
