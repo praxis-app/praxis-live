@@ -1,5 +1,6 @@
 use axum::{
     extract::{Path, Query, State},
+    http::StatusCode,
     response::Json,
 };
 use sea_orm::DatabaseConnection;
@@ -12,7 +13,8 @@ use super::{
 use crate::{
     auth::{AuthenticatedUserOptional, HasJwtSecret},
     channels,
-    common::AppResult,
+    common::{ApiError, AppResult},
+    servers,
 };
 
 #[derive(Clone, Debug)]
@@ -45,6 +47,26 @@ pub(super) async fn get_channel_feed(
     Query(query): Query<FeedQuery>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Json<FeedResponse>> {
+    channels::get_channel(
+        &feeds_state.database,
+        path.server_id,
+        path.channel_id,
+    )
+    .await?;
+
+    if let Some(user_id) = user_id {
+        channels::ensure_channel_membership(
+            &feeds_state.database,
+            path.channel_id,
+            user_id,
+        )
+        .await?;
+    } else if servers::default_server_id(&feeds_state.database).await?
+        != path.server_id
+    {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
+    }
+
     let limit = query.limit.unwrap_or(50).min(100);
     let offset = query.offset.unwrap_or(0);
     let feed = service::get_channel_feed(
