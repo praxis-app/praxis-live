@@ -105,7 +105,7 @@ class ApiClient {
 
   logOut = async () => {
     const path = '/auth/logout';
-    return this.executeRequest<void>('delete', path);
+    return this.executeRequest<void>('post', path);
   };
 
   // -------------------------------------------------------------------------
