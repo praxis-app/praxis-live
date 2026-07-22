@@ -2,26 +2,32 @@ import { LandingBenefitSection } from '@/components/landing/landing-benefit-sect
 import { LandingFooter } from '@/components/landing/landing-footer';
 import { LandingHeader } from '@/components/landing/landing-header';
 import { LandingProductVisual } from '@/components/landing/landing-product-visual';
+import { LandingSignUpButton } from '@/components/landing/landing-sign-up-button';
 import { Button } from '@/components/ui/button';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
-import { ArrowRight, CheckCircle2, MessagesSquare, Vote } from 'lucide-react';
+import { CheckCircle2, MessagesSquare, Vote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 export const PublicProductLandingPage = () => {
-  const { inviteToken, signUpPath } = useAuthData({
-    isFirstUserQueryEnabled: true,
-  });
+  const { inviteToken, isFirstUserLoading, showSignUp, signUpPath } =
+    useAuthData({ isFirstUserQueryEnabled: true });
   const { t } = useTranslation();
 
   const primaryCta = inviteToken
     ? t('landing.actions.acceptInvite')
     : t('landing.actions.signUp');
+  const isSignUpLoading = !inviteToken && isFirstUserLoading;
 
   return (
     <div className="bg-background text-foreground min-h-dvh overflow-hidden">
-      <LandingHeader primaryCta={primaryCta} signUpPath={signUpPath} />
+      <LandingHeader
+        canSignUp={showSignUp}
+        isSignUpLoading={isSignUpLoading}
+        primaryCta={primaryCta}
+        signUpPath={signUpPath}
+      />
 
       <main>
         <section className="relative px-4 pt-16 pb-24 sm:px-6 sm:pt-24 sm:pb-28 lg:px-8 lg:pt-28 lg:pb-36">
@@ -38,16 +44,15 @@ export const PublicProductLandingPage = () => {
                 {t('landing.hero.description')}
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Button
-                  asChild
+                <LandingSignUpButton
+                  canSignUp={showSignUp}
                   size="lg"
                   className="bg-blurple-1 hover:bg-blurple-2 h-12 rounded-full px-7 text-base text-white"
-                >
-                  <Link to={signUpPath}>
-                    {primaryCta}
-                    <ArrowRight aria-hidden="true" />
-                  </Link>
-                </Button>
+                  isLoading={isSignUpLoading}
+                  label={primaryCta}
+                  showArrow
+                  signUpPath={signUpPath}
+                />
                 <Button
                   asChild
                   size="lg"
@@ -112,16 +117,15 @@ export const PublicProductLandingPage = () => {
               <p className="mt-5 text-lg leading-8 text-indigo-50">
                 {t('landing.finalCta.description')}
               </p>
-              <Button
-                asChild
+              <LandingSignUpButton
+                canSignUp={showSignUp}
                 size="lg"
                 className="mt-8 h-12 rounded-full bg-white px-7 text-base text-indigo-950 hover:bg-indigo-50"
-              >
-                <Link to={signUpPath}>
-                  {primaryCta}
-                  <ArrowRight aria-hidden="true" />
-                </Link>
-              </Button>
+                isLoading={isSignUpLoading}
+                label={primaryCta}
+                showArrow
+                signUpPath={signUpPath}
+              />
             </div>
           </div>
         </section>

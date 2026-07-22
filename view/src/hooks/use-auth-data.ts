@@ -24,7 +24,7 @@ export const useAuthData = ({
 
   const isAuthError = isMeError || !accessToken;
 
-  const { data } = useQuery({
+  const { data, isLoading: isFirstUserLoading } = useQuery({
     queryKey: ['is-first-user'],
     queryFn: api.isFirstUser,
     enabled: isFirstUserQueryEnabled && isAuthError,
@@ -57,6 +57,7 @@ export const useAuthData = ({
     isRegistered,
     isInvited: !!inviteToken,
     isFirstUser: data?.isFirstUser,
+    isFirstUserLoading,
     showSignUp: getShowSignUp(),
     inviteToken,
     signUpPath,

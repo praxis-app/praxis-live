@@ -1,14 +1,22 @@
 import appIconImg from '@/assets/images/app-icon.png';
+import { LandingSignUpButton } from '@/components/landing/landing-sign-up-button';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 interface Props {
+  canSignUp: boolean;
+  isSignUpLoading: boolean;
   primaryCta: string;
   signUpPath: string;
 }
 
-export const LandingHeader = ({ primaryCta, signUpPath }: Props) => {
+export const LandingHeader = ({
+  canSignUp,
+  isSignUpLoading,
+  primaryCta,
+  signUpPath,
+}: Props) => {
   const { t } = useTranslation();
 
   return (
@@ -29,12 +37,13 @@ export const LandingHeader = ({ primaryCta, signUpPath }: Props) => {
           <Button asChild variant="ghost" className="px-3 sm:px-4">
             <Link to="/auth/login">{t('landing.actions.logIn')}</Link>
           </Button>
-          <Button
-            asChild
+          <LandingSignUpButton
+            canSignUp={canSignUp}
             className="bg-blurple-1 hover:bg-blurple-2 rounded-full px-4 text-white sm:px-5"
-          >
-            <Link to={signUpPath}>{primaryCta}</Link>
-          </Button>
+            isLoading={isSignUpLoading}
+            label={primaryCta}
+            signUpPath={signUpPath}
+          />
         </div>
       </nav>
     </header>
