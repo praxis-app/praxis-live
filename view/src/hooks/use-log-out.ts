@@ -1,7 +1,10 @@
 // TODO: Add confirm dialog to log out
 
 import { api } from '@/client/api-client';
-import { NavigationPaths } from '@/constants/shared.constants';
+import {
+  LocalStorageKeys,
+  NavigationPaths,
+} from '@/constants/shared.constants';
 import { useAuthStore } from '@/store/auth.store';
 import { useNavStore } from '@/store/nav.store';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,13 +24,15 @@ export const useLogOut = (options: UseLogOutOptions = {}) => {
   const result = useMutation({
     mutationFn: api.logOut,
     onSuccess: async () => {
-      await navigate(NavigationPaths.Home);
-      options.onSuccess?.();
+      localStorage.removeItem(LocalStorageKeys.AccessToken);
+      localStorage.removeItem(LocalStorageKeys.InviteToken);
       setIsNavSheetOpen(false);
       setIsLoggedIn(false);
       setAccessToken(null);
       setInviteToken(null);
       queryClient.clear();
+      options.onSuccess?.();
+      await navigate(NavigationPaths.Explore, { replace: true });
     },
   });
 

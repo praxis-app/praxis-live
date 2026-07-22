@@ -26,7 +26,7 @@ export const EditUserProfile = () => {
   }
 
   if (meData.user.anonymous) {
-    return <Navigate to={NavigationPaths.Home} />;
+    return <Navigate to={NavigationPaths.Explore} />;
   }
 
   return (

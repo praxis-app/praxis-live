@@ -86,7 +86,7 @@ export const TopNav = ({
   };
 
   return (
-    <header className="flex h-[55px] items-center justify-between border-b border-[--color-border] px-2">
+    <header className="flex h-13.75 items-center justify-between border-b border-[--color-border] px-2">
       <div className="mr-1 flex min-w-0 flex-1 items-center gap-2.5">
         {renderBackBtn()}
 

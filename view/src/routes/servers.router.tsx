@@ -1,4 +1,4 @@
-import { HomePage } from '@/pages/home-page';
+import { ServerHomePage } from '@/pages/servers/server-home-page';
 import { channelsRouter } from '@/routes/channels.router';
 import { serverSettingsRouter } from '@/routes/server-settings.router';
 import { type RouteObject } from 'react-router-dom';
@@ -8,7 +8,7 @@ export const serversRouter: RouteObject = {
   children: [
     {
       index: true,
-      element: <HomePage />,
+      element: <ServerHomePage />,
     },
     serverSettingsRouter,
     channelsRouter,

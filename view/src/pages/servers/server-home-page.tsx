@@ -9,8 +9,8 @@ import { useServerData } from '@/hooks/use-server-data';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 
-export const RegisteredHomePage = () => {
-  const { serverPath, generalChannelId, currentUserHasNoServers, isLoading } =
+export const ServerHomePage = () => {
+  const { server, generalChannelId, currentUserHasNoServers, isLoading } =
     useServerData();
 
   const { mutate: logOut } = useLogOut();
@@ -52,9 +52,9 @@ export const RegisteredHomePage = () => {
     );
   }
 
-  if (isLoading || !generalChannelId) {
+  if (isLoading || !server || !generalChannelId) {
     return <ChannelSkeleton />;
   }
 
-  return <Navigate to={`${serverPath}/c/${generalChannelId}`} />;
+  return <Navigate to={`/s/${server.slug}/c/${generalChannelId}`} replace />;
 };

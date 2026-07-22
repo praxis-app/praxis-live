@@ -23,7 +23,8 @@ export enum BrowserEvents {
 }
 
 export enum NavigationPaths {
-  Home = '/',
+  Root = '/',
+  Explore = '/explore',
   Login = '/auth/login',
   GeneralSettings = '/settings/general',
   Invites = '/settings/invites',

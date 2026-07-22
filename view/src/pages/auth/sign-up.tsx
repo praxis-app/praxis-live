@@ -52,7 +52,7 @@ export const SignUp = () => {
 
   useEffect(() => {
     if (me && !isAnon) {
-      navigate(NavigationPaths.Home);
+      navigate(NavigationPaths.Root);
       setIsRedirecting(true);
     }
   }, [me, navigate, setIsRedirecting, isAnon]);

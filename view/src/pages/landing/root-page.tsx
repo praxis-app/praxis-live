@@ -1,10 +1,10 @@
 import { ChannelSkeleton } from '@/components/channels/channel-skeleton';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { ServerHomePage } from '@/pages/servers/server-home-page';
 import { useAppStore } from '@/store/app.store';
-import { PublicProductLandingPage } from './landing/public-product-landing-page';
-import { RegisteredHomePage } from './landing/registered-home-page';
+import { PublicProductLandingPage } from './public-product-landing-page';
 
-export const HomePage = () => {
+export const RootPage = () => {
   const { isLoggedIn, isMeLoading, isRegistered } = useAuthData();
   const { isAppLoading } = useAppStore();
 
@@ -13,7 +13,7 @@ export const HomePage = () => {
   }
 
   if (isRegistered) {
-    return <RegisteredHomePage />;
+    return <ServerHomePage />;
   }
 
   return <PublicProductLandingPage />;

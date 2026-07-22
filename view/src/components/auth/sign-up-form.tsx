@@ -108,7 +108,7 @@ export const SignUpForm = ({ setIsRedirecting }: Props) => {
       localStorage.setItem(LocalStorageKeys.AccessToken, access_token);
       localStorage.removeItem(LocalStorageKeys.InviteToken);
       setAccessToken(access_token);
-      navigate(NavigationPaths.Home);
+      navigate(NavigationPaths.Root);
       setIsLoggedIn(true);
     },
     onError(error: Error) {
@@ -122,7 +122,7 @@ export const SignUpForm = ({ setIsRedirecting }: Props) => {
     },
     onSuccess: () => {
       queryClient.resetQueries({ queryKey: ['me'] });
-      navigate(NavigationPaths.Home);
+      navigate(NavigationPaths.Root);
       setIsRedirecting(true);
     },
     onError(error: Error) {

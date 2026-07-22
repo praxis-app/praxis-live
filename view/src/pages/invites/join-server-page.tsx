@@ -86,7 +86,7 @@ export const JoinServerPage = () => {
     });
 
   if (isMeError) {
-    return <Navigate to={NavigationPaths.Home} />;
+    return <Navigate to={NavigationPaths.Root} />;
   }
 
   if (isValidInviteError || serverError || !token) {

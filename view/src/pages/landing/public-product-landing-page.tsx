@@ -3,6 +3,7 @@ import { LandingFooter } from '@/components/landing/landing-footer';
 import { LandingHeader } from '@/components/landing/landing-header';
 import { LandingProductVisual } from '@/components/landing/landing-product-visual';
 import { Button } from '@/components/ui/button';
+import { NavigationPaths } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { ArrowRight, CheckCircle2, MessagesSquare, Vote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +25,7 @@ export const PublicProductLandingPage = () => {
 
       <main>
         <section className="relative px-4 pt-16 pb-24 sm:px-6 sm:pt-24 sm:pb-28 lg:px-8 lg:pt-28 lg:pb-36">
-          <div className="bg-blurple-1/10 absolute top-8 left-1/2 -z-0 size-[32rem] -translate-x-1/2 rounded-full blur-3xl" />
+          <div className="bg-blurple-1/10 absolute top-8 left-1/2 z-0 size-128 -translate-x-1/2 rounded-full blur-3xl" />
           <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1fr_0.92fr] lg:gap-20">
             <div className="max-w-2xl">
               <p className="text-blurple-2 dark:text-blurple-3 mb-5 text-sm font-semibold tracking-[0.16em] uppercase">
@@ -53,7 +54,9 @@ export const PublicProductLandingPage = () => {
                   variant="outline"
                   className="h-12 rounded-full px-7 text-base"
                 >
-                  <Link to="/auth/login">{t('landing.actions.logIn')}</Link>
+                  <Link to={NavigationPaths.Explore}>
+                    {t('landing.actions.explore')}
+                  </Link>
                 </Button>
               </div>
               <p className="text-muted-foreground mt-5 text-sm">
@@ -65,7 +68,7 @@ export const PublicProductLandingPage = () => {
           </div>
         </section>
 
-        <div className="border-border border-y bg-neutral-50/60 dark:bg-white/[0.02]">
+        <div className="border-border border-y bg-neutral-50/60 dark:bg-white/2">
           <div className="mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 lg:px-8">
             <p className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
               {t('landing.bridge')}
@@ -99,7 +102,7 @@ export const PublicProductLandingPage = () => {
         </div>
 
         <section className="px-4 pb-24 sm:px-6 sm:pb-32 lg:px-8">
-          <div className="bg-blurple-1 relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] px-6 py-14 text-center text-white shadow-2xl shadow-indigo-950/20 sm:px-12 sm:py-20">
+          <div className="bg-blurple-1 relative mx-auto max-w-6xl overflow-hidden rounded-4xl px-6 py-14 text-center text-white shadow-2xl shadow-indigo-950/20 sm:px-12 sm:py-20">
             <div className="absolute -top-24 -right-20 size-72 rounded-full border border-white/20" />
             <div className="absolute -bottom-28 -left-12 size-64 rounded-full bg-white/10" />
             <div className="relative mx-auto max-w-2xl">

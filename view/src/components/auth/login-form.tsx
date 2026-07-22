@@ -67,7 +67,7 @@ export const LoginForm = () => {
     onSuccess({ access_token }) {
       localStorage.setItem(LocalStorageKeys.AccessToken, access_token);
       setAccessToken(access_token);
-      navigate(inviteToken ? `/i/${inviteToken}/join` : NavigationPaths.Home);
+      navigate(inviteToken ? `/i/${inviteToken}/join` : NavigationPaths.Root);
       setIsLoggedIn(true);
     },
     onError(error: Error) {

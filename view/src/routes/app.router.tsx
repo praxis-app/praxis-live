@@ -1,6 +1,7 @@
 import { App } from '@/components/app/app';
 import { ErrorPage } from '@/pages/error-page';
-import { HomePage } from '@/pages/home-page';
+import { ExplorePage } from '@/pages/landing/explore-page';
+import { RootPage } from '@/pages/landing/root-page';
 import { PageNotFound } from '@/pages/page-not-found';
 import { authRouter } from '@/routes/auth.router';
 import { instanceSettingsRouter } from '@/routes/instance-settings.router';
@@ -17,7 +18,11 @@ export const appRouter = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePage />,
+        element: <RootPage />,
+      },
+      {
+        path: 'explore',
+        element: <ExplorePage />,
       },
       {
         path: '*',

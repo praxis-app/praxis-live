@@ -42,7 +42,7 @@ export const useServerData = () => {
         return result;
       } catch (error) {
         if (isAxiosError(error) && error.response?.status === 404) {
-          navigate(NavigationPaths.Home);
+          navigate(NavigationPaths.Root);
         }
         throw error;
       }
@@ -97,14 +97,16 @@ export const useServerData = () => {
 
   const server =
     serverBySlugData?.server ||
-    me?.currentServer ||
     serverByInviteTokenData?.server ||
+    (!serverSlug ? me?.currentServer : undefined) ||
     defaultServerData?.server;
 
-  const resolvedServerSlug = serverSlug || server?.slug;
+  const resolvedServerSlug = server?.slug || serverSlug;
   const resolvedServerPath = resolvedServerSlug
     ? `/s/${resolvedServerSlug}`
-    : NavigationPaths.Home;
+    : isAuthError
+      ? NavigationPaths.Explore
+      : NavigationPaths.Root;
 
   const isLoading =
     isMeLoading ||

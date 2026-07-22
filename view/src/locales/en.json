@@ -793,6 +793,7 @@
   "landing": {
     "actions": {
       "acceptInvite": "Accept invite",
+      "explore": "Explore Praxis",
       "logIn": "Log in",
       "signUp": "Sign up"
     },

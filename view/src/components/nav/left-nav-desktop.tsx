@@ -69,7 +69,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const serverName = server?.name || INITIAL_SERVER_NAME;
 
   return (
-    <div className="dark:bg-card bg-secondary flex h-full w-[240px] flex-col border-r border-[--color-border]">
+    <div className="dark:bg-card bg-secondary flex h-full w-60 flex-col border-r border-[--color-border]">
       <SwitchServerDialog
         open={showServerSwitchDialog}
         onOpenChange={setShowServerSwitchDialog}
@@ -78,7 +78,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
-              'flex h-[55px] w-full justify-between border-b border-[--color-border] pr-3 pl-4 select-none focus:outline-none',
+              'flex h-13.75 w-full justify-between border-b border-[--color-border] pr-3 pl-4 select-none focus:outline-none',
               isServerMenuBtnEnabled &&
                 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 cursor-pointer',
             )}
@@ -161,7 +161,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
 
       <ChannelListDesktop />
 
-      <div className="flex h-[60px] items-center justify-between border-t border-[--color-border] px-1.5">
+      <div className="flex h-15 items-center justify-between border-t border-[--color-border] px-1.5">
         <LeftNavUserMenu />
 
         {isLoggedIn ? (

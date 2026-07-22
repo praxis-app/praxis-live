@@ -42,7 +42,7 @@ export const InviteTableRow = ({
   return (
     <TableRow>
       <TableCell>
-        <Link to={NavigationPaths.Home} className="flex items-center gap-3">
+        <Link to={NavigationPaths.Root} className="flex items-center gap-3">
           <UserAvatar
             userId={user.id}
             name={user.name}
