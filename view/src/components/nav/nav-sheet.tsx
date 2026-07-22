@@ -25,7 +25,13 @@ import { useQuery } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuChevronRight } from 'react-icons/lu';
-import { MdExitToApp, MdForum, MdPersonAdd, MdTag } from 'react-icons/md';
+import {
+  MdExitToApp,
+  MdForum,
+  MdPersonAdd,
+  MdRocketLaunch,
+  MdTag,
+} from 'react-icons/md';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -167,17 +173,31 @@ export const NavSheet = ({ trigger }: Props) => {
               )}
 
               {!isLoggedIn && (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
-                  onClick={() => {
-                    navigate(NavigationPaths.Login);
-                    setIsNavSheetOpen(false);
-                  }}
-                >
-                  <MdExitToApp className="mr-1 size-6" />
-                  {t('auth.actions.logIn')}
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
+                    onClick={() => {
+                      navigate(NavigationPaths.Login);
+                      setIsNavSheetOpen(false);
+                    }}
+                  >
+                    <MdExitToApp className="mr-1 size-6" />
+                    {t('auth.actions.logIn')}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
+                    onClick={() => {
+                      navigate(NavigationPaths.Root);
+                      setIsNavSheetOpen(false);
+                    }}
+                  >
+                    <MdRocketLaunch className="mr-1 size-6" />
+                    {t('landing.actions.backToLanding')}
+                  </Button>
+                </>
               )}
             </div>
           )}
