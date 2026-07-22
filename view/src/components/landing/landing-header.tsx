@@ -1,6 +1,7 @@
 import appIconImg from '@/assets/images/app-icon.png';
 import { LandingSignUpButton } from '@/components/landing/landing-sign-up-button';
 import { Button } from '@/components/ui/button';
+import { NavigationPaths } from '@/constants/shared.constants';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
@@ -35,7 +36,9 @@ export const LandingHeader = ({
 
         <div className="flex items-center gap-1.5 sm:gap-3">
           <Button asChild variant="ghost" className="px-3 sm:px-4">
-            <Link to="/auth/login">{t('landing.actions.logIn')}</Link>
+            <Link to={NavigationPaths.Login} state={{ fromLanding: true }}>
+              {t('landing.actions.logIn')}
+            </Link>
           </Button>
           <LandingSignUpButton
             canSignUp={canSignUp}

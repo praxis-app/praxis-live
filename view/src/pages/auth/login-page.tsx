@@ -7,16 +7,28 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { NavigationPaths } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export const LoginPage = () => {
   const { t } = useTranslation();
   const { signUpPath } = useAuthData({ isFirstUserQueryEnabled: true });
+  const { state } = useLocation();
+  const navigate = useNavigate();
+
+  const isFromLanding = state?.fromLanding === true;
+
   return (
     <>
-      <TopNav />
+      <TopNav
+        onBackClick={
+          isFromLanding
+            ? () => navigate(NavigationPaths.Root, { replace: true })
+            : undefined
+        }
+      />
 
       <div className="flex h-full flex-col items-center justify-center p-4 md:p-18">
         <Card className="w-full max-w-md">
