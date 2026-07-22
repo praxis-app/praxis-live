@@ -12,7 +12,7 @@ interface Props {
   variant: 'flow' | 'conversation' | 'forum' | 'decision';
 }
 
-export const LandingProductVisual = ({ variant }: Props) => {
+export const LandingVisual = ({ variant }: Props) => {
   if (variant === 'conversation') {
     return (
       <div className="border-border bg-card rounded-[1.75rem] border p-4 shadow-xl shadow-black/5 sm:p-6">

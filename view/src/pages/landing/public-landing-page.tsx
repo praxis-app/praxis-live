@@ -1,7 +1,7 @@
 import { LandingBenefitSection } from '@/components/landing/landing-benefit-section';
 import { LandingFooter } from '@/components/landing/landing-footer';
 import { LandingHeader } from '@/components/landing/landing-header';
-import { LandingProductVisual } from '@/components/landing/landing-product-visual';
+import { LandingVisual } from '@/components/landing/landing-visual';
 import { LandingSignUpButton } from '@/components/landing/landing-sign-up-button';
 import { Button } from '@/components/ui/button';
 import { NavigationPaths } from '@/constants/shared.constants';
@@ -10,7 +10,7 @@ import { CheckCircle2, MessagesSquare, Vote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-export const PublicProductLandingPage = () => {
+export const PublicLandingPage = () => {
   const { inviteToken, isFirstUserLoading, showSignUp, signUpPath } =
     useAuthData({ isFirstUserQueryEnabled: true });
   const { t } = useTranslation();
@@ -69,7 +69,7 @@ export const PublicProductLandingPage = () => {
               </p>
             </div>
 
-            <LandingProductVisual variant="flow" />
+            <LandingVisual variant="flow" />
           </div>
         </section>
 
@@ -87,14 +87,14 @@ export const PublicProductLandingPage = () => {
             title={t('landing.chat.title')}
             description={t('landing.chat.description')}
             icon={MessagesSquare}
-            visual={<LandingProductVisual variant="conversation" />}
+            visual={<LandingVisual variant="conversation" />}
           />
           <LandingBenefitSection
             eyebrow={t('landing.forums.eyebrow')}
             title={t('landing.forums.title')}
             description={t('landing.forums.description')}
             icon={CheckCircle2}
-            visual={<LandingProductVisual variant="forum" />}
+            visual={<LandingVisual variant="forum" />}
             reversed
           />
           <LandingBenefitSection
@@ -102,7 +102,7 @@ export const PublicProductLandingPage = () => {
             title={t('landing.decisions.title')}
             description={t('landing.decisions.description')}
             icon={Vote}
-            visual={<LandingProductVisual variant="decision" />}
+            visual={<LandingVisual variant="decision" />}
           />
         </div>
 
