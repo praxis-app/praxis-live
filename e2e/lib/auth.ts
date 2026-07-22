@@ -62,6 +62,29 @@ export async function signUpViaApi(
   };
 }
 
+export async function logInViaApi(
+  request: APIRequestContext,
+  user: TestUser,
+): Promise<AuthenticatedUser> {
+  const response = await request.post('/api/auth/login', {
+    data: {
+      email: user.email,
+      password: user.password,
+    },
+  });
+
+  await expect(response).toBeOK();
+  const body = (await response.json()) as SignupResponse;
+  expect(body.access_token).toBeTruthy();
+  expect(body.user?.id).toBeTruthy();
+
+  return {
+    accessToken: body.access_token ?? '',
+    userId: body.user?.id ?? '',
+    user,
+  };
+}
+
 export async function seedAuthenticatedSession(
   context: BrowserContext,
   accessToken: string,

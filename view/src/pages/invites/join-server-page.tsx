@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Container } from '@/components/ui/container';
 import { Separator } from '@/components/ui/separator';
-import { NavigationPaths } from '@/constants/shared.constants';
+import {
+  LocalStorageKeys,
+  NavigationPaths,
+} from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { handleError } from '@/lib/error.utils';
 import { useAuthStore } from '@/store/auth.store';
@@ -72,6 +75,8 @@ export const JoinServerPage = () => {
         return serverData.server.slug;
       },
       onSuccess: (serverSlug) => {
+        localStorage.removeItem(LocalStorageKeys.InviteToken);
+        setInviteToken(null);
         queryClient.invalidateQueries({ queryKey: ['me'] });
         navigate(`/s/${serverSlug}`);
       },

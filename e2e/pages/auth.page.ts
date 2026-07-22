@@ -13,7 +13,16 @@ export class AuthPage {
   }
 
   async followSignupLink() {
-    await this.page.getByRole('link', { name: 'Sign up' }).click();
+    await this.page
+      .getByRole('link', { name: 'Sign up', exact: true })
+      .first()
+      .click();
+  }
+
+  async logIn(user: TestUser) {
+    await this.page.getByLabel('Email address').fill(user.email);
+    await this.page.getByLabel('Password', { exact: true }).fill(user.password);
+    await this.page.getByRole('button', { name: 'Sign in' }).click();
   }
 
   async signUp(user: TestUser) {
