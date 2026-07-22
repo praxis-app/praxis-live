@@ -834,6 +834,9 @@
   },
 
   "navigation": {
+    "actions": {
+      "closeNavSheet": "Close navigation"
+    },
     "titles": {
       "navDrawer": "Navigation drawer"
     },
