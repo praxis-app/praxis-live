@@ -9,6 +9,10 @@ export class ChatPage {
   }
 
   async goto() {
+    await this.page.goto('/');
+  }
+
+  async gotoExplore() {
     await this.page.goto('/explore');
   }
 

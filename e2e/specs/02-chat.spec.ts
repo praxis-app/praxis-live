@@ -307,7 +307,7 @@ test('anonymous user can send messages with an image attached', async ({
   const message = createTestMessage('anon-chat-image', admin.user.suffix);
   const chat = new ChatPage(page);
 
-  await chat.goto();
+  await chat.gotoExplore();
   await chat.expectChannel('general');
 
   const uploadResponse = page.waitForResponse(
