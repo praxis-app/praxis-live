@@ -9,7 +9,7 @@ export class ChatPage {
   }
 
   async goto() {
-    await this.page.goto('/');
+    await this.page.goto('/explore');
   }
 
   async sendMessage(message: string) {
