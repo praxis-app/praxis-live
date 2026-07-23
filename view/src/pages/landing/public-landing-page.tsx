@@ -1,4 +1,5 @@
 import { LandingBenefitSection } from '@/components/landing/landing-benefit-section';
+import { LandingDevelopmentNotice } from '@/components/landing/landing-development-notice';
 import { LandingFooter } from '@/components/landing/landing-footer';
 import { LandingHeader } from '@/components/landing/landing-header';
 import { LandingVisual } from '@/components/landing/landing-visual';
@@ -89,6 +90,7 @@ export const PublicLandingPage = () => {
             icon={MessagesSquare}
             visual={<LandingVisual variant="conversation" />}
           />
+          <LandingDevelopmentNotice />
           <LandingBenefitSection
             eyebrow={t('landing.forums.eyebrow')}
             title={t('landing.forums.title')}

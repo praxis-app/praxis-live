@@ -808,6 +808,10 @@
       "openSource": "Free and open source software for groups that decide together."
     },
     "bridge": "Start with the way your group already talks. Add structure only when the moment calls for it.",
+    "developmentStatus": {
+      "title": "Praxis is still experimental.",
+      "description": "Praxis is under active development and intended only for testing and research."
+    },
     "chat": {
       "eyebrow": "Talk naturally",
       "title": "Familiar chat, with calls right where the conversation lives.",
@@ -829,7 +833,6 @@
     },
     "footer": {
       "description": "Praxis is free and open source software.",
-      "developmentStatus": "Praxis is under active development and currently intended for testing and research.",
       "viewSource": "View the project on GitHub"
     }
   },

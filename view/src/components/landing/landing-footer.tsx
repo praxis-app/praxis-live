@@ -7,10 +7,7 @@ export const LandingFooter = () => {
   return (
     <footer className="border-border border-t px-4 py-8 sm:px-6 lg:px-8">
       <div className="text-muted-foreground mx-auto flex max-w-6xl flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <p>{t('landing.footer.description')}</p>
-          <p>{t('landing.footer.developmentStatus')}</p>
-        </div>
+        <p>{t('landing.footer.description')}</p>
         <a
           href="https://github.com/praxis-app/praxis"
           target="_blank"
