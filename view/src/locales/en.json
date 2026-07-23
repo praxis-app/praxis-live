@@ -796,6 +796,7 @@
       "backToLanding": "About Praxis",
       "explore": "Explore Praxis",
       "logIn": "Log in",
+      "openPraxis": "Open Praxis",
       "signUp": "Sign up"
     },
     "navigation": {
@@ -839,7 +840,8 @@
 
   "navigation": {
     "actions": {
-      "closeNavSheet": "Close navigation"
+      "closeNavSheet": "Close navigation",
+      "openNavSheet": "Open navigation"
     },
     "titles": {
       "navDrawer": "Navigation drawer"

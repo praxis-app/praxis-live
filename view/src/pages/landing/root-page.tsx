@@ -1,8 +1,9 @@
 import { ChannelSkeleton } from '@/components/channels/channel-skeleton';
+import { NavigationPaths } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { ServerHomePage } from '@/pages/servers/server-home-page';
 import { useAppStore } from '@/store/app.store';
-import { PublicLandingPage } from './public-landing-page';
+import { Navigate } from 'react-router-dom';
 
 export const RootPage = () => {
   const { isLoggedIn, isMeLoading, isRegistered } = useAuthData();
@@ -16,5 +17,5 @@ export const RootPage = () => {
     return <ServerHomePage />;
   }
 
-  return <PublicLandingPage />;
+  return <Navigate to={NavigationPaths.About} replace />;
 };

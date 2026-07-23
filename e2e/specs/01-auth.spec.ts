@@ -83,7 +83,7 @@ test('invited user can log in and join the invited server', async ({
   const chat = new ChatPage(page);
 
   await page.goto(`/i/${inviteToken}`);
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/about');
   await expect(
     page.getByRole('link', { name: 'Accept invite', exact: true }).first(),
   ).toBeVisible();
@@ -146,7 +146,7 @@ test('invited user can sign up and join the invited server', async ({
   const navigation = new NavigationPage(page);
 
   await page.goto(`/i/${inviteToken}`);
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/about');
   await page
     .getByRole('link', { name: 'Accept invite', exact: true })
     .first()

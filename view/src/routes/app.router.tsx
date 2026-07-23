@@ -1,6 +1,7 @@
 import { App } from '@/components/app/app';
 import { ErrorPage } from '@/pages/error-page';
 import { ExplorePage } from '@/pages/landing/explore-page';
+import { PublicLandingPage } from '@/pages/landing/public-landing-page';
 import { RootPage } from '@/pages/landing/root-page';
 import { PageNotFound } from '@/pages/page-not-found';
 import { authRouter } from '@/routes/auth.router';
@@ -23,6 +24,10 @@ export const appRouter = createBrowserRouter([
       {
         path: 'explore',
         element: <ExplorePage />,
+      },
+      {
+        path: 'about',
+        element: <PublicLandingPage />,
       },
       {
         path: '*',

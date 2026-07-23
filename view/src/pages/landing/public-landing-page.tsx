@@ -2,8 +2,8 @@ import { LandingBenefitSection } from '@/components/landing/landing-benefit-sect
 import { LandingDevelopmentNotice } from '@/components/landing/landing-development-notice';
 import { LandingFooter } from '@/components/landing/landing-footer';
 import { LandingHeader } from '@/components/landing/landing-header';
+import { LandingPrimaryButton } from '@/components/landing/landing-primary-button';
 import { LandingVisual } from '@/components/landing/landing-visual';
-import { LandingSignUpButton } from '@/components/landing/landing-sign-up-button';
 import { Button } from '@/components/ui/button';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
@@ -12,21 +12,31 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 export const PublicLandingPage = () => {
-  const { inviteToken, isFirstUserLoading, showSignUp, signUpPath } =
-    useAuthData({ isFirstUserQueryEnabled: true });
+  const {
+    inviteToken,
+    isFirstUserLoading,
+    isLoggedIn,
+    isRegistered,
+    showSignUp,
+    signUpPath,
+  } = useAuthData({ isFirstUserQueryEnabled: true });
+
   const { t } = useTranslation();
 
   const primaryCta = inviteToken
     ? t('landing.actions.acceptInvite')
     : t('landing.actions.signUp');
+
   const isSignUpLoading = !inviteToken && isFirstUserLoading;
 
   return (
     <div className="bg-background text-foreground min-h-dvh overflow-hidden">
       <LandingHeader
         canSignUp={showSignUp}
+        isRegistered={isRegistered}
         isSignUpLoading={isSignUpLoading}
         primaryCta={primaryCta}
+        showLogIn={!isLoggedIn}
         signUpPath={signUpPath}
       />
 
@@ -45,8 +55,9 @@ export const PublicLandingPage = () => {
                 {t('landing.hero.description')}
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <LandingSignUpButton
+                <LandingPrimaryButton
                   canSignUp={showSignUp}
+                  isRegistered={isRegistered}
                   size="lg"
                   className="bg-blurple-1 hover:bg-blurple-2 h-12 rounded-full px-7 text-base text-white"
                   isLoading={isSignUpLoading}
@@ -119,8 +130,9 @@ export const PublicLandingPage = () => {
               <p className="mt-5 text-lg leading-8 text-indigo-50">
                 {t('landing.finalCta.description')}
               </p>
-              <LandingSignUpButton
+              <LandingPrimaryButton
                 canSignUp={showSignUp}
+                isRegistered={isRegistered}
                 size="lg"
                 className="mt-8 h-12 rounded-full bg-white px-7 text-base text-indigo-950 hover:bg-indigo-50"
                 isLoading={isSignUpLoading}

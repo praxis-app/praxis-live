@@ -20,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { NavigationPaths } from '@/constants/shared.constants';
@@ -37,6 +38,7 @@ import {
   MdAddCircle,
   MdExpandMore,
   MdOutlineSettings,
+  MdRocketLaunch,
   MdSettings,
 } from 'react-icons/md';
 import { TbSwitchHorizontal } from 'react-icons/tb';
@@ -61,10 +63,16 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const { serverAbility, instanceAbility } = useAbility();
   const canManageChannels = serverAbility.can('manage', 'Channel');
   const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
+  const canManageInstanceSettings = instanceAbility.can(
+    'manage',
+    'InstanceConfig',
+  );
   const hasMultipleServers = !!myServerCount && myServerCount > 1;
-
-  const isServerMenuBtnEnabled =
-    canManageServerSettings || canManageChannels || hasMultipleServers;
+  const hasServerMenuActions =
+    canManageServerSettings ||
+    canManageChannels ||
+    canManageInstanceSettings ||
+    hasMultipleServers;
 
   const serverName = server?.name || INITIAL_SERVER_NAME;
 
@@ -76,14 +84,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
       />
       <Dialog open={showRoomFormDialog} onOpenChange={setShowRoomFormDialog}>
         <DropdownMenu>
-          <DropdownMenuTrigger
-            className={cn(
-              'flex h-13.75 w-full justify-between border-b border-[--color-border] pr-3 pl-4 select-none focus:outline-none',
-              isServerMenuBtnEnabled &&
-                'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 cursor-pointer',
-            )}
-            disabled={!isServerMenuBtnEnabled}
-          >
+          <DropdownMenuTrigger className="hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 flex h-13.75 w-full cursor-pointer justify-between border-b border-[--color-border] pr-3 pl-4 select-none focus:outline-none">
             <div className="flex min-w-0 items-center gap-2">
               <img
                 src={appIconImg}
@@ -95,9 +96,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
               </div>
             </div>
 
-            {isServerMenuBtnEnabled && (
-              <MdExpandMore className="size-[1.4rem] shrink-0 self-center" />
-            )}
+            <MdExpandMore className="size-[1.4rem] shrink-0 self-center" />
           </DropdownMenuTrigger>
           <DropdownMenuContent sideOffset={10} className="w-52">
             {canManageChannels && (
@@ -109,7 +108,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
               </DialogTrigger>
             )}
 
-            {instanceAbility.can('manage', 'InstanceConfig') && (
+            {canManageInstanceSettings && (
               <Link to={NavigationPaths.Settings}>
                 <DropdownMenuItem className="text-md">
                   <MdOutlineSettings className="text-foreground size-5" />
@@ -136,6 +135,15 @@ export const LeftNavDesktop = ({ me }: Props) => {
                 {t('navigation.labels.switchServers')}
               </DropdownMenuItem>
             )}
+
+            {hasServerMenuActions && <DropdownMenuSeparator />}
+
+            <Link to={NavigationPaths.About}>
+              <DropdownMenuItem className="text-md">
+                <MdRocketLaunch className="text-foreground size-5" />
+                {t('landing.actions.backToLanding')}
+              </DropdownMenuItem>
+            </Link>
           </DropdownMenuContent>
         </DropdownMenu>
 

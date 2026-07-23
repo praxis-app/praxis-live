@@ -36,7 +36,7 @@ export const InviteCheck = () => {
         await navigate(joinServerPagePath);
       } else {
         localStorage.setItem(LocalStorageKeys.InviteToken, token);
-        await navigate(NavigationPaths.Root);
+        await navigate(NavigationPaths.About);
       }
 
       return isValidInvite;

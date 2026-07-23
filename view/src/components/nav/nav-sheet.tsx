@@ -170,53 +170,49 @@ export const NavSheet = ({ trigger }: Props) => {
             </Link>
           ))}
 
-          {(showSignUp || !isLoggedIn) && (
-            <div className="flex flex-col gap-4">
-              <Separator />
+          <div className="flex flex-col gap-4">
+            <Separator />
 
-              {showSignUp && (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-base font-light"
-                  onClick={() => {
-                    navigate(signUpPath);
-                    setIsNavSheetOpen(false);
-                  }}
-                >
-                  <MdPersonAdd className="mr-1 size-6" />
-                  {t('auth.actions.signUp')}
-                </Button>
-              )}
+            {showSignUp && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-base font-light"
+                onClick={() => {
+                  navigate(signUpPath);
+                  setIsNavSheetOpen(false);
+                }}
+              >
+                <MdPersonAdd className="mr-1 size-6" />
+                {t('auth.actions.signUp')}
+              </Button>
+            )}
 
-              {!isLoggedIn && (
-                <>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
-                    onClick={() => {
-                      navigate(NavigationPaths.Login);
-                      setIsNavSheetOpen(false);
-                    }}
-                  >
-                    <MdExitToApp className="mr-1 size-6" />
-                    {t('auth.actions.logIn')}
-                  </Button>
+            {!isLoggedIn && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
+                onClick={() => {
+                  navigate(NavigationPaths.Login);
+                  setIsNavSheetOpen(false);
+                }}
+              >
+                <MdExitToApp className="mr-1 size-6" />
+                {t('auth.actions.logIn')}
+              </Button>
+            )}
 
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
-                    onClick={() => {
-                      navigate(NavigationPaths.Root);
-                      setIsNavSheetOpen(false);
-                    }}
-                  >
-                    <MdRocketLaunch className="mr-1 size-6" />
-                    {t('landing.actions.backToLanding')}
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
+            <Button
+              variant="ghost"
+              className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
+              onClick={() => {
+                navigate(NavigationPaths.About);
+                setIsNavSheetOpen(false);
+              }}
+            >
+              <MdRocketLaunch className="mr-1 size-6" />
+              {t('landing.actions.backToLanding')}
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

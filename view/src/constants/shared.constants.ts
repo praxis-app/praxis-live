@@ -24,6 +24,7 @@ export enum BrowserEvents {
 
 export enum NavigationPaths {
   Root = '/',
+  About = '/about',
   Explore = '/explore',
   Login = '/auth/login',
   GeneralSettings = '/settings/general',

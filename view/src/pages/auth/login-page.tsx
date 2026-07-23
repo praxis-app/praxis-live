@@ -25,7 +25,7 @@ export const LoginPage = () => {
       <TopNav
         onBackClick={
           isFromLanding
-            ? () => navigate(NavigationPaths.Root, { replace: true })
+            ? () => navigate(NavigationPaths.About, { replace: true })
             : undefined
         }
       />

@@ -1,5 +1,5 @@
 import appIconImg from '@/assets/images/app-icon.png';
-import { LandingSignUpButton } from '@/components/landing/landing-sign-up-button';
+import { LandingPrimaryButton } from '@/components/landing/landing-primary-button';
 import { Button } from '@/components/ui/button';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useTranslation } from 'react-i18next';
@@ -7,15 +7,19 @@ import { Link } from 'react-router-dom';
 
 interface Props {
   canSignUp: boolean;
+  isRegistered: boolean;
   isSignUpLoading: boolean;
   primaryCta: string;
+  showLogIn: boolean;
   signUpPath: string;
 }
 
 export const LandingHeader = ({
   canSignUp,
+  isRegistered,
   isSignUpLoading,
   primaryCta,
+  showLogIn,
   signUpPath,
 }: Props) => {
   const { t } = useTranslation();
@@ -27,7 +31,7 @@ export const LandingHeader = ({
         className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:h-18 sm:px-6 lg:px-8"
       >
         <Link
-          to="/"
+          to={NavigationPaths.About}
           className="focus-visible:ring-ring flex items-center gap-2.5 rounded-md text-xl font-bold tracking-tight focus-visible:ring-2 focus-visible:outline-none"
         >
           <img src={appIconImg} alt="" className="size-8" />
@@ -35,14 +39,17 @@ export const LandingHeader = ({
         </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-3">
-          <Button asChild variant="ghost" className="px-3 sm:px-4">
-            <Link to={NavigationPaths.Login} state={{ fromLanding: true }}>
-              {t('landing.actions.logIn')}
-            </Link>
-          </Button>
-          <LandingSignUpButton
+          {showLogIn && (
+            <Button asChild variant="ghost" className="px-3 sm:px-4">
+              <Link to={NavigationPaths.Login} state={{ fromLanding: true }}>
+                {t('landing.actions.logIn')}
+              </Link>
+            </Button>
+          )}
+          <LandingPrimaryButton
             canSignUp={canSignUp}
             className="bg-blurple-1 hover:bg-blurple-2 rounded-full px-4 text-white sm:px-5"
+            isRegistered={isRegistered}
             isLoading={isSignUpLoading}
             label={primaryCta}
             signUpPath={signUpPath}
