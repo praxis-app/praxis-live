@@ -131,6 +131,38 @@ pub(super) async fn create_anon_session(
     Ok(user)
 }
 
+pub(super) async fn upgrade_anon_session(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    payload: SignupRequest,
+) -> AppResult<UserRecord> {
+    let signup = validate_signup(payload)?;
+    let user = users::get_user_by_id(database, user_id)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
+        })?;
+
+    if !user.anonymous {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "Account is already registered.",
+        ));
+    }
+
+    let password_hash = password_auth::generate_hash(signup.password);
+    users::upgrade_anon_user(
+        database,
+        user_id,
+        signup.email,
+        signup.name,
+        password_hash,
+    )
+    .await
+    .map_err(map_create_user_error)
+}
+
 pub(super) fn validate_signup(
     mut input: SignupRequest,
 ) -> AppResult<SignupRequest> {

@@ -829,6 +829,7 @@
     },
     "footer": {
       "description": "Praxis is free and open source software.",
+      "developmentStatus": "Praxis is under active development and currently intended for testing and research.",
       "viewSource": "View the project on GitHub"
     }
   },

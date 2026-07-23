@@ -76,6 +76,36 @@ pub(crate) async fn create_anon_user(
     Ok(user)
 }
 
+pub(crate) async fn upgrade_anon_user(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    email: String,
+    name: String,
+    password_hash: String,
+) -> Result<UserRecord, CreateUserError> {
+    let user = users::Entity::find_by_id(user_id)
+        .one(database)
+        .await
+        .map_err(CreateUserError::Database)?
+        .ok_or_else(|| {
+            CreateUserError::Database(DbErr::RecordNotFound(
+                "User not found.".to_owned(),
+            ))
+        })?;
+
+    let mut active = user.into_active_model();
+    active.email = Set(Some(email));
+    active.name = Set(name);
+    active.password = Set(Some(password_hash));
+    active.anonymous = Set(false);
+
+    active
+        .update(database)
+        .await
+        .map(UserRecord::from)
+        .map_err(map_create_user_error)
+}
+
 pub(crate) async fn get_user_by_id(
     database: &DatabaseConnection,
     user_id: Uuid,
