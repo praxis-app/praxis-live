@@ -115,3 +115,61 @@ test('invited user can log in and join the invited server', async ({
     )
     .toBeNull();
 });
+
+test('invited user can sign up and join the invited server', async ({
+  page,
+  request,
+}) => {
+  const admin = await signUpViaApi(
+    request,
+    createTestUser('signup-invite-admin'),
+  );
+  const serverName = `Signup invite server ${admin.user.suffix}`;
+  const serverSlug = `signup-invite-${admin.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(admin),
+    data: {
+      name: serverName,
+      slug: serverSlug,
+      description: 'Server for the invite signup flow.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+  const { server } = (await createServerResponse.json()) as {
+    server: { id: string; slug: string };
+  };
+  const inviteToken = await createInvite(request, admin, server.id);
+  const invitedUser = createTestUser('signup-invite-member');
+  const auth = new AuthPage(page);
+  const chat = new ChatPage(page);
+  const navigation = new NavigationPage(page);
+
+  await page.goto(`/i/${inviteToken}`);
+  await expect(page).toHaveURL('/');
+  await page
+    .getByRole('link', { name: 'Accept invite', exact: true })
+    .first()
+    .click();
+  await expect(page).toHaveURL(`/auth/signup/${inviteToken}`);
+
+  const signupResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith('/api/auth/signup') &&
+      response.status() === 201 &&
+      response.request().postDataJSON().inviteToken === inviteToken,
+  );
+  await auth.signUp(invitedUser);
+  await signupResponse;
+
+  await expect(page).toHaveURL(new RegExp(`/s/${server.slug}/c/[^/]+/?$`));
+  await chat.expectChannel('general');
+  await navigation.expectSignedInUser(invitedUser);
+  await navigation.expectAccessTokenPersisted();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.localStorage.getItem('invite-token')),
+    )
+    .toBeNull();
+});
