@@ -35,7 +35,9 @@ export const LandingSignUpButton = ({
   if (canSignUp) {
     return (
       <Button asChild size={size} className={className}>
-        <Link to={signUpPath}>{content}</Link>
+        <Link to={signUpPath} state={{ fromLanding: true }}>
+          {content}
+        </Link>
       </Button>
     );
   }
