@@ -76,7 +76,7 @@ export const PublicLandingPage = () => {
                   </Link>
                 </Button>
               </div>
-              <p className="text-muted-foreground mx-auto mt-5 max-w-sm text-sm leading-6 lg:mx-0 lg:max-w-none lg:leading-normal">
+              <p className="text-muted-foreground mx-auto mt-15 max-w-sm text-sm leading-6 text-balance lg:mx-0 lg:mt-10 lg:max-w-none lg:text-start lg:leading-normal lg:text-wrap">
                 {t('landing.hero.openSource')}
               </p>
             </div>
