@@ -97,14 +97,14 @@ export const PublicLandingPage = () => {
                   </span>
                 </div>
 
-                <div className="rounded-2xl bg-neutral-100 p-4 dark:bg-neutral-900">
+                <div className="rounded-2xl bg-neutral-100 p-4 text-neutral-950 dark:bg-neutral-900 dark:text-white">
                   <div className="flex items-center gap-2 text-sm font-semibold">
                     <span className="bg-praxis-coral-soft text-praxis-coral flex size-8 items-center justify-center rounded-full shadow-sm">
                       <MessageCircle className="size-4" aria-hidden="true" />
                     </span>
                     {t('landing.mobileHero.conversationTitle')}
                   </div>
-                  <p className="mt-2 pl-10 text-xs leading-5 text-neutral-600">
+                  <p className="mt-2 pl-10 text-xs leading-5 text-neutral-600 dark:text-neutral-300">
                     {t('landing.mobileHero.conversationDescription')}
                   </p>
                 </div>
@@ -181,11 +181,11 @@ export const PublicLandingPage = () => {
           <div className="relative mx-auto max-w-6xl overflow-hidden rounded-4xl bg-neutral-950 px-6 py-14 text-center text-white shadow-2xl shadow-black/20 sm:px-12 sm:py-20">
             <div className="border-praxis-coral/40 absolute -top-24 -right-20 size-72 rounded-full border" />
             <div className="bg-praxis-green/35 absolute -bottom-28 -left-12 size-64 rounded-full" />
-            <div className="relative mx-auto max-w-2xl">
+            <div className="relative mx-auto max-w-4xl">
               <h2 className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
                 {t('landing.finalCta.title')}
               </h2>
-              <p className="mt-5 text-lg leading-8 text-neutral-300">
+              <p className="mt-5 text-lg leading-8 text-pretty text-neutral-100">
                 {t('landing.finalCta.description')}
               </p>
               <LandingPrimaryButton
