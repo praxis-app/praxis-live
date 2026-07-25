@@ -19,7 +19,7 @@ export const LandingVisual = ({ variant }: Props) => {
         <div className="mb-6 flex items-center justify-between border-b pb-4">
           <div className="flex items-center gap-2 font-semibold">
             <Hash className="text-muted-foreground size-5" />
-            neighborhood-project
+            courtyard
           </div>
           <div className="bg-blurple-1 flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold text-white">
             <Phone className="size-3.5" />
@@ -51,7 +51,7 @@ export const LandingVisual = ({ variant }: Props) => {
           </div>
           <div className="border-border text-muted-foreground flex items-center gap-2 rounded-xl border px-4 py-3 text-sm">
             <MessageCircle className="size-4" />
-            Message #neighborhood-project
+            Message #courtyard
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ export const LandingVisual = ({ variant }: Props) => {
       <div className="border-border bg-card relative rounded-[1.75rem] border p-5 shadow-2xl shadow-indigo-950/10 sm:p-7">
         <div className="mb-7 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <Hash className="text-muted-foreground size-4" /> community-plans
+            <Hash className="text-muted-foreground size-4" /> community
           </div>
           <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <Users className="size-4" /> 12 online
