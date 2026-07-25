@@ -1,4 +1,5 @@
 import { LandingBenefitSection } from '@/components/landing/landing-benefit-section';
+import { LandingDesktopHero } from '@/components/landing/landing-desktop-hero';
 import { LandingDevelopmentNotice } from '@/components/landing/landing-development-notice';
 import { LandingFooter } from '@/components/landing/landing-footer';
 import { LandingHeader } from '@/components/landing/landing-header';
@@ -7,7 +8,14 @@ import { LandingVisual } from '@/components/landing/landing-visual';
 import { Button } from '@/components/ui/button';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
-import { CheckCircle2, MessagesSquare, Vote } from 'lucide-react';
+import {
+  ArrowDown,
+  CheckCircle2,
+  MessageCircle,
+  MessagesSquare,
+  Users,
+  Vote,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
@@ -41,25 +49,26 @@ export const PublicLandingPage = () => {
       />
 
       <main>
-        <section className="relative px-5 pt-12 pb-20 sm:px-6 sm:pt-20 sm:pb-28 lg:px-8 lg:pt-28 lg:pb-36">
-          <div className="bg-blurple-1/10 absolute top-8 left-1/2 z-0 size-128 -translate-x-1/2 rounded-full blur-3xl" />
-          <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1fr_0.92fr] lg:gap-20">
-            <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
-              <p className="text-blurple-2 dark:text-blurple-3 mb-4 text-xs leading-5 font-semibold tracking-[0.18em] uppercase lg:mb-5 lg:text-sm lg:tracking-[0.16em]">
-                {t('landing.hero.eyebrow')}
-              </p>
-              <h1 className="text-4xl leading-[1.05] font-bold tracking-[-0.04em] text-balance sm:text-5xl lg:text-7xl lg:tracking-[-0.045em]">
+        <section className="bg-blurple-1 relative overflow-hidden px-5 pt-10 pb-8 text-center text-white sm:px-8 lg:hidden">
+          <div className="relative mx-auto max-w-xl">
+            <div className="absolute -top-16 -right-20 size-56 rounded-full border border-white/20" />
+            <div className="absolute top-36 -left-28 size-64 rounded-full bg-white/8" />
+            <div className="absolute -right-10 bottom-28 size-36 rounded-full bg-indigo-950/12 blur-2xl" />
+
+            <div className="relative">
+              <h1 className="mx-auto max-w-md text-[2.6rem] leading-[0.98] font-bold tracking-[-0.045em] text-balance">
                 {t('landing.hero.title')}
               </h1>
-              <p className="text-muted-foreground mx-auto mt-5 max-w-xl text-base leading-7 sm:mt-6 sm:text-lg lg:mx-0 lg:text-xl lg:leading-8">
-                {t('landing.hero.description')}
+              <p className="mx-auto mt-5 max-w-md text-base leading-7 text-indigo-50">
+                {t('landing.mobileHero.description')}
               </p>
-              <div className="mx-auto mt-8 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center lg:mx-0 lg:mt-9 lg:justify-start">
+
+              <div className="mx-auto mt-7 flex max-w-sm flex-col gap-3">
                 <LandingPrimaryButton
                   canSignUp={showSignUp}
                   isRegistered={isRegistered}
                   size="lg"
-                  className="bg-blurple-1 hover:bg-blurple-2 h-12 rounded-full px-7 text-base text-white"
+                  className="h-13 w-full rounded-xl bg-white px-6 text-base text-indigo-950 shadow-lg shadow-indigo-950/15 hover:bg-indigo-50"
                   isLoading={isSignUpLoading}
                   label={primaryCta}
                   showArrow
@@ -69,21 +78,70 @@ export const PublicLandingPage = () => {
                   asChild
                   size="lg"
                   variant="outline"
-                  className="h-12 rounded-full px-7 text-base"
+                  className="h-13 w-full rounded-xl border-white/30 bg-white/10 px-6 text-base text-white hover:bg-white/15 hover:text-white"
                 >
                   <Link to={NavigationPaths.Explore}>
                     {t('landing.actions.explore')}
                   </Link>
                 </Button>
               </div>
-              <p className="text-muted-foreground mx-auto mt-15 max-w-sm text-sm leading-6 text-balance lg:mx-0 lg:mt-10 lg:max-w-none lg:text-start lg:leading-normal lg:text-wrap">
-                {t('landing.hero.openSource')}
-              </p>
-            </div>
 
-            <LandingVisual variant="flow" />
+              <div className="text-foreground relative mt-8 rounded-3xl border border-white/40 bg-white p-4 text-left shadow-2xl shadow-indigo-950/25">
+                <div className="mb-4 flex items-center justify-between px-1">
+                  <p className="text-sm font-bold">
+                    {t('landing.mobileHero.visualTitle')}
+                  </p>
+                  <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                    <Users className="size-3.5" aria-hidden="true" />
+                    {t('landing.mobileHero.online')}
+                  </span>
+                </div>
+
+                <div className="rounded-2xl bg-neutral-100 p-4 dark:bg-neutral-900">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <span className="text-blurple-2 flex size-8 items-center justify-center rounded-full bg-white shadow-sm dark:bg-neutral-800">
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                    </span>
+                    {t('landing.mobileHero.conversationTitle')}
+                  </div>
+                  <p className="text-muted-foreground mt-2 pl-10 text-xs leading-5">
+                    {t('landing.mobileHero.conversationDescription')}
+                  </p>
+                </div>
+
+                <div className="flex h-9 items-center justify-center">
+                  <span className="bg-blurple-1 flex size-6 items-center justify-center rounded-full text-white shadow-sm">
+                    <ArrowDown className="size-3.5" aria-hidden="true" />
+                  </span>
+                </div>
+
+                <div className="bg-blurple-1/10 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <span className="text-blurple-2 flex size-8 items-center justify-center rounded-full bg-white shadow-sm dark:bg-neutral-800">
+                      <CheckCircle2 className="size-4" aria-hidden="true" />
+                    </span>
+                    {t('landing.mobileHero.decisionTitle')}
+                  </div>
+                  <p className="text-muted-foreground mt-2 pl-10 text-xs leading-5">
+                    {t('landing.mobileHero.decisionDescription')}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
+
+          <p className="mx-auto mt-6 max-w-68 text-center text-xs leading-5 font-medium text-balance text-indigo-100">
+            {t('landing.hero.openSource')}
+          </p>
         </section>
+
+        <LandingDesktopHero
+          canSignUp={showSignUp}
+          isRegistered={isRegistered}
+          isSignUpLoading={isSignUpLoading}
+          primaryCta={primaryCta}
+          signUpPath={signUpPath}
+        />
 
         <div className="border-border border-y bg-neutral-50/60 dark:bg-white/2">
           <div className="mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 lg:px-8">
