@@ -5,14 +5,14 @@ export const LandingFooter = () => {
   const { t } = useTranslation();
 
   return (
-    <footer className="border-border border-t px-4 py-8 sm:px-6 lg:px-8">
-      <div className="text-muted-foreground mx-auto flex max-w-6xl flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <p>{t('landing.footer.description')}</p>
+    <footer className="border-border border-t px-5 py-10 sm:px-6 sm:py-8 lg:px-8">
+      <div className="text-muted-foreground mx-auto flex max-w-6xl flex-col items-center gap-3 text-center text-sm sm:flex-row sm:justify-between sm:gap-4 sm:text-left">
+        <p className="leading-6">{t('landing.footer.description')}</p>
         <a
           href="https://github.com/praxis-app/praxis"
           target="_blank"
           rel="noreferrer"
-          className="text-foreground inline-flex w-fit items-center gap-2 font-medium hover:underline"
+          className="text-foreground inline-flex w-fit items-center justify-center gap-2 font-medium hover:underline"
         >
           <Github className="size-4" aria-hidden="true" />
           {t('landing.footer.viewSource')}

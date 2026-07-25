@@ -41,20 +41,20 @@ export const PublicLandingPage = () => {
       />
 
       <main>
-        <section className="relative px-4 pt-16 pb-24 sm:px-6 sm:pt-24 sm:pb-28 lg:px-8 lg:pt-28 lg:pb-36">
+        <section className="relative px-5 pt-12 pb-20 sm:px-6 sm:pt-20 sm:pb-28 lg:px-8 lg:pt-28 lg:pb-36">
           <div className="bg-blurple-1/10 absolute top-8 left-1/2 z-0 size-128 -translate-x-1/2 rounded-full blur-3xl" />
-          <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1fr_0.92fr] lg:gap-20">
-            <div className="max-w-2xl">
-              <p className="text-blurple-2 dark:text-blurple-3 mb-5 text-sm font-semibold tracking-[0.16em] uppercase">
+          <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1fr_0.92fr] lg:gap-20">
+            <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
+              <p className="text-blurple-2 dark:text-blurple-3 mb-4 text-xs leading-5 font-semibold tracking-[0.18em] uppercase lg:mb-5 lg:text-sm lg:tracking-[0.16em]">
                 {t('landing.hero.eyebrow')}
               </p>
-              <h1 className="text-5xl font-bold tracking-[-0.045em] text-balance sm:text-6xl lg:text-7xl">
+              <h1 className="text-4xl leading-[1.05] font-bold tracking-[-0.04em] text-balance sm:text-5xl lg:text-7xl lg:tracking-[-0.045em]">
                 {t('landing.hero.title')}
               </h1>
-              <p className="text-muted-foreground mt-6 max-w-xl text-lg leading-8 sm:text-xl">
+              <p className="text-muted-foreground mx-auto mt-5 max-w-xl text-base leading-7 sm:mt-6 sm:text-lg lg:mx-0 lg:text-xl lg:leading-8">
                 {t('landing.hero.description')}
               </p>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <div className="mx-auto mt-8 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center lg:mx-0 lg:mt-9 lg:justify-start">
                 <LandingPrimaryButton
                   canSignUp={showSignUp}
                   isRegistered={isRegistered}
@@ -76,7 +76,7 @@ export const PublicLandingPage = () => {
                   </Link>
                 </Button>
               </div>
-              <p className="text-muted-foreground mt-5 text-sm">
+              <p className="text-muted-foreground mx-auto mt-5 max-w-sm text-sm leading-6 lg:mx-0 lg:max-w-none lg:leading-normal">
                 {t('landing.hero.openSource')}
               </p>
             </div>
