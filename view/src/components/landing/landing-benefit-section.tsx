@@ -21,10 +21,10 @@ export const LandingBenefitSection = ({
 }: Props) => (
   <section className="grid items-center gap-12 py-16 first:pt-0 last:pb-0 sm:py-24 lg:grid-cols-2 lg:gap-24">
     <div className={cn('max-w-xl', reversed && 'lg:order-2')}>
-      <div className="bg-blurple-1/10 text-blurple-2 dark:text-blurple-3 mb-5 flex size-11 items-center justify-center rounded-2xl">
+      <div className="bg-praxis-coral-soft text-praxis-coral dark:bg-praxis-coral/15 mb-5 flex size-11 items-center justify-center rounded-2xl">
         <Icon className="size-5" aria-hidden="true" />
       </div>
-      <p className="text-blurple-2 dark:text-blurple-3 text-sm font-semibold tracking-[0.14em] uppercase">
+      <p className="text-praxis-coral text-sm font-semibold tracking-[0.14em] uppercase">
         {eyebrow}
       </p>
       <h2 className="mt-3 text-3xl font-bold tracking-tight text-balance sm:text-5xl">

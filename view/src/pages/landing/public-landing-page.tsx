@@ -49,17 +49,17 @@ export const PublicLandingPage = () => {
       />
 
       <main>
-        <section className="bg-blurple-1 relative overflow-hidden px-5 pt-10 pb-8 text-center text-white sm:px-8 lg:hidden">
+        <section className="relative overflow-hidden bg-neutral-950 px-5 pt-10 pb-8 text-center text-white sm:px-8 lg:hidden">
           <div className="relative mx-auto max-w-xl">
-            <div className="absolute -top-16 -right-20 size-56 rounded-full border border-white/20" />
-            <div className="absolute top-36 -left-28 size-64 rounded-full bg-white/8" />
-            <div className="absolute -right-10 bottom-28 size-36 rounded-full bg-indigo-950/12 blur-2xl" />
+            <div className="border-praxis-coral/35 absolute -top-16 -right-20 size-56 rounded-full border" />
+            <div className="bg-praxis-coral/20 absolute top-36 -left-28 size-64 rounded-full" />
+            <div className="bg-praxis-green/30 absolute -right-10 bottom-28 size-36 rounded-full blur-2xl" />
 
             <div className="relative">
               <h1 className="mx-auto max-w-md text-[2.6rem] leading-[0.98] font-bold tracking-[-0.045em] text-balance">
                 {t('landing.hero.title')}
               </h1>
-              <p className="mx-auto mt-5 max-w-md text-base leading-7 text-indigo-50">
+              <p className="mx-auto mt-5 max-w-md text-base leading-7 text-neutral-300">
                 {t('landing.mobileHero.description')}
               </p>
 
@@ -68,7 +68,7 @@ export const PublicLandingPage = () => {
                   canSignUp={showSignUp}
                   isRegistered={isRegistered}
                   size="lg"
-                  className="h-13 w-full rounded-xl bg-white px-6 text-base text-indigo-950 shadow-lg shadow-indigo-950/15 hover:bg-indigo-50"
+                  className="[&_svg]:text-praxis-coral h-13 w-full rounded-xl bg-white px-6 text-base text-neutral-950 shadow-lg shadow-black/20 hover:bg-neutral-100"
                   isLoading={isSignUpLoading}
                   label={primaryCta}
                   showArrow
@@ -78,7 +78,7 @@ export const PublicLandingPage = () => {
                   asChild
                   size="lg"
                   variant="outline"
-                  className="h-13 w-full rounded-xl border-white/30 bg-white/10 px-6 text-base text-white hover:bg-white/15 hover:text-white"
+                  className="h-13 w-full rounded-xl border-white/20 bg-white/5 px-6 text-base text-white hover:bg-white/10 hover:text-white"
                 >
                   <Link to={NavigationPaths.Explore}>
                     {t('landing.actions.explore')}
@@ -86,12 +86,12 @@ export const PublicLandingPage = () => {
                 </Button>
               </div>
 
-              <div className="text-foreground relative mt-8 rounded-3xl border border-white/40 bg-white p-4 text-left shadow-2xl shadow-indigo-950/25">
+              <div className="relative mt-8 rounded-3xl border border-white/20 bg-white p-4 text-left text-neutral-950 shadow-2xl shadow-black/30">
                 <div className="mb-4 flex items-center justify-between px-1">
                   <p className="text-sm font-bold">
                     {t('landing.mobileHero.visualTitle')}
                   </p>
-                  <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                  <span className="flex items-center gap-1.5 text-xs text-neutral-500">
                     <Users className="size-3.5" aria-hidden="true" />
                     {t('landing.mobileHero.online')}
                   </span>
@@ -99,30 +99,30 @@ export const PublicLandingPage = () => {
 
                 <div className="rounded-2xl bg-neutral-100 p-4 dark:bg-neutral-900">
                   <div className="flex items-center gap-2 text-sm font-semibold">
-                    <span className="text-blurple-2 flex size-8 items-center justify-center rounded-full bg-white shadow-sm dark:bg-neutral-800">
+                    <span className="bg-praxis-coral-soft text-praxis-coral flex size-8 items-center justify-center rounded-full shadow-sm">
                       <MessageCircle className="size-4" aria-hidden="true" />
                     </span>
                     {t('landing.mobileHero.conversationTitle')}
                   </div>
-                  <p className="text-muted-foreground mt-2 pl-10 text-xs leading-5">
+                  <p className="mt-2 pl-10 text-xs leading-5 text-neutral-600">
                     {t('landing.mobileHero.conversationDescription')}
                   </p>
                 </div>
 
                 <div className="flex h-9 items-center justify-center">
-                  <span className="bg-blurple-1 flex size-6 items-center justify-center rounded-full text-white shadow-sm">
+                  <span className="bg-praxis-coral flex size-6 items-center justify-center rounded-full text-white shadow-sm">
                     <ArrowDown className="size-3.5" aria-hidden="true" />
                   </span>
                 </div>
 
-                <div className="bg-blurple-1/10 rounded-2xl p-4">
+                <div className="bg-praxis-green-soft rounded-2xl p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold">
-                    <span className="text-blurple-2 flex size-8 items-center justify-center rounded-full bg-white shadow-sm dark:bg-neutral-800">
+                    <span className="text-praxis-green flex size-8 items-center justify-center rounded-full bg-white shadow-sm">
                       <CheckCircle2 className="size-4" aria-hidden="true" />
                     </span>
                     {t('landing.mobileHero.decisionTitle')}
                   </div>
-                  <p className="text-muted-foreground mt-2 pl-10 text-xs leading-5">
+                  <p className="mt-2 pl-10 text-xs leading-5 text-neutral-600">
                     {t('landing.mobileHero.decisionDescription')}
                   </p>
                 </div>
@@ -130,7 +130,7 @@ export const PublicLandingPage = () => {
             </div>
           </div>
 
-          <p className="mx-auto mt-6 max-w-68 text-center text-xs leading-5 font-medium text-balance text-indigo-100">
+          <p className="mx-auto mt-6 max-w-68 text-center text-xs leading-5 font-medium text-balance text-neutral-300">
             {t('landing.hero.openSource')}
           </p>
         </section>
@@ -178,21 +178,21 @@ export const PublicLandingPage = () => {
         </div>
 
         <section className="px-4 pb-24 sm:px-6 sm:pb-32 lg:px-8">
-          <div className="bg-blurple-1 relative mx-auto max-w-6xl overflow-hidden rounded-4xl px-6 py-14 text-center text-white shadow-2xl shadow-indigo-950/20 sm:px-12 sm:py-20">
-            <div className="absolute -top-24 -right-20 size-72 rounded-full border border-white/20" />
-            <div className="absolute -bottom-28 -left-12 size-64 rounded-full bg-white/10" />
+          <div className="relative mx-auto max-w-6xl overflow-hidden rounded-4xl bg-neutral-950 px-6 py-14 text-center text-white shadow-2xl shadow-black/20 sm:px-12 sm:py-20">
+            <div className="border-praxis-coral/40 absolute -top-24 -right-20 size-72 rounded-full border" />
+            <div className="bg-praxis-green/35 absolute -bottom-28 -left-12 size-64 rounded-full" />
             <div className="relative mx-auto max-w-2xl">
               <h2 className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
                 {t('landing.finalCta.title')}
               </h2>
-              <p className="mt-5 text-lg leading-8 text-indigo-50">
+              <p className="mt-5 text-lg leading-8 text-neutral-300">
                 {t('landing.finalCta.description')}
               </p>
               <LandingPrimaryButton
                 canSignUp={showSignUp}
                 isRegistered={isRegistered}
                 size="lg"
-                className="mt-8 h-12 rounded-full bg-white px-7 text-base text-indigo-950 hover:bg-indigo-50"
+                className="[&_svg]:text-praxis-coral mt-8 h-12 rounded-full bg-white px-7 text-base text-neutral-950 hover:bg-neutral-100"
                 isLoading={isSignUpLoading}
                 label={primaryCta}
                 showArrow
