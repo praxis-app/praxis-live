@@ -100,11 +100,11 @@ export const LandingVisual = ({ variant }: Props) => {
   if (variant === 'decision') {
     return (
       <div className="flex max-w-full min-w-0 gap-4 pt-1">
-        <div className="bg-praxis-coral-soft text-praxis-coral mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full text-lg font-light">
+        <div className="bg-praxis-coral-soft text-praxis-coral mt-0.5 hidden size-10 shrink-0 items-center justify-center rounded-full text-lg font-light sm:flex">
           AR
         </div>
         <div className="max-w-full min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5 pb-1">
+          <div className="hidden min-w-0 items-center gap-1.5 pb-1 sm:flex">
             <span className="font-medium">Ari</span>
             <span className="text-muted-foreground text-sm">just now</span>
           </div>
