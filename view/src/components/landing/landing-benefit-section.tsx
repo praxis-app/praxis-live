@@ -30,7 +30,7 @@ export const LandingBenefitSection = ({
       <h2 className="mt-3 text-3xl font-bold tracking-tight text-balance sm:text-5xl">
         {title}
       </h2>
-      <p className="text-muted-foreground mt-6 text-lg leading-8">
+      <p className="text-muted-foreground mt-6 text-lg leading-8 text-pretty">
         {description}
       </p>
     </div>
