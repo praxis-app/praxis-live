@@ -21,14 +21,14 @@ export const LandingVisual = ({ variant }: Props) => {
             <Hash className="text-muted-foreground size-5" />
             courtyard
           </div>
-          <div className="bg-blurple-1 flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold text-white">
+          <div className="flex items-center gap-2 rounded-full bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-neutral-950">
             <Phone className="size-3.5" />
             Join call
           </div>
         </div>
         <div className="space-y-5">
           <div className="flex gap-3">
-            <div className="bg-blurple-1/20 text-blurple-2 flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold">
+            <div className="bg-praxis-coral-soft text-praxis-coral flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold">
               AR
             </div>
             <div>
@@ -60,11 +60,11 @@ export const LandingVisual = ({ variant }: Props) => {
 
   if (variant === 'forum') {
     return (
-      <div className="bg-blurple-1/8 rounded-[1.75rem] p-4 sm:p-7">
+      <div className="rounded-[1.75rem] bg-neutral-100 p-4 sm:p-7 dark:bg-white/5">
         <div className="border-border bg-card rounded-2xl border p-5 shadow-lg shadow-black/5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <span className="bg-blurple-1/10 text-blurple-2 dark:text-blurple-3 rounded-full px-2.5 py-1 text-xs font-semibold">
+              <span className="bg-praxis-coral-soft text-praxis-coral rounded-full px-2.5 py-1 text-xs font-semibold">
                 Open discussion
               </span>
               <h3 className="mt-4 text-lg font-bold">
@@ -96,7 +96,7 @@ export const LandingVisual = ({ variant }: Props) => {
       <div className="border-border bg-card rounded-[1.75rem] border p-5 shadow-xl shadow-black/5 sm:p-7">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-blurple-2 dark:text-blurple-3 text-xs font-semibold tracking-wide uppercase">
+            <p className="text-praxis-coral text-xs font-semibold tracking-wide uppercase">
               Consent proposal
             </p>
             <h3 className="mt-2 text-lg font-bold">
@@ -114,7 +114,7 @@ export const LandingVisual = ({ variant }: Props) => {
               <span className="text-muted-foreground">7 of 8</span>
             </div>
             <div className="bg-muted h-2.5 overflow-hidden rounded-full">
-              <div className="bg-blurple-1 h-full w-[87.5%] rounded-full" />
+              <div className="bg-praxis-coral h-full w-[87.5%] rounded-full" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-xs font-medium">
@@ -134,7 +134,7 @@ export const LandingVisual = ({ variant }: Props) => {
 
   return (
     <div className="relative mx-auto w-full max-w-lg py-7 sm:px-6">
-      <div className="border-border bg-card relative rounded-[1.75rem] border p-5 shadow-2xl shadow-indigo-950/10 sm:p-7">
+      <div className="border-border bg-card relative rounded-[1.75rem] border p-5 shadow-2xl shadow-black/10 sm:p-7">
         <div className="mb-7 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Hash className="text-muted-foreground size-4" /> community
@@ -146,7 +146,7 @@ export const LandingVisual = ({ variant }: Props) => {
         <div className="space-y-3">
           <div className="bg-muted/70 rounded-2xl p-4">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <MessageCircle className="text-blurple-2 size-4" /> Talk it
+              <MessageCircle className="text-praxis-coral size-4" /> Talk it
               through
             </div>
             <p className="text-muted-foreground mt-2 text-xs leading-5">
@@ -156,8 +156,8 @@ export const LandingVisual = ({ variant }: Props) => {
           <div className="flex justify-center">
             <div className="bg-border h-5 w-px" />
           </div>
-          <div className="bg-blurple-1/10 rounded-2xl p-4">
-            <div className="text-blurple-2 dark:text-blurple-3 flex items-center gap-2 text-sm font-semibold">
+          <div className="bg-praxis-green-soft dark:bg-praxis-green/20 rounded-2xl p-4">
+            <div className="text-praxis-green flex items-center gap-2 text-sm font-semibold dark:text-emerald-300">
               <ThumbsUp className="size-4" /> Decide together
             </div>
             <p className="text-muted-foreground mt-2 text-xs leading-5">
@@ -166,8 +166,8 @@ export const LandingVisual = ({ variant }: Props) => {
           </div>
         </div>
       </div>
-      <div className="bg-blurple-1 absolute top-0 right-0 -z-10 size-32 rounded-full opacity-20 blur-3xl" />
-      <div className="absolute bottom-0 left-0 -z-10 size-40 rounded-full bg-emerald-400/20 blur-3xl" />
+      <div className="bg-praxis-coral absolute top-0 right-0 -z-10 size-32 rounded-full opacity-20 blur-3xl" />
+      <div className="bg-praxis-green/20 absolute bottom-0 left-0 -z-10 size-40 rounded-full blur-3xl" />
     </div>
   );
 };

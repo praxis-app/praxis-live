@@ -48,7 +48,7 @@ export const LandingHeader = ({
           )}
           <LandingPrimaryButton
             canSignUp={canSignUp}
-            className="bg-blurple-1 hover:bg-blurple-2 rounded-full px-4 text-white sm:px-5"
+            className="rounded-full bg-neutral-950 px-4 text-white hover:bg-neutral-800 sm:px-5 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"
             isRegistered={isRegistered}
             isLoading={isSignUpLoading}
             label={primaryCta}
