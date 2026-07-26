@@ -109,16 +109,16 @@ export const LandingVisual = ({ variant }: Props) => {
             <span className="text-muted-foreground text-sm">just now</span>
           </div>
 
-          <div className="border-border bg-card relative min-w-0 rounded-md border px-3 py-3.5 shadow-xl shadow-black/5 before:absolute before:inset-y-0 before:left-0 before:w-3 before:rounded-l-md before:border-l-3 before:border-l-(--border)">
+          <div className="border-border bg-card before:border-l-border relative min-w-0 rounded-md border px-3 py-3.5 shadow-xl shadow-black/5 before:absolute before:inset-y-0 before:left-0 before:w-3 before:rounded-l-md before:border-l-3">
             <MoreHorizontal className="text-muted-foreground absolute top-3 right-3 size-5" />
 
-            <div className="text-muted-foreground flex min-w-0 flex-col items-start gap-1 pr-8 text-xs font-medium sm:flex-row sm:items-center sm:gap-0 sm:text-sm">
+            <div className="text-muted-foreground flex min-w-0 items-center pr-8 text-xs font-medium sm:text-sm">
               <span className="flex items-center gap-1.5">
                 <UserCog className="size-4" />
                 Change role
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="hidden px-1.5 sm:inline" aria-hidden="true">
+                <span className="pr-0.5 pl-1.5" aria-hidden="true">
                   ·
                 </span>
                 <ListChecks className="size-4" />
@@ -126,7 +126,7 @@ export const LandingVisual = ({ variant }: Props) => {
               </span>
             </div>
 
-            <p className="wrap-break-word pt-3 pb-3 text-sm sm:text-base">
+            <p className="pt-3 pb-3 text-sm wrap-break-word sm:text-base">
               Give the organizing team what they need to coordinate the fall
               event.
             </p>
