@@ -825,7 +825,7 @@
     "chat": {
       "eyebrow": "Talk naturally",
       "title": "Familiar chat, with calls right where the conversation lives.",
-      "description": "Keep everyday coordination easy with channels, messages, and calls in each channel. When a topic needs more attention, the people and context are already in the same place."
+      "description": "Keep everyday coordination easy with messages and calls organized by topic. When a conversation needs more attention, the people and context are already in the same place."
     },
     "forums": {
       "eyebrow": "Focus the discussion",
