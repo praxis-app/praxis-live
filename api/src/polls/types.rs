@@ -69,6 +69,24 @@ pub(crate) struct CallDecisionResponse {
     pub(crate) recent_result: Option<PollResponse>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ActiveDecisionResponse {
+    pub(crate) id: String,
+    pub(crate) poll_type: String,
+    pub(crate) body: Option<String>,
+    pub(crate) closing_at: Option<String>,
+    pub(crate) response_count: usize,
+    pub(crate) member_count: usize,
+    pub(crate) has_responded: bool,
+    pub(crate) created_at: String,
+    pub(crate) channel_id: String,
+    pub(crate) channel_name: String,
+    pub(crate) channel_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) forum_post_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollConfigResponse {

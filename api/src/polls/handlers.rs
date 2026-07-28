@@ -13,13 +13,14 @@ use super::{
     types::{CallDecisionResponse, CreatePollRequest, PollImagePath, PollPath},
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
         request::multipart_file, storage::upload_root, ApiError, AppResult,
     },
     pub_sub::PubSubService,
+    servers::types::ServerPath,
 };
 
 #[derive(Clone, Debug)]
@@ -187,6 +188,20 @@ pub(super) async fn get_call_decision(
     .await?;
 
     Ok(Json(decision))
+}
+
+pub(super) async fn get_active_decisions(
+    State(state): State<PollsState>,
+    Path(path): Path<ServerPath>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+) -> AppResult<Json<serde_json::Value>> {
+    let decisions =
+        service::get_active_decisions(&state.database, path.server_id, user_id)
+            .await?;
+
+    Ok(Json(serde_json::json!({
+        "decisions": decisions,
+    })))
 }
 
 pub(super) async fn upload_poll_image(

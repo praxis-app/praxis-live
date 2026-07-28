@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{
-    channels as channel_entities,
+    channel_members, channels as channel_entities,
     enums::{
         PollActionType, PollDecisionMakingModel, PollStage, PollType, VoteType,
     },
@@ -21,9 +21,9 @@ use tokio::time::{self, MissedTickBehavior};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    CallDecisionResponse, CreatePollRequest, PollConfigResponse,
-    PollImageResponse, PollOptionResponse, PollResponse, PollUserResponse,
-    StoredPollImage,
+    ActiveDecisionResponse, CallDecisionResponse, CreatePollRequest,
+    PollConfigResponse, PollImageResponse, PollOptionResponse, PollResponse,
+    PollUserResponse, StoredPollImage,
 };
 use crate::{
     channels,
@@ -38,6 +38,7 @@ use crate::{
 
 const MAX_IMAGE_COUNT: usize = 8;
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
+const ACTIVE_DECISIONS_LIMIT: usize = 50;
 
 const PROPOSAL_SYNC_BATCH_SIZE: usize = 20;
 const PROPOSAL_SYNC_INTERVAL_SECONDS: u64 = 60 * 5;
@@ -919,6 +920,136 @@ pub(crate) async fn get_poll_response(
 ) -> AppResult<PollResponse> {
     let poll = load_poll(database, server_id, channel_id, poll_id).await?;
     shape_poll(database, poll, current_user_id).await
+}
+
+pub(crate) async fn get_active_decisions(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    current_user_id: Option<Uuid>,
+) -> AppResult<Vec<ActiveDecisionResponse>> {
+    servers::ensure_server(database, server_id).await?;
+
+    let current_user = if let Some(user_id) = current_user_id {
+        users::Entity::find_by_id(user_id)
+            .one(database)
+            .await
+            .map_err(internal_error)?
+    } else {
+        None
+    };
+    let response_user_id = current_user.as_ref().map(|user| user.id);
+    let registered_user_id = current_user
+        .filter(|user| !user.anonymous)
+        .map(|user| user.id);
+
+    let channels = if let Some(user_id) = registered_user_id {
+        let channel_ids = channel_members::Entity::find()
+            .filter(channel_members::Column::UserId.eq(user_id))
+            .all(database)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|membership| membership.channel_id)
+            .collect::<Vec<_>>();
+
+        if channel_ids.is_empty() {
+            vec![]
+        } else {
+            channel_entities::Entity::find()
+                .filter(channel_entities::Column::ServerId.eq(server_id))
+                .filter(channel_entities::Column::Id.is_in(channel_ids))
+                .all(database)
+                .await
+                .map_err(internal_error)?
+        }
+    } else {
+        if servers::default_server_id(database).await? != server_id {
+            return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
+        }
+
+        channel_entities::Entity::find()
+            .filter(channel_entities::Column::ServerId.eq(server_id))
+            .all(database)
+            .await
+            .map_err(internal_error)?
+    };
+
+    let channels_by_id = channels
+        .into_iter()
+        .map(|channel| (channel.id, channel))
+        .collect::<HashMap<_, _>>();
+    let channel_ids = channels_by_id.keys().copied().collect::<Vec<_>>();
+    if channel_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let mut polls_with_configs = polls::Entity::find()
+        .filter(polls::Column::ChannelId.is_in(channel_ids))
+        .filter(polls::Column::Stage.eq(PollStage::Voting))
+        .find_also_related(poll_configs::Entity)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    polls_with_configs.sort_by(
+        |(left_poll, left_config), (right_poll, right_config)| match (
+            left_config.as_ref().and_then(|config| config.closing_at),
+            right_config.as_ref().and_then(|config| config.closing_at),
+        ) {
+            (Some(left), Some(right)) => left
+                .cmp(&right)
+                .then_with(|| right_poll.created_at.cmp(&left_poll.created_at)),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => right_poll.created_at.cmp(&left_poll.created_at),
+        },
+    );
+    polls_with_configs.truncate(ACTIVE_DECISIONS_LIMIT);
+
+    let poll_ids = polls_with_configs
+        .iter()
+        .map(|(poll, _)| poll.id)
+        .collect::<Vec<_>>();
+    let forum_posts_by_poll_id = forum_posts::Entity::find()
+        .filter(forum_posts::Column::PollId.is_in(poll_ids))
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .filter_map(|post| post.poll_id.map(|poll_id| (poll_id, post.id)))
+        .collect::<HashMap<_, _>>();
+
+    let mut decisions = Vec::with_capacity(polls_with_configs.len());
+    for (poll, _) in polls_with_configs {
+        let channel =
+            channels_by_id.get(&poll.channel_id).ok_or_else(|| {
+                ApiError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Decision channel not found.",
+                )
+            })?;
+        let response =
+            shape_poll(database, poll.clone(), response_user_id).await?;
+
+        decisions.push(ActiveDecisionResponse {
+            id: response.id,
+            poll_type: response.poll_type,
+            body: response.body,
+            closing_at: response.config.closing_at,
+            response_count: response.votes.len(),
+            member_count: response.member_count,
+            has_responded: response.my_vote.is_some(),
+            created_at: response.created_at,
+            channel_id: channel.id.to_string(),
+            channel_name: channel.name.clone(),
+            channel_type: channel.channel_type.to_string(),
+            forum_post_id: forum_posts_by_poll_id
+                .get(&poll.id)
+                .map(ToString::to_string),
+        });
+    }
+
+    Ok(decisions)
 }
 
 async fn shape_poll(
