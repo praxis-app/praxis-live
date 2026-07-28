@@ -837,6 +837,10 @@
       "title": "Shape a proposal, choose the rules, and ratify the result.",
       "description": "Use polls and proposals with configurable voting models to turn deliberation into a clear collective outcome. Decisions stay connected to the discussion that produced them."
     },
+    "proposal": {
+      "openAppToVote": "Open Praxis to vote on proposals.",
+      "signUpToVote": "Sign up to vote on proposals."
+    },
     "finalCta": {
       "title": "Keep the flow. Make the decision.",
       "description": "Bring your group’s conversations, deliberation, and collective action together in Praxis."
