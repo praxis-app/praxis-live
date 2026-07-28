@@ -20,6 +20,7 @@ interface Props extends ComponentProps<'img'> {
   userId?: string;
   src?: string;
   className?: string;
+  imageClassName?: string;
   onError?: () => void;
 }
 
@@ -49,6 +50,7 @@ export const LazyLoadImage = forwardRef<HTMLDivElement, Props>(
       onLoad,
       src,
       className,
+      imageClassName,
       onError,
       ...imgProps
     },
@@ -124,6 +126,7 @@ export const LazyLoadImage = forwardRef<HTMLDivElement, Props>(
                 !skipAnimation && !loaded && 'opacity-0 blur-sm',
                 !skipAnimation && loaded && 'blur-0 opacity-100',
                 className,
+                imageClassName,
               )}
               {...imgProps}
             />

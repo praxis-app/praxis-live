@@ -422,7 +422,7 @@ export const CallArtifact = ({
                 </div>
               </div>
             </aside>
-            <div className="min-h-0 min-w-0 md:min-h-[420px]">
+            <div className="min-h-0 min-w-0 md:min-h-105">
               <CallChatPanel
                 initialFeedLimit={messageCount + decisionCount}
                 serverId={serverId}

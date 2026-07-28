@@ -253,7 +253,7 @@ export const CallPanel = ({
         </div>
 
         {isDesktop && sidePanel && (
-          <aside className="h-full w-[380px] min-w-0 border-l border-[--color-border]">
+          <aside className="h-full w-95 min-w-0 border-l border-[--color-border]">
             {isChatOpen ? (
               <CallChatPanel
                 serverId={serverId}

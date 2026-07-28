@@ -39,7 +39,7 @@ export const LeftNavUserMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 mr-1 flex h-11.5 w-full cursor-pointer items-center justify-start gap-2 rounded-[4px] px-2 text-left select-none focus:outline-none"
+        className="hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 mr-1 flex h-11.5 w-full cursor-pointer items-center justify-start gap-2 rounded-lg px-2 text-left select-none focus:outline-none"
         title={me.name}
       >
         <UserAvatar

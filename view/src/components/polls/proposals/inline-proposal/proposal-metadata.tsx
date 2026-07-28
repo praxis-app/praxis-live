@@ -67,7 +67,7 @@ export const ProposalMetadata = ({
         {actionType && ActionIcon && (
           <span
             className={cn(
-              'pr-0.25 pl-1.5',
+              'pr-px pl-1.5',
               variant !== 'forum' && 'hidden @sm:inline',
             )}
             aria-hidden="true"

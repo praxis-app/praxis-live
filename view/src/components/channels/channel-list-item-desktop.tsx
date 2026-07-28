@@ -66,7 +66,7 @@ export const ChannelListItemDesktop = ({
         <ContextMenuTrigger disabled={!canManageChannels}>
           <div
             className={cn(
-              'text-muted-foreground hover:bg-accent mx-2 flex items-center justify-between rounded-[4px] pr-2.5',
+              'text-muted-foreground hover:bg-accent mx-2 flex items-center justify-between rounded-lg pr-2.5',
               isActive && 'bg-accent text-foreground',
             )}
             key={channel.id}
