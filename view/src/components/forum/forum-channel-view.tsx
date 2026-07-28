@@ -42,7 +42,7 @@ export const ForumChannelView = ({ channel }: Props) => {
     if (!isDesktop || !postId) return;
 
     const closePostOnEscape = (event: KeyboardEvent) => {
-      if (event.key === KeyCodes.Escape) {
+      if (event.key === KeyCodes.Escape && !event.defaultPrevented) {
         navigate(`${serverPath}/c/${channel.id}`);
       }
     };
