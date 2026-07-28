@@ -790,7 +790,72 @@
     }
   },
 
+  "landing": {
+    "actions": {
+      "acceptInvite": "Accept invite",
+      "backToLanding": "About Praxis",
+      "explore": "Explore Praxis",
+      "logIn": "Log in",
+      "openPraxis": "Open Praxis",
+      "signUp": "Sign up"
+    },
+    "navigation": {
+      "label": "Public navigation"
+    },
+    "hero": {
+      "eyebrow": "Conversation with a way forward",
+      "title": "Turn the conversation into a decision.",
+      "description": "Praxis keeps chat, calls, focused discussion, and collective decisions in one connected flow, so your group can move forward without losing the context that got you there.",
+      "openSource": "Free and open source software for groups that decide together."
+    },
+    "mobileHero": {
+      "description": "Keep your group’s conversations, focused discussion, and decisions together without losing the context that moves you forward.",
+      "visualTitle": "Your group, in one flow",
+      "online": "12 online",
+      "conversationTitle": "Talk it through",
+      "conversationDescription": "Chat and calls keep everyone connected to the context.",
+      "decisionTitle": "Move forward together",
+      "decisionDescription": "Turn the discussion into a clear collective decision."
+    },
+    "bridge": "Start with the way your group already talks. Add structure only when the moment calls for it.",
+    "developmentStatus": {
+      "title": "Praxis is still experimental.",
+      "description": "Praxis is under active development and intended only for testing and research."
+    },
+    "chat": {
+      "eyebrow": "Talk naturally",
+      "title": "Familiar chat, with calls right where the conversation lives.",
+      "description": "Keep everyday coordination easy with messages and calls organized by topic. When a conversation needs more attention, the people and context are already in the same place."
+    },
+    "forums": {
+      "eyebrow": "Focus the discussion",
+      "title": "Give important questions room to become clear.",
+      "description": "Move from the fast pace of chat into forum discussions that gather replies around one topic. Your group can deliberate without starting over or scattering context across tools."
+    },
+    "decisions": {
+      "eyebrow": "Decide together",
+      "title": "Shape a proposal, choose the rules, and ratify the result.",
+      "description": "Use polls and proposals with configurable voting models to turn deliberation into a clear collective outcome. Decisions stay connected to the discussion that produced them."
+    },
+    "proposal": {
+      "openAppToVote": "Open Praxis to vote on proposals.",
+      "signUpToVote": "Sign up to vote on proposals."
+    },
+    "finalCta": {
+      "title": "Keep the flow. Make the decision.",
+      "description": "Bring your group’s conversations, deliberation, and collective action together in Praxis."
+    },
+    "footer": {
+      "description": "Praxis is free and open source software.",
+      "viewSource": "View the project on GitHub"
+    }
+  },
+
   "navigation": {
+    "actions": {
+      "closeNavSheet": "Close navigation",
+      "openNavSheet": "Open navigation"
+    },
     "titles": {
       "navDrawer": "Navigation drawer"
     },

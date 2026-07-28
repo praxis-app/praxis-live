@@ -25,10 +25,24 @@ export class NavigationPage {
       .not.toBeNull();
   }
 
+  async expectAccessTokenCleared() {
+    await expect
+      .poll(() =>
+        this.page.evaluate((storageKey) => {
+          return window.localStorage.getItem(storageKey);
+        }, ACCESS_TOKEN_KEY),
+      )
+      .toBeNull();
+  }
+
   async logOut() {
-    await this.page.getByTitle(/.+/).click();
+    await this.page.getByRole('button', { name: / Online$/ }).click();
     await this.page.getByRole('menuitem', { name: 'Log out' }).click();
+    const exploreNavigation = this.page.waitForURL(/\/explore\/?/);
     await this.page.getByRole('button', { name: 'Log out' }).click();
-    await expect(this.page).toHaveURL(/\/auth\/login\/?/);
+    await exploreNavigation;
+    await expect(
+      this.page.getByRole('link', { name: 'Log in', exact: true }).first(),
+    ).toBeVisible();
   }
 }

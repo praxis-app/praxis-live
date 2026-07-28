@@ -12,6 +12,10 @@ export class ChatPage {
     await this.page.goto('/');
   }
 
+  async gotoExplore() {
+    await this.page.goto('/explore');
+  }
+
   async sendMessage(message: string) {
     const messageInput = this.page.getByPlaceholder('Send a message...');
     await messageInput.fill(message);

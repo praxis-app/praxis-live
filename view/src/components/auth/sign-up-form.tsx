@@ -81,7 +81,7 @@ interface Props {
 }
 
 export const SignUpForm = ({ setIsRedirecting }: Props) => {
-  const { setIsLoggedIn, setAccessToken } = useAuthStore();
+  const { setIsLoggedIn, setAccessToken, setInviteToken } = useAuthStore();
 
   const form = useForm<zod.infer<typeof signUpFormSchema>>({
     resolver: zodResolver(signUpFormSchema),
@@ -108,7 +108,8 @@ export const SignUpForm = ({ setIsRedirecting }: Props) => {
       localStorage.setItem(LocalStorageKeys.AccessToken, access_token);
       localStorage.removeItem(LocalStorageKeys.InviteToken);
       setAccessToken(access_token);
-      navigate(NavigationPaths.Home);
+      setInviteToken(null);
+      navigate(NavigationPaths.Root);
       setIsLoggedIn(true);
     },
     onError(error: Error) {
@@ -121,8 +122,10 @@ export const SignUpForm = ({ setIsRedirecting }: Props) => {
       return api.upgradeAnonSession({ ...values, inviteToken: token });
     },
     onSuccess: () => {
+      localStorage.removeItem(LocalStorageKeys.InviteToken);
+      setInviteToken(null);
       queryClient.resetQueries({ queryKey: ['me'] });
-      navigate(NavigationPaths.Home);
+      navigate(NavigationPaths.Root);
       setIsRedirecting(true);
     },
     onError(error: Error) {

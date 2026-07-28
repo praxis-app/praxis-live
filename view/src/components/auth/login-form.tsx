@@ -49,7 +49,7 @@ const loginFormSchema = zod.object({
 });
 
 export const LoginForm = () => {
-  const { setIsLoggedIn, setAccessToken } = useAuthStore();
+  const { inviteToken, setIsLoggedIn, setAccessToken } = useAuthStore();
 
   const form = useForm<zod.infer<typeof loginFormSchema>>({
     resolver: zodResolver(loginFormSchema),
@@ -66,9 +66,8 @@ export const LoginForm = () => {
     mutationFn: api.login,
     onSuccess({ access_token }) {
       localStorage.setItem(LocalStorageKeys.AccessToken, access_token);
-      localStorage.removeItem(LocalStorageKeys.InviteToken);
       setAccessToken(access_token);
-      navigate(NavigationPaths.Home);
+      navigate(inviteToken ? `/i/${inviteToken}/join` : NavigationPaths.Root);
       setIsLoggedIn(true);
     },
     onError(error: Error) {

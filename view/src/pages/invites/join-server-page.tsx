@@ -6,13 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Container } from '@/components/ui/container';
 import { Separator } from '@/components/ui/separator';
-import { NavigationPaths } from '@/constants/shared.constants';
+import {
+  LocalStorageKeys,
+  NavigationPaths,
+} from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { handleError } from '@/lib/error.utils';
 import { useAuthStore } from '@/store/auth.store';
 import chroma from 'chroma-js';
 import ColorHash from 'color-hash';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
@@ -62,6 +66,30 @@ export const JoinServerPage = () => {
     enabled: !!token && isLoggedIn && !!isValidInviteData,
   });
 
+  const {
+    data: currentUserServersData,
+    error: currentUserServersError,
+    isLoading: isCurrentUserServersLoading,
+  } = useQuery({
+    queryKey: ['me', 'servers'],
+    queryFn: api.getCurrentUserServers,
+    enabled: !!token && isLoggedIn && !!isValidInviteData,
+  });
+
+  const isAlreadyMember = currentUserServersData?.servers.some(
+    (server) => server.id === serverData?.server.id,
+  );
+
+  useEffect(() => {
+    if (!isAlreadyMember || !serverData?.server) {
+      return;
+    }
+
+    localStorage.removeItem(LocalStorageKeys.InviteToken);
+    setInviteToken(null);
+    navigate(`/s/${serverData.server.slug}`, { replace: true });
+  }, [isAlreadyMember, navigate, serverData?.server, setInviteToken]);
+
   const { mutateAsync: joinServer, isPending: isJoinServerPending } =
     useMutation({
       mutationFn: async () => {
@@ -72,6 +100,8 @@ export const JoinServerPage = () => {
         return serverData.server.slug;
       },
       onSuccess: (serverSlug) => {
+        localStorage.removeItem(LocalStorageKeys.InviteToken);
+        setInviteToken(null);
         queryClient.invalidateQueries({ queryKey: ['me'] });
         navigate(`/s/${serverSlug}`);
       },
@@ -81,7 +111,7 @@ export const JoinServerPage = () => {
     });
 
   if (isMeError) {
-    return <Navigate to={NavigationPaths.Home} />;
+    return <Navigate to={NavigationPaths.Root} />;
   }
 
   if (isValidInviteError || serverError || !token) {
@@ -101,11 +131,18 @@ export const JoinServerPage = () => {
     );
   }
 
+  if (currentUserServersError) {
+    throw currentUserServersError;
+  }
+
   if (
     isValidInviteLoading ||
     isServerLoading ||
+    isCurrentUserServersLoading ||
     !isValidInviteData ||
-    !serverData
+    !serverData ||
+    !currentUserServersData ||
+    isAlreadyMember
   ) {
     return <ChannelSkeleton />;
   }

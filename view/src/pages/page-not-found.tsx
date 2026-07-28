@@ -13,7 +13,7 @@ export const PageNotFound = () => {
         src={pageNotFoundGif}
         alt={t('errors.pageNotFound')}
         className="w-8/12 max-w-xl cursor-pointer"
-        onClick={() => navigate(NavigationPaths.Home)}
+        onClick={() => navigate(NavigationPaths.Root)}
         title={t('actions.goToHome')}
       />
     </div>

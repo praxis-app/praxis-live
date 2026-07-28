@@ -62,7 +62,11 @@ export const ChannelTopNav = ({
         {!isDesktop && !isAppLoading && (
           <NavSheet
             trigger={
-              <Button variant="ghost" size="icon">
+              <Button
+                aria-label={t('navigation.actions.openNavSheet')}
+                variant="ghost"
+                size="icon"
+              >
                 <LuArrowLeft className="size-6" />
               </Button>
             }

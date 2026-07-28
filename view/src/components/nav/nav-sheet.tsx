@@ -25,7 +25,13 @@ import { useQuery } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuChevronRight } from 'react-icons/lu';
-import { MdExitToApp, MdForum, MdPersonAdd, MdTag } from 'react-icons/md';
+import {
+  MdExitToApp,
+  MdForum,
+  MdPersonAdd,
+  MdRocketLaunch,
+  MdTag,
+} from 'react-icons/md';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -94,17 +100,33 @@ export const NavSheet = ({ trigger }: Props) => {
           <SheetTitle className="flex items-center justify-between pr-6">
             <NavDrawer
               trigger={
-                <div className="flex cursor-pointer items-center gap-2 self-center px-6 font-medium tracking-[0.02em]">
-                  <img
-                    src={appIconImg}
-                    alt={serverName}
-                    className="size-9 self-center"
-                  />
-                  <div className="truncate">{serverName}</div>
-                  {canViewNavDrawer && (
-                    <LuChevronRight className="mt-0.5 size-4 shrink-0" />
-                  )}
-                </div>
+                !isLoggedIn ? (
+                  <button
+                    type="button"
+                    aria-label={t('navigation.actions.closeNavSheet')}
+                    className="focus-visible:ring-ring flex cursor-pointer items-center gap-2 self-center rounded-md px-6 font-medium tracking-[0.02em] focus-visible:ring-2 focus-visible:outline-none"
+                    onClick={() => setIsNavSheetOpen(false)}
+                  >
+                    <img
+                      src={appIconImg}
+                      alt=""
+                      className="size-9 self-center"
+                    />
+                    <div className="truncate">{serverName}</div>
+                  </button>
+                ) : (
+                  <div className="flex cursor-pointer items-center gap-2 self-center px-6 font-medium tracking-[0.02em]">
+                    <img
+                      src={appIconImg}
+                      alt={serverName}
+                      className="size-9 self-center"
+                    />
+                    <div className="truncate">{serverName}</div>
+                    {canViewNavDrawer && (
+                      <LuChevronRight className="mt-0.5 size-4 shrink-0" />
+                    )}
+                  </div>
+                )
               }
               disabled={!canViewNavDrawer}
             />
@@ -148,39 +170,49 @@ export const NavSheet = ({ trigger }: Props) => {
             </Link>
           ))}
 
-          {(showSignUp || !isLoggedIn) && (
-            <div className="flex flex-col gap-4">
-              <Separator />
+          <div className="flex flex-col gap-4">
+            <Separator />
 
-              {showSignUp && (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-base font-light"
-                  onClick={() => {
-                    navigate(signUpPath);
-                    setIsNavSheetOpen(false);
-                  }}
-                >
-                  <MdPersonAdd className="mr-1 size-6" />
-                  {t('auth.actions.signUp')}
-                </Button>
-              )}
+            {showSignUp && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-base font-light"
+                onClick={() => {
+                  navigate(signUpPath);
+                  setIsNavSheetOpen(false);
+                }}
+              >
+                <MdPersonAdd className="mr-1 size-6" />
+                {t('auth.actions.signUp')}
+              </Button>
+            )}
 
-              {!isLoggedIn && (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
-                  onClick={() => {
-                    navigate(NavigationPaths.Login);
-                    setIsNavSheetOpen(false);
-                  }}
-                >
-                  <MdExitToApp className="mr-1 size-6" />
-                  {t('auth.actions.logIn')}
-                </Button>
-              )}
-            </div>
-          )}
+            {!isLoggedIn && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
+                onClick={() => {
+                  navigate(NavigationPaths.Login);
+                  setIsNavSheetOpen(false);
+                }}
+              >
+                <MdExitToApp className="mr-1 size-6" />
+                {t('auth.actions.logIn')}
+              </Button>
+            )}
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start px-0 text-lg font-normal has-[>svg]:px-0"
+              onClick={() => {
+                navigate(NavigationPaths.About);
+                setIsNavSheetOpen(false);
+              }}
+            >
+              <MdRocketLaunch className="mr-1 size-6" />
+              {t('landing.actions.backToLanding')}
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

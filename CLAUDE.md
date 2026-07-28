@@ -36,6 +36,7 @@ The Rust backend under `api/src` is organized into modules divided by domain or 
 
 ## Required verifications
 
+- After frontend changes, run `npm run lint` and fix any reported issues with code edits.
 - After code changes (not documentation-only), run `cargo fmt --check` and `cargo test` before signaling readiness.
 - After large code changes, run `npm run test:e2e` to verify that the changes work as expected.
 - Fix failures locally and rerun the checks until clean.

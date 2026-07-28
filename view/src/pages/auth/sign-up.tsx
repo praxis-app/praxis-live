@@ -19,7 +19,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 export const SignUp = () => {
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -27,6 +27,7 @@ export const SignUp = () => {
 
   const { t } = useTranslation();
   const { token } = useParams();
+  const { state } = useLocation();
   const navigate = useNavigate();
 
   const { isFirstUser, isAnon, isRegistered, me } = useAuthData({
@@ -52,15 +53,20 @@ export const SignUp = () => {
 
   useEffect(() => {
     if (me && !isAnon) {
-      navigate(NavigationPaths.Home);
+      navigate(NavigationPaths.Root);
       setIsRedirecting(true);
     }
   }, [me, navigate, setIsRedirecting, isAnon]);
 
+  const handleLandingBackClick =
+    state?.fromLanding === true
+      ? () => navigate(NavigationPaths.About, { replace: true })
+      : undefined;
+
   if (inviteError) {
     return (
       <>
-        <TopNav />
+        <TopNav onBackClick={handleLandingBackClick} />
         <Container>
           <p>{t('invites.prompts.expiredOrInvalid')}</p>
         </Container>
@@ -75,7 +81,7 @@ export const SignUp = () => {
   if (isLoggedIn && !isAnon) {
     return (
       <>
-        <TopNav />
+        <TopNav onBackClick={handleLandingBackClick} />
         <Container>
           <p>{t('auth.prompts.alreadyRegistered')}</p>
         </Container>
@@ -86,7 +92,7 @@ export const SignUp = () => {
   if (!token && !isFirstUser && !isAnon) {
     return (
       <>
-        <TopNav />
+        <TopNav onBackClick={handleLandingBackClick} />
         <Container>
           <p>{t('invites.prompts.inviteRequired')}</p>
         </Container>
@@ -96,7 +102,7 @@ export const SignUp = () => {
 
   return (
     <>
-      <TopNav />
+      <TopNav onBackClick={handleLandingBackClick} />
 
       <div className="flex h-full flex-col items-center justify-center p-3 pt-4 md:p-18">
         <Card className="w-full max-w-md">

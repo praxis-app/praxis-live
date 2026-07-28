@@ -211,7 +211,7 @@ test('anonymous user can create only allowed chat polls', async ({
   const proposalBody = `Anonymous test proposal ${admin.user.suffix}`;
   const chat = new ChatPage(page);
 
-  await chat.goto();
+  await chat.gotoExplore();
   await chat.expectChannel('general');
 
   await openCreatePollDialog(page, 'Create poll');

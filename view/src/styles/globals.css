@@ -47,6 +47,15 @@
   --color-blurple-2: var(--blurple-2);
   --color-blurple-3: var(--blurple-3);
 
+  /* Praxis logo colors */
+  --color-praxis-coral: #f05044;
+  --color-praxis-coral-dark: #d93f35;
+  --color-praxis-coral-soft: #fff0ed;
+  --color-praxis-green: #146251;
+  --color-praxis-green-soft: #e9f3f0;
+  --color-praxis-gold: #fbc276;
+  --color-praxis-blue-gray: #9caeb2;
+
   /* Custom fonts */
   --font-inter: 'Inter', system-ui, sans-serif;
 }

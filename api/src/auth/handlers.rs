@@ -5,13 +5,15 @@ use std::sync::Arc;
 use super::{
     service::{
         create_anon_session as create_anon_session_user, internal_error,
-        issue_access_token, signup as signup_user, validate_login,
+        issue_access_token, signup as signup_user,
+        upgrade_anon_session as upgrade_anon_session_user, validate_login,
     },
     types::{
         CreateAnonSessionRequest, LoginRequest, SessionResponse, SignupRequest,
     },
 };
 use crate::{
+    auth::{AuthenticatedUser, HasJwtSecret},
     common::{ApiError, AppResult},
     users,
 };
@@ -31,6 +33,12 @@ impl AuthState {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
         }
+    }
+}
+
+impl HasJwtSecret for AuthState {
+    fn jwt_secret(&self) -> &str {
+        &self.jwt_secret
     }
 }
 
@@ -87,6 +95,15 @@ pub(super) async fn create_anon_session(
         user: Some(user.into()),
         access_token: Some(access_token),
     }))
+}
+
+pub(super) async fn upgrade_anon_session(
+    State(auth_state): State<AuthState>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    Json(payload): Json<SignupRequest>,
+) -> AppResult<axum::http::StatusCode> {
+    upgrade_anon_session_user(&auth_state.database, user_id, payload).await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 pub(super) async fn logout() -> Json<SessionResponse> {

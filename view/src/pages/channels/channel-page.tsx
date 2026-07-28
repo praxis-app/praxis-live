@@ -2,6 +2,7 @@ import { api } from '@/client/api-client';
 import { TextChannelView } from '@/components/channels/text-channel-view';
 import { ForumChannelView } from '@/components/forum/forum-channel-view';
 import { NavigationPaths } from '@/constants/shared.constants';
+import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useAuthStore } from '@/store/auth.store';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +10,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 export const ChannelPage = () => {
   const { inviteToken } = useAuthStore();
+  const { isRegistered } = useAuthData();
   const { serverId } = useServerData();
 
   const { channelId, serverSlug } = useParams();
@@ -24,7 +26,9 @@ export const ChannelPage = () => {
         const result = await api.getChannel(serverId, channelId, inviteToken);
         return result;
       } catch (error) {
-        await navigate(NavigationPaths.Home);
+        await navigate(
+          isRegistered ? NavigationPaths.Root : NavigationPaths.Explore,
+        );
         console.error(error);
         return null;
       }
