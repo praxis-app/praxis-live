@@ -68,7 +68,7 @@ export const UserAvatar = ({
       {showOnlineStatus && isOnline && (
         <AvatarBadge
           position="bottomRight"
-          className="border-card h-[15px] w-[15px] border-[2.5px]"
+          className="border-card h-3.75 w-3.75 border-[2.5px]"
         >
           <span className="relative">
             {animateOnlineStatus && (

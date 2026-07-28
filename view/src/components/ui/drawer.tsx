@@ -53,7 +53,7 @@ const DrawerContent = React.forwardRef<
       {!drawerHandle?.hide && (
         <div
           className={cn(
-            'bg-muted mx-auto mt-4 h-2 w-[100px] cursor-pointer rounded-full',
+            'bg-muted mx-auto mt-4 h-2 w-25 cursor-pointer rounded-full',
             drawerHandle?.className,
           )}
         />

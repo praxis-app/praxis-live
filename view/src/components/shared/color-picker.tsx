@@ -40,7 +40,7 @@ export const ColorPicker = ({ label, color, onChange, className }: Props) => {
           <div className="text-muted-foreground mb-3">
             {t('roles.form.pickColor')}
           </div>
-          <div className="flex w-[250px] flex-wrap gap-[14px]">
+          <div className="flex w-62.5 flex-wrap gap-3.5">
             {ROLE_COLOR_OPTIONS.map((colorOption) => (
               <div
                 key={colorOption}

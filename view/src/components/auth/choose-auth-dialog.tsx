@@ -74,7 +74,7 @@ export const ChooseAuthDialog = ({ isOpen, setIsOpen, sendMessage }: Props) => {
   const renderTitle = () => {
     if (isAnonymousUsersEnabledLoading) {
       return (
-        <div className="flex flex-col gap-3 md:min-w-[450px]">
+        <div className="flex flex-col gap-3 md:min-w-112.5">
           <Skeleton className="h-5 w-full" />
           <Skeleton className="h-5 w-full" />
         </div>

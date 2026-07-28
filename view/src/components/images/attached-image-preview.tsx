@@ -21,7 +21,7 @@ const RemoveButton = ({
       onClick={onClick}
       variant="ghost"
       size="icon"
-      className="absolute top-[-18px] right-[-18px] rounded-full"
+      className="absolute -top-4.5 -right-4.5 rounded-full"
       disabled={disabled}
     >
       <MdRemoveCircle className="size-6" />

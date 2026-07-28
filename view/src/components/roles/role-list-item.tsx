@@ -34,7 +34,7 @@ export const RoleListItem = ({ to, color, name, memberCount }: Props) => {
               <div
                 className={cn(
                   'mb-0.5 truncate',
-                  isAboveMd ? 'max-w-[500px]' : 'max-w-[250px]',
+                  isAboveMd ? 'max-w-125' : 'max-w-62.5',
                 )}
               >
                 {name}

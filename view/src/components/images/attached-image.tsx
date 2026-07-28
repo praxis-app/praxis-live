@@ -74,7 +74,7 @@ export const AttachedImage = ({
           className={cn(
             'w-full cursor-default',
             isLoaded && 'h-auto cursor-pointer',
-            !isLoaded && (isError ? 'h-2' : 'h-[300px]'),
+            !isLoaded && (isError ? 'h-2' : 'h-75'),
             className,
           )}
           isPlaceholder={image.isPlaceholder}
