@@ -358,6 +358,7 @@
       "type": "Channel type"
     },
     "descriptions": {
+      "noDescription": "This channel doesn't have a description yet. Propose one!",
       "textChannel": "Send messages, images, polls, proposals, and more.",
       "forumChannel": "Turn casual chats into structured group decisions."
     },

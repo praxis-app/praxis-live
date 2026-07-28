@@ -55,7 +55,10 @@ export const ChannelDetailsDrawer = ({ channel, trigger }: Props) => {
             <MdTag className="mt-0.5 size-6" />
             <div className="tracking-[0.015rem]">{channel.name}</div>
           </DrawerTitle>
-          <DrawerDescription>{channel.description}</DrawerDescription>
+          <DrawerDescription className="mt-5 text-balance">
+            {channel.description?.trim() ||
+              t('channels.descriptions.noDescription')}
+          </DrawerDescription>
         </DrawerHeader>
 
         {canManageChannels && (
