@@ -34,7 +34,7 @@ export const AttachedImageList = ({
       const isFirstImage = index === 0;
 
       const imageClasses = cn(
-        !isLastImage && 'mb-3',
+        !isLastImage && 'mb-1.5',
         topRounded && isFirstImage && 'rounded-t-lg',
         imageClassName,
       );
