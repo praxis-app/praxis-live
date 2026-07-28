@@ -42,6 +42,7 @@ export const ChannelDetailsDrawer = ({ channel, trigger }: Props) => {
   const isDesktop = useIsDesktop();
 
   const { serverAbility } = useAbility();
+  const canManageChannels = serverAbility.can('manage', 'Channel');
   const canDeleteChannel = serverAbility.can('delete', 'Channel');
 
   return (
@@ -54,67 +55,74 @@ export const ChannelDetailsDrawer = ({ channel, trigger }: Props) => {
             <MdTag className="mt-0.5 size-6" />
             <div className="tracking-[0.015rem]">{channel.name}</div>
           </DrawerTitle>
-          <DrawerDescription>{channel.description}</DrawerDescription>
+          <DrawerDescription className="mt-4 mb-1 text-balance">
+            {channel.description?.trim() ||
+              t('channels.descriptions.noDescription')}
+          </DrawerDescription>
         </DrawerHeader>
 
-        <Separator />
+        {canManageChannels && (
+          <>
+            <Separator />
 
-        <ChannelSettingsSheet
-          trigger={
-            <Button
-              className="text-primary mx-auto mt-6 h-[3.2rem] w-[92%] justify-between"
-              variant="secondary"
-              size="lg"
-            >
-              <div className="flex items-center gap-3">
-                <MdSettings className="text-muted-foreground size-6.5" />
-                <div>{t('channels.headers.channelSettings')}</div>
-              </div>
+            <ChannelSettingsSheet
+              trigger={
+                <Button
+                  className="text-primary mx-auto mt-6 h-[3.2rem] w-[92%] justify-between"
+                  variant="secondary"
+                  size="lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <MdSettings className="text-muted-foreground size-6.5" />
+                    <div>{t('channels.headers.channelSettings')}</div>
+                  </div>
 
-              <MdChevronRight className="text-muted-foreground size-5.5" />
-            </Button>
-          }
-          editChannel={channel}
-        />
-
-        <Dialog
-          open={showDeleteChannelDialog}
-          onOpenChange={setShowDeleteChannelDialog}
-        >
-          {canDeleteChannel && (
-            <DialogTrigger asChild>
-              <Button
-                className="text-destructive mx-auto mt-6 h-[3.2rem] w-[92%] justify-start gap-3"
-                variant="secondary"
-                size="lg"
-              >
-                <BiTrash className="size-5" />
-                {t('channels.actions.delete')}
-              </Button>
-            </DialogTrigger>
-          )}
-
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('channels.actions.delete')}</DialogTitle>
-              <DialogDescription className="pt-3.5">
-                {t('prompts.deleteItem', {
-                  itemType: t('channels.labels.channel'),
-                })}
-              </DialogDescription>
-            </DialogHeader>
-
-            <DeleteChannelForm
-              channel={channel}
-              submitButton={(props) => (
-                <DialogFooter>
-                  <DeleteChannelFormSubmitButton {...props} />
-                </DialogFooter>
-              )}
-              onSubmit={() => setShowDeleteChannelDialog(false)}
+                  <MdChevronRight className="text-muted-foreground size-5.5" />
+                </Button>
+              }
+              editChannel={channel}
             />
-          </DialogContent>
-        </Dialog>
+
+            <Dialog
+              open={showDeleteChannelDialog}
+              onOpenChange={setShowDeleteChannelDialog}
+            >
+              {canDeleteChannel && (
+                <DialogTrigger asChild>
+                  <Button
+                    className="text-destructive mx-auto mt-6 h-[3.2rem] w-[92%] justify-start gap-3"
+                    variant="secondary"
+                    size="lg"
+                  >
+                    <BiTrash className="size-5" />
+                    {t('channels.actions.delete')}
+                  </Button>
+                </DialogTrigger>
+              )}
+
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('channels.actions.delete')}</DialogTitle>
+                  <DialogDescription className="pt-3.5">
+                    {t('prompts.deleteItem', {
+                      itemType: t('channels.labels.channel'),
+                    })}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <DeleteChannelForm
+                  channel={channel}
+                  submitButton={(props) => (
+                    <DialogFooter>
+                      <DeleteChannelFormSubmitButton {...props} />
+                    </DialogFooter>
+                  )}
+                  onSubmit={() => setShowDeleteChannelDialog(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
       </DrawerContent>
     </Drawer>
   );
