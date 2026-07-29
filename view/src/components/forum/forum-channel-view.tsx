@@ -20,14 +20,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 interface Props {
   channel: ChannelRes;
   rightPanel: RightPanel;
-  onCloseRightPanel: () => void;
+  onCloseDecisionsPanel: () => void;
   onToggleDecisionsPanel: () => void;
 }
 
 export const ForumChannelView = ({
   channel,
   rightPanel,
-  onCloseRightPanel,
+  onCloseDecisionsPanel,
   onToggleDecisionsPanel,
 }: Props) => {
   const { me } = useAuthData();
@@ -142,7 +142,7 @@ export const ForumChannelView = ({
       {isDesktop && (
         <DecisionsPanel
           isOpen={isDecisionsPanelOpen}
-          onClose={onCloseRightPanel}
+          onClose={onCloseDecisionsPanel}
         />
       )}
     </div>

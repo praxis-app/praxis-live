@@ -1,7 +1,10 @@
 import { api } from '@/client/api-client';
 import { TextChannelView } from '@/components/channels/text-channel-view';
 import { ForumChannelView } from '@/components/forum/forum-channel-view';
-import { NavigationPaths } from '@/constants/shared.constants';
+import {
+  LocalStorageKeys,
+  NavigationPaths,
+} from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useAuthStore } from '@/store/auth.store';
@@ -15,10 +18,17 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 const LARGE_DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
 
-const getDefaultStandaloneRightPanel = (): StandaloneRightPanel | null =>
-  window.matchMedia(LARGE_DESKTOP_MEDIA_QUERY).matches
-    ? { type: 'activeDecisions' }
-    : null;
+const getDefaultStandaloneRightPanel = (): StandaloneRightPanel | null => {
+  const storedPreference = localStorage.getItem(
+    LocalStorageKeys.DecisionsPanelOpen,
+  );
+  const isOpen =
+    storedPreference === 'true' ||
+    (storedPreference !== 'false' &&
+      window.matchMedia(LARGE_DESKTOP_MEDIA_QUERY).matches);
+
+  return isOpen ? { type: 'activeDecisions' } : null;
+};
 
 export const ChannelPage = () => {
   const [standaloneRightPanel, setStandaloneRightPanel] =
@@ -45,13 +55,13 @@ export const ChannelPage = () => {
   useEffect(() => {
     if (postId) {
       setStandaloneRightPanel(null);
+    } else {
+      setStandaloneRightPanel(getDefaultStandaloneRightPanel());
     }
   }, [postId]);
 
-  const closeRightPanel = () => {
-    if (rightPanel?.type === 'forumPost' && channelPath) {
-      void navigate(channelPath);
-    }
+  const closeDecisionsPanel = () => {
+    localStorage.setItem(LocalStorageKeys.DecisionsPanelOpen, 'false');
     setStandaloneRightPanel(null);
   };
 
@@ -59,12 +69,13 @@ export const ChannelPage = () => {
     if (postId && channelPath) {
       void navigate(channelPath);
     }
+    localStorage.setItem(LocalStorageKeys.DecisionsPanelOpen, 'true');
     setStandaloneRightPanel(panel);
   };
 
   const toggleDecisionsPanel = () => {
     if (rightPanel?.type === 'activeDecisions') {
-      closeRightPanel();
+      closeDecisionsPanel();
       return;
     }
     openRightPanel({ type: 'activeDecisions' });
@@ -106,7 +117,7 @@ export const ChannelPage = () => {
       <ForumChannelView
         channel={channel}
         rightPanel={rightPanel}
-        onCloseRightPanel={closeRightPanel}
+        onCloseDecisionsPanel={closeDecisionsPanel}
         onToggleDecisionsPanel={toggleDecisionsPanel}
       />
     );
@@ -116,7 +127,7 @@ export const ChannelPage = () => {
     <TextChannelView
       channel={channel}
       isDecisionsPanelOpen={rightPanel?.type === 'activeDecisions'}
-      onCloseDecisionsPanel={closeRightPanel}
+      onCloseDecisionsPanel={closeDecisionsPanel}
       onToggleDecisionsPanel={toggleDecisionsPanel}
     />
   );

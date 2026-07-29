@@ -178,7 +178,6 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
                     key={decision.id}
                     decision={decision}
                     serverPath={serverPath}
-                    onOpenForumDecision={onClose}
                   />
                 ))}
                 {decisionsQuery.isFetchingNextPage && (

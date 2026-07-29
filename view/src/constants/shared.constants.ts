@@ -45,8 +45,11 @@ export enum TruncationSizes {
   ExtraLarge = 175,
 }
 
+// TODO: Move decisions panel open setting to a DB table
+
 export enum LocalStorageKeys {
   AccessToken = 'access_token',
+  DecisionsPanelOpen = 'decisions-panel-open',
   InviteToken = 'invite-token',
   HideWelcomeMessage = 'hide-welcome-message',
 }

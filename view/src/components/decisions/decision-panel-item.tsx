@@ -10,13 +10,11 @@ import { Link } from 'react-router-dom';
 interface Props {
   decision: ActiveDecisionRes;
   serverPath: string;
-  onOpenForumDecision: () => void;
 }
 
 export const DecisionPanelItem = ({
   decision,
   serverPath,
-  onOpenForumDecision,
 }: Props) => {
   const { t } = useTranslation();
 
@@ -38,7 +36,6 @@ export const DecisionPanelItem = ({
   return (
     <Link
       to={decisionPath}
-      onClick={opensForumDecision ? onOpenForumDecision : undefined}
       className="hover:bg-accent/60 focus-visible:ring-ring block rounded-lg border p-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
       aria-label={t('decisions.actions.openDecision', {
         type: t(`decisions.labels.${decision.pollType}`),
