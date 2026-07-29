@@ -56,7 +56,12 @@ export const InlineProposal = ({
   const label = body ? `${modelLabel}: ${body}` : modelLabel;
 
   return (
-    <article aria-label={label} className="flex max-w-full min-w-0 gap-4 pt-1">
+    <article
+      aria-label={label}
+      data-decision-id={poll.id}
+      tabIndex={-1}
+      className="focus:ring-ring flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:ring-2 focus:outline-none"
+    >
       <UserProfileDrawer
         name={truncatedName}
         userId={user.id}

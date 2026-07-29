@@ -13,7 +13,7 @@ import { cn } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
 import { type QueryKey } from '@tanstack/react-query';
-import { type RefObject, useEffect, useMemo, useState } from 'react';
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 
 const IN_VIEW_THRESHOLD = 50;
 
@@ -24,6 +24,8 @@ interface Props {
   feed: FeedItemRes[];
   feedQueryKey: QueryKey;
   feedBoxRef: RefObject<HTMLDivElement | null>;
+  focusedDecisionId?: string;
+  focusedDecisionRequestKey?: string;
   isLastPage: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -37,6 +39,8 @@ export const Feed = ({
   feed,
   feedQueryKey,
   feedBoxRef,
+  focusedDecisionId,
+  focusedDecisionRequestKey,
   isLastPage,
   isLoadingMore,
   onLoadMore,
@@ -44,15 +48,17 @@ export const Feed = ({
   onJoinCall,
   scrollMode = 'bottom-anchored',
 }: Props) => {
-  const { isAppLoading } = useAppStore();
-  const { me, isAnon, isLoggedIn } = useAuthData();
-  const { serverId } = useServerData();
-  const isBottomAnchored = scrollMode === 'bottom-anchored';
-
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
   const [openCallDetailsId, setOpenCallDetailsId] = useState<string | null>(
     null,
   );
+
+  const { isAppLoading } = useAppStore();
+  const { me, isAnon, isLoggedIn } = useAuthData();
+  const { serverId } = useServerData();
+
+  const lastFocusedDecisionRequestRef = useRef<string | null>(null);
+  const isBottomAnchored = scrollMode === 'bottom-anchored';
 
   const feedTopRef = useInfiniteScroll({
     hasNextPage: isBottomAnchored && feed.length > 0 && !isLastPage,
@@ -82,6 +88,64 @@ export const Feed = ({
       setShowWelcomeMessage(true);
     }
   }, [isLoggedIn, isAppLoading, isAnon]);
+
+  useEffect(() => {
+    if (!focusedDecisionId) {
+      lastFocusedDecisionRequestRef.current = null;
+      return;
+    }
+
+    const focusedDecision = Array.from(
+      feedBoxRef.current?.querySelectorAll<HTMLElement>('[data-decision-id]') ||
+        [],
+    ).find((element) => element.dataset.decisionId === focusedDecisionId);
+    if (!focusedDecision) {
+      return;
+    }
+
+    const requestKey = focusedDecisionRequestKey || focusedDecisionId;
+    if (lastFocusedDecisionRequestRef.current === requestKey) {
+      return;
+    }
+
+    focusedDecision.focus({ preventScroll: true });
+
+    let settleTimer: number;
+    const scrollOnce = () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      lastFocusedDecisionRequestRef.current = requestKey;
+      focusedDecision.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    };
+    const scheduleScroll = () => {
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(scrollOnce, 100);
+    };
+    const resizeObserver = new ResizeObserver(scheduleScroll);
+    const mutationObserver = new MutationObserver(scheduleScroll);
+
+    const feedBox = feedBoxRef.current;
+    if (feedBox) {
+      resizeObserver.observe(focusedDecision);
+      for (const feedItem of feedBox.children) {
+        resizeObserver.observe(feedItem);
+      }
+      mutationObserver.observe(feedBox, {
+        childList: true,
+        subtree: true,
+      });
+    }
+    scheduleScroll();
+
+    return () => {
+      window.clearTimeout(settleTimer);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [feed, feedBoxRef, focusedDecisionId, focusedDecisionRequestKey]);
 
   return (
     <div
@@ -121,6 +185,7 @@ export const Feed = ({
               />
             );
           }
+
           return (
             <InlinePoll
               key={`poll-${item.id}`}

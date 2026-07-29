@@ -32,7 +32,8 @@ import {
 } from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 
 interface NewMessagePayload {
   type: PubSubMessageType.MESSAGE;
@@ -79,11 +80,11 @@ export const TextChannelView = ({
   const feedBoxRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const isDesktop = useIsDesktop();
+  const location = useLocation();
 
   const { me, isMeSuccess, isAuthError } = useAuthData();
   const { data: capabilities } = useInstanceCapabilitiesQuery();
   const { server, serverId } = useServerData();
-  const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
 
   const {
     callConfig,
@@ -105,33 +106,70 @@ export const TextChannelView = ({
     data: feedData,
     fetchNextPage,
     hasNextPage,
+    isFetchNextPageError,
     isFetchingNextPage,
   } = useFeedQuery({
-      queryKey: feedQueryKey,
-      fetchPage: async (cursor, limit) => {
-        if (!serverId || !channel?.id) {
-          throw new Error('Server ID and channel ID are required');
-        }
-        const result = await api.getChannelFeed(
-          serverId,
-          channel.id,
-          cursor,
-          limit,
-          inviteToken,
-        );
-        const existingFeed = queryClient
-          .getQueryData<FeedQuery>(feedQueryKey)
-          ?.pages.flatMap((page) => page.feed);
-        return {
-          ...result,
+    queryKey: feedQueryKey,
+    fetchPage: async (cursor, limit) => {
+      if (!serverId || !channel?.id) {
+        throw new Error('Server ID and channel ID are required');
+      }
+      const result = await api.getChannelFeed(
+        serverId,
+        channel.id,
+        cursor,
+        limit,
+        inviteToken,
+      );
+      const existingFeed = queryClient
+        .getQueryData<FeedQuery>(feedQueryKey)
+        ?.pages.flatMap((page) => page.feed);
+      return {
+        ...result,
 
-          // Keep locally loaded image srcs from being lost on feed refresh.
-          feed: preserveFeedImages(existingFeed, result.feed),
-        };
-      },
-      pageSize: MESSAGES_PAGE_SIZE,
-      enabled: !!serverId && !!channel?.id && (isMeSuccess || isAuthError),
-    });
+        // Keep locally loaded image srcs from being lost on feed refresh.
+        feed: preserveFeedImages(existingFeed, result.feed),
+      };
+    },
+    pageSize: MESSAGES_PAGE_SIZE,
+    enabled: !!serverId && !!channel?.id && (isMeSuccess || isAuthError),
+  });
+
+  const feed = useMemo(
+    () => feedData?.pages.flatMap((page) => page.feed) || [],
+    [feedData?.pages],
+  );
+
+  const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
+  const navigationState = location.state as { decisionId?: unknown } | null;
+
+  const focusedDecisionId =
+    typeof navigationState?.decisionId === 'string'
+      ? navigationState.decisionId
+      : undefined;
+
+  useEffect(() => {
+    const isDecisionLoaded = feed.some(
+      (item) => item.type === 'poll' && item.id === focusedDecisionId,
+    );
+    if (
+      !focusedDecisionId ||
+      isDecisionLoaded ||
+      !hasNextPage ||
+      isFetchNextPageError ||
+      isFetchingNextPage
+    ) {
+      return;
+    }
+    void fetchNextPage({ cancelRefetch: false });
+  }, [
+    feed,
+    fetchNextPage,
+    focusedDecisionId,
+    hasNextPage,
+    isFetchNextPageError,
+    isFetchingNextPage,
+  ]);
 
   // Listen for new messages
   useSubscription(
@@ -373,15 +411,17 @@ export const TextChannelView = ({
         />
 
         <Feed
+          feed={feed}
           channel={channel}
           feedBoxRef={feedBoxRef}
-          onLoadMore={fetchNextPage}
-          feed={feedData?.pages.flatMap((page) => page.feed) || []}
-          feedQueryKey={feedQueryKey}
           isLastPage={!hasNextPage}
-          isLoadingMore={isFetchingNextPage}
           isJoiningCall={isJoining}
+          feedQueryKey={feedQueryKey}
+          isLoadingMore={isFetchingNextPage}
+          focusedDecisionId={focusedDecisionId}
+          focusedDecisionRequestKey={location.key}
           onJoinCall={videoCallsEnabled ? joinCall : undefined}
+          onLoadMore={() => void fetchNextPage({ cancelRefetch: false })}
         />
 
         <MessageForm
