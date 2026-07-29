@@ -2,9 +2,9 @@ use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{calls, enums::PollType, messages, polls, users};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection,
-    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, Set, SqlErr, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
+    DatabaseConnection, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, Set, SqlErr, TransactionTrait,
 };
 use std::collections::BTreeSet;
 
@@ -20,7 +20,10 @@ use super::{
 };
 use crate::{
     channels,
-    common::{ApiError, AppResult},
+    common::{
+        pagination::{PaginationCursor, PaginationDirection},
+        ApiError, AppResult,
+    },
     messages::types::serialize_timestamp,
     pub_sub::{PubSubService, PubSubTopic},
     users as users_service,
@@ -192,16 +195,45 @@ pub(crate) async fn get_channel_call_artifacts(
     database: &DatabaseConnection,
     server_id: uuid::Uuid,
     channel_id: uuid::Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
 ) -> AppResult<Vec<CallArtifactResponse>> {
     crate::channels::get_channel(database, server_id, channel_id).await?;
 
-    let calls = calls::Entity::find()
+    let mut query = calls::Entity::find()
         .filter(calls::Column::ServerId.eq(server_id))
-        .filter(calls::Column::ChannelId.eq(channel_id))
-        .order_by_desc(calls::Column::CreatedAt)
-        .offset(offset)
+        .filter(calls::Column::ChannelId.eq(channel_id));
+    if let Some(cursor) = cursor {
+        let timestamp_comparison = match direction {
+            PaginationDirection::Older => {
+                calls::Column::CreatedAt.lt(cursor.created_at)
+            }
+            PaginationDirection::Newer => {
+                calls::Column::CreatedAt.gt(cursor.created_at)
+            }
+        };
+        let id_comparison = match direction {
+            PaginationDirection::Older => calls::Column::Id.lt(cursor.id),
+            PaginationDirection::Newer => calls::Column::Id.gt(cursor.id),
+        };
+        query = query.filter(
+            Condition::any().add(timestamp_comparison).add(
+                Condition::all()
+                    .add(calls::Column::CreatedAt.eq(cursor.created_at))
+                    .add(id_comparison),
+            ),
+        );
+    }
+    query = match direction {
+        PaginationDirection::Older => query
+            .order_by_desc(calls::Column::CreatedAt)
+            .order_by_desc(calls::Column::Id),
+        PaginationDirection::Newer => query
+            .order_by_asc(calls::Column::CreatedAt)
+            .order_by_asc(calls::Column::Id),
+    };
+    let calls = query
         .limit(limit)
         .all(database)
         .await

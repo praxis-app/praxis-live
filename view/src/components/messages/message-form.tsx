@@ -226,7 +226,7 @@ export const MessageForm = ({
         if (!oldData) {
           return {
             pages: [{ feed: [optimisticFeedItem] }],
-            pageParams: [0],
+            pageParams: [null],
           };
         }
 
@@ -236,7 +236,7 @@ export const MessageForm = ({
               optimisticFeedItem,
               ...page.feed,
             ]);
-            return { feed: sortedFeed };
+            return { ...page, feed: sortedFeed };
           }
           return page;
         });
@@ -272,7 +272,7 @@ export const MessageForm = ({
           if (!oldData) {
             return {
               pages: [{ feed: [newFeedItem] }],
-              pageParams: [0],
+              pageParams: [null],
             };
           }
 
@@ -287,6 +287,7 @@ export const MessageForm = ({
               );
               if (alreadyExists) {
                 return {
+                  ...page,
                   feed: feedWithoutOptimistic.map((item) =>
                     item.type === 'message' && item.id === message.id
                       ? newFeedItem
@@ -298,7 +299,7 @@ export const MessageForm = ({
                 newFeedItem,
                 ...feedWithoutOptimistic,
               ]);
-              return { feed: sortedFeed };
+              return { ...page, feed: sortedFeed };
             }
             return page;
           });

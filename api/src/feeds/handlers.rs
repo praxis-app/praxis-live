@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use super::{
     extractors::ChannelFeedAccessContext,
+    pagination::{feed_response, parse_cursor},
     service,
     types::{FeedQuery, FeedResponse},
 };
@@ -50,18 +51,19 @@ pub(super) async fn get_channel_feed(
     Query(query): Query<FeedQuery>,
 ) -> AppResult<Json<FeedResponse>> {
     let limit = query.limit.unwrap_or(50).min(100);
-    let offset = query.offset.unwrap_or(0);
+    let (cursor, direction) = parse_cursor(&query)?;
     let feed = service::get_channel_feed(
         &feeds_state.database,
         context.server_id,
         context.channel_id,
-        offset,
+        cursor,
+        direction,
         limit,
         context.user_id,
     )
     .await?;
 
-    Ok(Json(FeedResponse { feed }))
+    Ok(Json(feed_response(feed, limit)))
 }
 
 pub(super) async fn get_call_feed(
@@ -70,16 +72,17 @@ pub(super) async fn get_call_feed(
     Query(query): Query<FeedQuery>,
 ) -> AppResult<Json<FeedResponse>> {
     let limit = query.limit.unwrap_or(50).min(100);
-    let offset = query.offset.unwrap_or(0);
+    let (cursor, direction) = parse_cursor(&query)?;
     let feed = service::get_call_feed(
         &feeds_state.database,
         path.server_id,
         path.channel_id,
         path.call_id,
-        offset,
+        cursor,
+        direction,
         limit,
     )
     .await?;
 
-    Ok(Json(FeedResponse { feed }))
+    Ok(Json(feed_response(feed, limit)))
 }

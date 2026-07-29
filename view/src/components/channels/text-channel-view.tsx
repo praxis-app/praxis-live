@@ -9,6 +9,7 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useInstanceCapabilitiesQuery } from '@/hooks/use-instance-capabilities-query';
+import { useFeedQuery } from '@/hooks/use-feed-query';
 import { useServerData } from '@/hooks/use-server-data';
 import { useSubscription } from '@/hooks/use-subscription';
 import { useAuthStore } from '@/store/auth.store';
@@ -30,8 +31,8 @@ import {
   replaceProposalWithForumReference,
 } from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useMemo, useRef } from 'react';
 
 interface NewMessagePayload {
   type: PubSubMessageType.MESSAGE;
@@ -74,7 +75,6 @@ export const TextChannelView = ({
   onToggleDecisionsPanel,
 }: Props) => {
   const { inviteToken } = useAuthStore();
-  const [isLastPage, setIsLastPage] = useState(false);
 
   const feedBoxRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -96,26 +96,29 @@ export const TextChannelView = ({
     leaveCall,
   } = useChannelCall(serverId, channel?.id);
 
-  const feedQueryKey = ['servers', serverId, 'channels', channel?.id, 'feed'];
+  const feedQueryKey = useMemo(
+    () => ['servers', serverId, 'channels', channel?.id, 'feed'],
+    [channel?.id, serverId],
+  );
 
-  const { data: feedData, fetchNextPage, isFetchingNextPage } =
-    useInfiniteQuery({
+  const {
+    data: feedData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useFeedQuery({
       queryKey: feedQueryKey,
-      queryFn: async ({ pageParam }) => {
+      fetchPage: async (cursor, limit) => {
         if (!serverId || !channel?.id) {
           throw new Error('Server ID and channel ID are required');
         }
         const result = await api.getChannelFeed(
           serverId,
           channel.id,
-          pageParam,
-          MESSAGES_PAGE_SIZE,
+          cursor,
+          limit,
           inviteToken,
         );
-        const isLast = result.feed.length === 0;
-        if (isLast) {
-          setIsLastPage(true);
-        }
         const existingFeed = queryClient
           .getQueryData<FeedQuery>(feedQueryKey)
           ?.pages.flatMap((page) => page.feed);
@@ -126,40 +129,9 @@ export const TextChannelView = ({
           feed: preserveFeedImages(existingFeed, result.feed),
         };
       },
-      getNextPageParam: (_lastPage, pages) => {
-        return pages.flatMap((page) => page.feed).length;
-      },
-      initialPageParam: 0,
+      pageSize: MESSAGES_PAGE_SIZE,
       enabled: !!serverId && !!channel?.id && (isMeSuccess || isAuthError),
     });
-
-  useEffect(() => {
-    if (!serverId || !channel?.id) return;
-
-    const inactiveFeedQueryKey = [
-      'servers',
-      serverId,
-      'channels',
-      channel.id,
-      'feed',
-    ];
-
-    return () => {
-      queryClient.setQueryData<FeedQuery>(
-        inactiveFeedQueryKey,
-        (cachedFeed) => {
-          if (!cachedFeed || cachedFeed.pages.length <= 1) {
-            return cachedFeed;
-          }
-
-          return {
-            pages: cachedFeed.pages.slice(0, 1),
-            pageParams: cachedFeed.pageParams.slice(0, 1),
-          };
-        },
-      );
-    };
-  }, [channel?.id, queryClient, serverId]);
 
   // Listen for new messages
   useSubscription(
@@ -184,7 +156,7 @@ export const TextChannelView = ({
             if (!oldData) {
               return {
                 pages: [{ feed: [incomingFeedItem] }],
-                pageParams: [0],
+                pageParams: [null],
               };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
@@ -211,7 +183,7 @@ export const TextChannelView = ({
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
 
               // Add new message to first page only
@@ -223,7 +195,7 @@ export const TextChannelView = ({
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
               return page;
             });
@@ -253,7 +225,7 @@ export const TextChannelView = ({
                 );
                 return { ...item, images } as FeedItemRes;
               });
-              return { feed };
+              return { ...page, feed };
             });
 
             return { pages, pageParams: oldData.pageParams };
@@ -285,7 +257,7 @@ export const TextChannelView = ({
             if (!oldData) {
               return {
                 pages: [{ feed: [newFeedItem] }],
-                pageParams: [0],
+                pageParams: [null],
               };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
@@ -296,7 +268,7 @@ export const TextChannelView = ({
                 if (existingIndex !== -1) {
                   const updatedFeed = [...page.feed];
                   updatedFeed[existingIndex] = newFeedItem;
-                  return { feed: updatedFeed };
+                  return { ...page, feed: updatedFeed };
                 }
                 const updatedFeed = [newFeedItem, ...page.feed];
                 // Sort by createdAt descending (newest first)
@@ -305,7 +277,7 @@ export const TextChannelView = ({
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
               return page;
             });
@@ -339,7 +311,7 @@ export const TextChannelView = ({
             if (!oldData) {
               return {
                 pages: [{ feed: [newFeedItem] }],
-                pageParams: [0],
+                pageParams: [null],
               };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
@@ -349,7 +321,7 @@ export const TextChannelView = ({
               if (existingIndex !== -1) {
                 const updatedFeed = [...page.feed];
                 updatedFeed[existingIndex] = newFeedItem;
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
 
               if (index === 0) {
@@ -360,7 +332,7 @@ export const TextChannelView = ({
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
               return page;
             });
@@ -372,13 +344,6 @@ export const TextChannelView = ({
       enabled: !!me && !!channel && !!serverId,
     },
   );
-
-  // Reset isLastPage when switching channels
-  useEffect(() => {
-    if (channel?.id) {
-      setIsLastPage(false);
-    }
-  }, [channel?.id]);
 
   const scrollToBottom = () => {
     if (feedBoxRef.current && feedBoxRef.current.scrollTop >= -200) {
@@ -413,7 +378,7 @@ export const TextChannelView = ({
           onLoadMore={fetchNextPage}
           feed={feedData?.pages.flatMap((page) => page.feed) || []}
           feedQueryKey={feedQueryKey}
-          isLastPage={isLastPage}
+          isLastPage={!hasNextPage}
           isLoadingMore={isFetchingNextPage}
           isJoiningCall={isJoining}
           onJoinCall={videoCallsEnabled ? joinCall : undefined}

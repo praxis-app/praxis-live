@@ -55,7 +55,7 @@ test('authenticated user can send a basic chat message', async ({
   await chat.expectMessage(message, authenticatedUser.user.name);
 });
 
-test('text channel feed loads every page and only refetches its first page when revisited', async ({
+test('text channel feed preserves its pages and syncs only newer messages when revisited', async ({
   context,
   page,
   request,
@@ -107,7 +107,8 @@ test('text channel feed loads every page and only refetches its first page when 
     return (
       response.request().method() === 'GET' &&
       url.pathname === feedPath &&
-      url.searchParams.get('offset') === '0' &&
+      !url.searchParams.has('before') &&
+      !url.searchParams.has('after') &&
       url.searchParams.get('limit') === String(feedPageSize) &&
       response.status() === 200
     );
@@ -126,12 +127,12 @@ test('text channel feed loads every page and only refetches its first page when 
     pageSize: feedPageSize,
     totalItems: totalFeedMessages,
     direction: 'up',
-    matchesPageResponse: (response, offset) => {
+    matchesPageResponse: (response) => {
       const url = new URL(response.url());
       return (
         response.request().method() === 'GET' &&
         url.pathname === feedPath &&
-        url.searchParams.get('offset') === String(offset) &&
+        url.searchParams.has('before') &&
         url.searchParams.get('limit') === String(feedPageSize) &&
         response.status() === 200
       );
@@ -145,7 +146,8 @@ test('text channel feed loads every page and only refetches its first page when 
       response.request().method() === 'GET' &&
       url.pathname ===
         `/api/servers/${server.id}/channels/${otherChannel.id}/feed` &&
-      url.searchParams.get('offset') === '0' &&
+      !url.searchParams.has('before') &&
+      !url.searchParams.has('after') &&
       response.status() === 200
     );
   });
@@ -154,34 +156,50 @@ test('text channel feed loads every page and only refetches its first page when 
     .click();
   await otherFeedResponse;
 
-  const revisitOffsets: number[] = [];
+  const newerMessage = `Message received while away ${user.user.suffix}`;
+  await createMessages({
+    request,
+    user,
+    serverId: server.id,
+    channelId: server.generalChannelId,
+    bodies: [newerMessage],
+  });
+
+  const revisitRequests: string[] = [];
   const recordRevisitedFeedRequest = (networkRequest: Request) => {
     const url = new URL(networkRequest.url());
     if (
       networkRequest.method() === 'GET' &&
-      url.pathname === feedPath &&
-      url.searchParams.has('offset')
+      url.pathname === feedPath
     ) {
-      revisitOffsets.push(Number(url.searchParams.get('offset')));
+      revisitRequests.push(
+        url.searchParams.has('after')
+          ? 'after'
+          : url.searchParams.has('before')
+            ? 'before'
+            : 'initial',
+      );
     }
   };
   page.on('request', recordRevisitedFeedRequest);
 
-  const revisitFirstPageResponse = page.waitForResponse((response) => {
+  const newerMessagesResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       response.request().method() === 'GET' &&
       url.pathname === feedPath &&
-      url.searchParams.get('offset') === '0' &&
+      url.searchParams.has('after') &&
       response.status() === 200
     );
   });
   await page.getByRole('link', { name: 'general', exact: true }).click();
-  await revisitFirstPageResponse;
+  await newerMessagesResponse;
   await page.waitForTimeout(500);
   page.off('request', recordRevisitedFeedRequest);
 
-  expect(revisitOffsets).toEqual([0]);
+  expect(revisitRequests).toEqual(['after']);
+  await expect(feed.getByText(newerMessage)).toBeVisible();
+  await expect(feed.getByText(oldestMessage)).toBeVisible();
 });
 
 test('authenticated user can send a chat message with an image', async ({
@@ -314,7 +332,7 @@ test('authenticated user can send an in-call chat message with an image', async 
   }
 });
 
-test('in-call chat feed loads every page when scrolled to the top', async ({
+test('in-call chat feed preserves its pages and syncs newer messages when reopened', async ({
   context,
   page,
   request,
@@ -365,7 +383,8 @@ test('in-call chat feed loads every page when scrolled to the top', async ({
       return (
         response.request().method() === 'GET' &&
         url.pathname === callFeedPath &&
-        url.searchParams.get('offset') === '0' &&
+        !url.searchParams.has('before') &&
+        !url.searchParams.has('after') &&
         url.searchParams.get('limit') === String(feedPageSize) &&
         response.status() === 200
       );
@@ -387,12 +406,12 @@ test('in-call chat feed loads every page when scrolled to the top', async ({
       pageSize: feedPageSize,
       totalItems: totalFeedMessages,
       direction: 'up',
-      matchesPageResponse: (response, offset) => {
+      matchesPageResponse: (response) => {
         const url = new URL(response.url());
         return (
           response.request().method() === 'GET' &&
           url.pathname === callFeedPath &&
-          url.searchParams.get('offset') === String(offset) &&
+          url.searchParams.has('before') &&
           url.searchParams.get('limit') === String(feedPageSize) &&
           response.status() === 200
         );
@@ -400,6 +419,57 @@ test('in-call chat feed loads every page when scrolled to the top', async ({
     });
 
     await expect(callFeed.getByText(oldestMessage)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Open call chat' }).click();
+    await expect(callChatPanel).toHaveCount(0);
+
+    const newerMessage = `Call message received while closed ${user.user.suffix}`;
+    await createMessages({
+      request,
+      user,
+      serverId: server.id,
+      channelId: server.generalChannelId,
+      callId: call.id,
+      bodies: [newerMessage],
+    });
+
+    const revisitRequests: string[] = [];
+    const recordRevisitedFeedRequest = (networkRequest: Request) => {
+      const url = new URL(networkRequest.url());
+      if (
+        networkRequest.method() === 'GET' &&
+        url.pathname === callFeedPath
+      ) {
+        revisitRequests.push(
+          url.searchParams.has('after')
+            ? 'after'
+            : url.searchParams.has('before')
+              ? 'before'
+              : 'initial',
+        );
+      }
+    };
+    page.on('request', recordRevisitedFeedRequest);
+
+    const newerMessagesResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === 'GET' &&
+        url.pathname === callFeedPath &&
+        url.searchParams.has('after') &&
+        response.status() === 200
+      );
+    });
+    await page.getByRole('button', { name: 'Open call chat' }).click();
+    await newerMessagesResponse;
+    page.off('request', recordRevisitedFeedRequest);
+
+    const reopenedCallFeed = page
+      .getByRole('region', { name: 'In-call chat' })
+      .getByTestId('feed');
+    expect(revisitRequests).toEqual(['after']);
+    await expect(reopenedCallFeed.getByText(newerMessage)).toBeVisible();
+    await expect(reopenedCallFeed.getByText(oldestMessage)).toBeVisible();
   } finally {
     await leaveCallIfVisible(page);
   }

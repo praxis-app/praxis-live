@@ -4,13 +4,18 @@ use crate::{calls, forum, messages, polls};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct FeedQuery {
-    pub(super) offset: Option<u64>,
+    pub(super) before: Option<String>,
+    pub(super) after: Option<String>,
     pub(super) limit: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct FeedResponse {
     pub(super) feed: Vec<FeedItem>,
+    pub(super) start_cursor: Option<String>,
+    pub(super) next_cursor: Option<String>,
+    pub(super) has_more: bool,
 }
 
 #[derive(Debug, Serialize)]

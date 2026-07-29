@@ -1,8 +1,9 @@
 use axum::http::StatusCode;
 use entity::{message_images, messages, users};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, Condition,
+    DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
+    QuerySelect, Set,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
@@ -13,7 +14,12 @@ use super::types::{
 };
 use crate::{
     channels,
-    common::{encryption, text::sanitize_text, ApiError, AppResult},
+    common::{
+        encryption,
+        pagination::{PaginationCursor, PaginationDirection},
+        text::sanitize_text,
+        ApiError, AppResult,
+    },
     pub_sub::{PubSubService, PubSubTopic},
     users as users_service,
 };
@@ -24,16 +30,27 @@ pub(crate) async fn get_channel_message_feed(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
 ) -> AppResult<Vec<MessageResponse>> {
     channels::get_channel(database, server_id, channel_id).await?;
 
-    let messages = messages::Entity::find()
+    let mut query = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
-        .filter(messages::Column::CallId.is_null())
-        .order_by_desc(messages::Column::CreatedAt)
-        .offset(offset)
+        .filter(messages::Column::CallId.is_null());
+    if let Some(cursor) = cursor {
+        query = query.filter(cursor_condition(cursor, direction));
+    }
+    query = match direction {
+        PaginationDirection::Older => query
+            .order_by_desc(messages::Column::CreatedAt)
+            .order_by_desc(messages::Column::Id),
+        PaginationDirection::Newer => query
+            .order_by_asc(messages::Column::CreatedAt)
+            .order_by_asc(messages::Column::Id),
+    };
+    let messages = query
         .limit(limit)
         .all(database)
         .await
@@ -47,23 +64,58 @@ pub(crate) async fn get_call_message_feed(
     server_id: Uuid,
     channel_id: Uuid,
     call_id: Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
 ) -> AppResult<Vec<MessageResponse>> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
 
-    let messages = messages::Entity::find()
+    let mut query = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
-        .filter(messages::Column::CallId.eq(call_id))
-        .order_by_desc(messages::Column::CreatedAt)
-        .offset(offset)
+        .filter(messages::Column::CallId.eq(call_id));
+    if let Some(cursor) = cursor {
+        query = query.filter(cursor_condition(cursor, direction));
+    }
+    query = match direction {
+        PaginationDirection::Older => query
+            .order_by_desc(messages::Column::CreatedAt)
+            .order_by_desc(messages::Column::Id),
+        PaginationDirection::Newer => query
+            .order_by_asc(messages::Column::CreatedAt)
+            .order_by_asc(messages::Column::Id),
+    };
+    let messages = query
         .limit(limit)
         .all(database)
         .await
         .map_err(internal_error)?;
 
     shape_messages(database, messages).await
+}
+
+fn cursor_condition(
+    cursor: PaginationCursor,
+    direction: PaginationDirection,
+) -> Condition {
+    let timestamp_comparison = match direction {
+        PaginationDirection::Older => {
+            messages::Column::CreatedAt.lt(cursor.created_at)
+        }
+        PaginationDirection::Newer => {
+            messages::Column::CreatedAt.gt(cursor.created_at)
+        }
+    };
+    let id_comparison = match direction {
+        PaginationDirection::Older => messages::Column::Id.lt(cursor.id),
+        PaginationDirection::Newer => messages::Column::Id.gt(cursor.id),
+    };
+
+    Condition::any().add(timestamp_comparison).add(
+        Condition::all()
+            .add(messages::Column::CreatedAt.eq(cursor.created_at))
+            .add(id_comparison),
+    )
 }
 
 pub(crate) async fn create_message(

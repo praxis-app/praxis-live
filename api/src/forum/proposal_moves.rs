@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use chrono::Utc;
+use chrono::{DateTime, FixedOffset, Utc};
 use entity::{
     channel_members, channels as channel_entities,
     enums::{ChannelType, ForumPostStatus},
@@ -22,7 +22,11 @@ use super::{
 };
 use crate::{
     channels,
-    common::{encryption, ApiError, AppResult},
+    common::{
+        encryption,
+        pagination::{PaginationCursor, PaginationDirection},
+        ApiError, AppResult,
+    },
     polls::service as polls_service,
     users as users_service,
 };
@@ -299,7 +303,8 @@ pub(crate) async fn move_proposal_to_forum(
 pub(crate) async fn list_proposal_forum_references(
     database: &DatabaseConnection,
     source_channel_id: Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
 ) -> AppResult<Vec<ProposalForumReferenceResponse>> {
     let posts = forum_posts::Entity::find()
@@ -399,12 +404,39 @@ pub(crate) async fn list_proposal_forum_references(
             })
         })
         .collect::<AppResult<Vec<_>>>()?;
-    references.sort_by(|left, right| right.created_at.cmp(&left.created_at));
-    Ok(references
-        .into_iter()
-        .skip(offset as usize)
-        .take(limit as usize)
-        .collect())
+    if let Some(cursor) = cursor {
+        references.retain(|reference| {
+            let Ok(created_at) = DateTime::<FixedOffset>::parse_from_rfc3339(
+                &reference.created_at,
+            ) else {
+                return false;
+            };
+            let Ok(id) = Uuid::parse_str(&reference.id) else {
+                return false;
+            };
+            match direction {
+                PaginationDirection::Older => {
+                    created_at < cursor.created_at
+                        || (created_at == cursor.created_at && id < cursor.id)
+                }
+                PaginationDirection::Newer => {
+                    created_at > cursor.created_at
+                        || (created_at == cursor.created_at && id > cursor.id)
+                }
+            }
+        });
+    }
+    references.sort_by(|left, right| match direction {
+        PaginationDirection::Older => right
+            .created_at
+            .cmp(&left.created_at)
+            .then_with(|| right.id.cmp(&left.id)),
+        PaginationDirection::Newer => left
+            .created_at
+            .cmp(&right.created_at)
+            .then_with(|| left.id.cmp(&right.id)),
+    });
+    Ok(references.into_iter().take(limit as usize).collect())
 }
 
 async fn load_channel_for_move<C>(

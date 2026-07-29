@@ -12,9 +12,9 @@ use entity::{
 use sea_orm::{
     prelude::Uuid,
     sea_query::{LockType, NullOrdering, Order},
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection,
-    DeleteResult, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
-    QuerySelect, Set, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
+    DatabaseConnection, DeleteResult, EntityTrait, IntoActiveModel,
+    QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -28,7 +28,12 @@ use super::types::{
 };
 use crate::{
     channels,
-    common::{encryption, text::sanitize_text, ApiError, AppResult},
+    common::{
+        encryption,
+        pagination::{PaginationCursor, PaginationDirection},
+        text::sanitize_text,
+        ApiError, AppResult,
+    },
     messages::types::serialize_timestamp,
     poll_actions::{self, types::CreatePollActionRequest},
     pub_sub::{PubSubService, PubSubTopic},
@@ -435,15 +440,44 @@ pub(crate) async fn get_inline_polls(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
     current_user_id: Option<Uuid>,
 ) -> AppResult<Vec<PollResponse>> {
     channels::get_channel(database, server_id, channel_id).await?;
-    let polls = polls::Entity::find()
-        .filter(polls::Column::ChannelId.eq(channel_id))
-        .order_by_desc(polls::Column::CreatedAt)
-        .offset(offset)
+    let mut query =
+        polls::Entity::find().filter(polls::Column::ChannelId.eq(channel_id));
+    if let Some(cursor) = cursor {
+        let timestamp_comparison = match direction {
+            PaginationDirection::Older => {
+                polls::Column::CreatedAt.lt(cursor.created_at)
+            }
+            PaginationDirection::Newer => {
+                polls::Column::CreatedAt.gt(cursor.created_at)
+            }
+        };
+        let id_comparison = match direction {
+            PaginationDirection::Older => polls::Column::Id.lt(cursor.id),
+            PaginationDirection::Newer => polls::Column::Id.gt(cursor.id),
+        };
+        query = query.filter(
+            Condition::any().add(timestamp_comparison).add(
+                Condition::all()
+                    .add(polls::Column::CreatedAt.eq(cursor.created_at))
+                    .add(id_comparison),
+            ),
+        );
+    }
+    query = match direction {
+        PaginationDirection::Older => query
+            .order_by_desc(polls::Column::CreatedAt)
+            .order_by_desc(polls::Column::Id),
+        PaginationDirection::Newer => query
+            .order_by_asc(polls::Column::CreatedAt)
+            .order_by_asc(polls::Column::Id),
+    };
+    let polls = query
         .limit(limit)
         .all(database)
         .await
