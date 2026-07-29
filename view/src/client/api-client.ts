@@ -430,9 +430,17 @@ class ApiClient {
   // Polls & Votes
   // -------------------------------------------------------------------------
 
-  getActiveDecisions = async (serverId: string) => {
+  getActiveDecisions = async (
+    serverId: string,
+    offset: number,
+    limit: number,
+  ) => {
     const path = `/servers/${serverId}/decisions`;
-    return this.executeRequest<{ decisions: ActiveDecisionRes[] }>('get', path);
+    return this.executeRequest<{ decisions: ActiveDecisionRes[] }>(
+      'get',
+      path,
+      { params: { offset, limit } },
+    );
   };
 
   getPollImage = (

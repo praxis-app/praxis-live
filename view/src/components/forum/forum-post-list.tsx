@@ -17,19 +17,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useInfiniteScroll } from '@/hooks/use-infinite-scroll';
 import { useServerData } from '@/hooks/use-server-data';
-import { useInView } from '@/hooks/use-in-view';
-import { useScrollDirection } from '@/hooks/use-scroll-direction';
-import { throttle } from '@/lib/shared.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import { type ForumPostSort, type ForumPostStatus } from '@/types/forum.types';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdAdd } from 'react-icons/md';
 
 const FORUM_POSTS_PAGE_SIZE = 20;
-const LOAD_MORE_THROTTLE_MS = 1500;
 const IN_VIEW_THRESHOLD = 50;
 
 interface Props {
@@ -84,34 +81,17 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
     ).values(),
   );
 
-  const listRef = useRef<HTMLElement>(null);
-  const listBottomRef = useRef<HTMLDivElement>(null);
-  const scrollDirection = useScrollDirection(listRef);
-
-  const fetchNextPageRef = useRef<() => void>(() => undefined);
-  fetchNextPageRef.current = () => {
-    if (hasNextPage && !isFetchingNextPage) {
+  const listBottomRef = useInfiniteScroll({
+    hasNextPage: !!hasNextPage,
+    isLoadingMore: isFetchingNextPage,
+    onLoadMore: () => {
       void fetchNextPage();
-    }
-  };
-
-  const throttledFetchNextPage = useRef(
-    throttle(() => fetchNextPageRef.current(), LOAD_MORE_THROTTLE_MS),
-  ).current;
-
-  const { setViewed } = useInView(
-    listBottomRef,
-    `${IN_VIEW_THRESHOLD}px`,
-    () => {
-      if (scrollDirection !== 'down') return;
-      setViewed(false);
-      throttledFetchNextPage();
     },
-  );
+    rootMargin: `${IN_VIEW_THRESHOLD}px`,
+  });
 
   return (
     <main
-      ref={listRef}
       data-testid="forum-post-list"
       className="min-h-0 flex-1 overflow-y-auto"
     >

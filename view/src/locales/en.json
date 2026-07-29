@@ -403,7 +403,8 @@
     "prompts": {
       "emptyTitle": "No active decisions",
       "emptyDescription": "Open proposals and polls will appear here.",
-      "loading": "Loading decisions..."
+      "loading": "Loading decisions...",
+      "loadingMore": "Loading more..."
     }
   },
 

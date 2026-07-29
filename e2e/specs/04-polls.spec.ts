@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  authorizationHeaders,
   createAuthenticatedUser,
   setupAnonymousSession,
   signUpViaApi,
@@ -36,6 +37,8 @@ type PollResponse = {
 };
 
 const changedRoleColor = '#2196f3';
+const activeDecisionsPageSize = 20;
+const totalActiveDecisions = 41;
 
 test('authenticated user can create and vote in a poll', async ({
   context,
@@ -109,6 +112,143 @@ test('authenticated user can create and vote in a poll', async ({
 
   await expect(page.getByRole('button', { name: 'Remove vote' })).toBeVisible();
   await expect(page.getByText('1 vote').first()).toBeVisible();
+});
+
+test('active decisions panel loads the next page when scrolled to the bottom', async ({
+  context,
+  page,
+  request,
+}) => {
+  const expectedPageCount = Math.ceil(
+    totalActiveDecisions / activeDecisionsPageSize,
+  );
+  test.setTimeout(Math.max(60_000, expectedPageCount * 15_000));
+  expect(totalActiveDecisions).toBeGreaterThan(0);
+
+  const authenticatedUser = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('decision-scroll'),
+  );
+  const serverName = `Decision scroll ${authenticatedUser.user.suffix}`;
+  const serverSlug = `decision-scroll-${authenticatedUser.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(authenticatedUser),
+    data: {
+      name: serverName,
+      slug: serverSlug,
+      description: 'Server for active decision pagination.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+
+  const getServerResponse = await request.get(
+    `/api/servers/slug/${serverSlug}`,
+    { headers: authorizationHeaders(authenticatedUser) },
+  );
+  await expect(getServerResponse).toBeOK();
+  const { server } = (await getServerResponse.json()) as {
+    server: {
+      id: string;
+      slug: string;
+      generalChannelId: string;
+    };
+  };
+  expect(server.generalChannelId).toBeTruthy();
+
+  const decisionBodies = Array.from(
+    { length: totalActiveDecisions },
+    (_, index) =>
+      `Infinite scroll decision ${String(index + 1).padStart(2, '0')} ${
+        authenticatedUser.user.suffix
+      }`,
+  );
+
+  for (const [index, body] of decisionBodies.entries()) {
+    const createPollResponse = await request.post(
+      `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+      {
+        headers: authorizationHeaders(authenticatedUser),
+        data: {
+          body,
+          pollType: 'poll',
+          options: ['Yes', 'No'],
+          multipleChoice: false,
+          closingAt: new Date(
+            Date.now() + (index + 1) * 60 * 60 * 1000,
+          ).toISOString(),
+        },
+      },
+    );
+    await expect(createPollResponse).toBeOK();
+  }
+
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await expect(
+    page.getByRole('link', { name: 'general', exact: true }),
+  ).toBeVisible();
+
+  const firstPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === 'GET' &&
+      url.pathname === `/api/servers/${server.id}/decisions` &&
+      url.searchParams.get('offset') === '0' &&
+      url.searchParams.get('limit') === String(activeDecisionsPageSize) &&
+      response.status() === 200
+    );
+  });
+  await page.getByRole('button', { name: 'Toggle active decisions' }).click();
+  await firstPageResponse;
+
+  const panel = page.getByRole('complementary', {
+    name: 'Active decisions',
+  });
+  const finalDecision = decisionBodies.at(-1)!;
+  await expect(panel.getByText(decisionBodies[0])).toBeVisible();
+
+  if (totalActiveDecisions > activeDecisionsPageSize) {
+    await expect(panel.getByText(finalDecision)).toHaveCount(0);
+
+    const decisionsList = panel.getByTestId('active-decisions-list');
+    await decisionsList.hover();
+    await page.mouse.wheel(0, 100);
+    await expect
+      .poll(() => decisionsList.evaluate((list) => list.scrollTop))
+      .toBeGreaterThan(0);
+
+    for (
+      let offset = activeDecisionsPageSize;
+      offset < totalActiveDecisions;
+      offset += activeDecisionsPageSize
+    ) {
+      const nextPageResponse = page.waitForResponse(
+        (response) => {
+          const url = new URL(response.url());
+          return (
+            response.request().method() === 'GET' &&
+            url.pathname === `/api/servers/${server.id}/decisions` &&
+            url.searchParams.get('offset') === String(offset) &&
+            url.searchParams.get('limit') === String(activeDecisionsPageSize) &&
+            response.status() === 200
+          );
+        },
+        { timeout: 10_000 },
+      );
+
+      await page.mouse.wheel(0, 10_000);
+      await nextPageResponse;
+
+      const lastDecisionOnPage =
+        decisionBodies[
+          Math.min(offset + activeDecisionsPageSize, totalActiveDecisions) - 1
+        ];
+      await expect(panel.getByText(lastDecisionOnPage)).toBeVisible();
+    }
+  }
+
+  await expect(panel.getByText(finalDecision)).toBeVisible();
 });
 
 test('authenticated user sees a poll close after its closing time passes', async ({
@@ -344,10 +484,10 @@ test('user can create and ratify a proposal to change a role', async ({
   });
   await expect(roleChanges).toBeVisible();
   await roleChanges.click();
-  const roleChangeDetails = proposal.getByLabel(
-    'Role change proposal: admin',
-  );
-  await expect(roleChangeDetails.getByText('Name', { exact: true })).toBeVisible();
+  const roleChangeDetails = proposal.getByLabel('Role change proposal: admin');
+  await expect(
+    roleChangeDetails.getByText('Name', { exact: true }),
+  ).toBeVisible();
   await expect(
     roleChangeDetails.getByText('admin', { exact: true }),
   ).toBeVisible();

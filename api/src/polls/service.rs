@@ -10,10 +10,11 @@ use entity::{
     server_configs as server_config_entities, users, votes,
 };
 use sea_orm::{
-    prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
-    ConnectionTrait, DatabaseConnection, DeleteResult, EntityTrait,
-    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
-    TransactionTrait,
+    prelude::Uuid,
+    sea_query::{LockType, NullOrdering, Order},
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection,
+    DeleteResult, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
+    QuerySelect, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -38,8 +39,6 @@ use crate::{
 
 const MAX_IMAGE_COUNT: usize = 8;
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
-const ACTIVE_DECISIONS_LIMIT: usize = 50;
-
 const PROPOSAL_SYNC_BATCH_SIZE: usize = 20;
 const PROPOSAL_SYNC_INTERVAL_SECONDS: u64 = 60 * 5;
 
@@ -926,6 +925,8 @@ pub(crate) async fn get_active_decisions(
     database: &DatabaseConnection,
     server_id: Uuid,
     current_user_id: Option<Uuid>,
+    offset: u64,
+    limit: u64,
 ) -> AppResult<Vec<ActiveDecisionResponse>> {
     servers::ensure_server(database, server_id).await?;
 
@@ -983,28 +984,26 @@ pub(crate) async fn get_active_decisions(
         return Ok(vec![]);
     }
 
-    let mut polls_with_configs = polls::Entity::find()
+    let polls_with_configs = polls::Entity::find()
         .filter(polls::Column::ChannelId.is_in(channel_ids))
         .filter(polls::Column::Stage.eq(PollStage::Voting))
         .find_also_related(poll_configs::Entity)
+        .order_by_with_nulls(
+            poll_configs::Column::ClosingAt,
+            Order::Asc,
+            NullOrdering::Last,
+        )
+        .order_by_desc(polls::Column::CreatedAt)
+        .order_by_desc(polls::Column::Id)
+        .offset(offset)
+        .limit(limit)
         .all(database)
         .await
         .map_err(internal_error)?;
 
-    polls_with_configs.sort_by(
-        |(left_poll, left_config), (right_poll, right_config)| match (
-            left_config.as_ref().and_then(|config| config.closing_at),
-            right_config.as_ref().and_then(|config| config.closing_at),
-        ) {
-            (Some(left), Some(right)) => left
-                .cmp(&right)
-                .then_with(|| right_poll.created_at.cmp(&left_poll.created_at)),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => right_poll.created_at.cmp(&left_poll.created_at),
-        },
-    );
-    polls_with_configs.truncate(ACTIVE_DECISIONS_LIMIT);
+    if polls_with_configs.is_empty() {
+        return Ok(vec![]);
+    }
 
     let poll_ids = polls_with_configs
         .iter()

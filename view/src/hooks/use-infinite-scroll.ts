@@ -1,0 +1,45 @@
+import { useEffect, useEffectEvent, useState } from 'react';
+
+interface Options {
+  hasNextPage: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
+  rootMargin?: string;
+}
+
+export const useInfiniteScroll = ({
+  hasNextPage,
+  isLoadingMore,
+  onLoadMore,
+  rootMargin = '0px',
+}: Options) => {
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
+  const loadMore = useEffectEvent(() => {
+    if (hasNextPage && !isLoadingMore) {
+      onLoadMore();
+    }
+  });
+
+  useEffect(() => {
+    if (!sentinel) return;
+
+    if (!('IntersectionObserver' in window)) {
+      loadMore();
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin },
+    );
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [rootMargin, sentinel]);
+
+  return setSentinel;
+};

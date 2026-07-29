@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{Multipart, Path, State},
+    extract::{Multipart, Path, Query, State},
     http::{header, Response, StatusCode},
     response::Json,
 };
@@ -10,7 +10,10 @@ use std::{path::PathBuf, sync::Arc};
 use super::{
     extractors::{PollDeleteContext, PollImageUploadContext},
     service,
-    types::{CallDecisionResponse, CreatePollRequest, PollImagePath, PollPath},
+    types::{
+        CallDecisionResponse, CreatePollRequest, ListActiveDecisionsQuery,
+        PollImagePath, PollPath,
+    },
 };
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
@@ -194,10 +197,18 @@ pub(super) async fn get_active_decisions(
     State(state): State<PollsState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    Query(query): Query<ListActiveDecisionsQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let decisions =
-        service::get_active_decisions(&state.database, path.server_id, user_id)
-            .await?;
+    let limit = query.limit.unwrap_or(50).min(100);
+    let offset = query.offset.unwrap_or(0);
+    let decisions = service::get_active_decisions(
+        &state.database,
+        path.server_id,
+        user_id,
+        offset,
+        limit,
+    )
+    .await?;
 
     Ok(Json(serde_json::json!({
         "decisions": decisions,

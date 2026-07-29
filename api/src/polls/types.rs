@@ -39,6 +39,13 @@ fn default_poll_type() -> String {
     "proposal".to_owned()
 }
 
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ListActiveDecisionsQuery {
+    pub(crate) offset: Option<u64>,
+    pub(crate) limit: Option<u64>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollResponse {

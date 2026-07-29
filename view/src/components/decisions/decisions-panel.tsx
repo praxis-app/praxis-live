@@ -3,15 +3,23 @@ import { DecisionPanelItem } from '@/components/decisions/decision-panel-item';
 import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useInfiniteScroll } from '@/hooks/use-infinite-scroll';
 import { useServerData } from '@/hooks/use-server-data';
 import { useSubscriptions } from '@/hooks/use-subscription';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { useAuthStore } from '@/store/auth.store';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuListTodo } from 'react-icons/lu';
 import { MdClose, MdErrorOutline } from 'react-icons/md';
+
+const DECISIONS_PAGE_SIZE = 20;
+const IN_VIEW_THRESHOLD = 50;
 
 interface Props {
   isOpen: boolean;
@@ -67,15 +75,37 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
     },
   });
 
-  const decisionsQuery = useQuery({
+  const decisionsQuery = useInfiniteQuery({
     queryKey: getActiveDecisionsQueryKey(serverId),
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       if (!serverId) {
         throw new Error('Current server not found');
       }
-      return api.getActiveDecisions(serverId);
+      return api.getActiveDecisions(serverId, pageParam, DECISIONS_PAGE_SIZE);
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.decisions.length < DECISIONS_PAGE_SIZE
+        ? undefined
+        : pages.flatMap((page) => page.decisions).length,
     enabled: isOpen && !!serverId && (isAuthError || isMeSuccess),
+  });
+
+  const decisions = Array.from(
+    new Map(
+      decisionsQuery.data?.pages
+        .flatMap((page) => page.decisions)
+        .map((decision) => [decision.id, decision]),
+    ).values(),
+  );
+
+  const listBottomRef = useInfiniteScroll({
+    hasNextPage: !!decisionsQuery.hasNextPage,
+    isLoadingMore: decisionsQuery.isFetchingNextPage,
+    onLoadMore: () => {
+      void decisionsQuery.fetchNextPage();
+    },
+    rootMargin: `${IN_VIEW_THRESHOLD}px`,
   });
 
   return (
@@ -99,7 +129,10 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
             </Button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3">
+          <div
+            data-testid="active-decisions-list"
+            className="flex-1 overflow-y-auto p-3"
+          >
             {decisionsQuery.isLoading && (
               <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
                 {t('decisions.prompts.loading')}
@@ -128,32 +161,36 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
               </div>
             )}
 
-            {decisionsQuery.isSuccess &&
-              decisionsQuery.data.decisions.length === 0 && (
-                <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-                  <LuListTodo className="text-muted-foreground size-8" />
-                  <p className="mt-3 font-medium">
-                    {t('decisions.prompts.emptyTitle')}
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    {t('decisions.prompts.emptyDescription')}
-                  </p>
-                </div>
-              )}
+            {decisionsQuery.isSuccess && decisions.length === 0 && (
+              <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                <LuListTodo className="text-muted-foreground size-8" />
+                <p className="mt-3 font-medium">
+                  {t('decisions.prompts.emptyTitle')}
+                </p>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {t('decisions.prompts.emptyDescription')}
+                </p>
+              </div>
+            )}
 
-            {decisionsQuery.isSuccess &&
-              decisionsQuery.data.decisions.length > 0 && (
-                <div className="space-y-2">
-                  {decisionsQuery.data.decisions.map((decision) => (
-                    <DecisionPanelItem
-                      key={decision.id}
-                      decision={decision}
-                      serverPath={serverPath}
-                      onOpenForumDecision={onClose}
-                    />
-                  ))}
-                </div>
-              )}
+            {decisionsQuery.isSuccess && decisions.length > 0 && (
+              <div className="space-y-2">
+                {decisions.map((decision) => (
+                  <DecisionPanelItem
+                    key={decision.id}
+                    decision={decision}
+                    serverPath={serverPath}
+                    onOpenForumDecision={onClose}
+                  />
+                ))}
+                {decisionsQuery.isFetchingNextPage && (
+                  <p className="text-muted-foreground py-2 text-center text-xs">
+                    {t('decisions.prompts.loadingMore')}
+                  </p>
+                )}
+                <div ref={listBottomRef} className="h-px" aria-hidden="true" />
+              </div>
+            )}
           </div>
         </aside>
       )}
