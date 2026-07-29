@@ -1,4 +1,5 @@
 import { ChannelTopNav } from '@/components/channels/channel-top-nav';
+import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { ForumPostDetail } from '@/components/forum/forum-post-detail';
 import { ForumPostList } from '@/components/forum/forum-post-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
@@ -11,22 +12,28 @@ import { useServerData } from '@/hooks/use-server-data';
 import { useSubscription } from '@/hooks/use-subscription';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { type ChannelRes } from '@/types/channel.types';
+import { type RightPanel } from '@/types/right-panel.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 interface Props {
   channel: ChannelRes;
+  rightPanel: RightPanel;
+  onCloseRightPanel: () => void;
+  onToggleDecisionsPanel: () => void;
 }
 
-export const ForumChannelView = ({ channel }: Props) => {
-  const queryClient = useQueryClient();
-  const isDesktop = useIsDesktop();
-  const { postId } = useParams();
-  const navigate = useNavigate();
+export const ForumChannelView = ({
+  channel,
+  rightPanel,
+  onCloseRightPanel,
+  onToggleDecisionsPanel,
+}: Props) => {
   const { me } = useAuthData();
-  const { data: capabilities } = useInstanceCapabilitiesQuery();
   const { server, serverId, serverPath } = useServerData();
+  const { data: capabilities } = useInstanceCapabilitiesQuery();
+
   const {
     callConfig,
     callPreferences,
@@ -37,6 +44,15 @@ export const ForumChannelView = ({ channel }: Props) => {
     joinCall,
     leaveCall,
   } = useChannelCall(serverId, channel.id);
+
+  const queryClient = useQueryClient();
+  const isDesktop = useIsDesktop();
+  const { postId } = useParams();
+  const navigate = useNavigate();
+
+  const isDecisionsPanelOpen = rightPanel?.type === 'activeDecisions';
+  const isForumPostPanelOpen =
+    rightPanel?.type === 'forumPost' && rightPanel.postId === postId;
 
   useEffect(() => {
     if (!isDesktop || !postId) return;
@@ -99,14 +115,16 @@ export const ForumChannelView = ({ channel }: Props) => {
             channel={channel}
             callConfig={callConfig}
             callPreferences={callPreferences}
-            serverName={server?.name}
+            isDecisionsPanelOpen={isDecisionsPanelOpen}
             isJoiningCall={isJoining}
             isPreJoinOpen={isPreJoinOpen}
-            videoCallsEnabled={capabilities?.videoCallsEnabled === true}
             onCancelPreJoin={cancelPreJoin}
             onConfirmJoinCall={confirmJoinCall}
             onJoinCall={joinCall}
             onLeaveCall={leaveCall}
+            videoCallsEnabled={capabilities?.videoCallsEnabled === true}
+            onToggleDecisionsPanel={onToggleDecisionsPanel}
+            serverName={server?.name}
           />
 
           {isDesktop || !postId ? (
@@ -116,10 +134,17 @@ export const ForumChannelView = ({ channel }: Props) => {
           )}
         </div>
 
-        {isDesktop && postId && (
+        {isDesktop && postId && isForumPostPanelOpen && (
           <ForumPostDetail channel={channel} postId={postId} isPane />
         )}
       </div>
+
+      {isDesktop && (
+        <DecisionsPanel
+          isOpen={isDecisionsPanelOpen}
+          onClose={onCloseRightPanel}
+        />
+      )}
     </div>
   );
 };

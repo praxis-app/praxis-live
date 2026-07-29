@@ -1,4 +1,5 @@
 import { api } from '@/client/api-client';
+import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { type WizardStepData } from '@/components/shared/wizard/wizard.types';
 import { useServerData } from '@/hooks/use-server-data';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
@@ -298,6 +299,9 @@ export const CreateProposalForm = ({
           return { feed: [newItem, ...page.feed] };
         });
         return { pages, pageParams: old.pageParams };
+      });
+      void queryClient.invalidateQueries({
+        queryKey: getActiveDecisionsQueryKey(serverId),
       });
 
       if (callId) {

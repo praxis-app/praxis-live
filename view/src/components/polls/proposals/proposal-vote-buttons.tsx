@@ -1,16 +1,19 @@
 import { api } from '@/client/api-client';
+import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
+import { VOTE_TYPES } from '@/constants/vote.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
-import { type PollRes } from '@/types/poll.types';
-import { type VoteRes } from '@/types/vote.types';
-import { type DecisionMakingModel, type PollStage } from '@/types/poll.types';
-import { VOTE_TYPES } from '@/constants/vote.constants';
-import { type VoteType } from '@/types/vote.types';
+import {
+  type DecisionMakingModel,
+  type PollRes,
+  type PollStage,
+} from '@/types/poll.types';
+import { type VoteRes, type VoteType } from '@/types/vote.types';
 import {
   useMutation,
   useQueryClient,
@@ -173,6 +176,9 @@ export const ProposalVoteButtons = ({
         });
       }
 
+      void queryClient.invalidateQueries({
+        queryKey: getActiveDecisionsQueryKey(serverId),
+      });
       updateCachedProposal?.(updateProposal);
 
       if (result.isRatifyingVote) {

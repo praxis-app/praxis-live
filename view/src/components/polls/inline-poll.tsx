@@ -1,4 +1,5 @@
 import { api } from '@/client/api-client';
+import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { PollVoteBreakdown } from '@/components/polls/poll-vote-breakdown';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { Button } from '@/components/ui/button';
@@ -155,6 +156,9 @@ export const InlinePoll = ({
       queryClient.invalidateQueries({
         queryKey: ['pollOptionVoters', serverId, channel.id, id],
       });
+      void queryClient.invalidateQueries({
+        queryKey: getActiveDecisionsQueryKey(serverId),
+      });
       onPollChange?.();
     },
     onError: (error: Error) => {
@@ -174,6 +178,9 @@ export const InlinePoll = ({
       updateFeedCache(undefined);
       queryClient.invalidateQueries({
         queryKey: ['pollOptionVoters', serverId, channel.id, id],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: getActiveDecisionsQueryKey(serverId),
       });
       onPollChange?.();
     },

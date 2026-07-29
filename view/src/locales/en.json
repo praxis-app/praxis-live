@@ -379,6 +379,34 @@
     }
   },
 
+  "decisions": {
+    "actions": {
+      "closePanel": "Close active decisions",
+      "openDecision": "Open {{type}} in {{channel}}",
+      "togglePanel": "Toggle active decisions"
+    },
+    "errors": {
+      "loadTitle": "Could not load decisions",
+      "loadDescription": "Refresh to try again."
+    },
+    "headers": {
+      "active": "Active decisions"
+    },
+    "labels": {
+      "noDeadline": "No deadline",
+      "poll": "Poll",
+      "proposal": "Proposal",
+      "responded": "Responded",
+      "responses": "Responses",
+      "untitled": "Untitled decision"
+    },
+    "prompts": {
+      "emptyTitle": "No active decisions",
+      "emptyDescription": "Open proposals and polls will appear here.",
+      "loading": "Loading decisions..."
+    }
+  },
+
   "forums": {
     "actions": {
       "allPosts": "All posts",

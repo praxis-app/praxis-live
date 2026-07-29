@@ -1,4 +1,5 @@
 import { api } from '@/client/api-client';
+import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -113,6 +114,9 @@ export const MoveProposalToForumDialog = ({
           sourceReference.destinationChannelId,
           'forum',
         ],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: getActiveDecisionsQueryKey(serverId),
       });
       onOpenChange(false);
       navigate(

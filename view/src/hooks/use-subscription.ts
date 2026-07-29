@@ -5,43 +5,55 @@ import {
   type PubSubMessage,
   type SubscriptionOptions,
 } from '@/types/shared.types';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import useWebSocket from 'react-use-websocket';
 
-export const useSubscription = (
-  channel: string,
+const normalizeChannels = (channels: readonly string[]) =>
+  [...new Set(channels)].sort();
+
+const useSubscriptionInternal = (
+  channels: readonly string[],
   options?: SubscriptionOptions,
 ) => {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const isEnabled = options?.enabled ?? true;
+  const channelsKey = JSON.stringify(normalizeChannels(channels));
+  const normalizedChannels = useMemo(
+    () => JSON.parse(channelsKey) as string[],
+    [channelsKey],
+  );
 
   const getOptions = () => {
-    if (!options || !options.onMessage) {
+    if (!options) {
       return options;
     }
+
+    const webSocketOptions = { ...options };
+    delete webSocketOptions.enabled;
+    if (!webSocketOptions.onMessage) {
+      return webSocketOptions;
+    }
+
+    const handleMessage = webSocketOptions.onMessage;
     const onMessage = (event: MessageEvent) => {
       const message: PubSubMessage = JSON.parse(event.data);
-      // Ignore messages from other channels
-      if (message.channel !== channel || !options.onMessage) {
+      if (!normalizedChannels.includes(message.channel)) {
         return;
       }
-      // Log errors from the server
       if (message.type === 'RESPONSE' && message.error) {
         console.error(message.error);
         return;
       }
-      options.onMessage(event);
+      handleMessage(event);
     };
-    return { ...options, onMessage };
+    return { ...webSocketOptions, onMessage };
   };
 
-  const { sendMessage, readyState, ...rest } = useWebSocket(getWebSocketURL(), {
-    // Ensure multiple channels can be subscribed to in
-    // the same component with `share` set to `true`
+  const socketUrl =
+    normalizedChannels.length > 0 ? getWebSocketURL() : null;
+  const { sendMessage, readyState, ...rest } = useWebSocket(socketUrl, {
     share: true,
     shouldReconnect: () => isLoggedIn,
-
-    // Logging to help with debugging websocket connection issues
     onClose: (event) => {
       if (event.wasClean) {
         return;
@@ -60,18 +72,21 @@ export const useSubscription = (
         event,
       });
     },
-
-    // Ensure passed options take precedence over the above
     ...getOptions(),
   });
 
   useEffect(() => {
     const token = localStorage.getItem(LocalStorageKeys.AccessToken);
-    if (!isLoggedIn || !token) {
+    if (
+      !isLoggedIn ||
+      !token ||
+      !isEnabled ||
+      readyState !== WebSocket.OPEN
+    ) {
       return;
     }
 
-    if (isEnabled && readyState === WebSocket.OPEN) {
+    normalizedChannels.forEach((channel) => {
       const message: PubSubMessage = {
         type: 'REQUEST',
         request: 'SUBSCRIBE',
@@ -79,8 +94,24 @@ export const useSubscription = (
         token,
       };
       sendMessage(JSON.stringify(message));
-    }
-  }, [channel, isEnabled, readyState, sendMessage, isLoggedIn]);
+    });
+  }, [
+    isEnabled,
+    isLoggedIn,
+    normalizedChannels,
+    readyState,
+    sendMessage,
+  ]);
 
   return { sendMessage, ...rest };
 };
+
+export const useSubscription = (
+  channel: string,
+  options?: SubscriptionOptions,
+) => useSubscriptionInternal([channel], options);
+
+export const useSubscriptions = (
+  channels: readonly string[],
+  options?: SubscriptionOptions,
+) => useSubscriptionInternal(channels, options);

@@ -1,6 +1,7 @@
 import { api } from '@/client/api-client';
 import { Feed } from '@/components/feeds/feed';
 import { ChannelTopNav } from '@/components/channels/channel-top-nav';
+import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { MessageForm } from '@/components/messages/message-form';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
@@ -61,9 +62,17 @@ interface ImageMessagePayload {
 
 interface Props {
   channel?: ChannelRes;
+  isDecisionsPanelOpen: boolean;
+  onCloseDecisionsPanel: () => void;
+  onToggleDecisionsPanel: () => void;
 }
 
-export const TextChannelView = ({ channel }: Props) => {
+export const TextChannelView = ({
+  channel,
+  isDecisionsPanelOpen,
+  onCloseDecisionsPanel,
+  onToggleDecisionsPanel,
+}: Props) => {
   const { inviteToken } = useAuthStore();
   const [isLastPage, setIsLastPage] = useState(false);
 
@@ -352,7 +361,7 @@ export const TextChannelView = ({ channel }: Props) => {
     <div className="fixed top-0 right-0 bottom-0 left-0 flex">
       {isDesktop && <LeftNavDesktop me={me} />}
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <ChannelTopNav
           channel={channel}
           callConfig={callConfig}
@@ -365,6 +374,8 @@ export const TextChannelView = ({ channel }: Props) => {
           onConfirmJoinCall={confirmJoinCall}
           onJoinCall={joinCall}
           onLeaveCall={leaveCall}
+          isDecisionsPanelOpen={isDecisionsPanelOpen}
+          onToggleDecisionsPanel={onToggleDecisionsPanel}
         />
 
         <Feed
@@ -384,6 +395,13 @@ export const TextChannelView = ({ channel }: Props) => {
           onSend={scrollToBottom}
         />
       </div>
+
+      {isDesktop && (
+        <DecisionsPanel
+          isOpen={isDecisionsPanelOpen}
+          onClose={onCloseDecisionsPanel}
+        />
+      )}
     </div>
   );
 };

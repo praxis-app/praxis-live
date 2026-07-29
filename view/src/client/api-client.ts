@@ -33,6 +33,7 @@ import {
 import { type CreateInviteReq, type InviteRes } from '@/types/invite.types';
 import { type MessageRes } from '@/types/message.types';
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
+import { type ActiveDecisionRes } from '@/types/decision.types';
 import {
   type CreateRoleReq,
   type InstanceRoleRes,
@@ -428,6 +429,11 @@ class ApiClient {
   // -------------------------------------------------------------------------
   // Polls & Votes
   // -------------------------------------------------------------------------
+
+  getActiveDecisions = async (serverId: string) => {
+    const path = `/servers/${serverId}/decisions`;
+    return this.executeRequest<{ decisions: ActiveDecisionRes[] }>('get', path);
+  };
 
   getPollImage = (
     serverId: string,
