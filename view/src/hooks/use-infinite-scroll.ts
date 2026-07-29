@@ -39,7 +39,7 @@ export const useInfiniteScroll = ({
     observer.observe(sentinel);
 
     return () => observer.disconnect();
-  }, [rootMargin, sentinel]);
+  }, [hasNextPage, isLoadingMore, rootMargin, sentinel]);
 
   return setSentinel;
 };

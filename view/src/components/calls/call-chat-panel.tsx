@@ -62,37 +62,38 @@ export const CallChatPanel = ({
     'feed',
   ];
 
-  const { data: feedData, fetchNextPage } = useInfiniteQuery({
-    queryKey: feedQueryKey,
-    queryFn: async ({ pageParam }) => {
-      if (!serverId) {
-        throw new Error('Server ID is required');
-      }
-      const result = await api.getCallFeed(
-        serverId,
-        channel.id,
-        callId,
-        pageParam,
-        Math.max(MESSAGES_PAGE_SIZE, initialFeedLimit),
-      );
-      if (result.feed.length === 0) {
-        setIsLastPage(true);
-      }
-      const existingFeed = queryClient
-        .getQueryData<FeedQuery>(feedQueryKey)
-        ?.pages.flatMap((page) => page.feed);
-      return {
-        ...result,
+  const { data: feedData, fetchNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: feedQueryKey,
+      queryFn: async ({ pageParam }) => {
+        if (!serverId) {
+          throw new Error('Server ID is required');
+        }
+        const result = await api.getCallFeed(
+          serverId,
+          channel.id,
+          callId,
+          pageParam,
+          Math.max(MESSAGES_PAGE_SIZE, initialFeedLimit),
+        );
+        if (result.feed.length === 0) {
+          setIsLastPage(true);
+        }
+        const existingFeed = queryClient
+          .getQueryData<FeedQuery>(feedQueryKey)
+          ?.pages.flatMap((page) => page.feed);
+        return {
+          ...result,
 
-        // Keep locally loaded image srcs from being lost on feed refresh.
-        feed: preserveFeedImages(existingFeed, result.feed),
-      };
-    },
-    getNextPageParam: (_lastPage, pages) =>
-      pages.flatMap((page) => page.feed).length,
-    initialPageParam: 0,
-    enabled: !!serverId,
-  });
+          // Keep locally loaded image srcs from being lost on feed refresh.
+          feed: preserveFeedImages(existingFeed, result.feed),
+        };
+      },
+      getNextPageParam: (_lastPage, pages) =>
+        pages.flatMap((page) => page.feed).length,
+      initialPageParam: 0,
+      enabled: !!serverId,
+    });
 
   useEffect(() => {
     setIsLastPage(false);
@@ -214,6 +215,7 @@ export const CallChatPanel = ({
         feed={feedData?.pages.flatMap((page) => page.feed) || []}
         feedQueryKey={feedQueryKey}
         isLastPage={isLastPage}
+        isLoadingMore={isFetchingNextPage}
         scrollMode={readOnly ? 'natural' : 'bottom-anchored'}
       />
       {!readOnly && (

@@ -9,16 +9,8 @@ vi.mock('@/store/auth.store');
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-vi.mock('@/hooks/use-in-view', () => ({
-  useInView: vi.fn(() => ({
-    inView: false,
-    setInView: vi.fn(),
-    viewed: false,
-    setViewed: vi.fn(),
-  })),
-}));
-vi.mock('@/hooks/use-scroll-direction', () => ({
-  useScrollDirection: vi.fn(() => 'down'),
+vi.mock('@/hooks/use-infinite-scroll', () => ({
+  useInfiniteScroll: vi.fn(() => vi.fn()),
 }));
 vi.mock('@/hooks/use-sign-up-data', () => ({
   useSignUpData: vi.fn(() => ({
@@ -27,8 +19,6 @@ vi.mock('@/hooks/use-sign-up-data', () => ({
   })),
 }));
 vi.mock('@/lib/shared.utils', () => ({
-  throttle: vi.fn((fn) => fn),
-  debounce: vi.fn((fn) => Object.assign(fn, { clear: vi.fn() })),
   cn: vi.fn((...args) => args.join(' ')),
   t: vi.fn((key) => key),
 }));
@@ -120,6 +110,7 @@ describe('Feed', () => {
         feedBoxRef={mockFeedBoxRef}
         onLoadMore={mockOnLoadMore}
         isLastPage={false}
+        isLoadingMore={false}
       />,
     );
 
@@ -141,6 +132,7 @@ describe('Feed', () => {
         feedBoxRef={mockFeedBoxRef}
         onLoadMore={mockOnLoadMore}
         isLastPage={false}
+        isLoadingMore={false}
       />,
     );
 

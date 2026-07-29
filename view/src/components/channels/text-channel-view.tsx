@@ -98,39 +98,40 @@ export const TextChannelView = ({
 
   const feedQueryKey = ['servers', serverId, 'channels', channel?.id, 'feed'];
 
-  const { data: feedData, fetchNextPage } = useInfiniteQuery({
-    queryKey: feedQueryKey,
-    queryFn: async ({ pageParam }) => {
-      if (!serverId || !channel?.id) {
-        throw new Error('Server ID and channel ID are required');
-      }
-      const result = await api.getChannelFeed(
-        serverId,
-        channel.id,
-        pageParam,
-        MESSAGES_PAGE_SIZE,
-        inviteToken,
-      );
-      const isLast = result.feed.length === 0;
-      if (isLast) {
-        setIsLastPage(true);
-      }
-      const existingFeed = queryClient
-        .getQueryData<FeedQuery>(feedQueryKey)
-        ?.pages.flatMap((page) => page.feed);
-      return {
-        ...result,
+  const { data: feedData, fetchNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: feedQueryKey,
+      queryFn: async ({ pageParam }) => {
+        if (!serverId || !channel?.id) {
+          throw new Error('Server ID and channel ID are required');
+        }
+        const result = await api.getChannelFeed(
+          serverId,
+          channel.id,
+          pageParam,
+          MESSAGES_PAGE_SIZE,
+          inviteToken,
+        );
+        const isLast = result.feed.length === 0;
+        if (isLast) {
+          setIsLastPage(true);
+        }
+        const existingFeed = queryClient
+          .getQueryData<FeedQuery>(feedQueryKey)
+          ?.pages.flatMap((page) => page.feed);
+        return {
+          ...result,
 
-        // Keep locally loaded image srcs from being lost on feed refresh.
-        feed: preserveFeedImages(existingFeed, result.feed),
-      };
-    },
-    getNextPageParam: (_lastPage, pages) => {
-      return pages.flatMap((page) => page.feed).length;
-    },
-    initialPageParam: 0,
-    enabled: !!serverId && !!channel?.id && (isMeSuccess || isAuthError),
-  });
+          // Keep locally loaded image srcs from being lost on feed refresh.
+          feed: preserveFeedImages(existingFeed, result.feed),
+        };
+      },
+      getNextPageParam: (_lastPage, pages) => {
+        return pages.flatMap((page) => page.feed).length;
+      },
+      initialPageParam: 0,
+      enabled: !!serverId && !!channel?.id && (isMeSuccess || isAuthError),
+    });
 
   // Listen for new messages
   useSubscription(
@@ -385,6 +386,7 @@ export const TextChannelView = ({
           feed={feedData?.pages.flatMap((page) => page.feed) || []}
           feedQueryKey={feedQueryKey}
           isLastPage={isLastPage}
+          isLoadingMore={isFetchingNextPage}
           isJoiningCall={isJoining}
           onJoinCall={videoCallsEnabled ? joinCall : undefined}
         />
