@@ -332,7 +332,7 @@ test('authenticated user can send an in-call chat message with an image', async 
   }
 });
 
-test('in-call chat feed preserves its pages and syncs newer messages when reopened', async ({
+test('in-call chat feed preserves its pages and syncs only newer messages when reopened', async ({
   context,
   page,
   request,

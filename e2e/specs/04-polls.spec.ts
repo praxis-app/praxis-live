@@ -6,6 +6,7 @@ import {
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
+import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
   expirePollDeadline,
   makeProposalsRatifyWithOneAgreeVote,
@@ -212,40 +213,33 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
     await expect(panel.getByText(finalDecision)).toHaveCount(0);
 
     const decisionsList = panel.getByTestId('active-decisions-list');
-    await decisionsList.hover();
-    await page.mouse.wheel(0, 100);
-    await expect
-      .poll(() => decisionsList.evaluate((list) => list.scrollTop))
-      .toBeGreaterThan(0);
-
-    for (
-      let offset = activeDecisionsPageSize;
-      offset < totalActiveDecisions;
-      offset += activeDecisionsPageSize
-    ) {
-      const nextPageResponse = page.waitForResponse(
-        (response) => {
-          const url = new URL(response.url());
-          return (
-            response.request().method() === 'GET' &&
-            url.pathname === `/api/servers/${server.id}/decisions` &&
-            url.searchParams.get('offset') === String(offset) &&
-            url.searchParams.get('limit') === String(activeDecisionsPageSize) &&
-            response.status() === 200
-          );
-        },
-        { timeout: 10_000 },
-      );
-
-      await page.mouse.wheel(0, 10_000);
-      await nextPageResponse;
-
-      const lastDecisionOnPage =
-        decisionBodies[
-          Math.min(offset + activeDecisionsPageSize, totalActiveDecisions) - 1
-        ];
-      await expect(panel.getByText(lastDecisionOnPage)).toBeVisible();
-    }
+    await scrollThroughAllPages({
+      page,
+      scrollContainer: decisionsList,
+      pageSize: activeDecisionsPageSize,
+      totalItems: totalActiveDecisions,
+      direction: 'down',
+      matchesPageResponse: (response, offset) => {
+        const url = new URL(response.url());
+        return (
+          response.request().method() === 'GET' &&
+          url.pathname === `/api/servers/${server.id}/decisions` &&
+          url.searchParams.get('offset') === String(offset) &&
+          url.searchParams.get('limit') === String(activeDecisionsPageSize) &&
+          response.status() === 200
+        );
+      },
+      onPageLoaded: async (offset) => {
+        const lastDecisionOnPage =
+          decisionBodies[
+            Math.min(
+              offset + activeDecisionsPageSize,
+              totalActiveDecisions,
+            ) - 1
+          ];
+        await expect(panel.getByText(lastDecisionOnPage)).toBeVisible();
+      },
+    });
   }
 
   await expect(panel.getByText(finalDecision)).toBeVisible();
