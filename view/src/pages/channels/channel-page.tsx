@@ -13,9 +13,16 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
+const LARGE_DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
+
+const getDefaultStandaloneRightPanel = (): StandaloneRightPanel | null =>
+  window.matchMedia(LARGE_DESKTOP_MEDIA_QUERY).matches
+    ? { type: 'activeDecisions' }
+    : null;
+
 export const ChannelPage = () => {
   const [standaloneRightPanel, setStandaloneRightPanel] =
-    useState<StandaloneRightPanel | null>(null);
+    useState<StandaloneRightPanel | null>(getDefaultStandaloneRightPanel);
 
   const { inviteToken } = useAuthStore();
   const { isRegistered } = useAuthData();
@@ -32,7 +39,7 @@ export const ChannelPage = () => {
     serverSlug && channelId ? `/s/${serverSlug}/c/${channelId}` : undefined;
 
   useEffect(() => {
-    setStandaloneRightPanel(null);
+    setStandaloneRightPanel(getDefaultStandaloneRightPanel());
   }, [serverId]);
 
   useEffect(() => {
