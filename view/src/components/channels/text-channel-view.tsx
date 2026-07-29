@@ -133,6 +133,34 @@ export const TextChannelView = ({
       enabled: !!serverId && !!channel?.id && (isMeSuccess || isAuthError),
     });
 
+  useEffect(() => {
+    if (!serverId || !channel?.id) return;
+
+    const inactiveFeedQueryKey = [
+      'servers',
+      serverId,
+      'channels',
+      channel.id,
+      'feed',
+    ];
+
+    return () => {
+      queryClient.setQueryData<FeedQuery>(
+        inactiveFeedQueryKey,
+        (cachedFeed) => {
+          if (!cachedFeed || cachedFeed.pages.length <= 1) {
+            return cachedFeed;
+          }
+
+          return {
+            pages: cachedFeed.pages.slice(0, 1),
+            pageParams: cachedFeed.pageParams.slice(0, 1),
+          };
+        },
+      );
+    };
+  }, [channel?.id, queryClient, serverId]);
+
   // Listen for new messages
   useSubscription(
     channelPubSubTopic('new-message', serverId, channel?.id, me?.id),

@@ -1,7 +1,19 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { createAuthenticatedUser, setupAnonymousInvite } from '../lib/auth';
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Request,
+} from '@playwright/test';
+import {
+  authorizationHeaders,
+  createAuthenticatedUser,
+  setupAnonymousInvite,
+} from '../lib/auth';
 import { startCallFromTopNav } from '../lib/calls';
 import { createTestMessage, createTestUser } from '../lib/data';
+import { scrollThroughAllPages } from '../lib/infinite-scroll';
+import { createMessages } from '../lib/messages';
 import { getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
@@ -11,6 +23,15 @@ type PollResponse = {
     id: string;
   };
 };
+
+type JoinCallResponse = {
+  call: {
+    id: string;
+  };
+};
+
+const feedPageSize = 20;
+const totalFeedMessages = 41;
 
 test('authenticated user can send a basic chat message', async ({
   context,
@@ -32,6 +53,135 @@ test('authenticated user can send a basic chat message', async ({
   await navigation.expectSignedInUser(authenticatedUser.user);
   await chat.sendMessage(message);
   await chat.expectMessage(message, authenticatedUser.user.name);
+});
+
+test('text channel feed loads every page and only refetches its first page when revisited', async ({
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  const user = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('text-scroll'),
+  );
+  const server = await getDefaultServer(request, user);
+  const otherChannelName = `other-${user.user.suffix}`;
+  const createChannelResponse = await request.post(
+    `/api/servers/${server.id}/channels`,
+    {
+      headers: authorizationHeaders(user),
+      data: {
+        name: otherChannelName,
+        description: 'Channel used to verify feed cache behavior.',
+        channelType: 'text',
+      },
+    },
+  );
+  await expect(createChannelResponse).toBeOK();
+  const { channel: otherChannel } =
+    (await createChannelResponse.json()) as {
+      channel: { id: string };
+    };
+
+  const messageBodies = Array.from(
+    { length: totalFeedMessages },
+    (_, index) =>
+      `Infinite text message ${String(index + 1).padStart(2, '0')} ${
+        user.user.suffix
+      }`,
+  );
+  await createMessages({
+    request,
+    user,
+    serverId: server.id,
+    channelId: server.generalChannelId,
+    bodies: messageBodies,
+  });
+
+  const feedPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/feed`;
+  const firstPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === 'GET' &&
+      url.pathname === feedPath &&
+      url.searchParams.get('offset') === '0' &&
+      url.searchParams.get('limit') === String(feedPageSize) &&
+      response.status() === 200
+    );
+  });
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await firstPageResponse;
+
+  const feed = page.getByTestId('feed');
+  const oldestMessage = messageBodies[0];
+  await expect(feed.getByText(messageBodies.at(-1)!)).toBeVisible();
+  await expect(feed.getByText(oldestMessage)).toHaveCount(0);
+
+  await scrollThroughAllPages({
+    page,
+    scrollContainer: feed,
+    pageSize: feedPageSize,
+    totalItems: totalFeedMessages,
+    direction: 'up',
+    matchesPageResponse: (response, offset) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === 'GET' &&
+        url.pathname === feedPath &&
+        url.searchParams.get('offset') === String(offset) &&
+        url.searchParams.get('limit') === String(feedPageSize) &&
+        response.status() === 200
+      );
+    },
+  });
+  await expect(feed.getByText(oldestMessage)).toBeVisible();
+
+  const otherFeedResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === 'GET' &&
+      url.pathname ===
+        `/api/servers/${server.id}/channels/${otherChannel.id}/feed` &&
+      url.searchParams.get('offset') === '0' &&
+      response.status() === 200
+    );
+  });
+  await page
+    .getByRole('link', { name: otherChannelName, exact: true })
+    .click();
+  await otherFeedResponse;
+
+  const revisitOffsets: number[] = [];
+  const recordRevisitedFeedRequest = (networkRequest: Request) => {
+    const url = new URL(networkRequest.url());
+    if (
+      networkRequest.method() === 'GET' &&
+      url.pathname === feedPath &&
+      url.searchParams.has('offset')
+    ) {
+      revisitOffsets.push(Number(url.searchParams.get('offset')));
+    }
+  };
+  page.on('request', recordRevisitedFeedRequest);
+
+  const revisitFirstPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === 'GET' &&
+      url.pathname === feedPath &&
+      url.searchParams.get('offset') === '0' &&
+      response.status() === 200
+    );
+  });
+  await page.getByRole('link', { name: 'general', exact: true }).click();
+  await revisitFirstPageResponse;
+  await page.waitForTimeout(500);
+  page.off('request', recordRevisitedFeedRequest);
+
+  expect(revisitOffsets).toEqual([0]);
 });
 
 test('authenticated user can send a chat message with an image', async ({
@@ -164,6 +314,97 @@ test('authenticated user can send an in-call chat message with an image', async 
   }
 });
 
+test('in-call chat feed loads every page when scrolled to the top', async ({
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+
+  const user = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('call-scroll'),
+  );
+  const server = await getDefaultServer(request, user);
+
+  try {
+    await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+
+    const joinCallResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().endsWith(
+          `/api/servers/${server.id}/channels/${server.generalChannelId}/calls`,
+        ) &&
+        response.status() === 200,
+    );
+    await startCallFromTopNav(page);
+    const callResponse = await joinCallResponse;
+    const { call } = (await callResponse.json()) as JoinCallResponse;
+
+    const messageBodies = Array.from(
+      { length: totalFeedMessages },
+      (_, index) =>
+        `Infinite call message ${String(index + 1).padStart(2, '0')} ${
+          user.user.suffix
+        }`,
+    );
+    await createMessages({
+      request,
+      user,
+      serverId: server.id,
+      channelId: server.generalChannelId,
+      callId: call.id,
+      bodies: messageBodies,
+    });
+
+    const callFeedPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/calls/${call.id}/feed`;
+    const firstPageResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === 'GET' &&
+        url.pathname === callFeedPath &&
+        url.searchParams.get('offset') === '0' &&
+        url.searchParams.get('limit') === String(feedPageSize) &&
+        response.status() === 200
+      );
+    });
+    await page.getByRole('button', { name: 'Open call chat' }).click();
+    await firstPageResponse;
+
+    const callChatPanel = page.getByRole('region', {
+      name: 'In-call chat',
+    });
+    const callFeed = callChatPanel.getByTestId('feed');
+    const oldestMessage = messageBodies[0];
+    await expect(callFeed.getByText(messageBodies.at(-1)!)).toBeVisible();
+    await expect(callFeed.getByText(oldestMessage)).toHaveCount(0);
+
+    await scrollThroughAllPages({
+      page,
+      scrollContainer: callFeed,
+      pageSize: feedPageSize,
+      totalItems: totalFeedMessages,
+      direction: 'up',
+      matchesPageResponse: (response, offset) => {
+        const url = new URL(response.url());
+        return (
+          response.request().method() === 'GET' &&
+          url.pathname === callFeedPath &&
+          url.searchParams.get('offset') === String(offset) &&
+          url.searchParams.get('limit') === String(feedPageSize) &&
+          response.status() === 200
+        );
+      },
+    });
+
+    await expect(callFeed.getByText(oldestMessage)).toBeVisible();
+  } finally {
+    await leaveCallIfVisible(page);
+  }
+});
+
 test('authenticated user can create and vote on an in-call proposal', async ({
   context,
   page,
@@ -206,7 +447,9 @@ test('authenticated user can create and vote on an in-call proposal', async ({
         response.status() === 200,
     );
 
-    await page.getByRole('button', { name: 'Decisions' }).click();
+    await page
+      .getByRole('button', { name: 'Decisions', exact: true })
+      .click();
     await decisionResponse;
 
     const activeDecisionPanel = page.getByRole('region', {

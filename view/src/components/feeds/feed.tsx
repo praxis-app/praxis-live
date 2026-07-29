@@ -86,6 +86,7 @@ export const Feed = ({
   return (
     <div
       ref={feedBoxRef}
+      data-testid="feed"
       className={cn(
         'flex min-w-0 flex-1 gap-4.5 overflow-x-hidden overflow-y-scroll px-3.5 pt-2.5 pb-4',
         isBottomAnchored ? 'flex-col-reverse' : 'flex-col',
