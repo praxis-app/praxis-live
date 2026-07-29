@@ -87,10 +87,7 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
           className="bg-background flex h-full w-80 shrink-0 flex-col border-l"
         >
           <div className="flex h-13.75 shrink-0 items-center justify-between border-b px-4">
-            <div className="flex items-center gap-2">
-              <LuListTodo className="size-5" />
-              <h2 className="font-semibold">{t('decisions.headers.active')}</h2>
-            </div>
+            <h2 className="font-semibold">{t('decisions.headers.active')}</h2>
             <Button
               type="button"
               variant="ghost"

@@ -1,10 +1,10 @@
 import { Progress } from '@/components/ui/progress';
-import { timeFromNow } from '@/lib/time.utils';
 import { truncate } from '@/lib/text.utils';
+import { timeFromNow } from '@/lib/time.utils';
 import { type ActiveDecisionRes } from '@/types/decision.types';
 import { useTranslation } from 'react-i18next';
-import { LuCheck, LuClock3 } from 'react-icons/lu';
-import { MdForum, MdTag } from 'react-icons/md';
+import { LuCheck, LuClock3, LuListTodo } from 'react-icons/lu';
+import { MdForum, MdPoll, MdTag } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 
 interface Props {
@@ -21,6 +21,8 @@ export const DecisionPanelItem = ({
   const { t } = useTranslation();
 
   const ChannelIcon = decision.channelType === 'forum' ? MdForum : MdTag;
+  const DecisionTypeIcon =
+    decision.pollType === 'proposal' ? LuListTodo : MdPoll;
   const opensForumDecision = decision.channelType === 'forum';
 
   const responsePercentage =
@@ -36,19 +38,21 @@ export const DecisionPanelItem = ({
   return (
     <Link
       to={decisionPath}
+      onClick={opensForumDecision ? onOpenForumDecision : undefined}
       className="hover:bg-accent/60 focus-visible:ring-ring block rounded-lg border p-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
       aria-label={t('decisions.actions.openDecision', {
         type: t(`decisions.labels.${decision.pollType}`),
         channel: decision.channelName,
       })}
-      onClick={opensForumDecision ? onOpenForumDecision : undefined}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+        <span className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+          <DecisionTypeIcon className="size-3.5 shrink-0" />
           {t(`decisions.labels.${decision.pollType}`)}
         </span>
+
         {decision.hasResponded && (
-          <span className="text-primary flex items-center gap-1 text-xs">
+          <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
             <LuCheck className="size-3.5" />
             {t('decisions.labels.responded')}
           </span>
