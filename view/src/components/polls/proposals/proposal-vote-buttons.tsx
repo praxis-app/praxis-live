@@ -7,7 +7,10 @@ import { useServerData } from '@/hooks/use-server-data';
 import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
-import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
+import {
+  type ChannelRes,
+  type FeedQuery,
+} from '@/types/channel.types';
 import {
   type DecisionMakingModel,
   type PollRes,
@@ -153,25 +156,25 @@ export const ProposalVoteButtons = ({
       };
 
       if (feedQueryKey) {
-        queryClient.setQueryData<{
-          pages: { feed: FeedItemRes[] }[];
-          pageParams: number[];
-        }>(feedQueryKey, (oldData) => {
+        queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
           if (!oldData) {
             return oldData;
           }
-          const pages = oldData.pages.map((page) => ({
-            feed: page.feed.map((item) => {
-              if (
-                item.id !== pollId ||
-                item.type !== 'poll' ||
-                item.pollType !== 'proposal'
-              ) {
-                return item;
-              }
-              return { ...updateProposal(item), type: 'poll' as const };
-            }),
-          }));
+          const pages = oldData.pages.map((page) => {
+            return {
+              ...page,
+              feed: page.feed.map((item) => {
+                if (
+                  item.id !== pollId ||
+                  item.type !== 'poll' ||
+                  item.pollType !== 'proposal'
+                ) {
+                  return item;
+                }
+                return { ...updateProposal(item), type: 'poll' as const };
+              }),
+            };
+          });
           return { pages, pageParams: oldData.pageParams };
         });
       }

@@ -14,3 +14,9 @@ export interface ActiveDecisionRes {
   channelType: 'text' | 'forum';
   forumPostId?: string;
 }
+
+export interface ActiveDecisionsRes {
+  decisions: ActiveDecisionRes[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}

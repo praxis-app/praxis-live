@@ -67,11 +67,9 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
           FORUM_POSTS_PAGE_SIZE,
         );
       },
-      initialPageParam: 0,
-      getNextPageParam: (lastPage, pages) =>
-        lastPage.posts.length < FORUM_POSTS_PAGE_SIZE
-          ? undefined
-          : pages.flatMap((page) => page.posts).length,
+      initialPageParam: undefined as string | undefined,
+      getNextPageParam: (lastPage) =>
+        lastPage.hasMore ? lastPage.nextCursor : undefined,
       enabled: !!serverId,
     });
 

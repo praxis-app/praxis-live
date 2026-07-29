@@ -33,7 +33,7 @@ pub(crate) struct ForumReplyPath {
 pub(crate) struct ListForumPostsQuery {
     pub(crate) sort: Option<String>,
     pub(crate) status: Option<String>,
-    pub(crate) offset: Option<u64>,
+    pub(crate) before: Option<String>,
     pub(crate) limit: Option<u64>,
 }
 
@@ -82,6 +82,14 @@ pub(crate) struct ForumPostSummaryResponse {
     pub(crate) latest_activity_at: String,
     pub(crate) created_at: String,
     pub(crate) updated_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ForumPostsResponse {
+    pub(crate) posts: Vec<ForumPostSummaryResponse>,
+    pub(crate) next_cursor: Option<String>,
+    pub(crate) has_more: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

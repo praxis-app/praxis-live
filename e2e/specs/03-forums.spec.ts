@@ -60,7 +60,7 @@ test('forum post list loads every page when scrolled to the bottom', async ({
       response.request().method() === 'GET' &&
       url.pathname ===
         `/api/servers/${server.id}/channels/${forumChannel.id}/forum/posts` &&
-      url.searchParams.get('offset') === '0' &&
+      !url.searchParams.has('before') &&
       url.searchParams.get('limit') === String(forumPostsPageSize) &&
       response.status() === 200
     );
@@ -79,13 +79,13 @@ test('forum post list loads every page when scrolled to the bottom', async ({
     pageSize: forumPostsPageSize,
     totalItems: totalForumPosts,
     direction: 'down',
-    matchesPageResponse: (response, offset) => {
+    matchesPageResponse: (response) => {
       const url = new URL(response.url());
       return (
         response.request().method() === 'GET' &&
         url.pathname ===
           `/api/servers/${server.id}/channels/${forumChannel.id}/forum/posts` &&
-        url.searchParams.get('offset') === String(offset) &&
+        url.searchParams.has('before') &&
         url.searchParams.get('limit') === String(forumPostsPageSize) &&
         response.status() === 200
       );

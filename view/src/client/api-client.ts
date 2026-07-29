@@ -20,7 +20,7 @@ import {
   type ForumPostRes,
   type ForumPostSort,
   type ForumPostStatus,
-  type ForumPostSummaryRes,
+  type ForumPostsRes,
   type MoveProposalToForumReq,
   type ProposalForumReferenceRes,
   type UpdateForumPostReq,
@@ -33,7 +33,7 @@ import {
 import { type CreateInviteReq, type InviteRes } from '@/types/invite.types';
 import { type MessageRes } from '@/types/message.types';
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
-import { type ActiveDecisionRes } from '@/types/decision.types';
+import { type ActiveDecisionsRes } from '@/types/decision.types';
 import {
   type CreateRoleReq,
   type InstanceRoleRes,
@@ -249,12 +249,12 @@ class ApiClient {
     channelId: string,
     sort: ForumPostSort,
     status?: ForumPostStatus,
-    offset = 0,
+    before?: string,
     limit = 20,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts`;
-    return this.executeRequest<{ posts: ForumPostSummaryRes[] }>('get', path, {
-      params: { sort, status, offset, limit },
+    return this.executeRequest<ForumPostsRes>('get', path, {
+      params: { sort, status, before, limit },
     });
   };
 
@@ -432,15 +432,13 @@ class ApiClient {
 
   getActiveDecisions = async (
     serverId: string,
-    offset: number,
+    before: string | undefined,
     limit: number,
   ) => {
     const path = `/servers/${serverId}/decisions`;
-    return this.executeRequest<{ decisions: ActiveDecisionRes[] }>(
-      'get',
-      path,
-      { params: { offset, limit } },
-    );
+    return this.executeRequest<ActiveDecisionsRes>('get', path, {
+      params: { before, limit },
+    });
   };
 
   getPollImage = (

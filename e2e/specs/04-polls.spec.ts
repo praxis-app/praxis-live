@@ -195,7 +195,7 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
     return (
       response.request().method() === 'GET' &&
       url.pathname === `/api/servers/${server.id}/decisions` &&
-      url.searchParams.get('offset') === '0' &&
+      !url.searchParams.has('before') &&
       url.searchParams.get('limit') === String(activeDecisionsPageSize) &&
       response.status() === 200
     );
@@ -219,21 +219,21 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
       pageSize: activeDecisionsPageSize,
       totalItems: totalActiveDecisions,
       direction: 'down',
-      matchesPageResponse: (response, offset) => {
+      matchesPageResponse: (response) => {
         const url = new URL(response.url());
         return (
           response.request().method() === 'GET' &&
           url.pathname === `/api/servers/${server.id}/decisions` &&
-          url.searchParams.get('offset') === String(offset) &&
+          url.searchParams.has('before') &&
           url.searchParams.get('limit') === String(activeDecisionsPageSize) &&
           response.status() === 200
         );
       },
-      onPageLoaded: async (offset) => {
+      onPageLoaded: async (loadedItemCount) => {
         const lastDecisionOnPage =
           decisionBodies[
             Math.min(
-              offset + activeDecisionsPageSize,
+              loadedItemCount + activeDecisionsPageSize,
               totalActiveDecisions,
             ) - 1
           ];

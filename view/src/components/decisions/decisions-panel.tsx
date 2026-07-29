@@ -83,11 +83,9 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
       }
       return api.getActiveDecisions(serverId, pageParam, DECISIONS_PAGE_SIZE);
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, pages) =>
-      lastPage.decisions.length < DECISIONS_PAGE_SIZE
-        ? undefined
-        : pages.flatMap((page) => page.decisions).length,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? lastPage.nextCursor : undefined,
     enabled: isOpen && !!serverId && (isAuthError || isMeSuccess),
   });
 

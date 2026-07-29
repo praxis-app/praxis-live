@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, FixedOffset, Utc};
 use entity::{
     channel_members, channels as channel_entities,
     enums::{
@@ -22,9 +22,9 @@ use tokio::time::{self, MissedTickBehavior};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    ActiveDecisionResponse, CallDecisionResponse, CreatePollRequest,
-    PollConfigResponse, PollImageResponse, PollOptionResponse, PollResponse,
-    PollUserResponse, StoredPollImage,
+    ActiveDecisionResponse, ActiveDecisionsResponse, CallDecisionResponse,
+    CreatePollRequest, PollConfigResponse, PollImageResponse,
+    PollOptionResponse, PollResponse, PollUserResponse, StoredPollImage,
 };
 use crate::{
     channels,
@@ -959,10 +959,11 @@ pub(crate) async fn get_active_decisions(
     database: &DatabaseConnection,
     server_id: Uuid,
     current_user_id: Option<Uuid>,
-    offset: u64,
+    before: Option<&str>,
     limit: u64,
-) -> AppResult<Vec<ActiveDecisionResponse>> {
+) -> AppResult<ActiveDecisionsResponse> {
     servers::ensure_server(database, server_id).await?;
+    let cursor = before.map(ActiveDecisionCursor::parse).transpose()?;
 
     let current_user = if let Some(user_id) = current_user_id {
         users::Entity::find_by_id(user_id)
@@ -1015,13 +1016,22 @@ pub(crate) async fn get_active_decisions(
         .collect::<HashMap<_, _>>();
     let channel_ids = channels_by_id.keys().copied().collect::<Vec<_>>();
     if channel_ids.is_empty() {
-        return Ok(vec![]);
+        return Ok(ActiveDecisionsResponse {
+            decisions: vec![],
+            next_cursor: None,
+            has_more: false,
+        });
     }
 
-    let polls_with_configs = polls::Entity::find()
+    let mut polls_query = polls::Entity::find()
         .filter(polls::Column::ChannelId.is_in(channel_ids))
         .filter(polls::Column::Stage.eq(PollStage::Voting))
-        .find_also_related(poll_configs::Entity)
+        .find_also_related(poll_configs::Entity);
+    if let Some(cursor) = cursor {
+        polls_query =
+            polls_query.filter(active_decision_cursor_condition(cursor));
+    }
+    let mut polls_with_configs = polls_query
         .order_by_with_nulls(
             poll_configs::Column::ClosingAt,
             Order::Asc,
@@ -1029,14 +1039,30 @@ pub(crate) async fn get_active_decisions(
         )
         .order_by_desc(polls::Column::CreatedAt)
         .order_by_desc(polls::Column::Id)
-        .offset(offset)
-        .limit(limit)
+        .limit(limit.saturating_add(1))
         .all(database)
         .await
         .map_err(internal_error)?;
 
+    let has_more = polls_with_configs.len() > limit as usize;
+    if has_more {
+        polls_with_configs.pop();
+    }
+    let next_cursor = polls_with_configs.last().map(|(poll, config)| {
+        ActiveDecisionCursor {
+            closing_at: config.as_ref().and_then(|config| config.closing_at),
+            created_at: poll.created_at,
+            id: poll.id,
+        }
+        .encode()
+    });
+
     if polls_with_configs.is_empty() {
-        return Ok(vec![]);
+        return Ok(ActiveDecisionsResponse {
+            decisions: vec![],
+            next_cursor,
+            has_more,
+        });
     }
 
     let poll_ids = polls_with_configs
@@ -1082,7 +1108,94 @@ pub(crate) async fn get_active_decisions(
         });
     }
 
-    Ok(decisions)
+    Ok(ActiveDecisionsResponse {
+        decisions,
+        next_cursor,
+        has_more,
+    })
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ActiveDecisionCursor {
+    closing_at: Option<DateTime<FixedOffset>>,
+    created_at: DateTime<FixedOffset>,
+    id: Uuid,
+}
+
+impl ActiveDecisionCursor {
+    fn parse(value: &str) -> AppResult<Self> {
+        let mut parts = value.split('|');
+        let closing_at = match parts.next() {
+            Some("") => None,
+            Some(value) => Some(
+                DateTime::parse_from_rfc3339(value)
+                    .map_err(|_| invalid_active_decision_cursor())?,
+            ),
+            None => return Err(invalid_active_decision_cursor()),
+        };
+        let created_at = parts
+            .next()
+            .ok_or_else(invalid_active_decision_cursor)
+            .and_then(|value| {
+                DateTime::parse_from_rfc3339(value)
+                    .map_err(|_| invalid_active_decision_cursor())
+            })?;
+        let id = parts
+            .next()
+            .ok_or_else(invalid_active_decision_cursor)
+            .and_then(|value| {
+                Uuid::parse_str(value)
+                    .map_err(|_| invalid_active_decision_cursor())
+            })?;
+        if parts.next().is_some() {
+            return Err(invalid_active_decision_cursor());
+        }
+
+        Ok(Self {
+            closing_at,
+            created_at,
+            id,
+        })
+    }
+
+    fn encode(self) -> String {
+        format!(
+            "{}|{}|{}",
+            self.closing_at
+                .map(|closing_at| closing_at.to_rfc3339())
+                .unwrap_or_default(),
+            self.created_at.to_rfc3339(),
+            self.id,
+        )
+    }
+}
+
+fn active_decision_cursor_condition(cursor: ActiveDecisionCursor) -> Condition {
+    let poll_tie_breaker = Condition::any()
+        .add(polls::Column::CreatedAt.lt(cursor.created_at))
+        .add(
+            Condition::all()
+                .add(polls::Column::CreatedAt.eq(cursor.created_at))
+                .add(polls::Column::Id.lt(cursor.id)),
+        );
+
+    match cursor.closing_at {
+        Some(closing_at) => Condition::any()
+            .add(poll_configs::Column::ClosingAt.gt(closing_at))
+            .add(poll_configs::Column::ClosingAt.is_null())
+            .add(
+                Condition::all()
+                    .add(poll_configs::Column::ClosingAt.eq(closing_at))
+                    .add(poll_tie_breaker),
+            ),
+        None => Condition::all()
+            .add(poll_configs::Column::ClosingAt.is_null())
+            .add(poll_tie_breaker),
+    }
+}
+
+fn invalid_active_decision_cursor() -> ApiError {
+    ApiError::new(StatusCode::BAD_REQUEST, "Invalid pagination cursor.")
 }
 
 async fn shape_poll(

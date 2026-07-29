@@ -5,7 +5,7 @@ use entity::{
     forum_posts, message_images, messages, polls, votes as vote_entities,
 };
 use sea_orm::{
-    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait,
+    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait, Condition,
     ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait,
 };
@@ -15,12 +15,15 @@ use super::{
     responses::{shape_forum_post, shape_post_summaries},
     types::{
         CreateForumPostRequest, CreateForumReplyRequest, ForumPostResponse,
-        ForumPostSummaryResponse, UpdateForumPostRequest,
+        ForumPostSummaryResponse, ForumPostsResponse, UpdateForumPostRequest,
     },
 };
 use crate::{
     channels,
-    common::{encryption, text::sanitize_text, ApiError, AppResult},
+    common::{
+        encryption, pagination::PaginationCursor, text::sanitize_text,
+        ApiError, AppResult,
+    },
     messages::{self as messages_service, types::MessageResponse},
     polls::service as polls_service,
 };
@@ -32,15 +35,19 @@ pub(crate) async fn list_forum_posts(
     channel_id: Uuid,
     sort: Option<&str>,
     status: Option<&str>,
-    offset: u64,
+    before: Option<&str>,
     limit: u64,
-) -> AppResult<Vec<ForumPostSummaryResponse>> {
+) -> AppResult<ForumPostsResponse> {
     let status = parse_status_filter(status)?;
     let sort = parse_sort(sort)?;
+    let cursor = before.map(PaginationCursor::parse).transpose()?;
     let mut select = forum_posts::Entity::find()
         .filter(forum_posts::Column::ChannelId.eq(channel_id));
     if let Some(status) = status {
         select = select.filter(forum_posts::Column::Status.eq(status));
+    }
+    if let Some(cursor) = cursor {
+        select = select.filter(forum_post_cursor_condition(cursor, sort));
     }
     select = match sort {
         ForumPostSort::Recent => select
@@ -51,13 +58,50 @@ pub(crate) async fn list_forum_posts(
             .order_by_desc(forum_posts::Column::Id),
     };
 
-    let posts = select
-        .offset(offset)
-        .limit(limit)
+    let mut posts = select
+        .limit(limit.saturating_add(1))
         .all(database)
         .await
         .map_err(internal_error)?;
-    shape_post_summaries(database, posts).await
+    let has_more = posts.len() > limit as usize;
+    if has_more {
+        posts.pop();
+    }
+    let next_cursor = posts.last().map(|post| {
+        PaginationCursor {
+            created_at: match sort {
+                ForumPostSort::Recent => post.latest_activity_at,
+                ForumPostSort::Newest => post.created_at,
+            },
+            id: post.id,
+        }
+        .encode()
+    });
+    let posts = shape_post_summaries(database, posts).await?;
+
+    Ok(ForumPostsResponse {
+        posts,
+        next_cursor,
+        has_more,
+    })
+}
+
+fn forum_post_cursor_condition(
+    cursor: PaginationCursor,
+    sort: ForumPostSort,
+) -> Condition {
+    let timestamp_column = match sort {
+        ForumPostSort::Recent => forum_posts::Column::LatestActivityAt,
+        ForumPostSort::Newest => forum_posts::Column::CreatedAt,
+    };
+
+    Condition::any()
+        .add(timestamp_column.lt(cursor.created_at))
+        .add(
+            Condition::all()
+                .add(timestamp_column.eq(cursor.created_at))
+                .add(forum_posts::Column::Id.lt(cursor.id)),
+        )
 }
 
 pub(crate) async fn create_forum_post(

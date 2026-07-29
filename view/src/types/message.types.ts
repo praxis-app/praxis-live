@@ -21,8 +21,3 @@ export interface MessageRes {
   parentMessageId?: string;
   createdAt: string;
 }
-
-export interface MessagesQuery {
-  pages: { messages: MessageRes[] }[];
-  pageParams: number[];
-}

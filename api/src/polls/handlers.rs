@@ -11,8 +11,8 @@ use super::{
     extractors::{PollDeleteContext, PollImageUploadContext},
     service,
     types::{
-        CallDecisionResponse, CreatePollRequest, ListActiveDecisionsQuery,
-        PollImagePath, PollPath,
+        ActiveDecisionsResponse, CallDecisionResponse, CreatePollRequest,
+        ListActiveDecisionsQuery, PollImagePath, PollPath,
     },
 };
 use crate::{
@@ -198,21 +198,18 @@ pub(super) async fn get_active_decisions(
     Path(path): Path<ServerPath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
     Query(query): Query<ListActiveDecisionsQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ActiveDecisionsResponse>> {
     let limit = query.limit.unwrap_or(50).min(100);
-    let offset = query.offset.unwrap_or(0);
     let decisions = service::get_active_decisions(
         &state.database,
         path.server_id,
         user_id,
-        offset,
+        query.before.as_deref(),
         limit,
     )
     .await?;
 
-    Ok(Json(serde_json::json!({
-        "decisions": decisions,
-    })))
+    Ok(Json(decisions))
 }
 
 pub(super) async fn upload_poll_image(

@@ -18,6 +18,12 @@ export interface ForumPostSummaryRes {
   updatedAt: string;
 }
 
+export interface ForumPostsRes {
+  posts: ForumPostSummaryRes[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export interface ForumPostRes extends ForumPostSummaryRes {
   body: string;
   replies: MessageRes[];

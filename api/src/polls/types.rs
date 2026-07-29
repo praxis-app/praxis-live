@@ -42,7 +42,7 @@ fn default_poll_type() -> String {
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ListActiveDecisionsQuery {
-    pub(crate) offset: Option<u64>,
+    pub(crate) before: Option<String>,
     pub(crate) limit: Option<u64>,
 }
 
@@ -92,6 +92,14 @@ pub(crate) struct ActiveDecisionResponse {
     pub(crate) channel_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) forum_post_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ActiveDecisionsResponse {
+    pub(crate) decisions: Vec<ActiveDecisionResponse>,
+    pub(crate) next_cursor: Option<String>,
+    pub(crate) has_more: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
