@@ -262,7 +262,7 @@ pub(crate) async fn prepare_forum_proposal(
     user_id: Uuid,
     request: CreatePollRequest,
 ) -> AppResult<PreparedPollCreation> {
-    if request.poll_type != "proposal" {
+    if request.poll_type != PollType::Proposal {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
             "A forum post can only include a proposal.",
@@ -289,7 +289,7 @@ async fn prepare_poll_creation(
         .as_deref()
         .map(sanitize_text)
         .filter(|value| !value.is_empty());
-    let poll_type = parse_poll_type(&request.poll_type)?;
+    let poll_type = request.poll_type;
     let is_proposal = poll_type == PollType::Proposal;
     let channel =
         channels::get_channel(database, server_id, channel_id).await?;
@@ -1263,12 +1263,12 @@ async fn shape_poll(
             .map(|vote| vote_service::shape_vote(vote, &selections))
     });
 
-    let is_proposal = poll.poll_type == "proposal";
+    let is_proposal = poll.poll_type == PollType::Proposal;
 
     Ok(PollResponse {
         id: poll.id.to_string(),
         body: decrypt_poll_body(database, &poll).await?,
-        poll_type: poll.poll_type.to_string(),
+        poll_type: poll.poll_type,
         stage: poll.stage.to_string(),
         action: if is_proposal {
             poll_actions::service::shape_poll_action(database, poll.id).await?
@@ -1363,7 +1363,7 @@ async fn ensure_allowed_to_create_proposal(
     user_id: Uuid,
     request: &CreatePollRequest,
 ) -> AppResult<()> {
-    if request.poll_type != "proposal" {
+    if request.poll_type != PollType::Proposal {
         return Ok(());
     }
     if request
@@ -1631,7 +1631,6 @@ where
 }
 
 fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
-    parse_poll_type(&request.poll_type)?;
     if request.image_count > MAX_IMAGE_COUNT {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -1650,7 +1649,7 @@ fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
         ));
     }
 
-    if request.poll_type == "poll" {
+    if request.poll_type == PollType::Poll {
         let body_missing = request
             .body
             .as_deref()
@@ -1687,12 +1686,6 @@ fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
     }
 
     Ok(())
-}
-
-fn parse_poll_type(value: &str) -> AppResult<PollType> {
-    value.parse().map_err(|_| {
-        ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "Poll type is invalid.")
-    })
 }
 
 fn validate_action(
