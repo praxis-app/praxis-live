@@ -170,4 +170,48 @@
   .font-inter {
     font-family: var(--font-inter);
   }
+
+  .decision-focus-target {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .decision-focus-target::before {
+    position: absolute;
+    z-index: -1;
+    inset: -0.5rem;
+    border-radius: var(--radius-xl);
+    background: color-mix(
+      in oklab,
+      var(--blurple-1) 16%,
+      var(--background)
+    );
+    content: '';
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .decision-focus-target[data-decision-highlight='true']::before {
+    animation: decision-focus-highlight 1800ms ease-out both;
+  }
+}
+
+@keyframes decision-focus-highlight {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  28% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .decision-focus-target[data-decision-highlight='true']::before {
+    animation: none;
+    opacity: 1;
+  }
 }

@@ -60,7 +60,7 @@ export const InlineProposal = ({
       aria-label={label}
       data-decision-id={poll.id}
       tabIndex={-1}
-      className="focus:ring-ring flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:ring-2 focus:outline-none"
+      className="decision-focus-target flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none"
     >
       <UserProfileDrawer
         name={truncatedName}

@@ -369,6 +369,10 @@ test('active decision opens fully in view across channels and feed pages', async
 
   const focusedDecision = feed.locator(`[data-decision-id="${poll.id}"]`);
   await expect(focusedDecision).toBeFocused();
+  await expect(focusedDecision).toHaveAttribute(
+    'data-decision-highlight',
+    'true',
+  );
   await feed.evaluate(
     (element) =>
       new Promise<void>((resolve) => {
@@ -423,6 +427,10 @@ test('active decision opens fully in view across channels and feed pages', async
     poll.id,
   );
   expect(decisionScrollCalls).toBe(1);
+  await expect(focusedDecision).not.toHaveAttribute(
+    'data-decision-highlight',
+    'true',
+  );
 });
 
 test('authenticated user sees a poll close after its closing time passes', async ({

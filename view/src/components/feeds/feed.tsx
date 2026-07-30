@@ -16,6 +16,7 @@ import { type QueryKey } from '@tanstack/react-query';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 
 const IN_VIEW_THRESHOLD = 50;
+const DECISION_HIGHLIGHT_DURATION_MS = 1800;
 
 type FeedScrollMode = 'bottom-anchored' | 'natural';
 
@@ -115,6 +116,10 @@ export const Feed = ({
       resizeObserver.disconnect();
       mutationObserver.disconnect();
       lastFocusedDecisionRequestRef.current = requestKey;
+      focusedDecision.dataset.decisionHighlight = 'true';
+      window.setTimeout(() => {
+        delete focusedDecision.dataset.decisionHighlight;
+      }, DECISION_HIGHLIGHT_DURATION_MS);
       focusedDecision.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
