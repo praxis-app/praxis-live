@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Response } from '@playwright/test';
 import {
   authorizationHeaders,
   createAuthenticatedUser,
@@ -327,7 +327,7 @@ test('active decision opens fully in view across channels and feed pages', async
     serverId: server.id,
     channelId: server.generalChannelId,
     bodies: Array.from(
-      { length: channelFeedPageSize },
+      { length: channelFeedPageSize * 2 },
       (_, index) =>
         `Newer focus message ${index + 1} ${authenticatedUser.user.suffix}`,
     ),
@@ -356,25 +356,31 @@ test('active decision opens fully in view across channels and feed pages', async
   const panel = page.getByRole('complementary', {
     name: 'Active decisions',
   });
-  const nextFeedPageResponse = page.waitForResponse((response) => {
+  const feedPageCursors: string[] = [];
+  const recordFeedPageResponse = (response: Response) => {
     const url = new URL(response.url());
-    return (
+    if (
       response.request().method() === 'GET' &&
       url.pathname ===
         `/api/servers/${server.id}/channels/${server.generalChannelId}/feed` &&
       url.searchParams.has('before') &&
       url.searchParams.get('limit') === String(channelFeedPageSize) &&
       response.status() === 200
-    );
-  });
+    ) {
+      feedPageCursors.push(url.searchParams.get('before')!);
+    }
+  };
+  page.on('response', recordFeedPageResponse);
   await panel
     .getByText(decisionBody, { exact: true })
     .locator('xpath=ancestor::a')
     .click();
-  await nextFeedPageResponse;
 
   const focusedDecision = feed.locator(`[data-decision-id="${poll.id}"]`);
   await expect(focusedDecision).toBeFocused();
+  page.off('response', recordFeedPageResponse);
+  expect(feedPageCursors).toHaveLength(2);
+  expect(new Set(feedPageCursors).size).toBe(2);
   await expect(focusedDecision).toHaveAttribute(
     'data-decision-highlight',
     'true',
