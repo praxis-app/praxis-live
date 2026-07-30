@@ -17,7 +17,7 @@ import { type ChannelRes } from '@/types/channel.types';
 import { type MessageRes } from '@/types/message.types';
 import { type PubSubMessage } from '@/types/shared.types';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface NewMessagePayload {
@@ -48,6 +48,8 @@ export const CallChatPanel = ({
   initialFeedLimit = MESSAGES_PAGE_SIZE,
 }: Props) => {
   const feedBoxRef = useRef<HTMLDivElement>(null);
+  const shouldScrollAfterSendRef = useRef(false);
+
   const queryClient = useQueryClient();
   const { me } = useAuthData();
   const { t } = useTranslation();
@@ -71,31 +73,51 @@ export const CallChatPanel = ({
     hasNextPage,
     isFetchingNextPage,
   } = useFeedQuery({
-      queryKey: feedQueryKey,
-      fetchPage: async (cursor, limit) => {
-        if (!serverId) {
-          throw new Error('Server ID is required');
-        }
-        const result = await api.getCallFeed(
-          serverId,
-          channel.id,
-          callId,
-          cursor,
-          Math.max(limit, initialFeedLimit),
-        );
-        const existingFeed = queryClient
-          .getQueryData<FeedQuery>(feedQueryKey)
-          ?.pages.flatMap((page) => page.feed);
-        return {
-          ...result,
+    queryKey: feedQueryKey,
+    fetchPage: async (cursor, limit) => {
+      if (!serverId) {
+        throw new Error('Server ID is required');
+      }
+      const result = await api.getCallFeed(
+        serverId,
+        channel.id,
+        callId,
+        cursor,
+        Math.max(limit, initialFeedLimit),
+      );
+      const existingFeed = queryClient
+        .getQueryData<FeedQuery>(feedQueryKey)
+        ?.pages.flatMap((page) => page.feed);
+      return {
+        ...result,
 
-          // Keep locally loaded image srcs from being lost on feed refresh.
-          feed: preserveFeedImages(existingFeed, result.feed),
-        };
-      },
-      pageSize: MESSAGES_PAGE_SIZE,
-      enabled: !!serverId,
+        // Keep locally loaded image srcs from being lost on feed refresh.
+        feed: preserveFeedImages(existingFeed, result.feed),
+      };
+    },
+    pageSize: MESSAGES_PAGE_SIZE,
+    enabled: !!serverId,
+  });
+
+  const feed = useMemo(
+    () => feedData?.pages.flatMap((page) => page.feed) || [],
+    [feedData?.pages],
+  );
+
+  useEffect(() => {
+    if (!shouldScrollAfterSendRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      shouldScrollAfterSendRef.current = false;
+      if (feedBoxRef.current) {
+        feedBoxRef.current.scrollTop = 0;
+      }
     });
+
+    return () => cancelAnimationFrame(frame);
+  }, [feed]);
 
   const scrollToBottom = () => {
     if (feedBoxRef.current && feedBoxRef.current.scrollTop >= -200) {
@@ -211,7 +233,7 @@ export const CallChatPanel = ({
         channel={channel}
         feedBoxRef={feedBoxRef}
         onLoadMore={fetchNextPage}
-        feed={feedData?.pages.flatMap((page) => page.feed) || []}
+        feed={feed}
         feedQueryKey={feedQueryKey}
         isLastPage={!hasNextPage}
         isLoadingMore={isFetchingNextPage}
@@ -222,7 +244,9 @@ export const CallChatPanel = ({
           channelId={channel.id}
           callId={callId}
           showActions={false}
-          onSend={scrollToBottom}
+          onSend={() => {
+            shouldScrollAfterSendRef.current = true;
+          }}
         />
       )}
     </section>

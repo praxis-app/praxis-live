@@ -78,6 +78,8 @@ export const TextChannelView = ({
   const { inviteToken } = useAuthStore();
 
   const feedBoxRef = useRef<HTMLDivElement>(null);
+  const shouldScrollAfterSendRef = useRef(false);
+
   const queryClient = useQueryClient();
   const isDesktop = useIsDesktop();
   const location = useLocation();
@@ -139,6 +141,21 @@ export const TextChannelView = ({
     () => feedData?.pages.flatMap((page) => page.feed) || [],
     [feedData?.pages],
   );
+
+  useEffect(() => {
+    if (!shouldScrollAfterSendRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      shouldScrollAfterSendRef.current = false;
+      if (feedBoxRef.current) {
+        feedBoxRef.current.scrollTop = 0;
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [feed]);
 
   const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
   const navigationState = location.state as { decisionId?: unknown } | null;
@@ -427,7 +444,9 @@ export const TextChannelView = ({
         <MessageForm
           channelId={channel?.id}
           focusOnTyping={!callConfig}
-          onSend={scrollToBottom}
+          onSend={() => {
+            shouldScrollAfterSendRef.current = true;
+          }}
         />
       </div>
 

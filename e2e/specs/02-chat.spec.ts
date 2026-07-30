@@ -55,6 +55,52 @@ test('authenticated user can send a basic chat message', async ({
   await chat.expectMessage(message, authenticatedUser.user.name);
 });
 
+test('sending a message snaps a scrolled channel feed to the bottom', async ({
+  context,
+  page,
+  request,
+}) => {
+  const user = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('send-scroll'),
+  );
+  const server = await getDefaultServer(request, user);
+  const existingMessages = Array.from(
+    { length: feedPageSize },
+    (_, index) =>
+      `Existing message ${String(index + 1).padStart(2, '0')} ${
+        user.user.suffix
+      }`,
+  );
+  await createMessages({
+    request,
+    user,
+    serverId: server.id,
+    channelId: server.generalChannelId,
+    bodies: existingMessages,
+  });
+
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  const feed = page.getByTestId('feed');
+  await expect(feed.getByText(existingMessages.at(-1)!)).toBeVisible();
+  await feed.evaluate((element) => {
+    element.scrollTop = -element.scrollHeight;
+  });
+  await expect
+    .poll(() => feed.evaluate((element) => element.scrollTop))
+    .toBeLessThan(-200);
+
+  const message = createTestMessage('send-scroll', user.user.suffix);
+  const chat = new ChatPage(page);
+  await chat.sendMessage(message);
+
+  await expect
+    .poll(() => feed.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await expect(feed.getByText(message)).toBeVisible();
+});
+
 test('text channel feed preserves its pages and syncs only newer messages when revisited', async ({
   context,
   page,
