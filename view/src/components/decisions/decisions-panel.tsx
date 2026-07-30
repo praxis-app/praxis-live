@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { LuListTodo } from 'react-icons/lu';
 import { MdClose, MdErrorOutline } from 'react-icons/md';
 
-const DECISIONS_PAGE_SIZE = 20;
+const DECISIONS_PAGE_SIZE = 10;
 const IN_VIEW_THRESHOLD = 50;
 
 interface Props {

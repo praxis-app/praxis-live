@@ -39,7 +39,7 @@ type PollResponse = {
 };
 
 const changedRoleColor = '#2196f3';
-const activeDecisionsPageSize = 20;
+const activeDecisionsPageSize = 10;
 const channelFeedPageSize = 20;
 const totalActiveDecisions = 41;
 
@@ -97,11 +97,14 @@ test('authenticated user can create and vote in a poll', async ({
   expect(minutesUntil(poll.config.closingAt!)).toBeLessThanOrEqual(30);
 
   await expect(dialog).toBeHidden();
-  await expect(page.getByText(question)).toBeVisible();
+  const createdPoll = page
+    .getByTestId('feed')
+    .locator(`[data-decision-id="${poll.id}"]`);
+  await expect(createdPoll.getByText(question)).toBeVisible();
   for (const option of options) {
-    await expect(page.getByText(option)).toBeVisible();
+    await expect(createdPoll.getByText(option)).toBeVisible();
   }
-  await expect(page.getByText('Ends in 30 minutes')).toBeVisible();
+  await expect(createdPoll.getByText('Ends in 30 minutes')).toBeVisible();
 
   const voteResponse = page.waitForResponse(
     (response) =>
@@ -109,12 +112,14 @@ test('authenticated user can create and vote in a poll', async ({
       response.url().includes(`/polls/${poll.id}/votes`) &&
       response.status() === 200,
   );
-  await page.getByRole('button', { name: options[1] }).click();
-  await page.getByRole('button', { name: 'Vote', exact: true }).first().click();
+  await createdPoll.getByRole('button', { name: options[1] }).click();
+  await createdPoll.getByRole('button', { name: 'Vote', exact: true }).click();
   await voteResponse;
 
-  await expect(page.getByRole('button', { name: 'Remove vote' })).toBeVisible();
-  await expect(page.getByText('1 vote').first()).toBeVisible();
+  await expect(
+    createdPoll.getByRole('button', { name: 'Remove vote' }),
+  ).toBeVisible();
+  await expect(createdPoll.getByText('1 vote').first()).toBeVisible();
 });
 
 test('active decisions panel loads the next page when scrolled to the bottom', async ({
@@ -187,6 +192,7 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
     await expect(createPollResponse).toBeOK();
   }
 
+  await page.setViewportSize({ width: 1180, height: 720 });
   await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
   await expect(
     page.getByRole('link', { name: 'general', exact: true }),
@@ -553,7 +559,9 @@ test('anonymous user can create only allowed chat polls', async ({
   await pollDialog.getByRole('button', { name: 'Create poll' }).click();
   await pollResponse;
   await expect(pollDialog).toBeHidden();
-  await expect(page.getByText(pollQuestion)).toBeVisible();
+  await expect(
+    page.getByTestId('feed').getByText(pollQuestion),
+  ).toBeVisible();
 
   await openCreatePollDialog(page, 'Create proposal');
   const proposalDialog = page.getByRole('dialog', {
@@ -583,7 +591,9 @@ test('anonymous user can create only allowed chat polls', async ({
   await proposalDialog.getByRole('button', { name: 'Create proposal' }).click();
   await proposalResponse;
   await expect(proposalDialog).toBeHidden();
-  await expect(page.getByText(proposalBody)).toBeVisible();
+  await expect(
+    page.getByTestId('feed').getByText(proposalBody),
+  ).toBeVisible();
 });
 
 test('user can create and ratify a proposal to change a role', async ({

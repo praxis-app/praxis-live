@@ -563,7 +563,12 @@ test('authenticated user can create and vote on an in-call proposal', async ({
       name: `Consensus proposal: ${proposalBody}`,
     });
     await expect(proposal).toBeVisible();
-    await expect(page.getByText('Active Decision')).toBeVisible();
+    await expect(
+      activeDecisionPanel.getByRole('heading', {
+        name: 'Active Decision',
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(activeDecisionPanel.getByText(/0\/\d+ responded/)).toBeVisible();
 
     const disagreeButton = proposal.getByRole('button', { name: 'Disagree' });
