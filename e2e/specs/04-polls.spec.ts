@@ -420,6 +420,9 @@ test('active decision opens fully in view across channels and feed pages', async
       { intervals: [100, 100, 100, 100, 100] },
     )
     .toBeGreaterThanOrEqual(3);
+
+  // TODO: Remove this implementation-specific assertion if it proves brittle;
+  // the visibility and focus assertions above already cover the user outcome.
   const decisionScrollCalls = await page.evaluate(
     (decisionId) =>
       (
@@ -428,10 +431,10 @@ test('active decision opens fully in view across channels and feed pages', async
             __decisionScrollCalls?: string[];
           }
         ).__decisionScrollCalls || []
-      ).filter((scrollDecisionId) => scrollDecisionId === decisionId)
-        .length,
+      ).filter((scrollDecisionId) => scrollDecisionId === decisionId).length,
     poll.id,
   );
+
   expect(decisionScrollCalls).toBe(1);
   await expect(focusedDecision).not.toHaveAttribute(
     'data-decision-highlight',
@@ -559,9 +562,7 @@ test('anonymous user can create only allowed chat polls', async ({
   await pollDialog.getByRole('button', { name: 'Create poll' }).click();
   await pollResponse;
   await expect(pollDialog).toBeHidden();
-  await expect(
-    page.getByTestId('feed').getByText(pollQuestion),
-  ).toBeVisible();
+  await expect(page.getByTestId('feed').getByText(pollQuestion)).toBeVisible();
 
   await openCreatePollDialog(page, 'Create proposal');
   const proposalDialog = page.getByRole('dialog', {
@@ -591,9 +592,7 @@ test('anonymous user can create only allowed chat polls', async ({
   await proposalDialog.getByRole('button', { name: 'Create proposal' }).click();
   await proposalResponse;
   await expect(proposalDialog).toBeHidden();
-  await expect(
-    page.getByTestId('feed').getByText(proposalBody),
-  ).toBeVisible();
+  await expect(page.getByTestId('feed').getByText(proposalBody)).toBeVisible();
 });
 
 test('user can create and ratify a proposal to change a role', async ({
