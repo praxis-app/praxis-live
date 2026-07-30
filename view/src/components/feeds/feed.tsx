@@ -90,6 +90,7 @@ export const Feed = ({
     }
   }, [isLoggedIn, isAppLoading, isAnon]);
 
+  // Focus and reveal a selected decision after the feed layout settles.
   useEffect(() => {
     if (!focusedDecisionId) {
       lastFocusedDecisionRequestRef.current = null;
