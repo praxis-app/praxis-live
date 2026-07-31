@@ -168,12 +168,12 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
             )}
 
             {decisionsQuery.isSuccess && decisions.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+              <div className="flex h-full -translate-y-10 flex-col items-center justify-center px-4 text-center">
                 <LuListTodo className="text-muted-foreground size-8" />
                 <p className="mt-3 font-medium">
                   {t('decisions.prompts.emptyTitle')}
                 </p>
-                <p className="text-muted-foreground mt-1 max-w-56 text-sm leading-5 text-balance">
+                <p className="text-muted-foreground mt-1 max-w-60 text-sm leading-5 text-pretty">
                   {t('decisions.prompts.emptyDescription')}
                 </p>
               </div>
