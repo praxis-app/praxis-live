@@ -1,10 +1,12 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Response } from '@playwright/test';
 import {
+  authorizationHeaders,
   createAuthenticatedUser,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
+import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
   expirePollDeadline,
   makeProposalsRatifyWithOneAgreeVote,
@@ -14,6 +16,7 @@ import {
   selectRadixOption,
   shortenNextPollDuration,
 } from '../lib/polls';
+import { createMessages } from '../lib/messages';
 import { getAdminRole, getDefaultServer, getServerRole } from '../lib/servers';
 import { minutesUntil, secondsUntil } from '../lib/time';
 import { ChatPage } from '../pages/chat.page';
@@ -36,6 +39,9 @@ type PollResponse = {
 };
 
 const changedRoleColor = '#2196f3';
+const activeDecisionsPageSize = 10;
+const channelFeedPageSize = 20;
+const totalActiveDecisions = 41;
 
 test('authenticated user can create and vote in a poll', async ({
   context,
@@ -91,11 +97,20 @@ test('authenticated user can create and vote in a poll', async ({
   expect(minutesUntil(poll.config.closingAt!)).toBeLessThanOrEqual(30);
 
   await expect(dialog).toBeHidden();
-  await expect(page.getByText(question)).toBeVisible();
+  const createdPoll = page
+    .getByTestId('feed')
+    .locator(`[data-decision-id="${poll.id}"]`);
+  await expect(createdPoll.getByText(question)).toBeVisible();
   for (const option of options) {
-    await expect(page.getByText(option)).toBeVisible();
+    await expect(createdPoll.getByText(option)).toBeVisible();
   }
-  await expect(page.getByText('Ends in 30 minutes')).toBeVisible();
+  await expect(createdPoll.getByText('Ends in 30 minutes')).toBeVisible();
+
+  const activeDecision = page
+    .getByRole('complementary', { name: 'Active decisions' })
+    .getByRole('link', { name: 'Open poll in general' })
+    .filter({ hasText: question });
+  await expect(activeDecision).toBeVisible();
 
   const voteResponse = page.waitForResponse(
     (response) =>
@@ -103,12 +118,342 @@ test('authenticated user can create and vote in a poll', async ({
       response.url().includes(`/polls/${poll.id}/votes`) &&
       response.status() === 200,
   );
-  await page.getByRole('button', { name: options[1] }).click();
-  await page.getByRole('button', { name: 'Vote', exact: true }).first().click();
+  await createdPoll.getByRole('button', { name: options[1] }).click();
+  await createdPoll.getByRole('button', { name: 'Vote', exact: true }).click();
   await voteResponse;
 
-  await expect(page.getByRole('button', { name: 'Remove vote' })).toBeVisible();
-  await expect(page.getByText('1 vote').first()).toBeVisible();
+  await expect(
+    createdPoll.getByRole('button', { name: 'Remove vote' }),
+  ).toBeVisible();
+  await expect(createdPoll.getByText('1 vote').first()).toBeVisible();
+  await expect(activeDecision.getByText('Responded')).toBeVisible();
+  await expect(activeDecision.getByText(/^1\/\d+$/)).toBeVisible();
+});
+
+test('active decisions panel loads the next page when scrolled to the bottom', async ({
+  context,
+  page,
+  request,
+}) => {
+  const expectedPageCount = Math.ceil(
+    totalActiveDecisions / activeDecisionsPageSize,
+  );
+  test.setTimeout(Math.max(60_000, expectedPageCount * 15_000));
+  expect(totalActiveDecisions).toBeGreaterThan(0);
+
+  const authenticatedUser = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('decision-scroll'),
+  );
+  const serverName = `Decision scroll ${authenticatedUser.user.suffix}`;
+  const serverSlug = `decision-scroll-${authenticatedUser.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(authenticatedUser),
+    data: {
+      name: serverName,
+      slug: serverSlug,
+      description: 'Server for active decision pagination.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+
+  const getServerResponse = await request.get(
+    `/api/servers/slug/${serverSlug}`,
+    { headers: authorizationHeaders(authenticatedUser) },
+  );
+  await expect(getServerResponse).toBeOK();
+  const { server } = (await getServerResponse.json()) as {
+    server: {
+      id: string;
+      slug: string;
+      generalChannelId: string;
+    };
+  };
+  expect(server.generalChannelId).toBeTruthy();
+
+  const decisionBodies = Array.from(
+    { length: totalActiveDecisions },
+    (_, index) =>
+      `Infinite scroll decision ${String(index + 1).padStart(2, '0')} ${
+        authenticatedUser.user.suffix
+      }`,
+  );
+
+  for (const [index, body] of decisionBodies.entries()) {
+    const createPollResponse = await request.post(
+      `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+      {
+        headers: authorizationHeaders(authenticatedUser),
+        data: {
+          body,
+          pollType: 'poll',
+          options: ['Yes', 'No'],
+          multipleChoice: false,
+          closingAt: new Date(
+            Date.now() + (index + 1) * 60 * 60 * 1000,
+          ).toISOString(),
+        },
+      },
+    );
+    await expect(createPollResponse).toBeOK();
+  }
+
+  await page.setViewportSize({ width: 1180, height: 720 });
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await expect(
+    page.getByRole('link', { name: 'general', exact: true }),
+  ).toBeVisible();
+
+  const firstPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === 'GET' &&
+      url.pathname === `/api/servers/${server.id}/decisions` &&
+      !url.searchParams.has('before') &&
+      url.searchParams.get('limit') === String(activeDecisionsPageSize) &&
+      response.status() === 200
+    );
+  });
+  await page.getByRole('button', { name: 'Toggle active decisions' }).click();
+  await firstPageResponse;
+
+  const panel = page.getByRole('complementary', {
+    name: 'Active decisions',
+  });
+  const finalDecision = decisionBodies.at(-1)!;
+  await expect(panel.getByText(decisionBodies[0])).toBeVisible();
+
+  if (totalActiveDecisions > activeDecisionsPageSize) {
+    await expect(panel.getByText(finalDecision)).toHaveCount(0);
+
+    const decisionsList = panel.getByTestId('active-decisions-list');
+    await scrollThroughAllPages({
+      page,
+      scrollContainer: decisionsList,
+      pageSize: activeDecisionsPageSize,
+      totalItems: totalActiveDecisions,
+      direction: 'down',
+      matchesPageResponse: (response) => {
+        const url = new URL(response.url());
+        return (
+          response.request().method() === 'GET' &&
+          url.pathname === `/api/servers/${server.id}/decisions` &&
+          url.searchParams.has('before') &&
+          url.searchParams.get('limit') === String(activeDecisionsPageSize) &&
+          response.status() === 200
+        );
+      },
+      onPageLoaded: async (loadedItemCount) => {
+        const lastDecisionOnPage =
+          decisionBodies[
+            Math.min(
+              loadedItemCount + activeDecisionsPageSize,
+              totalActiveDecisions,
+            ) - 1
+          ];
+        await expect(panel.getByText(lastDecisionOnPage)).toBeVisible();
+      },
+    });
+  }
+
+  await expect(panel.getByText(finalDecision)).toBeVisible();
+});
+
+test('active decision opens fully in view across channels and feed pages', async ({
+  context,
+  page,
+  request,
+}) => {
+  const authenticatedUser = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('decision-focus'),
+  );
+  const serverSlug = `decision-focus-${authenticatedUser.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(authenticatedUser),
+    data: {
+      name: `Decision focus ${authenticatedUser.user.suffix}`,
+      slug: serverSlug,
+      description: 'Server for active decision feed focus.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+
+  const getServerResponse = await request.get(
+    `/api/servers/slug/${serverSlug}`,
+    { headers: authorizationHeaders(authenticatedUser) },
+  );
+  await expect(getServerResponse).toBeOK();
+  const { server } = (await getServerResponse.json()) as {
+    server: {
+      id: string;
+      slug: string;
+      generalChannelId: string;
+    };
+  };
+  const otherChannelName = `decision-start-${authenticatedUser.user.suffix}`;
+  const createChannelResponse = await request.post(
+    `/api/servers/${server.id}/channels`,
+    {
+      headers: authorizationHeaders(authenticatedUser),
+      data: {
+        name: otherChannelName,
+        description: 'Starting channel for decision focus navigation.',
+        channelType: 'text',
+      },
+    },
+  );
+  await expect(createChannelResponse).toBeOK();
+  const { channel: otherChannel } = (await createChannelResponse.json()) as {
+    channel: { id: string };
+  };
+
+  const decisionBody = `Focused decision ${authenticatedUser.user.suffix}`;
+  const createPollResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+    {
+      headers: authorizationHeaders(authenticatedUser),
+      data: {
+        body: decisionBody,
+        pollType: 'poll',
+        options: ['Strong yes', 'Yes', 'Neutral', 'No', 'Strong no'],
+        multipleChoice: false,
+        closingAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      },
+    },
+  );
+  await expect(createPollResponse).toBeOK();
+  const { poll } = (await createPollResponse.json()) as PollResponse;
+
+  await createMessages({
+    request,
+    user: authenticatedUser,
+    serverId: server.id,
+    channelId: server.generalChannelId,
+    bodies: Array.from(
+      { length: channelFeedPageSize * 2 },
+      (_, index) =>
+        `Newer focus message ${index + 1} ${authenticatedUser.user.suffix}`,
+    ),
+  });
+
+  await page.addInitScript(() => {
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    const scrollCalls: string[] = [];
+    (
+      window as Window & { __decisionScrollCalls?: string[] }
+    ).__decisionScrollCalls = scrollCalls;
+    Element.prototype.scrollIntoView = function (
+      options?: boolean | ScrollIntoViewOptions,
+    ) {
+      if (this instanceof HTMLElement && this.dataset.decisionId) {
+        scrollCalls.push(this.dataset.decisionId);
+      }
+      originalScrollIntoView.call(this, options);
+    };
+  });
+  await page.setViewportSize({ width: 1440, height: 720 });
+  const feed = page.getByTestId('feed');
+  await page.goto(`/s/${server.slug}/c/${otherChannel.id}`);
+  await expect(page.locator('header')).toContainText(otherChannelName);
+
+  const panel = page.getByRole('complementary', {
+    name: 'Active decisions',
+  });
+  const feedPageCursors: string[] = [];
+  const recordFeedPageResponse = (response: Response) => {
+    const url = new URL(response.url());
+    if (
+      response.request().method() === 'GET' &&
+      url.pathname ===
+        `/api/servers/${server.id}/channels/${server.generalChannelId}/feed` &&
+      url.searchParams.has('before') &&
+      url.searchParams.get('limit') === String(channelFeedPageSize) &&
+      response.status() === 200
+    ) {
+      feedPageCursors.push(url.searchParams.get('before')!);
+    }
+  };
+  page.on('response', recordFeedPageResponse);
+  await panel
+    .getByText(decisionBody, { exact: true })
+    .locator('xpath=ancestor::a')
+    .click();
+
+  const focusedDecision = feed.locator(`[data-decision-id="${poll.id}"]`);
+  await expect(focusedDecision).toBeFocused();
+  page.off('response', recordFeedPageResponse);
+  expect(feedPageCursors).toHaveLength(2);
+  expect(new Set(feedPageCursors).size).toBe(2);
+  await expect(focusedDecision).toHaveAttribute(
+    'data-decision-highlight',
+    'true',
+  );
+  await feed.evaluate(
+    (element) =>
+      new Promise<void>((resolve) => {
+        const fallback = window.setTimeout(resolve, 750);
+        element.addEventListener(
+          'scrollend',
+          () => {
+            window.clearTimeout(fallback);
+            resolve();
+          },
+          { once: true },
+        );
+      }),
+  );
+  let consecutiveFullyVisibleChecks = 0;
+  await expect
+    .poll(
+      async () => {
+        const [feedBox, decisionBox] = await Promise.all([
+          feed.boundingBox(),
+          focusedDecision.boundingBox(),
+        ]);
+        if (!feedBox || !decisionBox) {
+          consecutiveFullyVisibleChecks = 0;
+          return consecutiveFullyVisibleChecks;
+        }
+
+        const decisionTop = decisionBox.y;
+        const decisionBottom = decisionBox.y + decisionBox.height;
+        const feedTop = feedBox.y;
+        const feedBottom = feedBox.y + feedBox.height;
+        const isFullyVisible =
+          decisionTop >= feedTop && decisionBottom <= feedBottom;
+        consecutiveFullyVisibleChecks = isFullyVisible
+          ? consecutiveFullyVisibleChecks + 1
+          : 0;
+        return consecutiveFullyVisibleChecks;
+      },
+      { intervals: [100, 100, 100, 100, 100] },
+    )
+    .toBeGreaterThanOrEqual(3);
+
+  // TODO: Remove this implementation-specific assertion if it proves brittle;
+  // the visibility and focus assertions above already cover the user outcome.
+  const decisionScrollCalls = await page.evaluate(
+    (decisionId) =>
+      (
+        (
+          window as Window & {
+            __decisionScrollCalls?: string[];
+          }
+        ).__decisionScrollCalls || []
+      ).filter((scrollDecisionId) => scrollDecisionId === decisionId).length,
+    poll.id,
+  );
+
+  expect(decisionScrollCalls).toBe(1);
+  await expect(focusedDecision).not.toHaveAttribute(
+    'data-decision-highlight',
+    'true',
+  );
 });
 
 test('authenticated user sees a poll close after its closing time passes', async ({
@@ -231,7 +576,7 @@ test('anonymous user can create only allowed chat polls', async ({
   await pollDialog.getByRole('button', { name: 'Create poll' }).click();
   await pollResponse;
   await expect(pollDialog).toBeHidden();
-  await expect(page.getByText(pollQuestion)).toBeVisible();
+  await expect(page.getByTestId('feed').getByText(pollQuestion)).toBeVisible();
 
   await openCreatePollDialog(page, 'Create proposal');
   const proposalDialog = page.getByRole('dialog', {
@@ -261,7 +606,7 @@ test('anonymous user can create only allowed chat polls', async ({
   await proposalDialog.getByRole('button', { name: 'Create proposal' }).click();
   await proposalResponse;
   await expect(proposalDialog).toBeHidden();
-  await expect(page.getByText(proposalBody)).toBeVisible();
+  await expect(page.getByTestId('feed').getByText(proposalBody)).toBeVisible();
 });
 
 test('user can create and ratify a proposal to change a role', async ({
@@ -344,10 +689,10 @@ test('user can create and ratify a proposal to change a role', async ({
   });
   await expect(roleChanges).toBeVisible();
   await roleChanges.click();
-  const roleChangeDetails = proposal.getByLabel(
-    'Role change proposal: admin',
-  );
-  await expect(roleChangeDetails.getByText('Name', { exact: true })).toBeVisible();
+  const roleChangeDetails = proposal.getByLabel('Role change proposal: admin');
+  await expect(
+    roleChangeDetails.getByText('Name', { exact: true }),
+  ).toBeVisible();
   await expect(
     roleChangeDetails.getByText('admin', { exact: true }),
   ).toBeVisible();

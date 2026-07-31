@@ -1,4 +1,5 @@
 import { api } from '@/client/api-client';
+import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -119,7 +120,7 @@ export const CreatePollForm = ({ channelId, callId, onSuccess }: Props) => {
         if (!old) {
           return {
             pages: [{ feed: [newItem] }],
-            pageParams: [0],
+            pageParams: [null],
           };
         }
         const pages = old.pages.map((page, idx) => {
@@ -132,9 +133,12 @@ export const CreatePollForm = ({ channelId, callId, onSuccess }: Props) => {
           if (exists) {
             return page;
           }
-          return { feed: [newItem, ...page.feed] };
+          return { ...page, feed: [newItem, ...page.feed] };
         });
         return { pages, pageParams: old.pageParams };
+      });
+      void queryClient.invalidateQueries({
+        queryKey: getActiveDecisionsQueryKey(serverId),
       });
 
       if (callId) {

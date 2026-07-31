@@ -1,16 +1,25 @@
 import { api } from '@/client/api-client';
+import {
+  getActiveDecisionsQueryKey,
+  updateActiveDecisionCache,
+} from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
+import { VOTE_TYPES } from '@/constants/vote.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
-import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
-import { type PollRes } from '@/types/poll.types';
-import { type VoteRes } from '@/types/vote.types';
-import { type DecisionMakingModel, type PollStage } from '@/types/poll.types';
-import { VOTE_TYPES } from '@/constants/vote.constants';
-import { type VoteType } from '@/types/vote.types';
+import {
+  type ChannelRes,
+  type FeedQuery,
+} from '@/types/channel.types';
+import {
+  type DecisionMakingModel,
+  type PollRes,
+  type PollStage,
+} from '@/types/poll.types';
+import { type VoteRes, type VoteType } from '@/types/vote.types';
 import {
   useMutation,
   useQueryClient,
@@ -150,29 +159,51 @@ export const ProposalVoteButtons = ({
       };
 
       if (feedQueryKey) {
-        queryClient.setQueryData<{
-          pages: { feed: FeedItemRes[] }[];
-          pageParams: number[];
-        }>(feedQueryKey, (oldData) => {
+        queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
           if (!oldData) {
             return oldData;
           }
-          const pages = oldData.pages.map((page) => ({
-            feed: page.feed.map((item) => {
-              if (
-                item.id !== pollId ||
-                item.type !== 'poll' ||
-                item.pollType !== 'proposal'
-              ) {
-                return item;
-              }
-              return { ...updateProposal(item), type: 'poll' as const };
-            }),
-          }));
+          const pages = oldData.pages.map((page) => {
+            return {
+              ...page,
+              feed: page.feed.map((item) => {
+                if (
+                  item.id !== pollId ||
+                  item.type !== 'poll' ||
+                  item.pollType !== 'proposal'
+                ) {
+                  return item;
+                }
+                return { ...updateProposal(item), type: 'poll' as const };
+              }),
+            };
+          });
           return { pages, pageParams: oldData.pageParams };
         });
       }
 
+      if (result.isRatifyingVote) {
+        void queryClient.invalidateQueries({
+          queryKey: getActiveDecisionsQueryKey(serverId),
+        });
+      } else {
+        updateActiveDecisionCache(queryClient, serverId, pollId, (decision) => {
+          const responseCountChange =
+            result.action === 'create'
+              ? 1
+              : result.action === 'delete'
+                ? -1
+                : 0;
+          return {
+            ...decision,
+            responseCount: Math.max(
+              0,
+              decision.responseCount + responseCountChange,
+            ),
+            hasResponded: result.action !== 'delete',
+          };
+        });
+      }
       updateCachedProposal?.(updateProposal);
 
       if (result.isRatifyingVote) {

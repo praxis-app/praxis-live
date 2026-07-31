@@ -104,6 +104,7 @@ export async function selectRadixOption(
 
 export function pollCard(page: Page, question: string) {
   return page
+    .getByTestId('feed')
     .getByText(question)
     .locator('xpath=ancestor::div[contains(@class, "rounded-md")][1]');
 }

@@ -1,5 +1,6 @@
 mod extractors;
 mod handlers;
+mod pagination;
 mod routes;
 mod service;
 mod types;

@@ -5,4 +5,6 @@ pub(crate) mod handlers;
 pub(crate) mod service;
 pub(crate) mod types;
 
-pub(crate) use routes::{call_decisions_router, call_polls_router, router};
+pub(crate) use routes::{
+    active_decisions_router, call_decisions_router, call_polls_router, router,
+};

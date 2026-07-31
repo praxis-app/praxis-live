@@ -29,3 +29,25 @@ export async function createForumChannel(
   expect(channel.channelType).toBe('forum');
   return channel;
 }
+
+export async function createForumPosts(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+  serverId: string,
+  channelId: string,
+  titles: string[],
+) {
+  for (const title of titles) {
+    const response = await request.post(
+      `/api/servers/${serverId}/channels/${channelId}/forum/posts`,
+      {
+        headers: authorizationHeaders(user),
+        data: {
+          title,
+          body: `Opening message for ${title}`,
+        },
+      },
+    );
+    await expect(response).toBeOK();
+  }
+}

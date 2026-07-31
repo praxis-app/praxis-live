@@ -113,7 +113,7 @@ export const CallDecisionPanel = ({
     }
     queryClient.setQueryData<FeedQuery>(decisionFeedQueryKey, {
       pages: [{ feed: [{ ...decision.activeItem, type: 'poll' }] }],
-      pageParams: [0],
+      pageParams: [null],
     });
   }, [decision?.activeItem, decisionFeedQueryKey, queryClient]);
 

@@ -1,6 +1,7 @@
 import { api } from '@/client/api-client';
 import { Feed } from '@/components/feeds/feed';
 import { ChannelTopNav } from '@/components/channels/channel-top-nav';
+import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { MessageForm } from '@/components/messages/message-form';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
@@ -8,6 +9,7 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useInstanceCapabilitiesQuery } from '@/hooks/use-instance-capabilities-query';
+import { useFeedQuery } from '@/hooks/use-feed-query';
 import { useServerData } from '@/hooks/use-server-data';
 import { useSubscription } from '@/hooks/use-subscription';
 import { useAuthStore } from '@/store/auth.store';
@@ -29,8 +31,9 @@ import {
   replaceProposalWithForumReference,
 } from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface NewMessagePayload {
   type: PubSubMessageType.MESSAGE;
@@ -61,20 +64,30 @@ interface ImageMessagePayload {
 
 interface Props {
   channel?: ChannelRes;
+  isDecisionsPanelOpen: boolean;
+  onCloseDecisionsPanel: () => void;
+  onToggleDecisionsPanel: () => void;
 }
 
-export const TextChannelView = ({ channel }: Props) => {
+export const TextChannelView = ({
+  channel,
+  isDecisionsPanelOpen,
+  onCloseDecisionsPanel,
+  onToggleDecisionsPanel,
+}: Props) => {
   const { inviteToken } = useAuthStore();
-  const [isLastPage, setIsLastPage] = useState(false);
 
   const feedBoxRef = useRef<HTMLDivElement>(null);
+  const shouldScrollAfterSendRef = useRef(false);
+
   const queryClient = useQueryClient();
   const isDesktop = useIsDesktop();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const { me, isMeSuccess, isAuthError } = useAuthData();
   const { data: capabilities } = useInstanceCapabilitiesQuery();
   const { server, serverId } = useServerData();
-  const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
 
   const {
     callConfig,
@@ -87,25 +100,30 @@ export const TextChannelView = ({ channel }: Props) => {
     leaveCall,
   } = useChannelCall(serverId, channel?.id);
 
-  const feedQueryKey = ['servers', serverId, 'channels', channel?.id, 'feed'];
+  const feedQueryKey = useMemo(
+    () => ['servers', serverId, 'channels', channel?.id, 'feed'],
+    [channel?.id, serverId],
+  );
 
-  const { data: feedData, fetchNextPage } = useInfiniteQuery({
+  const {
+    data: feedData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchNextPageError,
+    isFetchingNextPage,
+  } = useFeedQuery({
     queryKey: feedQueryKey,
-    queryFn: async ({ pageParam }) => {
+    fetchPage: async (cursor, limit) => {
       if (!serverId || !channel?.id) {
         throw new Error('Server ID and channel ID are required');
       }
       const result = await api.getChannelFeed(
         serverId,
         channel.id,
-        pageParam,
-        MESSAGES_PAGE_SIZE,
+        cursor,
+        limit,
         inviteToken,
       );
-      const isLast = result.feed.length === 0;
-      if (isLast) {
-        setIsLastPage(true);
-      }
       const existingFeed = queryClient
         .getQueryData<FeedQuery>(feedQueryKey)
         ?.pages.flatMap((page) => page.feed);
@@ -116,12 +134,67 @@ export const TextChannelView = ({ channel }: Props) => {
         feed: preserveFeedImages(existingFeed, result.feed),
       };
     },
-    getNextPageParam: (_lastPage, pages) => {
-      return pages.flatMap((page) => page.feed).length;
-    },
-    initialPageParam: 0,
+    pageSize: MESSAGES_PAGE_SIZE,
     enabled: !!serverId && !!channel?.id && (isMeSuccess || isAuthError),
   });
+
+  const feed = useMemo(
+    () => feedData?.pages.flatMap((page) => page.feed) || [],
+    [feedData?.pages],
+  );
+
+  // Keep a newly sent message in view.
+  useEffect(() => {
+    if (!shouldScrollAfterSendRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      shouldScrollAfterSendRef.current = false;
+      if (feedBoxRef.current) {
+        feedBoxRef.current.scrollTop = 0;
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [feed]);
+
+  const navigationState = location.state as { decisionId?: unknown } | null;
+  const navigationDecisionId =
+    typeof navigationState?.decisionId === 'string'
+      ? navigationState.decisionId
+      : undefined;
+
+  const clearFocusedDecisionRequest = useCallback(() => {
+    void navigate(location, { replace: true, state: null });
+  }, [location, navigate]);
+
+  const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
+  const focusedDecisionId = navigationDecisionId;
+
+  // Load more of the feed until the selected decision is found.
+  useEffect(() => {
+    const isDecisionLoaded = feed.some(
+      (item) => item.type === 'poll' && item.id === focusedDecisionId,
+    );
+    if (
+      !focusedDecisionId ||
+      isDecisionLoaded ||
+      !hasNextPage ||
+      isFetchNextPageError ||
+      isFetchingNextPage
+    ) {
+      return;
+    }
+    void fetchNextPage({ cancelRefetch: false });
+  }, [
+    feed,
+    fetchNextPage,
+    focusedDecisionId,
+    hasNextPage,
+    isFetchNextPageError,
+    isFetchingNextPage,
+  ]);
 
   // Listen for new messages
   useSubscription(
@@ -146,7 +219,7 @@ export const TextChannelView = ({ channel }: Props) => {
             if (!oldData) {
               return {
                 pages: [{ feed: [incomingFeedItem] }],
-                pageParams: [0],
+                pageParams: [null],
               };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
@@ -173,7 +246,7 @@ export const TextChannelView = ({ channel }: Props) => {
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
 
               // Add new message to first page only
@@ -185,7 +258,7 @@ export const TextChannelView = ({ channel }: Props) => {
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
               return page;
             });
@@ -215,7 +288,7 @@ export const TextChannelView = ({ channel }: Props) => {
                 );
                 return { ...item, images } as FeedItemRes;
               });
-              return { feed };
+              return { ...page, feed };
             });
 
             return { pages, pageParams: oldData.pageParams };
@@ -247,7 +320,7 @@ export const TextChannelView = ({ channel }: Props) => {
             if (!oldData) {
               return {
                 pages: [{ feed: [newFeedItem] }],
-                pageParams: [0],
+                pageParams: [null],
               };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
@@ -258,7 +331,7 @@ export const TextChannelView = ({ channel }: Props) => {
                 if (existingIndex !== -1) {
                   const updatedFeed = [...page.feed];
                   updatedFeed[existingIndex] = newFeedItem;
-                  return { feed: updatedFeed };
+                  return { ...page, feed: updatedFeed };
                 }
                 const updatedFeed = [newFeedItem, ...page.feed];
                 // Sort by createdAt descending (newest first)
@@ -267,7 +340,7 @@ export const TextChannelView = ({ channel }: Props) => {
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
               return page;
             });
@@ -301,7 +374,7 @@ export const TextChannelView = ({ channel }: Props) => {
             if (!oldData) {
               return {
                 pages: [{ feed: [newFeedItem] }],
-                pageParams: [0],
+                pageParams: [null],
               };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
@@ -311,7 +384,7 @@ export const TextChannelView = ({ channel }: Props) => {
               if (existingIndex !== -1) {
                 const updatedFeed = [...page.feed];
                 updatedFeed[existingIndex] = newFeedItem;
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
 
               if (index === 0) {
@@ -322,7 +395,7 @@ export const TextChannelView = ({ channel }: Props) => {
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
               return page;
             });
@@ -335,13 +408,6 @@ export const TextChannelView = ({ channel }: Props) => {
     },
   );
 
-  // Reset isLastPage when switching channels
-  useEffect(() => {
-    if (channel?.id) {
-      setIsLastPage(false);
-    }
-  }, [channel?.id]);
-
   const scrollToBottom = () => {
     if (feedBoxRef.current && feedBoxRef.current.scrollTop >= -200) {
       feedBoxRef.current.scrollTop = 0;
@@ -352,7 +418,7 @@ export const TextChannelView = ({ channel }: Props) => {
     <div className="fixed top-0 right-0 bottom-0 left-0 flex">
       {isDesktop && <LeftNavDesktop me={me} />}
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <ChannelTopNav
           channel={channel}
           callConfig={callConfig}
@@ -365,25 +431,40 @@ export const TextChannelView = ({ channel }: Props) => {
           onConfirmJoinCall={confirmJoinCall}
           onJoinCall={joinCall}
           onLeaveCall={leaveCall}
+          isDecisionsPanelOpen={isDecisionsPanelOpen}
+          onToggleDecisionsPanel={onToggleDecisionsPanel}
         />
 
         <Feed
+          feed={feed}
           channel={channel}
           feedBoxRef={feedBoxRef}
-          onLoadMore={fetchNextPage}
-          feed={feedData?.pages.flatMap((page) => page.feed) || []}
-          feedQueryKey={feedQueryKey}
-          isLastPage={isLastPage}
+          isLastPage={!hasNextPage}
           isJoiningCall={isJoining}
+          feedQueryKey={feedQueryKey}
+          isLoadingMore={isFetchingNextPage}
+          focusedDecisionId={focusedDecisionId}
+          focusedDecisionRequestKey={location.key}
+          onFocusedDecisionHandled={clearFocusedDecisionRequest}
           onJoinCall={videoCallsEnabled ? joinCall : undefined}
+          onLoadMore={() => void fetchNextPage({ cancelRefetch: false })}
         />
 
         <MessageForm
           channelId={channel?.id}
           focusOnTyping={!callConfig}
-          onSend={scrollToBottom}
+          onSend={() => {
+            shouldScrollAfterSendRef.current = true;
+          }}
         />
       </div>
+
+      {isDesktop && (
+        <DecisionsPanel
+          isOpen={isDecisionsPanelOpen}
+          onClose={onCloseDecisionsPanel}
+        />
+      )}
     </div>
   );
 };

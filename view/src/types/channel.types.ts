@@ -33,9 +33,19 @@ export type FeedItemRes =
 
 export interface FeedQueryPage {
   feed: FeedItemRes[];
+  startCursor?: string;
+  nextCursor?: string;
+  hasMore?: boolean;
 }
 
 export interface FeedQuery {
   pages: FeedQueryPage[];
-  pageParams: number[];
+  pageParams: (string | null)[];
+}
+
+export interface FeedPageRes {
+  feed: FeedItemRes[];
+  startCursor: string | null;
+  nextCursor: string | null;
+  hasMore: boolean;
 }

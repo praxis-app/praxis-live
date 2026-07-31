@@ -5,22 +5,31 @@ use super::types::{
     FeedItem, FeedMessageResponse, FeedPollResponse,
     FeedProposalForumReferenceResponse,
 };
-use crate::{calls, common::AppResult, forum, messages, polls};
+use crate::{
+    calls,
+    common::{
+        pagination::{PaginationCursor, PaginationDirection},
+        AppResult,
+    },
+    forum, messages, polls,
+};
 
 pub(crate) async fn get_channel_feed(
     database: &sea_orm::DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
     user_id: Option<Uuid>,
 ) -> AppResult<Vec<FeedItem>> {
-    let fetch_limit = offset.saturating_add(limit);
+    let fetch_limit = limit.saturating_add(1);
     let messages = messages::get_channel_message_feed(
         database,
         server_id,
         channel_id,
-        0,
+        cursor,
+        direction,
         fetch_limit,
     )
     .await?;
@@ -28,7 +37,8 @@ pub(crate) async fn get_channel_feed(
         database,
         server_id,
         channel_id,
-        0,
+        cursor,
+        direction,
         fetch_limit,
         user_id,
     )
@@ -37,7 +47,8 @@ pub(crate) async fn get_channel_feed(
         database,
         server_id,
         channel_id,
-        0,
+        cursor,
+        direction,
         fetch_limit,
     )
     .await?;
@@ -45,7 +56,8 @@ pub(crate) async fn get_channel_feed(
         forum::proposal_moves::list_proposal_forum_references(
             database,
             channel_id,
-            0,
+            cursor,
+            direction,
             fetch_limit,
         )
         .await?;
@@ -65,7 +77,7 @@ pub(crate) async fn get_channel_feed(
         feed.push(FeedItem::Call(call));
     }
 
-    Ok(sort_and_page_feed(feed, offset, limit))
+    Ok(sort_feed(feed, direction, fetch_limit))
 }
 
 pub(crate) async fn get_call_feed(
@@ -73,11 +85,19 @@ pub(crate) async fn get_call_feed(
     server_id: Uuid,
     channel_id: Uuid,
     call_id: Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
 ) -> AppResult<Vec<FeedItem>> {
+    let fetch_limit = limit.saturating_add(1);
     let messages = messages::get_call_message_feed(
-        database, server_id, channel_id, call_id, offset, limit,
+        database,
+        server_id,
+        channel_id,
+        call_id,
+        cursor,
+        direction,
+        fetch_limit,
     )
     .await?;
 
@@ -97,21 +117,21 @@ fn append_polls(
     }
 }
 
-fn sort_and_page_feed(
+fn sort_feed(
     mut feed: Vec<FeedItem>,
-    offset: u64,
+    direction: PaginationDirection,
     limit: u64,
 ) -> Vec<FeedItem> {
-    feed.sort_by(|left, right| {
-        timestamp_millis(right)
+    feed.sort_by(|left, right| match direction {
+        PaginationDirection::Older => timestamp_millis(right)
             .cmp(&timestamp_millis(left))
-            .then_with(|| id_string(right).cmp(&id_string(left)))
+            .then_with(|| id_string(right).cmp(id_string(left))),
+        PaginationDirection::Newer => timestamp_millis(left)
+            .cmp(&timestamp_millis(right))
+            .then_with(|| id_string(left).cmp(id_string(right))),
     });
 
-    feed.into_iter()
-        .skip(offset as usize)
-        .take(limit as usize)
-        .collect()
+    feed.into_iter().take(limit as usize).collect()
 }
 
 fn timestamp_millis(item: &FeedItem) -> i64 {
@@ -120,7 +140,7 @@ fn timestamp_millis(item: &FeedItem) -> i64 {
         .unwrap_or_default()
 }
 
-fn created_at(item: &FeedItem) -> &str {
+pub(super) fn created_at(item: &FeedItem) -> &str {
     match item {
         FeedItem::Message(message) => &message.message.created_at,
         FeedItem::Poll(poll) => &poll.poll.created_at,
@@ -131,7 +151,7 @@ fn created_at(item: &FeedItem) -> &str {
     }
 }
 
-fn id_string(item: &FeedItem) -> &str {
+pub(super) fn id_string(item: &FeedItem) -> &str {
     match item {
         FeedItem::Message(message) => &message.message.id,
         FeedItem::Poll(poll) => &poll.poll.id,

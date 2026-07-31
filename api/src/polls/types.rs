@@ -1,3 +1,4 @@
+use entity::enums::PollType;
 use sea_orm::prelude::{DateTimeWithTimeZone, Uuid};
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +27,7 @@ pub(crate) struct PollImagePath {
 pub(crate) struct CreatePollRequest {
     pub(crate) body: Option<String>,
     #[serde(default = "default_poll_type")]
-    pub(crate) poll_type: String,
+    pub(crate) poll_type: PollType,
     pub(crate) action: Option<CreatePollActionRequest>,
     pub(crate) options: Option<Vec<String>>,
     pub(crate) multiple_choice: Option<bool>,
@@ -35,8 +36,15 @@ pub(crate) struct CreatePollRequest {
     pub(crate) image_count: usize,
 }
 
-fn default_poll_type() -> String {
-    "proposal".to_owned()
+fn default_poll_type() -> PollType {
+    PollType::Proposal
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ListActiveDecisionsQuery {
+    pub(crate) before: Option<String>,
+    pub(crate) limit: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -44,7 +52,7 @@ fn default_poll_type() -> String {
 pub(crate) struct PollResponse {
     pub(crate) id: String,
     pub(crate) body: Option<String>,
-    pub(crate) poll_type: String,
+    pub(crate) poll_type: PollType,
     pub(crate) stage: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) action: Option<PollActionResponse>,
@@ -67,6 +75,32 @@ pub(crate) struct PollResponse {
 pub(crate) struct CallDecisionResponse {
     pub(crate) active_item: Option<PollResponse>,
     pub(crate) recent_result: Option<PollResponse>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ActiveDecisionResponse {
+    pub(crate) id: String,
+    pub(crate) poll_type: PollType,
+    pub(crate) body: Option<String>,
+    pub(crate) closing_at: Option<String>,
+    pub(crate) response_count: usize,
+    pub(crate) member_count: usize,
+    pub(crate) has_responded: bool,
+    pub(crate) created_at: String,
+    pub(crate) channel_id: String,
+    pub(crate) channel_name: String,
+    pub(crate) channel_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) forum_post_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ActiveDecisionsResponse {
+    pub(crate) decisions: Vec<ActiveDecisionResponse>,
+    pub(crate) next_cursor: Option<String>,
+    pub(crate) has_more: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

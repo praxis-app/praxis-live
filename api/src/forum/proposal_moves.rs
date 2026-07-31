@@ -6,9 +6,9 @@ use entity::{
     forum_posts, messages, polls, users, votes,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, QuerySelect,
-    Set, TransactionTrait,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
+    DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
+    QuerySelect, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use uuid::Uuid as NativeUuid;
@@ -22,7 +22,11 @@ use super::{
 };
 use crate::{
     channels,
-    common::{encryption, ApiError, AppResult},
+    common::{
+        encryption,
+        pagination::{PaginationCursor, PaginationDirection},
+        ApiError, AppResult,
+    },
     polls::service as polls_service,
     users as users_service,
 };
@@ -299,30 +303,43 @@ pub(crate) async fn move_proposal_to_forum(
 pub(crate) async fn list_proposal_forum_references(
     database: &DatabaseConnection,
     source_channel_id: Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
 ) -> AppResult<Vec<ProposalForumReferenceResponse>> {
-    let posts = forum_posts::Entity::find()
-        .filter(forum_posts::Column::SourceChannelId.eq(source_channel_id))
+    let mut query = polls::Entity::find()
+        .find_also_related(forum_posts::Entity)
+        .filter(forum_posts::Column::SourceChannelId.eq(source_channel_id));
+    if let Some(cursor) = cursor {
+        query = query
+            .filter(proposal_reference_cursor_condition(cursor, direction));
+    }
+    query = match direction {
+        PaginationDirection::Older => query
+            .order_by_desc(polls::Column::CreatedAt)
+            .order_by_desc(polls::Column::Id),
+        PaginationDirection::Newer => query
+            .order_by_asc(polls::Column::CreatedAt)
+            .order_by_asc(polls::Column::Id),
+    };
+    let proposal_posts = query
+        .limit(limit)
         .all(database)
         .await
         .map_err(internal_error)?;
-    if posts.is_empty() {
+    if proposal_posts.is_empty() {
         return Ok(vec![]);
     }
 
-    let poll_ids = posts
-        .iter()
-        .filter_map(|post| post.poll_id)
-        .collect::<Vec<_>>();
-    let proposals = polls::Entity::find()
-        .filter(polls::Column::Id.is_in(poll_ids))
-        .all(database)
-        .await
-        .map_err(internal_error)?
-        .into_iter()
-        .map(|proposal| (proposal.id, proposal))
-        .collect::<HashMap<_, _>>();
+    let mut proposals = HashMap::with_capacity(proposal_posts.len());
+    let mut posts = Vec::with_capacity(proposal_posts.len());
+    for (proposal, post) in proposal_posts {
+        let post = post.ok_or_else(|| {
+            internal_consistency_error("Moved proposal forum post not found.")
+        })?;
+        proposals.insert(proposal.id, proposal);
+        posts.push(post);
+    }
 
     let user_ids = posts.iter().map(|post| post.user_id).collect::<Vec<_>>();
     let destination_channel_ids =
@@ -352,7 +369,7 @@ pub(crate) async fn list_proposal_forum_references(
         users_service::get_user_profile_pictures_map(database, &user_ids)
             .await?;
 
-    let mut references = posts
+    posts
         .into_iter()
         .map(|post| {
             let poll_id = post.poll_id.ok_or_else(|| {
@@ -398,13 +415,31 @@ pub(crate) async fn list_proposal_forum_references(
                 moved_at: post.created_at.to_rfc3339(),
             })
         })
-        .collect::<AppResult<Vec<_>>>()?;
-    references.sort_by(|left, right| right.created_at.cmp(&left.created_at));
-    Ok(references
-        .into_iter()
-        .skip(offset as usize)
-        .take(limit as usize)
-        .collect())
+        .collect()
+}
+
+fn proposal_reference_cursor_condition(
+    cursor: PaginationCursor,
+    direction: PaginationDirection,
+) -> Condition {
+    let timestamp_comparison = match direction {
+        PaginationDirection::Older => {
+            polls::Column::CreatedAt.lt(cursor.created_at)
+        }
+        PaginationDirection::Newer => {
+            polls::Column::CreatedAt.gt(cursor.created_at)
+        }
+    };
+    let id_comparison = match direction {
+        PaginationDirection::Older => polls::Column::Id.lt(cursor.id),
+        PaginationDirection::Newer => polls::Column::Id.gt(cursor.id),
+    };
+
+    Condition::any().add(timestamp_comparison).add(
+        Condition::all()
+            .add(polls::Column::CreatedAt.eq(cursor.created_at))
+            .add(id_comparison),
+    )
 }
 
 async fn load_channel_for_move<C>(

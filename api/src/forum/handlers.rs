@@ -13,8 +13,8 @@ use super::{
     },
     service,
     types::{
-        CreateForumPostRequest, CreateForumReplyRequest, ListForumPostsQuery,
-        UpdateForumPostRequest,
+        CreateForumPostRequest, CreateForumReplyRequest, ForumPostsResponse,
+        ListForumPostsQuery, UpdateForumPostRequest,
     },
 };
 use crate::{
@@ -62,19 +62,18 @@ pub(super) async fn list_forum_posts(
     State(state): State<ForumState>,
     context: ForumReadContext,
     Query(query): Query<ListForumPostsQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ForumPostsResponse>> {
     let limit = query.limit.unwrap_or(50).min(100);
-    let offset = query.offset.unwrap_or(0);
     let posts = service::list_forum_posts(
         &state.database,
         context.channel_id,
         query.sort.as_deref(),
         query.status.as_deref(),
-        offset,
+        query.before.as_deref(),
         limit,
     )
     .await?;
-    Ok(Json(serde_json::json!({ "posts": posts })))
+    Ok(Json(posts))
 }
 
 pub(super) async fn create_forum_post(

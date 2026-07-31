@@ -1,4 +1,8 @@
 import { api } from '@/client/api-client';
+import {
+  getActiveDecisionsQueryKey,
+  updateActiveDecisionCache,
+} from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -114,6 +118,32 @@ export const MoveProposalToForumDialog = ({
           'forum',
         ],
       });
+
+      const destinationChannelName =
+        sourceReference.destinationChannelName ||
+        forumChannels.find(
+          (channel) => channel.id === sourceReference.destinationChannelId,
+        )?.name;
+
+      if (destinationChannelName) {
+        updateActiveDecisionCache(
+          queryClient,
+          serverId,
+          poll.id,
+          (decision) => ({
+            ...decision,
+            channelId: sourceReference.destinationChannelId,
+            channelName: destinationChannelName,
+            channelType: 'forum',
+            forumPostId: sourceReference.forumPostId,
+          }),
+        );
+      } else {
+        void queryClient.invalidateQueries({
+          queryKey: getActiveDecisionsQueryKey(serverId),
+        });
+      }
+
       onOpenChange(false);
       navigate(
         `${serverPath}/c/${sourceReference.destinationChannelId}/posts/${post.id}`,

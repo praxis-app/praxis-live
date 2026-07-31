@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{Multipart, Path, State},
+    extract::{Multipart, Path, Query, State},
     http::{header, Response, StatusCode},
     response::Json,
 };
@@ -10,16 +10,20 @@ use std::{path::PathBuf, sync::Arc};
 use super::{
     extractors::{PollDeleteContext, PollImageUploadContext},
     service,
-    types::{CallDecisionResponse, CreatePollRequest, PollImagePath, PollPath},
+    types::{
+        ActiveDecisionsResponse, CallDecisionResponse, CreatePollRequest,
+        ListActiveDecisionsQuery, PollImagePath, PollPath,
+    },
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
         request::multipart_file, storage::upload_root, ApiError, AppResult,
     },
     pub_sub::PubSubService,
+    servers::types::ServerPath,
 };
 
 #[derive(Clone, Debug)]
@@ -187,6 +191,25 @@ pub(super) async fn get_call_decision(
     .await?;
 
     Ok(Json(decision))
+}
+
+pub(super) async fn get_active_decisions(
+    State(state): State<PollsState>,
+    Path(path): Path<ServerPath>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    Query(query): Query<ListActiveDecisionsQuery>,
+) -> AppResult<Json<ActiveDecisionsResponse>> {
+    let limit = query.limit.unwrap_or(50).min(100);
+    let decisions = service::get_active_decisions(
+        &state.database,
+        path.server_id,
+        user_id,
+        query.before.as_deref(),
+        limit,
+    )
+    .await?;
+
+    Ok(Json(decisions))
 }
 
 pub(super) async fn upload_poll_image(

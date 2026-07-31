@@ -6,6 +6,7 @@ import { PubSubMessageType } from '@/constants/pub-sub.constants';
 import { preserveFeedImages, preserveFeedItemImages } from '@/lib/feed.utils';
 import { callPubSubTopic } from '@/lib/pub-sub.utils';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useFeedQuery } from '@/hooks/use-feed-query';
 import { useSubscription } from '@/hooks/use-subscription';
 import {
   type FeedItemRes,
@@ -15,8 +16,8 @@ import {
 import { type ChannelRes } from '@/types/channel.types';
 import { type MessageRes } from '@/types/message.types';
 import { type PubSubMessage } from '@/types/shared.types';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface NewMessagePayload {
@@ -46,25 +47,34 @@ export const CallChatPanel = ({
   readOnly = false,
   initialFeedLimit = MESSAGES_PAGE_SIZE,
 }: Props) => {
-  const [isLastPage, setIsLastPage] = useState(false);
   const feedBoxRef = useRef<HTMLDivElement>(null);
+  const shouldScrollAfterSendRef = useRef(false);
+
   const queryClient = useQueryClient();
   const { me } = useAuthData();
   const { t } = useTranslation();
 
-  const feedQueryKey = [
-    'servers',
-    serverId,
-    'channels',
-    channel.id,
-    'calls',
-    callId,
-    'feed',
-  ];
+  const feedQueryKey = useMemo(
+    () => [
+      'servers',
+      serverId,
+      'channels',
+      channel.id,
+      'calls',
+      callId,
+      'feed',
+    ],
+    [callId, channel.id, serverId],
+  );
 
-  const { data: feedData, fetchNextPage } = useInfiniteQuery({
+  const {
+    data: feedData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useFeedQuery({
     queryKey: feedQueryKey,
-    queryFn: async ({ pageParam }) => {
+    fetchPage: async (cursor, limit) => {
       if (!serverId) {
         throw new Error('Server ID is required');
       }
@@ -72,12 +82,9 @@ export const CallChatPanel = ({
         serverId,
         channel.id,
         callId,
-        pageParam,
-        Math.max(MESSAGES_PAGE_SIZE, initialFeedLimit),
+        cursor,
+        Math.max(limit, initialFeedLimit),
       );
-      if (result.feed.length === 0) {
-        setIsLastPage(true);
-      }
       const existingFeed = queryClient
         .getQueryData<FeedQuery>(feedQueryKey)
         ?.pages.flatMap((page) => page.feed);
@@ -88,15 +95,29 @@ export const CallChatPanel = ({
         feed: preserveFeedImages(existingFeed, result.feed),
       };
     },
-    getNextPageParam: (_lastPage, pages) =>
-      pages.flatMap((page) => page.feed).length,
-    initialPageParam: 0,
+    pageSize: MESSAGES_PAGE_SIZE,
     enabled: !!serverId,
   });
 
+  const feed = useMemo(
+    () => feedData?.pages.flatMap((page) => page.feed) || [],
+    [feedData?.pages],
+  );
+
   useEffect(() => {
-    setIsLastPage(false);
-  }, [callId]);
+    if (!shouldScrollAfterSendRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      shouldScrollAfterSendRef.current = false;
+      if (feedBoxRef.current) {
+        feedBoxRef.current.scrollTop = 0;
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [feed]);
 
   const scrollToBottom = () => {
     if (feedBoxRef.current && feedBoxRef.current.scrollTop >= -200) {
@@ -125,7 +146,7 @@ export const CallChatPanel = ({
             if (!oldData) {
               return {
                 pages: [{ feed: [incomingFeedItem] }],
-                pageParams: [0],
+                pageParams: [null],
               };
             }
             const pages = oldData.pages.map((page, index): FeedQueryPage => {
@@ -147,7 +168,7 @@ export const CallChatPanel = ({
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
               if (index === 0) {
                 const updatedFeed = [incomingFeedItem, ...page.feed];
@@ -156,7 +177,7 @@ export const CallChatPanel = ({
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime(),
                 );
-                return { feed: updatedFeed };
+                return { ...page, feed: updatedFeed };
               }
               return page;
             });
@@ -171,6 +192,7 @@ export const CallChatPanel = ({
             }
             const pages = oldData.pages.map(
               (page): FeedQueryPage => ({
+                ...page,
                 feed: page.feed.map((item) => {
                   if (item.type !== 'message' || item.id !== body.messageId) {
                     return item;
@@ -211,9 +233,10 @@ export const CallChatPanel = ({
         channel={channel}
         feedBoxRef={feedBoxRef}
         onLoadMore={fetchNextPage}
-        feed={feedData?.pages.flatMap((page) => page.feed) || []}
+        feed={feed}
         feedQueryKey={feedQueryKey}
-        isLastPage={isLastPage}
+        isLastPage={!hasNextPage}
+        isLoadingMore={isFetchingNextPage}
         scrollMode={readOnly ? 'natural' : 'bottom-anchored'}
       />
       {!readOnly && (
@@ -221,7 +244,9 @@ export const CallChatPanel = ({
           channelId={channel.id}
           callId={callId}
           showActions={false}
-          onSend={scrollToBottom}
+          onSend={() => {
+            shouldScrollAfterSendRef.current = true;
+          }}
         />
       )}
     </section>

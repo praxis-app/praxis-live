@@ -58,6 +58,23 @@
 
   /* Custom fonts */
   --font-inter: 'Inter', system-ui, sans-serif;
+
+  --animate-decision-focus: decision-focus-highlight 2000ms ease-out both;
+
+  @keyframes decision-focus-highlight {
+    0% {
+      opacity: 0;
+    }
+
+    10%,
+    28% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
 }
 
 :root {

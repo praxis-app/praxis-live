@@ -10,7 +10,7 @@ import { useAppStore } from '@/store/app.store';
 import { type ChannelRes } from '@/types/channel.types';
 import { type CallJoinPreferences, type JoinCallRes } from '@/types/call.types';
 import { useTranslation } from 'react-i18next';
-import { LuArrowLeft } from 'react-icons/lu';
+import { LuArrowLeft, LuListTodo } from 'react-icons/lu';
 import { MdChevronRight, MdForum, MdSearch, MdTag } from 'react-icons/md';
 import { toast } from 'sonner';
 
@@ -26,6 +26,8 @@ interface Props {
   onConfirmJoinCall: (preferences: CallJoinPreferences) => void;
   onJoinCall: () => void;
   onLeaveCall: () => void;
+  isDecisionsPanelOpen: boolean;
+  onToggleDecisionsPanel: () => void;
 }
 
 export const ChannelTopNav = ({
@@ -40,6 +42,8 @@ export const ChannelTopNav = ({
   onConfirmJoinCall,
   onJoinCall,
   onLeaveCall,
+  isDecisionsPanelOpen,
+  onToggleDecisionsPanel,
 }: Props) => {
   const { isAppLoading } = useAppStore();
 
@@ -124,6 +128,20 @@ export const ChannelTopNav = ({
             onJoin={onJoinCall}
             onLeave={onLeaveCall}
           />
+        )}
+
+        {isDesktop && (
+          <Button
+            type="button"
+            aria-label={t('decisions.actions.togglePanel')}
+            aria-controls="active-decisions-panel"
+            aria-expanded={isDecisionsPanelOpen}
+            onClick={onToggleDecisionsPanel}
+            variant="ghost"
+            size="icon"
+          >
+            <LuListTodo className="size-5.5" />
+          </Button>
         )}
 
         <Button

@@ -5,6 +5,8 @@ import {
 import { Card } from '@/components/ui/card';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { DECISION_FOCUS_TARGET_CLASS_NAME } from '@/constants/style.constants';
+import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type CallArtifactRes } from '@/types/call.types';
@@ -56,7 +58,15 @@ export const InlineProposal = ({
   const label = body ? `${modelLabel}: ${body}` : modelLabel;
 
   return (
-    <article aria-label={label} className="flex max-w-full min-w-0 gap-4 pt-1">
+    <article
+      aria-label={label}
+      data-decision-id={poll.id}
+      tabIndex={-1}
+      className={cn(
+        DECISION_FOCUS_TARGET_CLASS_NAME,
+        'flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none',
+      )}
+    >
       <UserProfileDrawer
         name={truncatedName}
         userId={user.id}

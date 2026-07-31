@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, FixedOffset, Utc};
 use entity::{
-    channels as channel_entities,
+    channel_members, channels as channel_entities,
     enums::{
         PollActionType, PollDecisionMakingModel, PollStage, PollType, VoteType,
     },
@@ -10,10 +10,11 @@ use entity::{
     server_configs as server_config_entities, users, votes,
 };
 use sea_orm::{
-    prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
-    ConnectionTrait, DatabaseConnection, DeleteResult, EntityTrait,
-    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
-    TransactionTrait,
+    prelude::Uuid,
+    sea_query::{LockType, NullOrdering, Order},
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
+    DatabaseConnection, DeleteResult, EntityTrait, IntoActiveModel,
+    QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -21,13 +22,18 @@ use tokio::time::{self, MissedTickBehavior};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    CallDecisionResponse, CreatePollRequest, PollConfigResponse,
-    PollImageResponse, PollOptionResponse, PollResponse, PollUserResponse,
-    StoredPollImage,
+    ActiveDecisionResponse, ActiveDecisionsResponse, CallDecisionResponse,
+    CreatePollRequest, PollConfigResponse, PollImageResponse,
+    PollOptionResponse, PollResponse, PollUserResponse, StoredPollImage,
 };
 use crate::{
     channels,
-    common::{encryption, text::sanitize_text, ApiError, AppResult},
+    common::{
+        encryption,
+        pagination::{PaginationCursor, PaginationDirection},
+        text::sanitize_text,
+        ApiError, AppResult,
+    },
     messages::types::serialize_timestamp,
     poll_actions::{self, types::CreatePollActionRequest},
     pub_sub::{PubSubService, PubSubTopic},
@@ -38,7 +44,6 @@ use crate::{
 
 const MAX_IMAGE_COUNT: usize = 8;
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
-
 const PROPOSAL_SYNC_BATCH_SIZE: usize = 20;
 const PROPOSAL_SYNC_INTERVAL_SECONDS: u64 = 60 * 5;
 
@@ -257,7 +262,7 @@ pub(crate) async fn prepare_forum_proposal(
     user_id: Uuid,
     request: CreatePollRequest,
 ) -> AppResult<PreparedPollCreation> {
-    if request.poll_type != "proposal" {
+    if request.poll_type != PollType::Proposal {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
             "A forum post can only include a proposal.",
@@ -284,7 +289,7 @@ async fn prepare_poll_creation(
         .as_deref()
         .map(sanitize_text)
         .filter(|value| !value.is_empty());
-    let poll_type = parse_poll_type(&request.poll_type)?;
+    let poll_type = request.poll_type;
     let is_proposal = poll_type == PollType::Proposal;
     let channel =
         channels::get_channel(database, server_id, channel_id).await?;
@@ -435,15 +440,44 @@ pub(crate) async fn get_inline_polls(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    offset: u64,
+    cursor: Option<PaginationCursor>,
+    direction: PaginationDirection,
     limit: u64,
     current_user_id: Option<Uuid>,
 ) -> AppResult<Vec<PollResponse>> {
     channels::get_channel(database, server_id, channel_id).await?;
-    let polls = polls::Entity::find()
-        .filter(polls::Column::ChannelId.eq(channel_id))
-        .order_by_desc(polls::Column::CreatedAt)
-        .offset(offset)
+    let mut query =
+        polls::Entity::find().filter(polls::Column::ChannelId.eq(channel_id));
+    if let Some(cursor) = cursor {
+        let timestamp_comparison = match direction {
+            PaginationDirection::Older => {
+                polls::Column::CreatedAt.lt(cursor.created_at)
+            }
+            PaginationDirection::Newer => {
+                polls::Column::CreatedAt.gt(cursor.created_at)
+            }
+        };
+        let id_comparison = match direction {
+            PaginationDirection::Older => polls::Column::Id.lt(cursor.id),
+            PaginationDirection::Newer => polls::Column::Id.gt(cursor.id),
+        };
+        query = query.filter(
+            Condition::any().add(timestamp_comparison).add(
+                Condition::all()
+                    .add(polls::Column::CreatedAt.eq(cursor.created_at))
+                    .add(id_comparison),
+            ),
+        );
+    }
+    query = match direction {
+        PaginationDirection::Older => query
+            .order_by_desc(polls::Column::CreatedAt)
+            .order_by_desc(polls::Column::Id),
+        PaginationDirection::Newer => query
+            .order_by_asc(polls::Column::CreatedAt)
+            .order_by_asc(polls::Column::Id),
+    };
+    let polls = query
         .limit(limit)
         .all(database)
         .await
@@ -921,6 +955,249 @@ pub(crate) async fn get_poll_response(
     shape_poll(database, poll, current_user_id).await
 }
 
+pub(crate) async fn get_active_decisions(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    current_user_id: Option<Uuid>,
+    before: Option<&str>,
+    limit: u64,
+) -> AppResult<ActiveDecisionsResponse> {
+    servers::ensure_server(database, server_id).await?;
+    let cursor = before.map(ActiveDecisionCursor::parse).transpose()?;
+
+    let current_user = if let Some(user_id) = current_user_id {
+        users::Entity::find_by_id(user_id)
+            .one(database)
+            .await
+            .map_err(internal_error)?
+    } else {
+        None
+    };
+    let response_user_id = current_user.as_ref().map(|user| user.id);
+    let registered_user_id = current_user
+        .filter(|user| !user.anonymous)
+        .map(|user| user.id);
+
+    let channels = if let Some(user_id) = registered_user_id {
+        let channel_ids = channel_members::Entity::find()
+            .filter(channel_members::Column::UserId.eq(user_id))
+            .all(database)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|membership| membership.channel_id)
+            .collect::<Vec<_>>();
+
+        if channel_ids.is_empty() {
+            vec![]
+        } else {
+            channel_entities::Entity::find()
+                .filter(channel_entities::Column::ServerId.eq(server_id))
+                .filter(channel_entities::Column::Id.is_in(channel_ids))
+                .all(database)
+                .await
+                .map_err(internal_error)?
+        }
+    } else {
+        if servers::default_server_id(database).await? != server_id {
+            return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
+        }
+
+        channel_entities::Entity::find()
+            .filter(channel_entities::Column::ServerId.eq(server_id))
+            .all(database)
+            .await
+            .map_err(internal_error)?
+    };
+
+    let channels_by_id = channels
+        .into_iter()
+        .map(|channel| (channel.id, channel))
+        .collect::<HashMap<_, _>>();
+    let channel_ids = channels_by_id.keys().copied().collect::<Vec<_>>();
+    if channel_ids.is_empty() {
+        return Ok(ActiveDecisionsResponse {
+            decisions: vec![],
+            next_cursor: None,
+            has_more: false,
+        });
+    }
+
+    let mut polls_query = polls::Entity::find()
+        .filter(polls::Column::ChannelId.is_in(channel_ids))
+        .filter(polls::Column::Stage.eq(PollStage::Voting))
+        .find_also_related(poll_configs::Entity);
+    if let Some(cursor) = cursor {
+        polls_query =
+            polls_query.filter(active_decision_cursor_condition(cursor));
+    }
+    let mut polls_with_configs = polls_query
+        .order_by_with_nulls(
+            poll_configs::Column::ClosingAt,
+            Order::Asc,
+            NullOrdering::Last,
+        )
+        .order_by_desc(polls::Column::CreatedAt)
+        .order_by_desc(polls::Column::Id)
+        .limit(limit.saturating_add(1))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    let has_more = polls_with_configs.len() > limit as usize;
+    if has_more {
+        polls_with_configs.pop();
+    }
+    let next_cursor = polls_with_configs.last().map(|(poll, config)| {
+        ActiveDecisionCursor {
+            closing_at: config.as_ref().and_then(|config| config.closing_at),
+            created_at: poll.created_at,
+            id: poll.id,
+        }
+        .encode()
+    });
+
+    if polls_with_configs.is_empty() {
+        return Ok(ActiveDecisionsResponse {
+            decisions: vec![],
+            next_cursor,
+            has_more,
+        });
+    }
+
+    let poll_ids = polls_with_configs
+        .iter()
+        .map(|(poll, _)| poll.id)
+        .collect::<Vec<_>>();
+    let forum_posts_by_poll_id = forum_posts::Entity::find()
+        .filter(forum_posts::Column::PollId.is_in(poll_ids))
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .filter_map(|post| post.poll_id.map(|poll_id| (poll_id, post.id)))
+        .collect::<HashMap<_, _>>();
+
+    let mut decisions = Vec::with_capacity(polls_with_configs.len());
+    for (poll, _) in polls_with_configs {
+        let channel =
+            channels_by_id.get(&poll.channel_id).ok_or_else(|| {
+                ApiError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Decision channel not found.",
+                )
+            })?;
+        let response =
+            shape_poll(database, poll.clone(), response_user_id).await?;
+
+        decisions.push(ActiveDecisionResponse {
+            id: response.id,
+            poll_type: response.poll_type,
+            body: response.body,
+            closing_at: response.config.closing_at,
+            response_count: response.votes.len(),
+            member_count: response.member_count,
+            has_responded: response.my_vote.is_some(),
+            created_at: response.created_at,
+            channel_id: channel.id.to_string(),
+            channel_name: channel.name.clone(),
+            channel_type: channel.channel_type.to_string(),
+            forum_post_id: forum_posts_by_poll_id
+                .get(&poll.id)
+                .map(ToString::to_string),
+        });
+    }
+
+    Ok(ActiveDecisionsResponse {
+        decisions,
+        next_cursor,
+        has_more,
+    })
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ActiveDecisionCursor {
+    closing_at: Option<DateTime<FixedOffset>>,
+    created_at: DateTime<FixedOffset>,
+    id: Uuid,
+}
+
+impl ActiveDecisionCursor {
+    fn parse(value: &str) -> AppResult<Self> {
+        let mut parts = value.split('|');
+        let closing_at = match parts.next() {
+            Some("") => None,
+            Some(value) => Some(
+                DateTime::parse_from_rfc3339(value)
+                    .map_err(|_| invalid_active_decision_cursor())?,
+            ),
+            None => return Err(invalid_active_decision_cursor()),
+        };
+        let created_at = parts
+            .next()
+            .ok_or_else(invalid_active_decision_cursor)
+            .and_then(|value| {
+                DateTime::parse_from_rfc3339(value)
+                    .map_err(|_| invalid_active_decision_cursor())
+            })?;
+        let id = parts
+            .next()
+            .ok_or_else(invalid_active_decision_cursor)
+            .and_then(|value| {
+                Uuid::parse_str(value)
+                    .map_err(|_| invalid_active_decision_cursor())
+            })?;
+        if parts.next().is_some() {
+            return Err(invalid_active_decision_cursor());
+        }
+
+        Ok(Self {
+            closing_at,
+            created_at,
+            id,
+        })
+    }
+
+    fn encode(self) -> String {
+        format!(
+            "{}|{}|{}",
+            self.closing_at
+                .map(|closing_at| closing_at.to_rfc3339())
+                .unwrap_or_default(),
+            self.created_at.to_rfc3339(),
+            self.id,
+        )
+    }
+}
+
+fn active_decision_cursor_condition(cursor: ActiveDecisionCursor) -> Condition {
+    let poll_tie_breaker = Condition::any()
+        .add(polls::Column::CreatedAt.lt(cursor.created_at))
+        .add(
+            Condition::all()
+                .add(polls::Column::CreatedAt.eq(cursor.created_at))
+                .add(polls::Column::Id.lt(cursor.id)),
+        );
+
+    match cursor.closing_at {
+        Some(closing_at) => Condition::any()
+            .add(poll_configs::Column::ClosingAt.gt(closing_at))
+            .add(poll_configs::Column::ClosingAt.is_null())
+            .add(
+                Condition::all()
+                    .add(poll_configs::Column::ClosingAt.eq(closing_at))
+                    .add(poll_tie_breaker),
+            ),
+        None => Condition::all()
+            .add(poll_configs::Column::ClosingAt.is_null())
+            .add(poll_tie_breaker),
+    }
+}
+
+fn invalid_active_decision_cursor() -> ApiError {
+    ApiError::new(StatusCode::BAD_REQUEST, "Invalid pagination cursor.")
+}
+
 async fn shape_poll(
     database: &DatabaseConnection,
     poll: polls::Model,
@@ -986,12 +1263,12 @@ async fn shape_poll(
             .map(|vote| vote_service::shape_vote(vote, &selections))
     });
 
-    let is_proposal = poll.poll_type == "proposal";
+    let is_proposal = poll.poll_type == PollType::Proposal;
 
     Ok(PollResponse {
         id: poll.id.to_string(),
         body: decrypt_poll_body(database, &poll).await?,
-        poll_type: poll.poll_type.to_string(),
+        poll_type: poll.poll_type,
         stage: poll.stage.to_string(),
         action: if is_proposal {
             poll_actions::service::shape_poll_action(database, poll.id).await?
@@ -1086,7 +1363,7 @@ async fn ensure_allowed_to_create_proposal(
     user_id: Uuid,
     request: &CreatePollRequest,
 ) -> AppResult<()> {
-    if request.poll_type != "proposal" {
+    if request.poll_type != PollType::Proposal {
         return Ok(());
     }
     if request
@@ -1354,7 +1631,6 @@ where
 }
 
 fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
-    parse_poll_type(&request.poll_type)?;
     if request.image_count > MAX_IMAGE_COUNT {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -1373,7 +1649,7 @@ fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
         ));
     }
 
-    if request.poll_type == "poll" {
+    if request.poll_type == PollType::Poll {
         let body_missing = request
             .body
             .as_deref()
@@ -1410,12 +1686,6 @@ fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
     }
 
     Ok(())
-}
-
-fn parse_poll_type(value: &str) -> AppResult<PollType> {
-    value.parse().map_err(|_| {
-        ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "Poll type is invalid.")
-    })
 }
 
 fn validate_action(

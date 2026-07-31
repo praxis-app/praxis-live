@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { authorizationHeaders, createAuthenticatedUser } from '../lib/auth';
 import { createTestUser } from '../lib/data';
-import { createForumChannel } from '../lib/forums';
+import { createForumChannel, createForumPosts } from '../lib/forums';
+import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
   makeProposalsRatifyWithOneAgreeVote,
   openCreateProposalDialog,
@@ -15,6 +16,84 @@ type ForumPostResponse = {
     id: string;
   };
 };
+
+const forumPostsPageSize = 20;
+const totalForumPosts = 41;
+
+test('forum post list loads every page when scrolled to the bottom', async ({
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  const user = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('forum-scroll'),
+  );
+  const server = await getDefaultServer(request, user);
+  const forumChannel = await createForumChannel(
+    request,
+    user,
+    server.id,
+    `forum-scroll-${user.user.suffix}`,
+  );
+  const postTitles = Array.from(
+    { length: totalForumPosts },
+    (_, index) =>
+      `Infinite forum post ${String(index + 1).padStart(2, '0')} ${
+        user.user.suffix
+      }`,
+  );
+  await createForumPosts(
+    request,
+    user,
+    server.id,
+    forumChannel.id,
+    postTitles,
+  );
+
+  const firstPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === 'GET' &&
+      url.pathname ===
+        `/api/servers/${server.id}/channels/${forumChannel.id}/forum/posts` &&
+      !url.searchParams.has('before') &&
+      url.searchParams.get('limit') === String(forumPostsPageSize) &&
+      response.status() === 200
+    );
+  });
+  await page.goto(`/s/${server.slug}/c/${forumChannel.id}`);
+  await firstPageResponse;
+
+  const forumPostList = page.getByTestId('forum-post-list');
+  const oldestPostTitle = postTitles[0];
+  await expect(forumPostList.getByText(postTitles.at(-1)!)).toBeVisible();
+  await expect(forumPostList.getByText(oldestPostTitle)).toHaveCount(0);
+
+  await scrollThroughAllPages({
+    page,
+    scrollContainer: forumPostList,
+    pageSize: forumPostsPageSize,
+    totalItems: totalForumPosts,
+    direction: 'down',
+    matchesPageResponse: (response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === 'GET' &&
+        url.pathname ===
+          `/api/servers/${server.id}/channels/${forumChannel.id}/forum/posts` &&
+        url.searchParams.has('before') &&
+        url.searchParams.get('limit') === String(forumPostsPageSize) &&
+        response.status() === 200
+      );
+    },
+  });
+
+  await expect(forumPostList.getByText(oldestPostTitle)).toBeVisible();
+});
 
 test('user can move a text proposal to a forum, reply, vote, and see it ratified', async ({
   context,

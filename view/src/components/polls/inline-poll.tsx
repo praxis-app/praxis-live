@@ -1,4 +1,5 @@
 import { api } from '@/client/api-client';
+import { updateActiveDecisionCache } from '@/components/decisions/decisions-panel.utils';
 import { PollVoteBreakdown } from '@/components/polls/poll-vote-breakdown';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { DECISION_FOCUS_TARGET_CLASS_NAME } from '@/constants/style.constants';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
@@ -155,6 +157,11 @@ export const InlinePoll = ({
       queryClient.invalidateQueries({
         queryKey: ['pollOptionVoters', serverId, channel.id, id],
       });
+      updateActiveDecisionCache(queryClient, serverId, id, (decision) => ({
+        ...decision,
+        responseCount: decision.responseCount + (myVote ? 0 : 1),
+        hasResponded: true,
+      }));
       onPollChange?.();
     },
     onError: (error: Error) => {
@@ -175,6 +182,11 @@ export const InlinePoll = ({
       queryClient.invalidateQueries({
         queryKey: ['pollOptionVoters', serverId, channel.id, id],
       });
+      updateActiveDecisionCache(queryClient, serverId, id, (decision) => ({
+        ...decision,
+        responseCount: Math.max(0, decision.responseCount - 1),
+        hasResponded: false,
+      }));
       onPollChange?.();
     },
     onError: (error: Error) => {
@@ -237,7 +249,14 @@ export const InlinePoll = ({
   };
 
   return (
-    <div className="flex max-w-full min-w-0 gap-4 pt-1">
+    <div
+      data-decision-id={id}
+      tabIndex={-1}
+      className={cn(
+        DECISION_FOCUS_TARGET_CLASS_NAME,
+        'flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none',
+      )}
+    >
       <UserProfileDrawer
         name={truncatedName}
         userId={user.id}

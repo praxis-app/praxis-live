@@ -1,4 +1,5 @@
 import { api } from '@/client/api-client';
+import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { type WizardStepData } from '@/components/shared/wizard/wizard.types';
 import { useServerData } from '@/hooks/use-server-data';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
@@ -282,7 +283,7 @@ export const CreateProposalForm = ({
         if (!old) {
           return {
             pages: [{ feed: [newItem] }],
-            pageParams: [0],
+            pageParams: [null],
           };
         }
         const pages = old.pages.map((page, idx) => {
@@ -295,9 +296,12 @@ export const CreateProposalForm = ({
           if (exists) {
             return page;
           }
-          return { feed: [newItem, ...page.feed] };
+          return { ...page, feed: [newItem, ...page.feed] };
         });
         return { pages, pageParams: old.pageParams };
+      });
+      void queryClient.invalidateQueries({
+        queryKey: getActiveDecisionsQueryKey(serverId),
       });
 
       if (callId) {

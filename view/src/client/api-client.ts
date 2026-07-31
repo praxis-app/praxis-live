@@ -10,7 +10,7 @@ import { type CallDecisionRes, type JoinCallRes } from '@/types/call.types';
 import {
   type ChannelRes,
   type CreateChannelReq,
-  type FeedItemRes,
+  type FeedPageRes,
   type UpdateChannelReq,
 } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
@@ -20,7 +20,7 @@ import {
   type ForumPostRes,
   type ForumPostSort,
   type ForumPostStatus,
-  type ForumPostSummaryRes,
+  type ForumPostsRes,
   type MoveProposalToForumReq,
   type ProposalForumReferenceRes,
   type UpdateForumPostReq,
@@ -33,6 +33,7 @@ import {
 import { type CreateInviteReq, type InviteRes } from '@/types/invite.types';
 import { type MessageRes } from '@/types/message.types';
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
+import { type ActiveDecisionsRes } from '@/types/decision.types';
 import {
   type CreateRoleReq,
   type InstanceRoleRes,
@@ -188,13 +189,13 @@ class ApiClient {
   getChannelFeed = async (
     serverId: string,
     channelId: string,
-    offset: number,
+    cursor: { before?: string; after?: string },
     limit: number,
     inviteToken?: string | null,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/feed`;
-    return this.executeRequest<{ feed: FeedItemRes[] }>('get', path, {
-      params: { offset, limit, inviteToken },
+    return this.executeRequest<FeedPageRes>('get', path, {
+      params: { ...cursor, limit, inviteToken },
     });
   };
 
@@ -202,12 +203,12 @@ class ApiClient {
     serverId: string,
     channelId: string,
     callId: string,
-    offset: number,
+    cursor: { before?: string; after?: string },
     limit: number,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/feed`;
-    return this.executeRequest<{ feed: FeedItemRes[] }>('get', path, {
-      params: { offset, limit },
+    return this.executeRequest<FeedPageRes>('get', path, {
+      params: { ...cursor, limit },
     });
   };
 
@@ -248,12 +249,12 @@ class ApiClient {
     channelId: string,
     sort: ForumPostSort,
     status?: ForumPostStatus,
-    offset = 0,
+    before?: string,
     limit = 20,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts`;
-    return this.executeRequest<{ posts: ForumPostSummaryRes[] }>('get', path, {
-      params: { sort, status, offset, limit },
+    return this.executeRequest<ForumPostsRes>('get', path, {
+      params: { sort, status, before, limit },
     });
   };
 
@@ -428,6 +429,17 @@ class ApiClient {
   // -------------------------------------------------------------------------
   // Polls & Votes
   // -------------------------------------------------------------------------
+
+  getActiveDecisions = async (
+    serverId: string,
+    before: string | undefined,
+    limit: number,
+  ) => {
+    const path = `/servers/${serverId}/decisions`;
+    return this.executeRequest<ActiveDecisionsRes>('get', path, {
+      params: { before, limit },
+    });
+  };
 
   getPollImage = (
     serverId: string,

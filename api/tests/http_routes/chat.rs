@@ -41,7 +41,7 @@ async fn create_message_and_upload_image_support_text_and_images() {
 
     let feed_response = app
         .get(&format!(
-            "/api/servers/{default_server_id}/channels/{channel_id}/feed?offset=0&limit=20"
+            "/api/servers/{default_server_id}/channels/{channel_id}/feed?limit=20"
         ))
         .await;
     assert_eq!(feed_response.status(), StatusCode::OK);
@@ -49,6 +49,9 @@ async fn create_message_and_upload_image_support_text_and_images() {
     let feed_body = json_body(feed_response).await;
     assert_eq!(feed_body["feed"][0]["type"], "message");
     assert_eq!(feed_body["feed"][0]["id"], message_id);
+    assert!(feed_body["startCursor"].is_string());
+    assert!(feed_body["nextCursor"].is_string());
+    assert_eq!(feed_body["hasMore"], false);
 
     let mut fields = HashMap::new();
     fields.insert(

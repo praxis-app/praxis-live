@@ -1,5 +1,6 @@
 pub(crate) mod encryption;
 pub(crate) mod error;
+pub(crate) mod pagination;
 pub(crate) mod request;
 pub(crate) mod roles;
 pub(crate) mod storage;
