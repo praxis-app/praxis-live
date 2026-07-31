@@ -2,12 +2,14 @@ import { api } from '@/client/api-client';
 import { DecisionPanelItem } from '@/components/decisions/decision-panel-item';
 import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
+import { PubSubMessageType } from '@/constants/pub-sub.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useInfiniteScroll } from '@/hooks/use-infinite-scroll';
 import { useServerData } from '@/hooks/use-server-data';
 import { useSubscriptions } from '@/hooks/use-subscription';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { useAuthStore } from '@/store/auth.store';
+import { type PubSubMessage } from '@/types/shared.types';
 import {
   useInfiniteQuery,
   useQuery,
@@ -68,7 +70,13 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
 
   useSubscriptions(decisionTopics, {
     enabled: decisionTopics.length > 0,
-    onMessage: () => {
+    onMessage: (event) => {
+      const { body }: PubSubMessage<{
+        type: PubSubMessageType;
+      }> = JSON.parse(event.data);
+      if (!body || body.type === PubSubMessageType.IMAGE) {
+        return;
+      }
       void queryClient.invalidateQueries({
         queryKey: getActiveDecisionsQueryKey(serverId),
       });

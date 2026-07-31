@@ -1,5 +1,5 @@
 import { api } from '@/client/api-client';
-import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
+import { updateActiveDecisionCache } from '@/components/decisions/decisions-panel.utils';
 import { PollVoteBreakdown } from '@/components/polls/poll-vote-breakdown';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { Button } from '@/components/ui/button';
@@ -156,9 +156,11 @@ export const InlinePoll = ({
       queryClient.invalidateQueries({
         queryKey: ['pollOptionVoters', serverId, channel.id, id],
       });
-      void queryClient.invalidateQueries({
-        queryKey: getActiveDecisionsQueryKey(serverId),
-      });
+      updateActiveDecisionCache(queryClient, serverId, id, (decision) => ({
+        ...decision,
+        responseCount: decision.responseCount + (myVote ? 0 : 1),
+        hasResponded: true,
+      }));
       onPollChange?.();
     },
     onError: (error: Error) => {
@@ -179,9 +181,11 @@ export const InlinePoll = ({
       queryClient.invalidateQueries({
         queryKey: ['pollOptionVoters', serverId, channel.id, id],
       });
-      void queryClient.invalidateQueries({
-        queryKey: getActiveDecisionsQueryKey(serverId),
-      });
+      updateActiveDecisionCache(queryClient, serverId, id, (decision) => ({
+        ...decision,
+        responseCount: Math.max(0, decision.responseCount - 1),
+        hasResponded: false,
+      }));
       onPollChange?.();
     },
     onError: (error: Error) => {

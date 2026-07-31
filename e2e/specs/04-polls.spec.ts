@@ -106,6 +106,12 @@ test('authenticated user can create and vote in a poll', async ({
   }
   await expect(createdPoll.getByText('Ends in 30 minutes')).toBeVisible();
 
+  const activeDecision = page
+    .getByRole('complementary', { name: 'Active decisions' })
+    .getByRole('link', { name: 'Open poll in general' })
+    .filter({ hasText: question });
+  await expect(activeDecision).toBeVisible();
+
   const voteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
@@ -120,6 +126,8 @@ test('authenticated user can create and vote in a poll', async ({
     createdPoll.getByRole('button', { name: 'Remove vote' }),
   ).toBeVisible();
   await expect(createdPoll.getByText('1 vote').first()).toBeVisible();
+  await expect(activeDecision.getByText('Responded')).toBeVisible();
+  await expect(activeDecision.getByText(/^1\/\d+$/)).toBeVisible();
 });
 
 test('active decisions panel loads the next page when scrolled to the bottom', async ({

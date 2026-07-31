@@ -1,5 +1,8 @@
 import { api } from '@/client/api-client';
-import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
+import {
+  getActiveDecisionsQueryKey,
+  updateActiveDecisionCache,
+} from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
 import { VOTE_TYPES } from '@/constants/vote.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
@@ -179,9 +182,30 @@ export const ProposalVoteButtons = ({
         });
       }
 
-      void queryClient.invalidateQueries({
-        queryKey: getActiveDecisionsQueryKey(serverId),
+      updateActiveDecisionCache(queryClient, serverId, pollId, (decision) => {
+        if (result.isRatifyingVote) {
+          return undefined;
+        }
+        const responseCountChange =
+          result.action === 'create'
+            ? 1
+            : result.action === 'delete'
+              ? -1
+              : 0;
+        return {
+          ...decision,
+          responseCount: Math.max(
+            0,
+            decision.responseCount + responseCountChange,
+          ),
+          hasResponded: result.action !== 'delete',
+        };
       });
+      if (result.isRatifyingVote) {
+        void queryClient.invalidateQueries({
+          queryKey: getActiveDecisionsQueryKey(serverId),
+        });
+      }
       updateCachedProposal?.(updateProposal);
 
       if (result.isRatifyingVote) {
