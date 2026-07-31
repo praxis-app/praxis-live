@@ -171,7 +171,7 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
                 <p className="mt-3 font-medium">
                   {t('decisions.prompts.emptyTitle')}
                 </p>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="text-muted-foreground mt-1 max-w-56 text-balance text-sm leading-5">
                   {t('decisions.prompts.emptyDescription')}
                 </p>
               </div>
