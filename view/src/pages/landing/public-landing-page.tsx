@@ -168,6 +168,17 @@ export const PublicLandingPage = () => {
             visual={<LandingVisual variant="forum" />}
             reversed
           />
+          <div
+            className="hidden items-center gap-4 lg:flex"
+            aria-hidden="true"
+          >
+            <div className="from-transparent via-border to-border h-px flex-1 bg-linear-to-r" />
+            <div className="flex items-center gap-2">
+              <span className="bg-praxis-coral size-2 rounded-full" />
+              <span className="bg-praxis-green size-2 rounded-full" />
+            </div>
+            <div className="from-border via-border to-transparent h-px flex-1 bg-linear-to-r" />
+          </div>
           <LandingBenefitSection
             eyebrow={t('landing.decisions.eyebrow')}
             title={t('landing.decisions.title')}

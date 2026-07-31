@@ -92,7 +92,7 @@ export const LandingProposalVisual = () => {
             </span>
           </div>
 
-          <div className="border-border bg-card before:border-l-border @container relative w-full max-w-full min-w-0 rounded-md border px-3 py-3.5 shadow-xl shadow-black/5 before:absolute before:inset-y-0 before:left-0 before:w-3 before:rounded-l-md before:border-l-3">
+          <div className="border-border bg-card before:border-l-border relative w-full max-w-full min-w-0 rounded-md border px-3 py-3.5 shadow-xl shadow-black/5 before:absolute before:inset-y-0 before:left-0 before:w-3 before:rounded-l-md before:border-l-3">
             <button
               type="button"
               aria-label={t('proposals.actions.viewSettings')}
@@ -105,7 +105,7 @@ export const LandingProposalVisual = () => {
             <ProposalMetadata
               actionType="change-role"
               decisionMakingModel="consensus"
-              variant="inline"
+              variant="forum"
               onClick={() => setIsSettingsDialogOpen(true)}
             />
 
