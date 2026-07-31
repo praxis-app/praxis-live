@@ -16,7 +16,7 @@ import { type QueryKey } from '@tanstack/react-query';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 
 const IN_VIEW_THRESHOLD = 50;
-const DECISION_HIGHLIGHT_DURATION_MS = 1800;
+const DECISION_HIGHLIGHT_DURATION_MS = 2000;
 
 type FeedScrollMode = 'bottom-anchored' | 'natural';
 
@@ -27,6 +27,7 @@ interface Props {
   feedBoxRef: RefObject<HTMLDivElement | null>;
   focusedDecisionId?: string;
   focusedDecisionRequestKey?: string;
+  onFocusedDecisionHandled?: () => void;
   isLastPage: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -42,6 +43,7 @@ export const Feed = ({
   feedBoxRef,
   focusedDecisionId,
   focusedDecisionRequestKey,
+  onFocusedDecisionHandled,
   isLastPage,
   isLoadingMore,
   onLoadMore,
@@ -125,6 +127,7 @@ export const Feed = ({
         behavior: 'smooth',
         block: 'start',
       });
+      onFocusedDecisionHandled?.();
     };
     const scheduleScroll = () => {
       window.clearTimeout(settleTimer);
@@ -151,7 +154,13 @@ export const Feed = ({
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };
-  }, [feed, feedBoxRef, focusedDecisionId, focusedDecisionRequestKey]);
+  }, [
+    feed,
+    feedBoxRef,
+    focusedDecisionId,
+    focusedDecisionRequestKey,
+    onFocusedDecisionHandled,
+  ]);
 
   return (
     <div

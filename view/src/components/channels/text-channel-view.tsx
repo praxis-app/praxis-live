@@ -32,8 +32,8 @@ import {
 } from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface NewMessagePayload {
   type: PubSubMessageType.MESSAGE;
@@ -83,6 +83,7 @@ export const TextChannelView = ({
   const queryClient = useQueryClient();
   const isDesktop = useIsDesktop();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const { me, isMeSuccess, isAuthError } = useAuthData();
   const { data: capabilities } = useInstanceCapabilitiesQuery();
@@ -157,13 +158,18 @@ export const TextChannelView = ({
     return () => cancelAnimationFrame(frame);
   }, [feed]);
 
-  const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
   const navigationState = location.state as { decisionId?: unknown } | null;
-
-  const focusedDecisionId =
+  const navigationDecisionId =
     typeof navigationState?.decisionId === 'string'
       ? navigationState.decisionId
       : undefined;
+
+  const clearFocusedDecisionRequest = useCallback(() => {
+    void navigate(location, { replace: true, state: null });
+  }, [location, navigate]);
+
+  const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
+  const focusedDecisionId = navigationDecisionId;
 
   useEffect(() => {
     const isDecisionLoaded = feed.some(
@@ -437,6 +443,7 @@ export const TextChannelView = ({
           isLoadingMore={isFetchingNextPage}
           focusedDecisionId={focusedDecisionId}
           focusedDecisionRequestKey={location.key}
+          onFocusedDecisionHandled={clearFocusedDecisionRequest}
           onJoinCall={videoCallsEnabled ? joinCall : undefined}
           onLoadMore={() => void fetchNextPage({ cancelRefetch: false })}
         />
