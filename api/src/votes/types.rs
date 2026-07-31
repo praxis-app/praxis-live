@@ -3,73 +3,73 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct VotePath {
-    pub(crate) server_id: Uuid,
-    pub(crate) channel_id: Uuid,
-    pub(crate) poll_id: Uuid,
-    pub(crate) vote_id: Uuid,
+pub(super) struct VotePath {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) poll_id: Uuid,
+    pub(super) vote_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct PollOptionPath {
-    pub(crate) server_id: Uuid,
-    pub(crate) channel_id: Uuid,
-    pub(crate) poll_id: Uuid,
-    pub(crate) poll_option_id: Uuid,
+pub(super) struct PollOptionPath {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) poll_id: Uuid,
+    pub(super) poll_option_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct VoteRequest {
-    pub(crate) vote_type: Option<String>,
-    pub(crate) poll_option_ids: Option<Vec<String>>,
+pub(super) struct VoteRequest {
+    pub(super) vote_type: Option<String>,
+    pub(super) poll_option_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct VoteResponse {
-    pub(crate) id: String,
+    pub(super) id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) vote_type: Option<String>,
+    pub(super) vote_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) poll_option_ids: Option<Vec<String>>,
+    pub(super) poll_option_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CreateVoteResponse {
-    pub(crate) id: String,
-    pub(crate) poll_id: String,
-    pub(crate) user_id: String,
+pub(super) struct CreateVoteResponse {
+    pub(super) id: String,
+    pub(super) poll_id: String,
+    pub(super) user_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) vote_type: Option<String>,
+    pub(super) vote_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) poll_option_ids: Option<Vec<String>>,
-    pub(crate) is_ratifying_vote: bool,
+    pub(super) poll_option_ids: Option<Vec<String>>,
+    pub(super) is_ratifying_vote: bool,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct VotePayload {
-    pub(crate) vote: CreateVoteResponse,
+pub(super) struct VotePayload {
+    pub(super) vote: CreateVoteResponse,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UpdateVoteResponse {
-    pub(crate) is_ratifying_vote: bool,
+pub(super) struct UpdateVoteResponse {
+    pub(super) is_ratifying_vote: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct PollOptionVoterResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) display_name: Option<String>,
-    pub(crate) profile_picture: Option<crate::users::UserImageRef>,
+pub(super) struct PollOptionVoterResponse {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) display_name: Option<String>,
+    pub(super) profile_picture: Option<crate::users::UserImageRef>,
 }
 
 #[derive(Debug, Serialize)]
 pub(crate) struct VotersPayload {
-    pub(crate) voters: Vec<PollOptionVoterResponse>,
+    pub(super) voters: Vec<PollOptionVoterResponse>,
 }

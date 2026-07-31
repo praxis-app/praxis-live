@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::args::PollStatsArgs;
 
-pub async fn run(
+pub(crate) async fn run(
     database: &impl ConnectionTrait,
     args: PollStatsArgs,
 ) -> Result<()> {

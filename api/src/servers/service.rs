@@ -32,7 +32,7 @@ pub(crate) async fn default_server_id(
     Ok(config.default_server_id)
 }
 
-pub(crate) async fn get_servers(
+pub(super) async fn get_servers(
     database: &DatabaseConnection,
 ) -> AppResult<Vec<ServerResponse>> {
     let default_server_id = default_server_id(database).await?;
@@ -120,7 +120,7 @@ pub(crate) async fn get_current_server(
         .map(Some)
 }
 
-pub(crate) async fn get_server_by_id(
+pub(super) async fn get_server_by_id(
     database: &DatabaseConnection,
     server_id: Uuid,
     include_general_channel: bool,
@@ -137,7 +137,7 @@ pub(crate) async fn get_server_by_id(
     .await
 }
 
-pub(crate) async fn get_server_by_slug(
+pub(super) async fn get_server_by_slug(
     database: &DatabaseConnection,
     slug: &str,
     user_id: Uuid,
@@ -156,7 +156,7 @@ pub(crate) async fn get_server_by_slug(
     shape_server(database, server, default_server_id, true, false).await
 }
 
-pub(crate) async fn get_default_server(
+pub(super) async fn get_default_server(
     database: &DatabaseConnection,
 ) -> AppResult<ServerResponse> {
     let default_server_id = default_server_id(database).await?;
@@ -164,7 +164,7 @@ pub(crate) async fn get_default_server(
     shape_server(database, server, default_server_id, true, true).await
 }
 
-pub(crate) async fn get_server_by_invite_token(
+pub(super) async fn get_server_by_invite_token(
     database: &DatabaseConnection,
     invite_token: &str,
 ) -> AppResult<ServerResponse> {
@@ -176,7 +176,7 @@ pub(crate) async fn get_server_by_invite_token(
     shape_server(database, server, default_server_id, true, true).await
 }
 
-pub(crate) async fn create_server(
+pub(super) async fn create_server(
     database: &DatabaseConnection,
     request: ServerRequest,
     current_user_id: Uuid,
@@ -213,7 +213,7 @@ pub(crate) async fn create_server(
     shape_server(database, server, default_server_id, false, false).await
 }
 
-pub(crate) async fn update_server(
+pub(super) async fn update_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     request: ServerRequest,
@@ -234,7 +234,7 @@ pub(crate) async fn update_server(
     shape_server(database, server, default_server_id, false, false).await
 }
 
-pub(crate) async fn delete_server(
+pub(super) async fn delete_server(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<()> {
@@ -261,7 +261,7 @@ pub(crate) async fn delete_server(
     Ok(())
 }
 
-pub(crate) async fn get_server_members(
+pub(super) async fn get_server_members(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<UserResponse>> {
@@ -299,7 +299,7 @@ pub(crate) async fn get_server_members(
         .collect())
 }
 
-pub(crate) async fn get_users_eligible_for_server(
+pub(super) async fn get_users_eligible_for_server(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<UserResponse>> {
@@ -334,7 +334,7 @@ pub(crate) async fn get_users_eligible_for_server(
         .collect())
 }
 
-pub(crate) async fn add_server_members(
+pub(super) async fn add_server_members(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_ids: &[Uuid],
@@ -394,7 +394,7 @@ where
     Ok(())
 }
 
-pub(crate) async fn remove_server_members(
+pub(super) async fn remove_server_members(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_ids: &[Uuid],
@@ -428,7 +428,7 @@ pub(crate) async fn remove_server_members(
     Ok(())
 }
 
-pub(crate) async fn join_server(
+pub(super) async fn join_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Uuid,

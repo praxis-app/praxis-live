@@ -34,7 +34,7 @@ const SERVER_SUBJECTS: &[&str] = &[
     "all",
 ];
 
-pub(crate) async fn get_server_role(
+pub(super) async fn get_server_role(
     database: &DatabaseConnection,
     server_id: Uuid,
     role_id: Uuid,
@@ -43,7 +43,7 @@ pub(crate) async fn get_server_role(
     shape_server_role(database, role).await
 }
 
-pub(crate) async fn get_server_roles(
+pub(super) async fn get_server_roles(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<ServerRoleResponse>> {
@@ -112,7 +112,7 @@ pub(crate) async fn get_permissions_by_user(
         .collect())
 }
 
-pub(crate) async fn get_users_eligible_for_server_role(
+pub(super) async fn get_users_eligible_for_server_role(
     database: &DatabaseConnection,
     server_id: Uuid,
     role_id: Uuid,
@@ -145,7 +145,7 @@ pub(crate) async fn get_users_eligible_for_server_role(
         .collect())
 }
 
-pub(crate) async fn create_server_role(
+pub(super) async fn create_server_role(
     database: &DatabaseConnection,
     server_id: Uuid,
     request: RoleRequest,
@@ -214,7 +214,7 @@ where
     add_member(database, role.id, user_id).await
 }
 
-pub(crate) async fn update_server_role(
+pub(super) async fn update_server_role(
     database: &DatabaseConnection,
     server_id: Uuid,
     role_id: Uuid,
@@ -229,7 +229,7 @@ pub(crate) async fn update_server_role(
     Ok(())
 }
 
-pub(crate) async fn update_server_role_permissions(
+pub(super) async fn update_server_role_permissions(
     database: &DatabaseConnection,
     server_id: Uuid,
     role_id: Uuid,
@@ -240,7 +240,7 @@ pub(crate) async fn update_server_role_permissions(
     set_permissions(database, role_id, &permissions).await
 }
 
-pub(crate) async fn add_server_role_members(
+pub(super) async fn add_server_role_members(
     database: &DatabaseConnection,
     server_id: Uuid,
     role_id: Uuid,
@@ -260,7 +260,7 @@ pub(crate) async fn add_server_role_members(
     Ok(())
 }
 
-pub(crate) async fn remove_server_role_member(
+pub(super) async fn remove_server_role_member(
     database: &DatabaseConnection,
     server_id: Uuid,
     role_id: Uuid,
@@ -276,7 +276,7 @@ pub(crate) async fn remove_server_role_member(
     Ok(())
 }
 
-pub(crate) async fn delete_server_role(
+pub(super) async fn delete_server_role(
     database: &DatabaseConnection,
     server_id: Uuid,
     role_id: Uuid,

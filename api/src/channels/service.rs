@@ -15,7 +15,7 @@ use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
 use crate::common::{encryption, text::sanitize_text, ApiError, AppResult};
 use crate::servers as servers_service;
 
-pub(crate) async fn get_channels(
+pub(super) async fn get_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<ChannelResponse>> {
@@ -35,7 +35,7 @@ pub(crate) async fn get_channels(
         .collect())
 }
 
-pub(crate) async fn get_joined_channels(
+pub(super) async fn get_joined_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Uuid,
@@ -72,7 +72,7 @@ pub(crate) async fn get_joined_channels(
         .collect())
 }
 
-pub(crate) async fn get_channel_with_server(
+pub(super) async fn get_channel_with_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -82,7 +82,7 @@ pub(crate) async fn get_channel_with_server(
     Ok(shape_channel(channel, &server))
 }
 
-pub(crate) async fn create_channel(
+pub(super) async fn create_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
     request: ChannelRequest,
@@ -123,7 +123,7 @@ pub(crate) async fn create_channel(
     Ok(shape_channel(channel, &server))
 }
 
-pub(crate) async fn update_channel(
+pub(super) async fn update_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -138,7 +138,7 @@ pub(crate) async fn update_channel(
     Ok(())
 }
 
-pub(crate) async fn delete_channel(
+pub(super) async fn delete_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,

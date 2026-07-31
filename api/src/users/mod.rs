@@ -2,7 +2,7 @@ mod handlers;
 mod models;
 mod routes;
 mod service;
-pub(crate) mod types;
+mod types;
 
 pub(crate) use models::UserRecord;
 pub(crate) use routes::router;

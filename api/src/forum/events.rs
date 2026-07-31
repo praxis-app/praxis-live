@@ -72,7 +72,7 @@ pub(crate) async fn broadcast_proposal_forum_reference(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn broadcast_forum_reply(
+pub(super) async fn broadcast_forum_reply(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
     server_id: Uuid,

@@ -1,3 +1,3 @@
-pub mod poll_stats;
-pub mod routes;
-pub mod schema;
+pub(super) mod poll_stats;
+pub(super) mod routes;
+pub(super) mod schema;

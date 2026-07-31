@@ -118,7 +118,7 @@ fn cursor_condition(
     )
 }
 
-pub(crate) async fn create_message(
+pub(super) async fn create_message(
     database: &DatabaseConnection,
     channel_id: Uuid,
     user_id: Uuid,
@@ -127,7 +127,7 @@ pub(crate) async fn create_message(
     create_message_record(database, channel_id, None, user_id, request).await
 }
 
-pub(crate) async fn create_call_message(
+pub(super) async fn create_call_message(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -141,7 +141,7 @@ pub(crate) async fn create_call_message(
         .await
 }
 
-pub(crate) async fn broadcast_message(
+pub(super) async fn broadcast_message(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
     server_id: Uuid,
@@ -165,7 +165,7 @@ pub(crate) async fn broadcast_message(
     .await
 }
 
-pub(crate) async fn broadcast_image_upload(
+pub(super) async fn broadcast_image_upload(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
     server_id: Uuid,
@@ -192,7 +192,7 @@ pub(crate) async fn broadcast_image_upload(
     .await
 }
 
-pub(crate) async fn broadcast_message_to_call(
+pub(super) async fn broadcast_message_to_call(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
     server_id: Uuid,
@@ -218,7 +218,7 @@ pub(crate) async fn broadcast_message_to_call(
     .await
 }
 
-pub(crate) async fn broadcast_call_image_upload(
+pub(super) async fn broadcast_call_image_upload(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
     server_id: Uuid,
@@ -377,7 +377,7 @@ pub(crate) async fn shape_messages(
         .collect())
 }
 
-pub(crate) async fn store_message_image(
+pub(super) async fn store_message_image(
     database: &DatabaseConnection,
     upload_root: &Path,
     message: &messages::Model,
@@ -429,7 +429,7 @@ pub(crate) async fn store_message_image(
     })
 }
 
-pub(crate) async fn get_message_image(
+pub(super) async fn get_message_image(
     database: &DatabaseConnection,
     upload_root: &Path,
     server_id: Uuid,
@@ -476,7 +476,7 @@ pub(crate) async fn get_message_image(
     })
 }
 
-pub(crate) async fn get_call_message_image(
+pub(super) async fn get_call_message_image(
     database: &DatabaseConnection,
     upload_root: &Path,
     server_id: Uuid,
@@ -498,7 +498,7 @@ pub(crate) async fn get_call_message_image(
     .await
 }
 
-pub(crate) async fn load_message(
+pub(super) async fn load_message(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -521,7 +521,7 @@ pub(crate) async fn load_message(
     Ok(message)
 }
 
-pub(crate) async fn load_call_message(
+pub(super) async fn load_call_message(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,

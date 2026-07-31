@@ -6,7 +6,7 @@ use sea_orm::{
     Statement,
 };
 
-pub async fn connect_read_only() -> Result<DatabaseConnection> {
+pub(crate) async fn connect_read_only() -> Result<DatabaseConnection> {
     let database_url = database_url_from_env()?;
     let mut options = ConnectOptions::new(database_url);
     options

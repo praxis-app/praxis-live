@@ -30,7 +30,7 @@ use crate::{
 
 const MAX_POST_TITLE_LENGTH: usize = 100;
 
-pub(crate) async fn list_forum_posts(
+pub(super) async fn list_forum_posts(
     database: &DatabaseConnection,
     channel_id: Uuid,
     sort: Option<&str>,
@@ -104,7 +104,7 @@ fn forum_post_cursor_condition(
         )
 }
 
-pub(crate) async fn create_forum_post(
+pub(super) async fn create_forum_post(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -184,7 +184,7 @@ pub(crate) async fn create_forum_post(
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
 
-pub(crate) async fn get_forum_post(
+pub(super) async fn get_forum_post(
     database: &DatabaseConnection,
     channel_id: Uuid,
     post_id: Uuid,
@@ -198,7 +198,7 @@ pub(crate) async fn get_forum_post(
     .await
 }
 
-pub(crate) async fn update_forum_post(
+pub(super) async fn update_forum_post(
     database: &DatabaseConnection,
     channel_id: Uuid,
     post_id: Uuid,
@@ -271,7 +271,7 @@ pub(crate) async fn update_forum_post(
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
 
-pub(crate) async fn create_forum_post_proposal(
+pub(super) async fn create_forum_post_proposal(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -304,7 +304,7 @@ pub(crate) async fn create_forum_post_proposal(
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
 
-pub(crate) async fn close_forum_post(
+pub(super) async fn close_forum_post(
     database: &DatabaseConnection,
     channel_id: Uuid,
     post_id: Uuid,
@@ -321,7 +321,7 @@ pub(crate) async fn close_forum_post(
     .await
 }
 
-pub(crate) async fn reopen_forum_post(
+pub(super) async fn reopen_forum_post(
     database: &DatabaseConnection,
     channel_id: Uuid,
     post_id: Uuid,
@@ -362,7 +362,7 @@ async fn set_forum_post_status(
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
 
-pub(crate) async fn create_forum_reply(
+pub(super) async fn create_forum_reply(
     database: &DatabaseConnection,
     channel_id: Uuid,
     post_id: Uuid,
@@ -454,7 +454,7 @@ pub(crate) async fn create_forum_reply(
     Ok((reply, summary))
 }
 
-pub(crate) async fn delete_forum_reply(
+pub(super) async fn delete_forum_reply(
     database: &DatabaseConnection,
     channel_id: Uuid,
     post_id: Uuid,

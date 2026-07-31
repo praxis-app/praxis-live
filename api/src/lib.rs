@@ -36,7 +36,7 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let livekit_config = calls::LiveKitConfig::from_env();
     let pub_sub_service = pub_sub::PubSubService::from_env();
 
-    calls::cleanup::spawn_stale_call_cleaner(
+    calls::spawn_stale_call_cleaner(
         database.clone(),
         pub_sub_service.clone(),
         livekit_config.clone(),
@@ -135,7 +135,7 @@ fn build_router_with_pub_sub(
     view::attach(ws.nest("/api", api))
 }
 
-pub async fn connect_database_from_env(
+async fn connect_database_from_env(
 ) -> Result<DatabaseConnection, Box<dyn Error + Send + Sync>> {
     connect_database(&database_url_from_env()?, migrations_enabled()).await
 }
@@ -166,7 +166,7 @@ pub async fn connect_database(
     Ok(database)
 }
 
-pub fn database_url_from_env() -> Result<String, Box<dyn Error + Send + Sync>> {
+fn database_url_from_env() -> Result<String, Box<dyn Error + Send + Sync>> {
     if let Ok(database_url) = env::var("DATABASE_URL") {
         return Ok(database_url);
     }
@@ -187,7 +187,7 @@ pub fn database_url_from_env() -> Result<String, Box<dyn Error + Send + Sync>> {
     ))
 }
 
-pub fn migrations_enabled() -> bool {
+fn migrations_enabled() -> bool {
     env::var("DB_MIGRATIONS")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false)

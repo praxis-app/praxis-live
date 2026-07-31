@@ -4,7 +4,7 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 use sea_orm::{ConnectionTrait, DbBackend, FromQueryResult, Statement, Value};
 
-pub async fn run(database: &impl ConnectionTrait) -> Result<()> {
+pub(crate) async fn run(database: &impl ConnectionTrait) -> Result<()> {
     let color = std::io::stdout().is_terminal();
 
     if color {

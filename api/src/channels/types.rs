@@ -1,7 +1,7 @@
 use entity::enums::ChannelType;
 use serde::{Deserialize, Serialize};
 
-pub(crate) use crate::servers::types::ServerPath;
+pub(super) use crate::servers::types::ServerPath;
 use sea_orm::prelude::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -13,34 +13,34 @@ pub(crate) struct ChannelPath {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ChannelRequest {
-    pub(crate) name: String,
-    pub(crate) description: Option<String>,
-    pub(crate) channel_type: Option<ChannelType>,
+pub(super) struct ChannelRequest {
+    pub(super) name: String,
+    pub(super) description: Option<String>,
+    pub(super) channel_type: Option<ChannelType>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct ChannelServer {
-    pub(crate) id: String,
-    pub(crate) slug: String,
+pub(super) struct ChannelServer {
+    pub(super) id: String,
+    pub(super) slug: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ChannelResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) description: Option<String>,
-    pub(crate) channel_type: ChannelType,
-    pub(crate) server: ChannelServer,
+pub(super) struct ChannelResponse {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) description: Option<String>,
+    pub(super) channel_type: ChannelType,
+    pub(super) server: ChannelServer,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct ChannelPayload {
-    pub(crate) channel: ChannelResponse,
+pub(super) struct ChannelPayload {
+    pub(super) channel: ChannelResponse,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct ChannelsPayload {
-    pub(crate) channels: Vec<ChannelResponse>,
+pub(super) struct ChannelsPayload {
+    pub(super) channels: Vec<ChannelResponse>,
 }

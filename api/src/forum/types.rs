@@ -6,124 +6,124 @@ use crate::polls::types::{CreatePollRequest, PollResponse};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ForumChannelPath {
-    pub(crate) server_id: Uuid,
-    pub(crate) channel_id: Uuid,
+pub(super) struct ForumChannelPath {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ForumPostPath {
-    pub(crate) server_id: Uuid,
-    pub(crate) channel_id: Uuid,
-    pub(crate) post_id: Uuid,
+pub(super) struct ForumPostPath {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) post_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ForumReplyPath {
-    pub(crate) server_id: Uuid,
-    pub(crate) channel_id: Uuid,
-    pub(crate) post_id: Uuid,
-    pub(crate) reply_id: Uuid,
+pub(super) struct ForumReplyPath {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) post_id: Uuid,
+    pub(super) reply_id: Uuid,
 }
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ListForumPostsQuery {
-    pub(crate) sort: Option<String>,
-    pub(crate) status: Option<String>,
-    pub(crate) before: Option<String>,
-    pub(crate) limit: Option<u64>,
+pub(super) struct ListForumPostsQuery {
+    pub(super) sort: Option<String>,
+    pub(super) status: Option<String>,
+    pub(super) before: Option<String>,
+    pub(super) limit: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct CreateForumPostRequest {
-    pub(crate) title: String,
-    pub(crate) body: String,
-    pub(crate) proposal: Option<CreatePollRequest>,
+pub(super) struct CreateForumPostRequest {
+    pub(super) title: String,
+    pub(super) body: String,
+    pub(super) proposal: Option<CreatePollRequest>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct MoveProposalToForumRequest {
-    pub(crate) destination_channel_id: Uuid,
-    pub(crate) title: String,
-    pub(crate) body: String,
+    pub(super) destination_channel_id: Uuid,
+    pub(super) title: String,
+    pub(super) body: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct UpdateForumPostRequest {
-    pub(crate) title: Option<String>,
-    pub(crate) body: Option<String>,
+pub(super) struct UpdateForumPostRequest {
+    pub(super) title: Option<String>,
+    pub(super) body: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CreateForumReplyRequest {
-    pub(crate) body: String,
+pub(super) struct CreateForumReplyRequest {
+    pub(super) body: String,
     #[serde(default)]
-    pub(crate) image_count: usize,
-    pub(crate) parent_message_id: Option<Uuid>,
+    pub(super) image_count: usize,
+    pub(super) parent_message_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ForumPostSummaryResponse {
-    pub(crate) id: String,
-    pub(crate) title: String,
-    pub(crate) root_message_id: String,
-    pub(crate) poll_id: Option<String>,
-    pub(crate) status: String,
-    pub(crate) user: MessageUser,
-    pub(crate) reply_count: usize,
-    pub(crate) latest_activity_at: String,
-    pub(crate) created_at: String,
-    pub(crate) updated_at: String,
+pub(super) struct ForumPostSummaryResponse {
+    pub(super) id: String,
+    pub(super) title: String,
+    pub(super) root_message_id: String,
+    pub(super) poll_id: Option<String>,
+    pub(super) status: String,
+    pub(super) user: MessageUser,
+    pub(super) reply_count: usize,
+    pub(super) latest_activity_at: String,
+    pub(super) created_at: String,
+    pub(super) updated_at: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ForumPostsResponse {
-    pub(crate) posts: Vec<ForumPostSummaryResponse>,
-    pub(crate) next_cursor: Option<String>,
-    pub(crate) has_more: bool,
+pub(super) struct ForumPostsResponse {
+    pub(super) posts: Vec<ForumPostSummaryResponse>,
+    pub(super) next_cursor: Option<String>,
+    pub(super) has_more: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ForumPostResponse {
     #[serde(flatten)]
-    pub(crate) post: ForumPostSummaryResponse,
-    pub(crate) body: String,
-    pub(crate) replies: Vec<MessageResponse>,
-    pub(crate) proposal: Option<PollResponse>,
+    pub(super) post: ForumPostSummaryResponse,
+    pub(super) body: String,
+    pub(super) replies: Vec<MessageResponse>,
+    pub(super) proposal: Option<PollResponse>,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct ForumPostPayload {
-    pub(crate) post: ForumPostResponse,
+pub(super) struct ForumPostPayload {
+    pub(super) post: ForumPostResponse,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct ForumReplyPayload {
-    pub(crate) reply: MessageResponse,
+pub(super) struct ForumReplyPayload {
+    pub(super) reply: MessageResponse,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProposalForumReferenceResponse {
     pub(crate) id: String,
-    pub(crate) proposal_id: String,
-    pub(crate) source_channel_id: String,
-    pub(crate) destination_channel_id: String,
-    pub(crate) destination_channel_name: String,
-    pub(crate) forum_post_id: String,
-    pub(crate) user: MessageUser,
+    pub(super) proposal_id: String,
+    pub(super) source_channel_id: String,
+    pub(super) destination_channel_id: String,
+    pub(super) destination_channel_name: String,
+    pub(super) forum_post_id: String,
+    pub(super) user: MessageUser,
     pub(crate) created_at: String,
-    pub(crate) moved_at: String,
+    pub(super) moved_at: String,
 }
 
 #[derive(Debug, Serialize)]
