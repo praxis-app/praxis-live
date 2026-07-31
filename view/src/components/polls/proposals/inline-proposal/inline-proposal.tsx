@@ -5,6 +5,8 @@ import {
 import { Card } from '@/components/ui/card';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { DECISION_FOCUS_TARGET_CLASS_NAME } from '@/constants/style.constants';
+import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type CallArtifactRes } from '@/types/call.types';
@@ -60,7 +62,10 @@ export const InlineProposal = ({
       aria-label={label}
       data-decision-id={poll.id}
       tabIndex={-1}
-      className="decision-focus-target flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none"
+      className={cn(
+        DECISION_FOCUS_TARGET_CLASS_NAME,
+        'flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none',
+      )}
     >
       <UserProfileDrawer
         name={truncatedName}

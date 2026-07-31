@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { DECISION_FOCUS_TARGET_CLASS_NAME } from '@/constants/style.constants';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
@@ -251,7 +252,10 @@ export const InlinePoll = ({
     <div
       data-decision-id={id}
       tabIndex={-1}
-      className="decision-focus-target flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none"
+      className={cn(
+        DECISION_FOCUS_TARGET_CLASS_NAME,
+        'flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none',
+      )}
     >
       <UserProfileDrawer
         name={truncatedName}
