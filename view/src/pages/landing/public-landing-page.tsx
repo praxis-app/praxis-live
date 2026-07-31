@@ -151,7 +151,7 @@ export const PublicLandingPage = () => {
           </div>
         </div>
 
-        <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-32 lg:px-8">
           <LandingBenefitSection
             eyebrow={t('landing.chat.eyebrow')}
             title={t('landing.chat.title')}
@@ -177,7 +177,7 @@ export const PublicLandingPage = () => {
           />
         </div>
 
-        <section className="px-4 pb-24 sm:px-6 sm:pb-32 lg:px-8">
+        <section className="px-4 pb-16 sm:px-6 sm:pb-32 lg:px-8">
           <div className="relative mx-auto max-w-6xl overflow-hidden rounded-4xl bg-neutral-950 px-6 py-14 text-center text-white shadow-2xl shadow-black/20 sm:px-12 sm:py-20">
             <div className="border-praxis-coral/40 absolute -top-24 -right-20 size-72 rounded-full border" />
             <div className="bg-praxis-green/35 absolute -bottom-28 -left-12 size-64 rounded-full" />

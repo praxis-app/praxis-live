@@ -78,11 +78,11 @@ export const LandingProposalVisual = () => {
 
   return (
     <>
-      <div className="flex max-w-full min-w-0 gap-4 pt-1">
+      <div className="flex w-full max-w-full min-w-0 gap-4 pt-1">
         <div className="bg-praxis-coral-soft text-praxis-coral mt-0.5 hidden size-10 shrink-0 items-center justify-center rounded-full text-lg font-light sm:flex">
           AR
         </div>
-        <div className="max-w-full min-w-0 flex-1">
+        <div className="w-full max-w-full min-w-0 flex-1">
           <div className="hidden min-w-0 items-center gap-1.5 pb-1 sm:flex">
             <span className="font-medium">
               Ari
@@ -92,7 +92,7 @@ export const LandingProposalVisual = () => {
             </span>
           </div>
 
-          <div className="border-border bg-card before:border-l-border relative min-w-0 rounded-md border px-3 py-3.5 shadow-xl shadow-black/5 before:absolute before:inset-y-0 before:left-0 before:w-3 before:rounded-l-md before:border-l-3">
+          <div className="border-border bg-card before:border-l-border @container relative w-full max-w-full min-w-0 rounded-md border px-3 py-3.5 shadow-xl shadow-black/5 before:absolute before:inset-y-0 before:left-0 before:w-3 before:rounded-l-md before:border-l-3">
             <button
               type="button"
               aria-label={t('proposals.actions.viewSettings')}
@@ -105,7 +105,7 @@ export const LandingProposalVisual = () => {
             <ProposalMetadata
               actionType="change-role"
               decisionMakingModel="consensus"
-              variant="forum"
+              variant="inline"
               onClick={() => setIsSettingsDialogOpen(true)}
             />
 
