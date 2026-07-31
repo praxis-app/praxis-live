@@ -32,11 +32,11 @@ export const LandingVisual = ({ variant }: Props) => {
         <div className="space-y-5">
           <div className="flex gap-3">
             <div className="bg-praxis-coral-soft text-praxis-coral flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold">
-              {t('landing.visuals.conversation.firstUserInitials')}
+              AR
             </div>
             <div>
               <p className="text-sm font-semibold">
-                {t('landing.visuals.conversation.firstUserName')}
+                Ari
               </p>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
                 {t('landing.visuals.conversation.firstMessage')}
@@ -45,11 +45,11 @@ export const LandingVisual = ({ variant }: Props) => {
           </div>
           <div className="flex gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-              {t('landing.visuals.conversation.secondUserInitials')}
+              MK
             </div>
             <div>
               <p className="text-sm font-semibold">
-                {t('landing.visuals.conversation.secondUserName')}
+                Mika
               </p>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
                 {t('landing.visuals.conversation.secondMessage')}

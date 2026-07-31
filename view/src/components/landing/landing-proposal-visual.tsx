@@ -56,7 +56,7 @@ export const LandingProposalVisual = () => {
     images: [],
     user: {
       id: 'landing-user',
-      name: t('landing.visuals.proposal.authorName'),
+      name: 'Ari',
       profilePicture: null,
     },
     votes: proposalVotes,
@@ -80,12 +80,12 @@ export const LandingProposalVisual = () => {
     <>
       <div className="flex max-w-full min-w-0 gap-4 pt-1">
         <div className="bg-praxis-coral-soft text-praxis-coral mt-0.5 hidden size-10 shrink-0 items-center justify-center rounded-full text-lg font-light sm:flex">
-          {t('landing.visuals.proposal.authorInitials')}
+          AR
         </div>
         <div className="max-w-full min-w-0 flex-1">
           <div className="hidden min-w-0 items-center gap-1.5 pb-1 sm:flex">
             <span className="font-medium">
-              {t('landing.visuals.proposal.authorName')}
+              Ari
             </span>
             <span className="text-muted-foreground text-sm">
               {t('landing.visuals.proposal.timestamp')}

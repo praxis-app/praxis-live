@@ -884,11 +884,7 @@
       "conversation": {
         "channel": "phonebank",
         "joinCall": "Join call",
-        "firstUserInitials": "AR",
-        "firstUserName": "Ari",
         "firstMessage": "We still need six volunteers for Saturday morning. Who can make calls?",
-        "secondUserInitials": "MK",
-        "secondUserName": "Mika",
         "secondMessage": "I can take the first shift and help train new callers.",
         "messagePrompt": "Message #{{channel}}"
       },
@@ -900,8 +896,6 @@
         "activity": "Active now"
       },
       "proposal": {
-        "authorInitials": "AR",
-        "authorName": "Ari",
         "timestamp": "just now",
         "body": "Rename the Outreach Volunteer role to Phone Bank Coordinator and update its access.",
         "actionTitle": "Role change proposal:",
