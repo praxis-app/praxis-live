@@ -1,4 +1,7 @@
-use entity::enums::PollActionType;
+use entity::enums::{
+    PollActionPermissionChangeType, PollActionRoleMemberChangeType,
+    PollActionType,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -24,7 +27,7 @@ pub(crate) struct CreatePollActionServerRoleRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollActionServerRoleMemberRequest {
     pub(crate) user_id: String,
-    pub(crate) change_type: String,
+    pub(crate) change_type: PollActionRoleMemberChangeType,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,7 +41,7 @@ pub(crate) struct CreatePollActionPermissionRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollActionPermissionChangeRequest {
     pub(crate) action: String,
-    pub(crate) change_type: String,
+    pub(crate) change_type: PollActionPermissionChangeType,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -93,7 +96,7 @@ pub(crate) struct PollActionServerRoleResponse {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollActionServerRoleMemberResponse {
-    pub(crate) change_type: String,
+    pub(crate) change_type: PollActionRoleMemberChangeType,
     pub(crate) user: PollActionUserResponse,
 }
 
@@ -111,5 +114,5 @@ pub(crate) struct PollActionUserResponse {
 pub(crate) struct PollActionPermissionResponse {
     pub(crate) subject: String,
     pub(crate) action: String,
-    pub(crate) change_type: String,
+    pub(crate) change_type: PollActionPermissionChangeType,
 }

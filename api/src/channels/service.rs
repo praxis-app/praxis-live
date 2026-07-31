@@ -383,7 +383,7 @@ fn shape_channel(
         id: channel.id.to_string(),
         name: channel.name,
         description: channel.description,
-        channel_type: channel.channel_type.to_string(),
+        channel_type: channel.channel_type,
         server: ChannelServer {
             id: server.id.to_string(),
             slug: server.slug.clone(),
@@ -418,17 +418,7 @@ fn validate_channel_request(
         ));
     }
 
-    let channel_type = request
-        .channel_type
-        .as_deref()
-        .unwrap_or("text")
-        .parse()
-        .map_err(|_| {
-            ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Channel type must be text or forum.",
-            )
-        })?;
+    let channel_type = request.channel_type.unwrap_or(ChannelType::Text);
 
     Ok((name, description, channel_type))
 }

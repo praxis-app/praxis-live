@@ -127,7 +127,18 @@ impl From<PollActionPermissionSubject> for ServerAbilitySubject {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+)]
+#[serde(rename_all = "lowercase")]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
@@ -145,7 +156,18 @@ impl_enum_string_conversions!(PollActionPermissionChangeType {
     Remove => "remove",
 });
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+)]
+#[serde(rename_all = "lowercase")]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",

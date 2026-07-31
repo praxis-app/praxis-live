@@ -1,4 +1,4 @@
-use entity::enums::PollType;
+use entity::enums::{ChannelType, PollType};
 use sea_orm::prelude::{DateTimeWithTimeZone, Uuid};
 use serde::{Deserialize, Serialize};
 
@@ -90,7 +90,7 @@ pub(crate) struct ActiveDecisionResponse {
     pub(crate) created_at: String,
     pub(crate) channel_id: String,
     pub(crate) channel_name: String,
-    pub(crate) channel_type: String,
+    pub(crate) channel_type: ChannelType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) forum_post_id: Option<String>,
 }
