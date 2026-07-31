@@ -49,6 +49,11 @@ pub(crate) struct CreateVoteResponse {
     pub(crate) is_ratifying_vote: bool,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct VotePayload {
+    pub(crate) vote: CreateVoteResponse,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UpdateVoteResponse {
@@ -62,4 +67,9 @@ pub(crate) struct PollOptionVoterResponse {
     pub(crate) name: String,
     pub(crate) display_name: Option<String>,
     pub(crate) profile_picture: Option<crate::users::UserImageRef>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct VotersPayload {
+    pub(crate) voters: Vec<PollOptionVoterResponse>,
 }

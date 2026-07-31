@@ -9,11 +9,15 @@ use std::sync::Arc;
 
 use super::{
     service,
-    types::{RoleMembersRequest, RoleRequest, UpdatePermissionsRequest},
+    types::{
+        InstanceRolePayload, InstanceRolesPayload, RoleMembersRequest,
+        RoleRequest, UpdatePermissionsRequest,
+    },
 };
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
-    common::{ApiError, AppResult},
+    common::{response::EmptyResponse, ApiError, AppResult},
+    servers::types::UsersPayload,
 };
 
 #[derive(Clone, Debug)]
@@ -57,42 +61,42 @@ pub(super) async fn get_instance_role(
     State(state): State<InstanceRolesState>,
     Path(path): Path<InstanceRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<InstanceRolePayload>> {
     let instance_role =
         service::get_instance_role(&state.database, path.instance_role_id)
             .await?;
-    Ok(Json(serde_json::json!({ "instanceRole": instance_role })))
+    Ok(Json(InstanceRolePayload { instance_role }))
 }
 
 pub(super) async fn get_instance_roles(
     State(state): State<InstanceRolesState>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<InstanceRolesPayload>> {
     let instance_roles = service::get_instance_roles(&state.database).await?;
-    Ok(Json(serde_json::json!({ "instanceRoles": instance_roles })))
+    Ok(Json(InstanceRolesPayload { instance_roles }))
 }
 
 pub(super) async fn get_users_eligible_for_instance_role(
     State(state): State<InstanceRolesState>,
     Path(path): Path<InstanceRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<UsersPayload>> {
     let users = service::get_users_eligible_for_instance_role(
         &state.database,
         path.instance_role_id,
     )
     .await?;
-    Ok(Json(serde_json::json!({ "users": users })))
+    Ok(Json(UsersPayload { users }))
 }
 
 pub(super) async fn create_instance_role(
     State(state): State<InstanceRolesState>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<RoleRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<InstanceRolePayload>> {
     let instance_role =
         service::create_instance_role(&state.database, payload).await?;
-    Ok(Json(serde_json::json!({ "instanceRole": instance_role })))
+    Ok(Json(InstanceRolePayload { instance_role }))
 }
 
 pub(super) async fn update_instance_role(
@@ -100,14 +104,14 @@ pub(super) async fn update_instance_role(
     Path(path): Path<InstanceRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<RoleRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::update_instance_role(
         &state.database,
         path.instance_role_id,
         payload,
     )
     .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn update_instance_role_permissions(
@@ -115,14 +119,14 @@ pub(super) async fn update_instance_role_permissions(
     Path(path): Path<InstanceRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<UpdatePermissionsRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::update_instance_role_permissions(
         &state.database,
         path.instance_role_id,
         payload.permissions,
     )
     .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn add_instance_role_members(
@@ -130,7 +134,7 @@ pub(super) async fn add_instance_role_members(
     Path(path): Path<InstanceRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<RoleMembersRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
     service::add_instance_role_members(
         &state.database,
@@ -138,31 +142,31 @@ pub(super) async fn add_instance_role_members(
         &user_ids,
     )
     .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn remove_instance_role_member(
     State(state): State<InstanceRolesState>,
     Path(path): Path<InstanceRoleMemberPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::remove_instance_role_member(
         &state.database,
         path.instance_role_id,
         path.user_id,
     )
     .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn delete_instance_role(
     State(state): State<InstanceRolesState>,
     Path(path): Path<InstanceRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::delete_instance_role(&state.database, path.instance_role_id)
         .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 fn parse_user_ids(values: &[String]) -> AppResult<Vec<Uuid>> {

@@ -9,13 +9,14 @@ use std::sync::Arc;
 use super::{
     service,
     types::{
-        JoinServerRequest, ServerConfigRequest, ServerMembersRequest,
-        ServerPath, ServerRequest,
+        AnonymousUsersEnabledResponse, JoinServerRequest, ServerConfigPayload,
+        ServerConfigRequest, ServerMembersRequest, ServerPath, ServerPayload,
+        ServerRequest, ServersPayload, UsersPayload,
     },
 };
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
-    common::{ApiError, AppResult},
+    common::{response::EmptyResponse, ApiError, AppResult},
 };
 
 #[derive(Clone, Debug)]
@@ -45,57 +46,57 @@ impl HasJwtSecret for ServersState {
 pub(super) async fn get_servers(
     State(state): State<ServersState>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServersPayload>> {
     let servers = service::get_servers(&state.database).await?;
-    Ok(Json(serde_json::json!({ "servers": servers })))
+    Ok(Json(ServersPayload { servers }))
 }
 
 pub(super) async fn get_server_by_id(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServerPayload>> {
     let server =
         service::get_server_by_id(&state.database, path.server_id, false)
             .await?;
-    Ok(Json(serde_json::json!({ "server": server })))
+    Ok(Json(ServerPayload { server }))
 }
 
 pub(super) async fn get_server_by_slug(
     State(state): State<ServersState>,
     Path(slug): Path<String>,
     AuthenticatedUser(user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServerPayload>> {
     let server =
         service::get_server_by_slug(&state.database, &slug, user_id).await?;
-    Ok(Json(serde_json::json!({ "server": server })))
+    Ok(Json(ServerPayload { server }))
 }
 
 pub(super) async fn get_server_by_invite_token(
     State(state): State<ServersState>,
     Path(invite_token): Path<String>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServerPayload>> {
     let server =
         service::get_server_by_invite_token(&state.database, &invite_token)
             .await?;
-    Ok(Json(serde_json::json!({ "server": server })))
+    Ok(Json(ServerPayload { server }))
 }
 
 pub(super) async fn get_default_server(
     State(state): State<ServersState>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServerPayload>> {
     let server = service::get_default_server(&state.database).await?;
-    Ok(Json(serde_json::json!({ "server": server })))
+    Ok(Json(ServerPayload { server }))
 }
 
 pub(super) async fn create_server(
     State(state): State<ServersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<ServerRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServerPayload>> {
     let server =
         service::create_server(&state.database, payload, user_id).await?;
-    Ok(Json(serde_json::json!({ "server": server })))
+    Ok(Json(ServerPayload { server }))
 }
 
 pub(super) async fn update_server(
@@ -103,41 +104,41 @@ pub(super) async fn update_server(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ServerRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServerPayload>> {
     let server =
         service::update_server(&state.database, path.server_id, payload)
             .await?;
-    Ok(Json(serde_json::json!({ "server": server })))
+    Ok(Json(ServerPayload { server }))
 }
 
 pub(super) async fn delete_server(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::delete_server(&state.database, path.server_id).await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn get_server_members(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<UsersPayload>> {
     let users =
         service::get_server_members(&state.database, path.server_id).await?;
-    Ok(Json(serde_json::json!({ "users": users })))
+    Ok(Json(UsersPayload { users }))
 }
 
 pub(super) async fn get_users_eligible_for_server(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<UsersPayload>> {
     let users =
         service::get_users_eligible_for_server(&state.database, path.server_id)
             .await?;
-    Ok(Json(serde_json::json!({ "users": users })))
+    Ok(Json(UsersPayload { users }))
 }
 
 pub(super) async fn add_server_members(
@@ -145,11 +146,11 @@ pub(super) async fn add_server_members(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ServerMembersRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
     service::add_server_members(&state.database, path.server_id, &user_ids)
         .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn remove_server_members(
@@ -157,11 +158,11 @@ pub(super) async fn remove_server_members(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ServerMembersRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
     service::remove_server_members(&state.database, path.server_id, &user_ids)
         .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn join_server(
@@ -169,7 +170,7 @@ pub(super) async fn join_server(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<JoinServerRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::join_server(
         &state.database,
         path.server_id,
@@ -177,29 +178,29 @@ pub(super) async fn join_server(
         &payload.invite_token,
     )
     .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn get_server_config(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServerConfigPayload>> {
     let server_config =
         service::get_server_config(&state.database, path.server_id).await?;
-    Ok(Json(serde_json::json!({ "serverConfig": server_config })))
+    Ok(Json(ServerConfigPayload { server_config }))
 }
 
 pub(super) async fn is_anonymous_users_enabled(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<AnonymousUsersEnabledResponse>> {
     let anonymous_users_enabled =
         service::is_anonymous_users_enabled(&state.database, path.server_id)
             .await?;
-    Ok(Json(
-        serde_json::json!({ "anonymousUsersEnabled": anonymous_users_enabled }),
-    ))
+    Ok(Json(AnonymousUsersEnabledResponse {
+        anonymous_users_enabled,
+    }))
 }
 
 pub(super) async fn update_server_config(
@@ -207,10 +208,10 @@ pub(super) async fn update_server_config(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ServerConfigRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::update_server_config(&state.database, path.server_id, payload)
         .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 fn parse_user_ids(values: &[String]) -> AppResult<Vec<Uuid>> {

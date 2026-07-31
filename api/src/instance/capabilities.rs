@@ -1,4 +1,5 @@
 use axum::{extract::State, response::Json};
+use serde::Serialize;
 use std::sync::Arc;
 
 use crate::{
@@ -27,11 +28,17 @@ impl HasJwtSecret for CapabilitiesState {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct CapabilitiesResponse {
+    video_calls_enabled: bool,
+}
+
 pub(super) async fn get_capabilities(
     State(state): State<CapabilitiesState>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(serde_json::json!({
-        "videoCallsEnabled": state.video_calls_enabled,
-    })))
+) -> AppResult<Json<CapabilitiesResponse>> {
+    Ok(Json(CapabilitiesResponse {
+        video_calls_enabled: state.video_calls_enabled,
+    }))
 }

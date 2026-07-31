@@ -4,7 +4,7 @@ use sea_orm::DbErr;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use crate::common::roles::PermissionRule;
+use crate::{common::roles::PermissionRule, servers::types::ServerResponse};
 
 #[derive(Debug, Clone)]
 pub(crate) struct UserRecord {
@@ -63,6 +63,11 @@ pub(crate) struct UserImageRef {
     pub(crate) created_at: String,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct UserImagePayload {
+    pub(crate) image: UserImageRef,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct StoredUserImage {
     pub(crate) content_type: Option<String>,
@@ -85,8 +90,13 @@ pub(crate) struct CurrentUserResponse {
     pub(crate) anonymous: bool,
     pub(crate) permissions: CurrentUserPermissions,
     pub(crate) profile_picture: Option<UserImageRef>,
-    pub(crate) current_server: serde_json::Value,
+    pub(crate) current_server: Option<ServerResponse>,
     pub(crate) servers_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct CurrentUserPayload {
+    pub(crate) user: CurrentUserResponse,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -104,6 +114,17 @@ pub(crate) struct UserProfileResponse {
     pub(crate) bio: Option<String>,
     pub(crate) profile_picture: Option<UserImageRef>,
     pub(crate) cover_photo: Option<UserImageRef>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct UserProfilePayload {
+    pub(crate) user: UserProfileResponse,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FirstUserResponse {
+    pub(crate) is_first_user: bool,
 }
 
 #[derive(Debug, serde::Deserialize)]

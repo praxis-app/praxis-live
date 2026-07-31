@@ -5,17 +5,17 @@ use super::{
         ReadablePollOptionContext, VoteMutationContext, VoteRouteContext,
     },
     service,
-    types::VoteRequest,
+    types::{UpdateVoteResponse, VotePayload, VoteRequest, VotersPayload},
 };
 use crate::{
-    common::AppResult,
+    common::{response::EmptyResponse, AppResult},
     polls::{handlers::PollsState, service as polls_service},
 };
 
 pub(crate) async fn get_voters_by_poll_option(
     State(state): State<PollsState>,
     context: ReadablePollOptionContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<VotersPayload>> {
     let voters = service::get_voters_by_poll_option(
         &state.database,
         context.poll_id,
@@ -23,14 +23,14 @@ pub(crate) async fn get_voters_by_poll_option(
     )
     .await?;
 
-    Ok(Json(serde_json::json!({ "voters": voters })))
+    Ok(Json(VotersPayload { voters }))
 }
 
 pub(crate) async fn create_vote(
     State(state): State<PollsState>,
     context: VoteRouteContext,
     Json(payload): Json<VoteRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<VotePayload>> {
     let server_id = context.server_id;
     let channel_id = context.channel_id;
     let poll_id = context.poll_id;
@@ -52,14 +52,14 @@ pub(crate) async fn create_vote(
         tracing::warn!("failed to broadcast vote update: {error}");
     }
 
-    Ok(Json(serde_json::json!({ "vote": vote })))
+    Ok(Json(VotePayload { vote }))
 }
 
 pub(crate) async fn update_vote(
     State(state): State<PollsState>,
     context: VoteMutationContext,
     Json(payload): Json<VoteRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<UpdateVoteResponse>> {
     let server_id = context.route.server_id;
     let channel_id = context.route.channel_id;
     let poll_id = context.route.poll_id;
@@ -86,13 +86,13 @@ pub(crate) async fn update_vote(
         tracing::warn!("failed to broadcast vote update: {error}");
     }
 
-    Ok(Json(serde_json::json!(response)))
+    Ok(Json(response))
 }
 
 pub(crate) async fn delete_vote(
     State(state): State<PollsState>,
     context: VoteMutationContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     let server_id = context.route.server_id;
     let channel_id = context.route.channel_id;
     let poll_id = context.route.poll_id;
@@ -118,5 +118,5 @@ pub(crate) async fn delete_vote(
         tracing::warn!("failed to broadcast vote update: {error}");
     }
 
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }

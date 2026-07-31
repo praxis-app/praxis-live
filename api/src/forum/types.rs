@@ -102,6 +102,16 @@ pub(crate) struct ForumPostResponse {
     pub(crate) proposal: Option<PollResponse>,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct ForumPostPayload {
+    pub(crate) post: ForumPostResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ForumReplyPayload {
+    pub(crate) reply: MessageResponse,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProposalForumReferenceResponse {
@@ -116,8 +126,11 @@ pub(crate) struct ProposalForumReferenceResponse {
     pub(crate) moved_at: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct MoveProposalToForumResponse {
     pub(crate) post: ForumPostResponse,
     pub(crate) source_reference: ProposalForumReferenceResponse,
+    #[serde(skip)]
     pub(crate) destination_channel_id: Uuid,
 }

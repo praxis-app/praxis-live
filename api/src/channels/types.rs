@@ -34,3 +34,13 @@ pub(crate) struct ChannelResponse {
     pub(crate) channel_type: ChannelType,
     pub(crate) server: ChannelServer,
 }
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ChannelPayload {
+    pub(crate) channel: ChannelResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ChannelsPayload {
+    pub(crate) channels: Vec<ChannelResponse>,
+}

@@ -47,6 +47,16 @@ pub(crate) struct ServerResponse {
     pub(crate) updated_at: String,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct ServerPayload {
+    pub(crate) server: ServerResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ServersPayload {
+    pub(crate) servers: Vec<ServerResponse>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UserResponse {
@@ -54,6 +64,11 @@ pub(crate) struct UserResponse {
     pub(crate) name: String,
     pub(crate) display_name: Option<String>,
     pub(crate) profile_picture: Option<UserImageRef>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct UsersPayload {
+    pub(crate) users: Vec<UserResponse>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,6 +96,18 @@ pub(crate) struct ServerConfigResponse {
     pub(crate) quorum_threshold: i32,
     pub(crate) voting_time_limit: i32,
     pub(crate) updated_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ServerConfigPayload {
+    pub(crate) server_config: ServerConfigResponse,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AnonymousUsersEnabledResponse {
+    pub(crate) anonymous_users_enabled: bool,
 }
 
 pub(crate) fn serialize_timestamp(value: DateTimeWithTimeZone) -> String {

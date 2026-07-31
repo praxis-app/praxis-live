@@ -12,7 +12,8 @@ use super::{
     service,
     types::{
         ActiveDecisionsResponse, CallDecisionResponse, CreatePollRequest,
-        ListActiveDecisionsQuery, PollImagePath, PollPath,
+        DeletePollResponse, ListActiveDecisionsQuery, PollImagePath,
+        PollImagePayload, PollPath, PollPayload,
     },
 };
 use crate::{
@@ -65,7 +66,7 @@ pub(super) async fn create_poll(
     State(state): State<PollsState>,
     context: ChannelWriteContext,
     Json(payload): Json<CreatePollRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<PollPayload>> {
     let poll = service::create_poll(
         &state.database,
         context.server_id,
@@ -88,7 +89,7 @@ pub(super) async fn create_poll(
         tracing::warn!("failed to broadcast created poll: {error}");
     }
 
-    Ok(Json(serde_json::json!({ "poll": poll })))
+    Ok(Json(PollPayload { poll }))
 }
 
 pub(super) async fn move_proposal_to_forum(
@@ -96,7 +97,7 @@ pub(super) async fn move_proposal_to_forum(
     Path(path): Path<PollPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<crate::forum::types::MoveProposalToForumRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<crate::forum::types::MoveProposalToForumResponse>> {
     let result = crate::forum::proposal_moves::move_proposal_to_forum(
         &state.database,
         path.server_id,
@@ -140,17 +141,14 @@ pub(super) async fn move_proposal_to_forum(
         tracing::warn!("failed to broadcast moved proposal: {error}");
     }
 
-    Ok(Json(serde_json::json!({
-        "post": result.post,
-        "sourceReference": result.source_reference,
-    })))
+    Ok(Json(result))
 }
 
 pub(super) async fn create_call_poll(
     State(state): State<PollsState>,
     context: CallWriteContext,
     Json(payload): Json<CreatePollRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<PollPayload>> {
     let poll = service::create_call_poll(
         &state.database,
         context.server_id,
@@ -174,7 +172,7 @@ pub(super) async fn create_call_poll(
         tracing::warn!("failed to broadcast created in-call poll: {error}");
     }
 
-    Ok(Json(serde_json::json!({ "poll": poll })))
+    Ok(Json(PollPayload { poll }))
 }
 
 pub(super) async fn get_call_decision(
@@ -216,7 +214,7 @@ pub(super) async fn upload_poll_image(
     State(state): State<PollsState>,
     context: PollImageUploadContext,
     multipart: Multipart,
-) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+) -> AppResult<(StatusCode, Json<PollImagePayload>)> {
     let file = multipart_file(multipart, "file").await?;
 
     let image = service::store_poll_image(
@@ -243,10 +241,7 @@ pub(super) async fn upload_poll_image(
         tracing::warn!("failed to broadcast uploaded poll image: {error}");
     }
 
-    Ok((
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "image": image })),
-    ))
+    Ok((StatusCode::CREATED, Json(PollImagePayload { image })))
 }
 
 pub(super) async fn get_poll_image(
@@ -278,7 +273,7 @@ pub(super) async fn get_poll_image(
 pub(super) async fn delete_poll(
     State(state): State<PollsState>,
     context: PollDeleteContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<DeletePollResponse>> {
     let result = service::delete_poll(
         &state.database,
         &state.upload_root,
@@ -286,9 +281,9 @@ pub(super) async fn delete_poll(
     )
     .await?;
 
-    Ok(Json(
-        serde_json::json!({ "affected": result.rows_affected }),
-    ))
+    Ok(Json(DeletePollResponse {
+        affected: result.rows_affected,
+    }))
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
