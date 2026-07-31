@@ -9,10 +9,13 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use uuid::Uuid as NativeUuid;
 
-use super::models::{
-    CreateUserError, CurrentUserPermissions, CurrentUserResponse,
-    StoredUserImage, UpdateUserProfileRequest, UserImageRef,
-    UserProfileResponse, UserRecord,
+use super::{
+    models::UserRecord,
+    types::{
+        CreateUserError, CurrentUserPermissions, CurrentUserResponse,
+        StoredUserImage, UpdateUserProfileRequest, UserImageRef,
+        UserProfileResponse,
+    },
 };
 use crate::{
     common::{
@@ -169,7 +172,7 @@ pub(crate) async fn get_current_user(
             .await?,
         },
         profile_picture: get_user_profile_picture(database, user_id).await?,
-        current_server: serde_json::json!(current_server),
+        current_server,
         servers_count: servers.len(),
     })
 }

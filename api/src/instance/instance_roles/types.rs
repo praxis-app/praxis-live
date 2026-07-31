@@ -31,3 +31,15 @@ pub(crate) struct InstanceRoleResponse {
     pub(crate) member_count: usize,
     pub(crate) members: Vec<UserResponse>,
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InstanceRolePayload {
+    pub(crate) instance_role: InstanceRoleResponse,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InstanceRolesPayload {
+    pub(crate) instance_roles: Vec<InstanceRoleResponse>,
+}

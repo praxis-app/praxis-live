@@ -1101,7 +1101,7 @@ pub(crate) async fn get_active_decisions(
             created_at: response.created_at,
             channel_id: channel.id.to_string(),
             channel_name: channel.name.clone(),
-            channel_type: channel.channel_type.to_string(),
+            channel_type: channel.channel_type,
             forum_post_id: forum_posts_by_poll_id
                 .get(&poll.id)
                 .map(ToString::to_string),

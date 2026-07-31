@@ -1,3 +1,4 @@
+use entity::enums::ChannelType;
 use serde::{Deserialize, Serialize};
 
 pub(crate) use crate::servers::types::ServerPath;
@@ -15,7 +16,7 @@ pub(crate) struct ChannelPath {
 pub(crate) struct ChannelRequest {
     pub(crate) name: String,
     pub(crate) description: Option<String>,
-    pub(crate) channel_type: Option<String>,
+    pub(crate) channel_type: Option<ChannelType>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -30,6 +31,16 @@ pub(crate) struct ChannelResponse {
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) description: Option<String>,
-    pub(crate) channel_type: String,
+    pub(crate) channel_type: ChannelType,
     pub(crate) server: ChannelServer,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ChannelPayload {
+    pub(crate) channel: ChannelResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ChannelsPayload {
+    pub(crate) channels: Vec<ChannelResponse>,
 }

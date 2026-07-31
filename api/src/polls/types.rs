@@ -1,4 +1,4 @@
-use entity::enums::PollType;
+use entity::enums::{ChannelType, PollType};
 use sea_orm::prelude::{DateTimeWithTimeZone, Uuid};
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +71,11 @@ pub(crate) struct PollResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub(crate) struct PollPayload {
+    pub(crate) poll: PollResponse,
+}
+
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CallDecisionResponse {
     pub(crate) active_item: Option<PollResponse>,
@@ -90,7 +95,7 @@ pub(crate) struct ActiveDecisionResponse {
     pub(crate) created_at: String,
     pub(crate) channel_id: String,
     pub(crate) channel_name: String,
-    pub(crate) channel_type: String,
+    pub(crate) channel_type: ChannelType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) forum_post_id: Option<String>,
 }
@@ -138,6 +143,16 @@ pub(crate) struct PollImageResponse {
     pub(crate) id: String,
     pub(crate) is_placeholder: bool,
     pub(crate) created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct PollImagePayload {
+    pub(crate) image: PollImageResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct DeletePollResponse {
+    pub(crate) affected: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]

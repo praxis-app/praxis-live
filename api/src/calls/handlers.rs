@@ -6,7 +6,11 @@ use axum::{
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
-use super::{livekit::LiveKitConfig, service, types::CallPath};
+use super::{
+    livekit::LiveKitConfig,
+    service,
+    types::{CallPath, CallPayload, JoinCallResponse},
+};
 use crate::{
     auth::HasJwtSecret,
     channels::extractors::{ChannelWriteContext, HasDatabase},
@@ -53,7 +57,7 @@ impl HasDatabase for CallsState {
 pub(crate) async fn start_call(
     State(state): State<CallsState>,
     context: ChannelWriteContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<JoinCallResponse>> {
     let livekit = livekit_config(&state)?;
 
     let response = service::start_channel_call(
@@ -94,14 +98,14 @@ pub(crate) async fn start_call(
         }
     }
 
-    Ok(Json(serde_json::json!(response)))
+    Ok(Json(response))
 }
 
 pub(crate) async fn join_call(
     State(state): State<CallsState>,
     Path(path): Path<CallPath>,
     context: ChannelWriteContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<JoinCallResponse>> {
     let livekit = livekit_config(&state)?;
 
     let response = service::join_channel_call(
@@ -114,14 +118,14 @@ pub(crate) async fn join_call(
     )
     .await?;
 
-    Ok(Json(serde_json::json!(response)))
+    Ok(Json(response))
 }
 
 pub(crate) async fn leave_call(
     State(state): State<CallsState>,
     Path(path): Path<CallPath>,
     context: ChannelWriteContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<CallPayload>> {
     let livekit = livekit_config(&state)?;
 
     let call = service::leave_channel_call(
@@ -163,7 +167,7 @@ pub(crate) async fn leave_call(
         }
     }
 
-    Ok(Json(serde_json::json!({ "call": call })))
+    Ok(Json(CallPayload { call }))
 }
 
 // TODO: Rename to handle_livekit_webhook

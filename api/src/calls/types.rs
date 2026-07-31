@@ -28,6 +28,11 @@ pub(crate) struct CallResponse {
     pub(crate) status: String,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct CallPayload {
+    pub(crate) call: CallResponse,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CallUserResponse {

@@ -10,7 +10,10 @@ use std::{path::PathBuf, sync::Arc};
 use super::{
     extractors::{CallMessageImageUploadContext, MessageImageUploadContext},
     service,
-    types::{CallMessageImagePath, CreateMessageRequest, MessageImagePath},
+    types::{
+        CallMessageImagePath, CreateMessageRequest, ImagePayload,
+        MessageImagePath, MessagePayload,
+    },
 };
 use crate::{
     auth::HasJwtSecret,
@@ -61,7 +64,7 @@ pub(super) async fn create_message(
     State(chat_state): State<ChatState>,
     context: ChannelWriteContext,
     Json(payload): Json<CreateMessageRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<MessagePayload>> {
     let message = service::create_message(
         &chat_state.database,
         context.channel_id,
@@ -82,14 +85,14 @@ pub(super) async fn create_message(
         tracing::warn!("failed to broadcast created message: {error}");
     }
 
-    Ok(Json(serde_json::json!({ "message": message })))
+    Ok(Json(MessagePayload { message }))
 }
 
 pub(super) async fn create_call_message(
     State(chat_state): State<ChatState>,
     context: CallWriteContext,
     Json(payload): Json<CreateMessageRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<MessagePayload>> {
     let message = service::create_call_message(
         &chat_state.database,
         context.server_id,
@@ -113,14 +116,14 @@ pub(super) async fn create_call_message(
         tracing::warn!("failed to broadcast created call message: {error}");
     }
 
-    Ok(Json(serde_json::json!({ "message": message })))
+    Ok(Json(MessagePayload { message }))
 }
 
 pub(super) async fn upload_message_image(
     State(chat_state): State<ChatState>,
     context: MessageImageUploadContext,
     multipart: Multipart,
-) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+) -> AppResult<(StatusCode, Json<ImagePayload>)> {
     let file = multipart_file(multipart, "file").await?;
 
     let image = service::store_message_image(
@@ -146,17 +149,14 @@ pub(super) async fn upload_message_image(
         tracing::warn!("failed to broadcast uploaded message image: {error}");
     }
 
-    Ok((
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "image": image })),
-    ))
+    Ok((StatusCode::CREATED, Json(ImagePayload { image })))
 }
 
 pub(super) async fn upload_call_message_image(
     State(chat_state): State<ChatState>,
     context: CallMessageImageUploadContext,
     multipart: Multipart,
-) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+) -> AppResult<(StatusCode, Json<ImagePayload>)> {
     let file = multipart_file(multipart, "file").await?;
     let image = service::store_message_image(
         &chat_state.database,
@@ -184,10 +184,7 @@ pub(super) async fn upload_call_message_image(
         );
     }
 
-    Ok((
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "image": image })),
-    ))
+    Ok((StatusCode::CREATED, Json(ImagePayload { image })))
 }
 
 pub(super) async fn get_message_image(

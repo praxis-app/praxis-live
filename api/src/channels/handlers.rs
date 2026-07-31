@@ -7,11 +7,14 @@ use std::sync::Arc;
 
 use super::{
     service,
-    types::{ChannelPath, ChannelRequest, ServerPath},
+    types::{
+        ChannelPath, ChannelPayload, ChannelRequest, ChannelsPayload,
+        ServerPath,
+    },
 };
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
-    common::AppResult,
+    common::{response::EmptyResponse, AppResult},
 };
 
 #[derive(Clone, Debug)]
@@ -43,11 +46,11 @@ pub(super) async fn create_channel(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ChannelRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ChannelPayload>> {
     let channel =
         service::create_channel(&state.database, path.server_id, payload)
             .await?;
-    Ok(Json(serde_json::json!({ "channel": channel })))
+    Ok(Json(ChannelPayload { channel }))
 }
 
 pub(super) async fn update_channel(
@@ -55,7 +58,7 @@ pub(super) async fn update_channel(
     Path(path): Path<ChannelPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
     Json(payload): Json<ChannelRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::update_channel(
         &state.database,
         path.server_id,
@@ -63,48 +66,48 @@ pub(super) async fn update_channel(
         payload,
     )
     .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn delete_channel(
     State(state): State<ChannelsState>,
     Path(path): Path<ChannelPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::delete_channel(&state.database, path.server_id, path.channel_id)
         .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn get_channels(
     State(state): State<ChannelsState>,
     Path(path): Path<ServerPath>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ChannelsPayload>> {
     let channels =
         service::get_channels(&state.database, path.server_id).await?;
-    Ok(Json(serde_json::json!({ "channels": channels })))
+    Ok(Json(ChannelsPayload { channels }))
 }
 
 pub(super) async fn get_joined_channels(
     State(state): State<ChannelsState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ChannelsPayload>> {
     let channels =
         service::get_joined_channels(&state.database, path.server_id, user_id)
             .await?;
-    Ok(Json(serde_json::json!({ "channels": channels })))
+    Ok(Json(ChannelsPayload { channels }))
 }
 
 pub(super) async fn get_channel(
     State(state): State<ChannelsState>,
     Path(path): Path<ChannelPath>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ChannelPayload>> {
     let channel = service::get_channel_with_server(
         &state.database,
         path.server_id,
         path.channel_id,
     )
     .await?;
-    Ok(Json(serde_json::json!({ "channel": channel })))
+    Ok(Json(ChannelPayload { channel }))
 }

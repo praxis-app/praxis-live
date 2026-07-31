@@ -7,11 +7,14 @@ use std::sync::Arc;
 
 use super::{
     service,
-    types::{InvitePath, InviteRequest, ServerPath},
+    types::{
+        InvitePath, InvitePayload, InviteRequest, InviteValidityResponse,
+        InvitesPayload, ServerPath,
+    },
 };
 use crate::{
     auth::{AuthenticatedUser, HasJwtSecret},
-    common::AppResult,
+    common::{response::EmptyResponse, AppResult},
 };
 
 #[derive(Clone, Debug)]
@@ -41,22 +44,20 @@ impl HasJwtSecret for InvitesState {
 pub(super) async fn is_valid_invite(
     State(state): State<InvitesState>,
     Path(token): Path<String>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<InviteValidityResponse>> {
     let is_valid_invite =
         service::is_valid_invite(&state.database, &token).await?;
-    Ok(Json(serde_json::json!({
-        "isValidInvite": is_valid_invite
-    })))
+    Ok(Json(InviteValidityResponse { is_valid_invite }))
 }
 
 pub(super) async fn get_invites(
     State(state): State<InvitesState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<InvitesPayload>> {
     let invites =
         service::get_valid_invites(&state.database, path.server_id).await?;
-    Ok(Json(serde_json::json!({ "invites": invites })))
+    Ok(Json(InvitesPayload { invites }))
 }
 
 pub(super) async fn create_invite(
@@ -64,7 +65,7 @@ pub(super) async fn create_invite(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<InviteRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<InvitePayload>> {
     let invite = service::create_invite(
         &state.database,
         path.server_id,
@@ -72,15 +73,15 @@ pub(super) async fn create_invite(
         payload,
     )
     .await?;
-    Ok(Json(serde_json::json!({ "invite": invite })))
+    Ok(Json(InvitePayload { invite }))
 }
 
 pub(super) async fn delete_invite(
     State(state): State<InvitesState>,
     Path(path): Path<InvitePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     service::delete_invite(&state.database, path.server_id, path.invite_id)
         .await?;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }

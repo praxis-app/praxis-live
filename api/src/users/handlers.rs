@@ -8,8 +8,11 @@ use sea_orm::DatabaseConnection;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    models::{UpdateUserProfileRequest, UserImagePath},
     service,
+    types::{
+        CurrentUserPayload, FirstUserResponse, UpdateUserProfileRequest,
+        UserImagePath, UserImagePayload, UserProfilePayload,
+    },
 };
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
@@ -18,7 +21,7 @@ use crate::{
         storage::upload_root,
         ApiError, AppResult,
     },
-    servers,
+    servers::{self, types::ServersPayload},
 };
 
 #[derive(Clone, Debug)]
@@ -50,37 +53,37 @@ impl HasJwtSecret for UsersState {
 pub(super) async fn get_current_user(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<CurrentUserPayload>> {
     let user = service::get_current_user(&state.database, user_id).await?;
 
-    Ok(Json(serde_json::json!({ "user": user })))
+    Ok(Json(CurrentUserPayload { user }))
 }
 
 pub(super) async fn get_current_user_servers(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ServersPayload>> {
     let servers =
         servers::service::get_servers_for_user(&state.database, user_id)
             .await?;
-    Ok(Json(serde_json::json!({ "servers": servers })))
+    Ok(Json(ServersPayload { servers }))
 }
 
 pub(super) async fn is_first_user(
     State(state): State<UsersState>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<FirstUserResponse>> {
     let is_first_user = service::is_first_user(&state.database).await?;
-    Ok(Json(serde_json::json!({ "isFirstUser": is_first_user })))
+    Ok(Json(FirstUserResponse { is_first_user }))
 }
 
 pub(super) async fn get_user_profile(
     State(state): State<UsersState>,
     Path(user_id): Path<String>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<UserProfilePayload>> {
     let user_id = parse_uuid(&user_id, "userId")?;
     let user = service::get_user_profile(&state.database, user_id).await?;
 
-    Ok(Json(serde_json::json!({ "user": user })))
+    Ok(Json(UserProfilePayload { user }))
 }
 
 pub(super) async fn update_user_profile(
@@ -96,7 +99,7 @@ pub(super) async fn upload_user_profile_picture(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     multipart: Multipart,
-) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+) -> AppResult<(StatusCode, Json<UserImagePayload>)> {
     let file = multipart_file(multipart, "file").await?;
     let image = service::upload_user_profile_picture(
         &state.database,
@@ -107,17 +110,14 @@ pub(super) async fn upload_user_profile_picture(
     )
     .await?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "image": image })),
-    ))
+    Ok((StatusCode::CREATED, Json(UserImagePayload { image })))
 }
 
 pub(super) async fn upload_user_cover_photo(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     multipart: Multipart,
-) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+) -> AppResult<(StatusCode, Json<UserImagePayload>)> {
     let file = multipart_file(multipart, "file").await?;
     let image = service::upload_user_cover_photo(
         &state.database,
@@ -128,10 +128,7 @@ pub(super) async fn upload_user_cover_photo(
     )
     .await?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "image": image })),
-    ))
+    Ok((StatusCode::CREATED, Json(UserImagePayload { image })))
 }
 
 pub(super) async fn get_user_image(

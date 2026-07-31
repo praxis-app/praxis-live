@@ -13,14 +13,15 @@ use super::{
     },
     service,
     types::{
-        CreateForumPostRequest, CreateForumReplyRequest, ForumPostsResponse,
-        ListForumPostsQuery, UpdateForumPostRequest,
+        CreateForumPostRequest, CreateForumReplyRequest, ForumPostPayload,
+        ForumPostsResponse, ForumReplyPayload, ListForumPostsQuery,
+        UpdateForumPostRequest,
     },
 };
 use crate::{
     auth::HasJwtSecret,
     channels::extractors::HasDatabase,
-    common::AppResult,
+    common::{response::EmptyResponse, AppResult},
     polls::{self, types::CreatePollRequest},
     pub_sub::PubSubService,
 };
@@ -80,7 +81,7 @@ pub(super) async fn create_forum_post(
     State(state): State<ForumState>,
     context: ForumAccessContext,
     Json(payload): Json<CreateForumPostRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ForumPostPayload>> {
     let post = service::create_forum_post(
         &state.database,
         context.server_id,
@@ -117,14 +118,14 @@ pub(super) async fn create_forum_post(
             tracing::warn!("failed to broadcast forum proposal: {error}");
         }
     }
-    Ok(Json(serde_json::json!({ "post": post })))
+    Ok(Json(ForumPostPayload { post }))
 }
 
 pub(super) async fn create_forum_post_proposal(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
     Json(payload): Json<CreatePollRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ForumPostPayload>> {
     let post = service::create_forum_post_proposal(
         &state.database,
         context.server_id,
@@ -162,13 +163,13 @@ pub(super) async fn create_forum_post_proposal(
             tracing::warn!("failed to broadcast forum proposal: {error}");
         }
     }
-    Ok(Json(serde_json::json!({ "post": post })))
+    Ok(Json(ForumPostPayload { post }))
 }
 
 pub(super) async fn get_forum_post(
     State(state): State<ForumState>,
     context: ForumPostReadContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ForumPostPayload>> {
     let post = service::get_forum_post(
         &state.database,
         context.channel_id,
@@ -176,14 +177,14 @@ pub(super) async fn get_forum_post(
         context.user_id,
     )
     .await?;
-    Ok(Json(serde_json::json!({ "post": post })))
+    Ok(Json(ForumPostPayload { post }))
 }
 
 pub(super) async fn update_forum_post(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
     Json(payload): Json<UpdateForumPostRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ForumPostPayload>> {
     let post = service::update_forum_post(
         &state.database,
         context.channel_id,
@@ -202,13 +203,13 @@ pub(super) async fn update_forum_post(
         &post,
     )
     .await;
-    Ok(Json(serde_json::json!({ "post": post })))
+    Ok(Json(ForumPostPayload { post }))
 }
 
 pub(super) async fn close_forum_post(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ForumPostPayload>> {
     let post = service::close_forum_post(
         &state.database,
         context.channel_id,
@@ -226,13 +227,13 @@ pub(super) async fn close_forum_post(
         &post,
     )
     .await;
-    Ok(Json(serde_json::json!({ "post": post })))
+    Ok(Json(ForumPostPayload { post }))
 }
 
 pub(super) async fn reopen_forum_post(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ForumPostPayload>> {
     let post = service::reopen_forum_post(
         &state.database,
         context.channel_id,
@@ -250,14 +251,14 @@ pub(super) async fn reopen_forum_post(
         &post,
     )
     .await;
-    Ok(Json(serde_json::json!({ "post": post })))
+    Ok(Json(ForumPostPayload { post }))
 }
 
 pub(super) async fn create_forum_reply(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
     Json(payload): Json<CreateForumReplyRequest>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<ForumReplyPayload>> {
     let (reply, post) = service::create_forum_reply(
         &state.database,
         context.channel_id,
@@ -279,13 +280,13 @@ pub(super) async fn create_forum_reply(
         &post,
     )
     .await;
-    Ok(Json(serde_json::json!({ "reply": reply })))
+    Ok(Json(ForumReplyPayload { reply }))
 }
 
 pub(super) async fn delete_forum_reply(
     State(state): State<ForumState>,
     context: ForumReplyAccessContext,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Json<EmptyResponse>> {
     let post = service::delete_forum_reply(
         &state.database,
         context.channel_id,
@@ -307,5 +308,5 @@ pub(super) async fn delete_forum_reply(
         &post,
     )
     .await;
-    Ok(Json(serde_json::json!({})))
+    Ok(Json(EmptyResponse {}))
 }

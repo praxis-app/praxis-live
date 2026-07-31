@@ -232,9 +232,7 @@ pub(crate) async fn create_poll_action_role<C: ConnectionTrait>(
                     action: Set(parse_poll_action_permission_action(
                         &action.action,
                     )?),
-                    change_type: Set(parse_poll_action_permission_change_type(
-                        &action.change_type,
-                    )?),
+                    change_type: Set(action.change_type),
                     ..Default::default()
                 }
                 .insert(database)
@@ -250,9 +248,7 @@ pub(crate) async fn create_poll_action_role<C: ConnectionTrait>(
                 id: Set(NativeUuid::new_v4()),
                 poll_action_role_id: Set(role.id),
                 user_id: Set(parse_uuid(&member.user_id, "userId")?),
-                change_type: Set(parse_poll_action_role_member_change_type(
-                    &member.change_type,
-                )?),
+                change_type: Set(member.change_type),
                 ..Default::default()
             }
             .insert(database)
@@ -530,7 +526,7 @@ async fn apply_permission_changes(
         .map_err(internal_error)?;
 
     for permission in permissions {
-        if permission.change_type == "remove" {
+        if permission.change_type == PollActionPermissionChangeType::Remove {
             server_role_permissions::Entity::delete_many()
                 .filter(
                     server_role_permissions::Column::ServerRoleId.eq(role_id),
@@ -546,7 +542,8 @@ async fn apply_permission_changes(
                 .exec(database)
                 .await
                 .map_err(internal_error)?;
-        } else if permission.change_type == "add" {
+        } else if permission.change_type == PollActionPermissionChangeType::Add
+        {
             add_role_permission(
                 database,
                 role_id,
@@ -573,7 +570,7 @@ async fn copy_action_permissions(
         .await
         .map_err(internal_error)?;
     for permission in permissions {
-        if permission.change_type == "add" {
+        if permission.change_type == PollActionPermissionChangeType::Add {
             add_role_permission(
                 database,
                 role_id,
@@ -630,14 +627,14 @@ async fn apply_member_changes(
         .await
         .map_err(internal_error)?;
     for member in members {
-        if member.change_type == "remove" {
+        if member.change_type == PollActionRoleMemberChangeType::Remove {
             server_role_members::Entity::delete_many()
                 .filter(server_role_members::Column::ServerRoleId.eq(role_id))
                 .filter(server_role_members::Column::UserId.eq(member.user_id))
                 .exec(database)
                 .await
                 .map_err(internal_error)?;
-        } else if member.change_type == "add"
+        } else if member.change_type == PollActionRoleMemberChangeType::Add
             && server_role_members::Entity::find()
                 .filter(server_role_members::Column::ServerRoleId.eq(role_id))
                 .filter(server_role_members::Column::UserId.eq(member.user_id))
@@ -704,7 +701,7 @@ async fn shape_poll_action_role(
             .filter_map(|member| {
                 users.iter().find(|user| user.id == member.user_id).map(
                     |user| PollActionServerRoleMemberResponse {
-                        change_type: member.change_type.to_string(),
+                        change_type: member.change_type,
                         user: PollActionUserResponse {
                             id: user.id.to_string(),
                             name: user.name.clone(),
@@ -722,7 +719,7 @@ async fn shape_poll_action_role(
             .map(|permission| PollActionPermissionResponse {
                 subject: permission.subject.to_string(),
                 action: permission.action.to_string(),
-                change_type: permission.change_type.to_string(),
+                change_type: permission.change_type,
             })
             .collect(),
     })
@@ -746,27 +743,5 @@ fn parse_poll_action_permission_action(
 ) -> AppResult<PollActionPermissionAbilityAction> {
     value.parse().map_err(|_| {
         ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "Action is invalid.")
-    })
-}
-
-fn parse_poll_action_permission_change_type(
-    value: &str,
-) -> AppResult<PollActionPermissionChangeType> {
-    value.parse().map_err(|_| {
-        ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Change type is invalid.",
-        )
-    })
-}
-
-fn parse_poll_action_role_member_change_type(
-    value: &str,
-) -> AppResult<PollActionRoleMemberChangeType> {
-    value.parse().map_err(|_| {
-        ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Change type is invalid.",
-        )
     })
 }

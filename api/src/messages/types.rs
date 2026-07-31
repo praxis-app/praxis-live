@@ -64,6 +64,16 @@ pub(crate) struct MessageResponse {
     pub(crate) created_at: String,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct MessagePayload {
+    pub(crate) message: MessageResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ImagePayload {
+    pub(crate) image: ImageResponse,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct StoredImage {
     pub(crate) content_type: Option<String>,

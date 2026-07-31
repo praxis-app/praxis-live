@@ -32,6 +32,22 @@ pub(crate) struct InviteResponse {
     pub(crate) created_at: String,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct InvitePayload {
+    pub(crate) invite: InviteResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct InvitesPayload {
+    pub(crate) invites: Vec<InviteResponse>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InviteValidityResponse {
+    pub(crate) is_valid_invite: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct InviteUserResponse {
