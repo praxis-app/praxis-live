@@ -70,7 +70,9 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
   useSubscriptions(decisionTopics, {
     enabled: decisionTopics.length > 0,
     onMessage: (event) => {
-      const { body }: PubSubMessage<{
+      const {
+        body,
+      }: PubSubMessage<{
         type: PubSubMessageType;
       }> = JSON.parse(event.data);
       if (!body || body.type === PubSubMessageType.IMAGE) {
@@ -171,7 +173,7 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
                 <p className="mt-3 font-medium">
                   {t('decisions.prompts.emptyTitle')}
                 </p>
-                <p className="text-muted-foreground mt-1 max-w-56 text-balance text-sm leading-5">
+                <p className="text-muted-foreground mt-1 max-w-56 text-sm leading-5 text-balance">
                   {t('decisions.prompts.emptyDescription')}
                 </p>
               </div>
