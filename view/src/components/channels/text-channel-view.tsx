@@ -143,6 +143,7 @@ export const TextChannelView = ({
     [feedData?.pages],
   );
 
+  // Keep a newly sent message in view.
   useEffect(() => {
     if (!shouldScrollAfterSendRef.current) {
       return;
@@ -171,6 +172,7 @@ export const TextChannelView = ({
   const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
   const focusedDecisionId = navigationDecisionId;
 
+  // Load more of the feed until the selected decision is found.
   useEffect(() => {
     const isDecisionLoaded = feed.some(
       (item) => item.type === 'poll' && item.id === focusedDecisionId,
