@@ -1,9 +1,7 @@
 mod extractors;
-mod handlers;
-mod routes;
+pub(crate) mod handlers;
+pub(crate) mod routes;
 mod service;
 pub(crate) mod types;
 
-pub(crate) use handlers::get_voters_by_poll_option;
-pub(crate) use routes::router;
 pub(crate) use service::shape_vote;

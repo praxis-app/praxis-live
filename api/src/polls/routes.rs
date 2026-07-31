@@ -24,9 +24,9 @@ pub(crate) fn router(
         .route("/{pollId}/images/{imageId}/upload", post(upload_poll_image))
         .route(
             "/{pollId}/options/{pollOptionId}/voters",
-            get(votes::get_voters_by_poll_option),
+            get(votes::handlers::get_voters_by_poll_option),
         )
-        .nest("/{pollId}/votes", votes::router())
+        .nest("/{pollId}/votes", votes::routes::router())
         .with_state(PollsState::new(database, jwt_secret, pub_sub_service))
 }
 

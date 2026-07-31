@@ -4,7 +4,7 @@ use axum::{
 };
 
 use super::handlers::{create_vote, delete_vote, update_vote};
-use crate::polls::PollsState;
+use crate::polls::handlers::PollsState;
 
 pub(crate) fn router() -> Router<PollsState> {
     Router::new()
