@@ -15,7 +15,7 @@ use crate::{
 
 const INVITES_PAGE_SIZE: usize = 20;
 
-pub(crate) async fn is_valid_invite(
+pub(super) async fn is_valid_invite(
     database: &DatabaseConnection,
     token: &str,
 ) -> AppResult<bool> {
@@ -66,7 +66,7 @@ pub(crate) async fn get_invite_by_token(
     }
 }
 
-pub(crate) async fn get_valid_invites(
+pub(super) async fn get_valid_invites(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<InviteResponse>> {
@@ -93,7 +93,7 @@ pub(crate) async fn get_valid_invites(
     Ok(responses)
 }
 
-pub(crate) async fn create_invite(
+pub(super) async fn create_invite(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Uuid,
@@ -130,7 +130,7 @@ pub(crate) async fn redeem_invite(
     active.update(database).await.map_err(internal_error)
 }
 
-pub(crate) async fn delete_invite(
+pub(super) async fn delete_invite(
     database: &DatabaseConnection,
     server_id: Uuid,
     invite_id: Uuid,
@@ -144,7 +144,7 @@ pub(crate) async fn delete_invite(
     Ok(())
 }
 
-pub(crate) fn validate_invite(invite: &invites::Model) -> bool {
+fn validate_invite(invite: &invites::Model) -> bool {
     let is_expired = invite
         .expires_at
         .is_some_and(|expires_at| Utc::now().fixed_offset() >= expires_at);
@@ -155,7 +155,7 @@ pub(crate) fn validate_invite(invite: &invites::Model) -> bool {
     !is_expired && !max_uses_reached
 }
 
-pub(crate) async fn shape_invite(
+async fn shape_invite(
     database: &DatabaseConnection,
     invite: invites::Model,
 ) -> AppResult<InviteResponse> {

@@ -38,8 +38,7 @@ use crate::{
     poll_actions::{self, types::CreatePollActionRequest},
     pub_sub::{PubSubService, PubSubTopic},
     servers::{self, server_configs},
-    users as users_service,
-    votes::service as vote_service,
+    users as users_service, votes as vote_service,
 };
 
 const MAX_IMAGE_COUNT: usize = 8;
@@ -141,7 +140,7 @@ pub(crate) fn spawn_expired_poll_closer(
     });
 }
 
-pub(crate) async fn create_poll(
+pub(super) async fn create_poll(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -160,7 +159,7 @@ pub(crate) async fn create_poll(
         .await
 }
 
-pub(crate) async fn create_call_poll(
+pub(super) async fn create_call_poll(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -219,7 +218,7 @@ pub(crate) async fn broadcast_poll_update(
     Ok(())
 }
 
-pub(crate) async fn broadcast_poll_image_upload(
+pub(super) async fn broadcast_poll_image_upload(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
     server_id: Uuid,
@@ -490,7 +489,7 @@ pub(crate) async fn get_inline_polls(
     Ok(responses)
 }
 
-pub(crate) async fn get_call_decision(
+pub(super) async fn get_call_decision(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -549,7 +548,7 @@ pub(crate) async fn get_call_decision(
     })
 }
 
-pub(crate) async fn store_poll_image(
+pub(super) async fn store_poll_image(
     database: &DatabaseConnection,
     upload_root: &Path,
     poll: &polls::Model,
@@ -591,7 +590,7 @@ pub(crate) async fn store_poll_image(
     Ok(shape_poll_image(&image))
 }
 
-pub(crate) async fn get_poll_image(
+pub(super) async fn get_poll_image(
     database: &DatabaseConnection,
     upload_root: &Path,
     server_id: Uuid,
@@ -622,7 +621,7 @@ pub(crate) async fn get_poll_image(
     })
 }
 
-pub(crate) async fn delete_poll(
+pub(super) async fn delete_poll(
     database: &DatabaseConnection,
     upload_root: &Path,
     poll: &polls::Model,
@@ -955,7 +954,7 @@ pub(crate) async fn get_poll_response(
     shape_poll(database, poll, current_user_id).await
 }
 
-pub(crate) async fn get_active_decisions(
+pub(super) async fn get_active_decisions(
     database: &DatabaseConnection,
     server_id: Uuid,
     current_user_id: Option<Uuid>,

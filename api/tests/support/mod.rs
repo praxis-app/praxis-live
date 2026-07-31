@@ -24,15 +24,15 @@ use tower::util::ServiceExt;
 static DOTENV: OnceLock<()> = OnceLock::new();
 static NEXT_DATABASE_ID: AtomicU64 = AtomicU64::new(0);
 
-pub struct TestApp {
-    pub app: Router,
+pub(crate) struct TestApp {
+    pub(crate) app: Router,
     database: Option<DatabaseConnection>,
     admin_database_url: String,
     database_name: String,
 }
 
 impl TestApp {
-    pub async fn new() -> Self {
+    pub(crate) async fn new() -> Self {
         load_dotenv();
         env::set_var(
             "CHANNEL_KEY_MASTER",
@@ -73,11 +73,11 @@ impl TestApp {
         }
     }
 
-    pub async fn get(&self, uri: &str) -> Response<Body> {
+    pub(crate) async fn get(&self, uri: &str) -> Response<Body> {
         self.request(Method::GET, uri, Body::empty(), None).await
     }
 
-    pub async fn post_json<T: Serialize>(
+    pub(crate) async fn post_json<T: Serialize>(
         &self,
         uri: &str,
         payload: &T,
@@ -89,7 +89,7 @@ impl TestApp {
             .await
     }
 
-    pub async fn post_json_with_bearer<T: Serialize>(
+    pub(crate) async fn post_json_with_bearer<T: Serialize>(
         &self,
         uri: &str,
         payload: &T,
@@ -102,7 +102,7 @@ impl TestApp {
             .await
     }
 
-    pub async fn put_json_with_bearer<T: Serialize>(
+    pub(crate) async fn put_json_with_bearer<T: Serialize>(
         &self,
         uri: &str,
         payload: &T,
@@ -115,13 +115,13 @@ impl TestApp {
             .await
     }
 
-    pub fn database(&self) -> &DatabaseConnection {
+    pub(crate) fn database(&self) -> &DatabaseConnection {
         self.database
             .as_ref()
             .expect("expected test database to remain available")
     }
 
-    pub async fn post_multipart_with_bearer(
+    pub(crate) async fn post_multipart_with_bearer(
         &self,
         uri: &str,
         token: &str,
@@ -193,7 +193,7 @@ impl Drop for TestApp {
     }
 }
 
-pub async fn json_body(response: Response<Body>) -> Value {
+pub(crate) async fn json_body(response: Response<Body>) -> Value {
     let bytes = response
         .into_body()
         .collect()
@@ -205,11 +205,11 @@ pub async fn json_body(response: Response<Body>) -> Value {
 }
 
 #[derive(Clone, Debug)]
-pub struct MultipartField {
-    pub name: String,
-    pub filename: Option<String>,
-    pub content_type: Option<String>,
-    pub bytes: Vec<u8>,
+pub(crate) struct MultipartField {
+    pub(crate) name: String,
+    pub(crate) filename: Option<String>,
+    pub(crate) content_type: Option<String>,
+    pub(crate) bytes: Vec<u8>,
 }
 
 fn multipart_body(

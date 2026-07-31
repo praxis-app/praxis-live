@@ -10,7 +10,7 @@ use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional},
     channels,
     common::ApiError,
-    polls::{handlers::PollsState, service as polls_service, types::PollPath},
+    polls::{service as polls_service, types::PollPath, PollsState},
     votes::{
         service,
         types::{PollOptionPath, VotePath},

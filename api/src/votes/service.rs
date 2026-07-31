@@ -28,7 +28,7 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-pub(crate) async fn create_vote(
+pub(super) async fn create_vote(
     database: &DatabaseConnection,
     poll: polls::Model,
     user_id: Uuid,
@@ -92,7 +92,7 @@ pub(crate) async fn create_vote(
     })
 }
 
-pub(crate) async fn update_vote(
+pub(super) async fn update_vote(
     database: &DatabaseConnection,
     poll: polls::Model,
     vote_id: Uuid,
@@ -145,7 +145,7 @@ pub(crate) async fn update_vote(
     Ok(UpdateVoteResponse { is_ratifying_vote })
 }
 
-pub(crate) async fn delete_vote(
+pub(super) async fn delete_vote(
     database: &DatabaseConnection,
     poll: &polls::Model,
     vote_id: Uuid,
@@ -174,7 +174,7 @@ pub(crate) async fn delete_vote(
     Ok(())
 }
 
-pub(crate) async fn get_voters_by_poll_option(
+pub(super) async fn get_voters_by_poll_option(
     database: &DatabaseConnection,
     _poll_id: Uuid,
     poll_option_id: Uuid,
@@ -218,7 +218,7 @@ pub(crate) async fn get_voters_by_poll_option(
         .collect())
 }
 
-pub(crate) async fn ensure_can_read_poll_option(
+pub(super) async fn ensure_can_read_poll_option(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -256,7 +256,7 @@ pub(crate) async fn ensure_can_read_poll_option(
     Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
 }
 
-pub(crate) async fn ensure_poll_option_exists(
+pub(super) async fn ensure_poll_option_exists(
     database: &DatabaseConnection,
     poll_id: Uuid,
     poll_option_id: Uuid,
@@ -310,7 +310,7 @@ fn validate_vote_request(
     Ok(())
 }
 
-pub(crate) async fn ensure_anonymous_can_vote_on_poll(
+pub(super) async fn ensure_anonymous_can_vote_on_poll(
     database: &DatabaseConnection,
     user_id: Uuid,
     poll: &polls::Model,

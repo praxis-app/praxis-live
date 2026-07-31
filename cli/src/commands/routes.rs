@@ -10,7 +10,7 @@ use owo_colors::OwoColorize;
 
 use crate::args::RoutesArgs;
 
-pub fn run(args: RoutesArgs) -> Result<()> {
+pub(crate) fn run(args: RoutesArgs) -> Result<()> {
     let color = std::io::stdout().is_terminal();
     let api_src = find_api_src_dir()?;
     let mut registry = RouteRegistry::new(api_src.clone());

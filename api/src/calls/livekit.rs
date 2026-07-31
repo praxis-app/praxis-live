@@ -15,7 +15,7 @@ const LEAVE_PARTICIPANT_SETTLE_MILLIS: u64 = 500;
 
 #[derive(Clone, Debug)]
 pub struct LiveKitConfig {
-    pub(crate) url: String,
+    pub(super) url: String,
     api_url: String,
     api_key: String,
     api_secret: String,
@@ -48,7 +48,7 @@ impl LiveKitConfig {
         })
     }
 
-    pub(crate) fn webhook_receiver(&self) -> WebhookReceiver {
+    pub(super) fn webhook_receiver(&self) -> WebhookReceiver {
         WebhookReceiver::new(TokenVerifier::with_api_key(
             &self.api_key,
             &self.api_secret,

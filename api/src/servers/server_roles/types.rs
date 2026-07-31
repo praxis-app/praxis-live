@@ -4,42 +4,42 @@ use crate::{common::roles::PermissionRule, servers::types::UserResponse};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct RoleRequest {
-    pub(crate) name: String,
-    pub(crate) color: String,
+pub(super) struct RoleRequest {
+    pub(super) name: String,
+    pub(super) color: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct RoleMembersRequest {
-    pub(crate) user_ids: Vec<String>,
+pub(super) struct RoleMembersRequest {
+    pub(super) user_ids: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UpdatePermissionsRequest {
-    pub(crate) permissions: Vec<PermissionRule>,
+pub(super) struct UpdatePermissionsRequest {
+    pub(super) permissions: Vec<PermissionRule>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ServerRoleResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) color: String,
-    pub(crate) permissions: Vec<PermissionRule>,
-    pub(crate) member_count: usize,
-    pub(crate) members: Vec<UserResponse>,
+pub(super) struct ServerRoleResponse {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) color: String,
+    pub(super) permissions: Vec<PermissionRule>,
+    pub(super) member_count: usize,
+    pub(super) members: Vec<UserResponse>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ServerRolePayload {
-    pub(crate) server_role: ServerRoleResponse,
+pub(super) struct ServerRolePayload {
+    pub(super) server_role: ServerRoleResponse,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ServerRolesPayload {
-    pub(crate) server_roles: Vec<ServerRoleResponse>,
+pub(super) struct ServerRolesPayload {
+    pub(super) server_roles: Vec<ServerRoleResponse>,
 }
