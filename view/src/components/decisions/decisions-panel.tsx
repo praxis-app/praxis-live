@@ -21,7 +21,6 @@ import { LuListTodo } from 'react-icons/lu';
 import { MdClose, MdErrorOutline } from 'react-icons/md';
 
 const DECISIONS_PAGE_SIZE = 10;
-const IN_VIEW_THRESHOLD = 50;
 
 interface Props {
   isOpen: boolean;
@@ -111,7 +110,6 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
     onLoadMore: () => {
       void decisionsQuery.fetchNextPage();
     },
-    rootMargin: `${IN_VIEW_THRESHOLD}px`,
   });
 
   return (

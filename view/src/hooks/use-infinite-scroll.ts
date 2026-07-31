@@ -1,5 +1,7 @@
 import { useEffect, useEffectEvent, useState } from 'react';
 
+const IN_VIEW_THRESHOLD = 50;
+
 interface Options {
   hasNextPage: boolean;
   isLoadingMore: boolean;
@@ -11,7 +13,7 @@ export const useInfiniteScroll = ({
   hasNextPage,
   isLoadingMore,
   onLoadMore,
-  rootMargin = '0px',
+  rootMargin = `${IN_VIEW_THRESHOLD}px`,
 }: Options) => {
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const loadMore = useEffectEvent(() => {

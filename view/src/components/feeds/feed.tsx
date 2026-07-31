@@ -15,7 +15,6 @@ import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
 import { type QueryKey } from '@tanstack/react-query';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 
-const IN_VIEW_THRESHOLD = 50;
 const DECISION_HIGHLIGHT_DURATION_MS = 2000;
 
 type FeedScrollMode = 'bottom-anchored' | 'natural';
@@ -67,7 +66,6 @@ export const Feed = ({
     hasNextPage: isBottomAnchored && feed.length > 0 && !isLastPage,
     isLoadingMore,
     onLoadMore,
-    rootMargin: `${IN_VIEW_THRESHOLD}px`,
   });
 
   const visibleFeed = useMemo(

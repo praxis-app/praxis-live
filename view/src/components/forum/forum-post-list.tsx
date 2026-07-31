@@ -27,7 +27,6 @@ import { useTranslation } from 'react-i18next';
 import { MdAdd } from 'react-icons/md';
 
 const FORUM_POSTS_PAGE_SIZE = 20;
-const IN_VIEW_THRESHOLD = 50;
 
 interface Props {
   channel: ChannelRes;
@@ -85,7 +84,6 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
     onLoadMore: () => {
       void fetchNextPage();
     },
-    rootMargin: `${IN_VIEW_THRESHOLD}px`,
   });
 
   return (
