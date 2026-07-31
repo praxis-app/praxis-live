@@ -11,45 +11,45 @@ pub(crate) struct ServerPath {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ServerRequest {
-    pub(crate) name: String,
-    pub(crate) slug: String,
-    pub(crate) description: Option<String>,
-    pub(crate) is_default_server: Option<bool>,
+pub(super) struct ServerRequest {
+    pub(super) name: String,
+    pub(super) slug: String,
+    pub(super) description: Option<String>,
+    pub(super) is_default_server: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ServerMembersRequest {
-    pub(crate) user_ids: Vec<String>,
+pub(super) struct ServerMembersRequest {
+    pub(super) user_ids: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct JoinServerRequest {
-    pub(crate) invite_token: String,
+pub(super) struct JoinServerRequest {
+    pub(super) invite_token: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ServerResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) slug: String,
-    pub(crate) description: Option<String>,
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) slug: String,
+    pub(super) description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) is_default_server: Option<bool>,
+    pub(super) is_default_server: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) general_channel_id: Option<String>,
+    pub(super) general_channel_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) member_count: Option<u64>,
-    pub(crate) created_at: String,
-    pub(crate) updated_at: String,
+    pub(super) member_count: Option<u64>,
+    pub(super) created_at: String,
+    pub(super) updated_at: String,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct ServerPayload {
-    pub(crate) server: ServerResponse,
+pub(super) struct ServerPayload {
+    pub(super) server: ServerResponse,
 }
 
 #[derive(Debug, Serialize)]
@@ -87,27 +87,27 @@ pub(crate) struct ServerConfigRequest {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ServerConfigResponse {
-    pub(crate) anonymous_users_enabled: bool,
-    pub(crate) decision_making_model: String,
-    pub(crate) disagreements_limit: i32,
-    pub(crate) abstains_limit: i32,
-    pub(crate) agreement_threshold: i32,
-    pub(crate) quorum_enabled: bool,
-    pub(crate) quorum_threshold: i32,
-    pub(crate) voting_time_limit: i32,
-    pub(crate) updated_at: String,
+    pub(super) anonymous_users_enabled: bool,
+    pub(super) decision_making_model: String,
+    pub(super) disagreements_limit: i32,
+    pub(super) abstains_limit: i32,
+    pub(super) agreement_threshold: i32,
+    pub(super) quorum_enabled: bool,
+    pub(super) quorum_threshold: i32,
+    pub(super) voting_time_limit: i32,
+    pub(super) updated_at: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ServerConfigPayload {
-    pub(crate) server_config: ServerConfigResponse,
+pub(super) struct ServerConfigPayload {
+    pub(super) server_config: ServerConfigResponse,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AnonymousUsersEnabledResponse {
-    pub(crate) anonymous_users_enabled: bool,
+pub(super) struct AnonymousUsersEnabledResponse {
+    pub(super) anonymous_users_enabled: bool,
 }
 
 pub(crate) fn serialize_timestamp(value: DateTimeWithTimeZone) -> String {

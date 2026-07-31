@@ -3,37 +3,37 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct MessageImagePath {
-    pub(crate) server_id: Uuid,
-    pub(crate) channel_id: Uuid,
-    pub(crate) message_id: Uuid,
-    pub(crate) image_id: Uuid,
+pub(super) struct MessageImagePath {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) message_id: Uuid,
+    pub(super) image_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CallMessageImagePath {
-    pub(crate) server_id: Uuid,
-    pub(crate) channel_id: Uuid,
-    pub(crate) call_id: Uuid,
-    pub(crate) message_id: Uuid,
-    pub(crate) image_id: Uuid,
+pub(super) struct CallMessageImagePath {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) call_id: Uuid,
+    pub(super) message_id: Uuid,
+    pub(super) image_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CreateMessageRequest {
+pub(super) struct CreateMessageRequest {
     pub(crate) body: Option<String>,
-    pub(crate) image_count: usize,
+    pub(super) image_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ImageResponse {
-    pub(crate) id: String,
+pub(super) struct ImageResponse {
+    pub(super) id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) is_placeholder: Option<bool>,
-    pub(crate) created_at: String,
+    pub(super) is_placeholder: Option<bool>,
+    pub(super) created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -51,33 +51,33 @@ pub(crate) struct MessageResponse {
     pub(crate) id: String,
     pub(crate) body: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) images: Vec<ImageResponse>,
-    pub(crate) user: Option<MessageUser>,
-    pub(crate) user_id: Option<String>,
-    pub(crate) bot_id: Option<String>,
-    pub(crate) bot: Option<serde_json::Value>,
-    pub(crate) command_status: Option<String>,
+    pub(super) images: Vec<ImageResponse>,
+    pub(super) user: Option<MessageUser>,
+    pub(super) user_id: Option<String>,
+    pub(super) bot_id: Option<String>,
+    pub(super) bot: Option<serde_json::Value>,
+    pub(super) command_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) thread_root_id: Option<String>,
+    pub(super) thread_root_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) parent_message_id: Option<String>,
+    pub(super) parent_message_id: Option<String>,
     pub(crate) created_at: String,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct MessagePayload {
-    pub(crate) message: MessageResponse,
+pub(super) struct MessagePayload {
+    pub(super) message: MessageResponse,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct ImagePayload {
-    pub(crate) image: ImageResponse,
+pub(super) struct ImagePayload {
+    pub(super) image: ImageResponse,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct StoredImage {
-    pub(crate) content_type: Option<String>,
-    pub(crate) bytes: Vec<u8>,
+pub(super) struct StoredImage {
+    pub(super) content_type: Option<String>,
+    pub(super) bytes: Vec<u8>,
 }
 
 pub(crate) fn serialize_timestamp(value: DateTimeWithTimeZone) -> String {

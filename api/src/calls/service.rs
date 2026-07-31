@@ -31,7 +31,7 @@ use crate::{
 
 const ACTIVE_STATUSES: [&str; 2] = ["starting", "active"];
 
-pub(crate) async fn start_channel_call(
+pub(super) async fn start_channel_call(
     database: &DatabaseConnection,
     livekit: &LiveKitConfig,
     server_id: uuid::Uuid,
@@ -50,7 +50,7 @@ pub(crate) async fn start_channel_call(
     .await
 }
 
-pub(crate) async fn join_channel_call(
+pub(super) async fn join_channel_call(
     database: &DatabaseConnection,
     livekit: &LiveKitConfig,
     server_id: uuid::Uuid,
@@ -73,7 +73,7 @@ pub(crate) async fn join_channel_call(
     })
 }
 
-pub(crate) async fn leave_channel_call(
+pub(super) async fn leave_channel_call(
     database: &DatabaseConnection,
     livekit: &LiveKitConfig,
     server_id: uuid::Uuid,
@@ -119,7 +119,7 @@ pub(crate) async fn leave_channel_call(
     Ok(shape_call(call))
 }
 
-pub(crate) async fn handle_livekit_webhook(
+pub(super) async fn handle_livekit_webhook(
     database: &DatabaseConnection,
     livekit: &LiveKitConfig,
     body: &str,
@@ -247,7 +247,7 @@ pub(crate) async fn get_channel_call_artifacts(
     Ok(artifacts)
 }
 
-pub(crate) async fn get_channel_call_artifact(
+pub(super) async fn get_channel_call_artifact(
     database: &DatabaseConnection,
     server_id: uuid::Uuid,
     channel_id: uuid::Uuid,
@@ -258,7 +258,7 @@ pub(crate) async fn get_channel_call_artifact(
     shape_call_artifact(database, call).await
 }
 
-pub(crate) async fn broadcast_call(
+pub(super) async fn broadcast_call(
     database: &DatabaseConnection,
     pub_sub_service: Option<&PubSubService>,
     server_id: uuid::Uuid,

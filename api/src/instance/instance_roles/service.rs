@@ -28,7 +28,7 @@ use crate::{
 const INSTANCE_SUBJECTS: &[&str] =
     &["InstanceConfig", "InstanceRole", "Server", "all"];
 
-pub(crate) async fn get_instance_role(
+pub(super) async fn get_instance_role(
     database: &DatabaseConnection,
     role_id: Uuid,
 ) -> AppResult<InstanceRoleResponse> {
@@ -36,7 +36,7 @@ pub(crate) async fn get_instance_role(
     shape_instance_role(database, role).await
 }
 
-pub(crate) async fn get_instance_roles(
+pub(super) async fn get_instance_roles(
     database: &DatabaseConnection,
 ) -> AppResult<Vec<InstanceRoleResponse>> {
     let roles = instance_roles::Entity::find()
@@ -78,7 +78,7 @@ pub(crate) async fn get_permissions_by_user(
     Ok(group_permissions(permissions))
 }
 
-pub(crate) async fn get_users_eligible_for_instance_role(
+pub(super) async fn get_users_eligible_for_instance_role(
     database: &DatabaseConnection,
     role_id: Uuid,
 ) -> AppResult<Vec<UserResponse>> {
@@ -111,7 +111,7 @@ pub(crate) async fn get_users_eligible_for_instance_role(
         .collect())
 }
 
-pub(crate) async fn create_instance_role(
+pub(super) async fn create_instance_role(
     database: &DatabaseConnection,
     request: RoleRequest,
 ) -> AppResult<InstanceRoleResponse> {
@@ -171,7 +171,7 @@ where
     add_member(database, role.id, user_id).await
 }
 
-pub(crate) async fn update_instance_role(
+pub(super) async fn update_instance_role(
     database: &DatabaseConnection,
     role_id: Uuid,
     request: RoleRequest,
@@ -185,7 +185,7 @@ pub(crate) async fn update_instance_role(
     Ok(())
 }
 
-pub(crate) async fn update_instance_role_permissions(
+pub(super) async fn update_instance_role_permissions(
     database: &DatabaseConnection,
     role_id: Uuid,
     permissions: Vec<PermissionRule>,
@@ -195,7 +195,7 @@ pub(crate) async fn update_instance_role_permissions(
     set_permissions(database, role_id, &permissions).await
 }
 
-pub(crate) async fn add_instance_role_members(
+pub(super) async fn add_instance_role_members(
     database: &DatabaseConnection,
     role_id: Uuid,
     user_ids: &[Uuid],
@@ -214,7 +214,7 @@ pub(crate) async fn add_instance_role_members(
     Ok(())
 }
 
-pub(crate) async fn remove_instance_role_member(
+pub(super) async fn remove_instance_role_member(
     database: &DatabaseConnection,
     role_id: Uuid,
     user_id: Uuid,
@@ -229,7 +229,7 @@ pub(crate) async fn remove_instance_role_member(
     Ok(())
 }
 
-pub(crate) async fn delete_instance_role(
+pub(super) async fn delete_instance_role(
     database: &DatabaseConnection,
     role_id: Uuid,
 ) -> AppResult<()> {

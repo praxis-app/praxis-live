@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     common::{response::EmptyResponse, AppResult},
-    polls::{handlers::PollsState, service as polls_service},
+    polls::{service as polls_service, PollsState},
 };
 
 pub(crate) async fn get_voters_by_poll_option(
@@ -26,7 +26,7 @@ pub(crate) async fn get_voters_by_poll_option(
     Ok(Json(VotersPayload { voters }))
 }
 
-pub(crate) async fn create_vote(
+pub(super) async fn create_vote(
     State(state): State<PollsState>,
     context: VoteRouteContext,
     Json(payload): Json<VoteRequest>,
@@ -55,7 +55,7 @@ pub(crate) async fn create_vote(
     Ok(Json(VotePayload { vote }))
 }
 
-pub(crate) async fn update_vote(
+pub(super) async fn update_vote(
     State(state): State<PollsState>,
     context: VoteMutationContext,
     Json(payload): Json<VoteRequest>,
@@ -89,7 +89,7 @@ pub(crate) async fn update_vote(
     Ok(Json(response))
 }
 
-pub(crate) async fn delete_vote(
+pub(super) async fn delete_vote(
     State(state): State<PollsState>,
     context: VoteMutationContext,
 ) -> AppResult<Json<EmptyResponse>> {

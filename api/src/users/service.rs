@@ -140,7 +140,7 @@ pub(crate) async fn authenticate(
         .map(|()| user))
 }
 
-pub(crate) async fn get_current_user(
+pub(super) async fn get_current_user(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> AppResult<CurrentUserResponse> {
@@ -187,7 +187,7 @@ pub(crate) async fn is_first_user(
         .map_err(internal_error)
 }
 
-pub(crate) async fn get_user_profile(
+pub(super) async fn get_user_profile(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> AppResult<UserProfileResponse> {
@@ -209,7 +209,7 @@ pub(crate) async fn get_user_profile(
     })
 }
 
-pub(crate) async fn update_user_profile(
+pub(super) async fn update_user_profile(
     database: &DatabaseConnection,
     user_id: Uuid,
     request: UpdateUserProfileRequest,
@@ -244,7 +244,7 @@ pub(crate) async fn get_user_profile_picture(
     get_latest_user_image(database, user_id, PROFILE_PICTURE_KIND).await
 }
 
-pub(crate) async fn get_user_cover_photo(
+pub(super) async fn get_user_cover_photo(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> AppResult<Option<UserImageRef>> {
@@ -278,7 +278,7 @@ pub(crate) async fn get_user_profile_pictures_map(
     Ok(profile_pictures)
 }
 
-pub(crate) async fn store_user_image(
+pub(super) async fn store_user_image(
     database: &DatabaseConnection,
     upload_root: &Path,
     user_id: Uuid,
@@ -340,7 +340,7 @@ pub(crate) async fn store_user_image(
     Ok(shape_image_reference(&image))
 }
 
-pub(crate) async fn get_user_image(
+pub(super) async fn get_user_image(
     database: &DatabaseConnection,
     upload_root: &Path,
     current_user_id: Option<Uuid>,
@@ -375,7 +375,7 @@ pub(crate) async fn get_user_image(
     })
 }
 
-pub(crate) async fn upload_user_profile_picture(
+pub(super) async fn upload_user_profile_picture(
     database: &DatabaseConnection,
     upload_root: &Path,
     user_id: Uuid,
@@ -393,7 +393,7 @@ pub(crate) async fn upload_user_profile_picture(
     .await
 }
 
-pub(crate) async fn upload_user_cover_photo(
+pub(super) async fn upload_user_cover_photo(
     database: &DatabaseConnection,
     upload_root: &Path,
     user_id: Uuid,
@@ -411,7 +411,7 @@ pub(crate) async fn upload_user_cover_photo(
     .await
 }
 
-pub(crate) async fn has_shared_channel(
+pub(super) async fn has_shared_channel(
     database: &DatabaseConnection,
     user_id: Uuid,
     other_user_id: Uuid,
@@ -440,7 +440,7 @@ pub(crate) async fn has_shared_channel(
     Ok(shared.is_some())
 }
 
-pub(crate) async fn is_default_server_member(
+pub(super) async fn is_default_server_member(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> AppResult<bool> {

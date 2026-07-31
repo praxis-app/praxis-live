@@ -35,78 +35,78 @@ pub(crate) enum CreateUserError {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UserImageRef {
-    pub(crate) id: String,
-    pub(crate) created_at: String,
+    pub(super) id: String,
+    pub(super) created_at: String,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct UserImagePayload {
-    pub(crate) image: UserImageRef,
+pub(super) struct UserImagePayload {
+    pub(super) image: UserImageRef,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct StoredUserImage {
-    pub(crate) content_type: Option<String>,
-    pub(crate) bytes: Vec<u8>,
+pub(super) struct StoredUserImage {
+    pub(super) content_type: Option<String>,
+    pub(super) bytes: Vec<u8>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UserImagePath {
-    pub(crate) user_id: Uuid,
-    pub(crate) image_id: Uuid,
+pub(super) struct UserImagePath {
+    pub(super) user_id: Uuid,
+    pub(super) image_id: Uuid,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CurrentUserResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) display_name: Option<String>,
-    pub(crate) anonymous: bool,
-    pub(crate) permissions: CurrentUserPermissions,
-    pub(crate) profile_picture: Option<UserImageRef>,
-    pub(crate) current_server: Option<ServerResponse>,
-    pub(crate) servers_count: usize,
+pub(super) struct CurrentUserResponse {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) display_name: Option<String>,
+    pub(super) anonymous: bool,
+    pub(super) permissions: CurrentUserPermissions,
+    pub(super) profile_picture: Option<UserImageRef>,
+    pub(super) current_server: Option<ServerResponse>,
+    pub(super) servers_count: usize,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct CurrentUserPayload {
-    pub(crate) user: CurrentUserResponse,
+pub(super) struct CurrentUserPayload {
+    pub(super) user: CurrentUserResponse,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct CurrentUserPermissions {
-    pub(crate) instance: Vec<PermissionRule>,
-    pub(crate) servers: BTreeMap<String, Vec<PermissionRule>>,
+pub(super) struct CurrentUserPermissions {
+    pub(super) instance: Vec<PermissionRule>,
+    pub(super) servers: BTreeMap<String, Vec<PermissionRule>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UserProfileResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) display_name: Option<String>,
-    pub(crate) bio: Option<String>,
-    pub(crate) profile_picture: Option<UserImageRef>,
-    pub(crate) cover_photo: Option<UserImageRef>,
+pub(super) struct UserProfileResponse {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) display_name: Option<String>,
+    pub(super) bio: Option<String>,
+    pub(super) profile_picture: Option<UserImageRef>,
+    pub(super) cover_photo: Option<UserImageRef>,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct UserProfilePayload {
-    pub(crate) user: UserProfileResponse,
+pub(super) struct UserProfilePayload {
+    pub(super) user: UserProfileResponse,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct FirstUserResponse {
-    pub(crate) is_first_user: bool,
+pub(super) struct FirstUserResponse {
+    pub(super) is_first_user: bool,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UpdateUserProfileRequest {
-    pub(crate) name: Option<String>,
-    pub(crate) display_name: Option<String>,
-    pub(crate) bio: Option<String>,
+pub(super) struct UpdateUserProfileRequest {
+    pub(super) name: Option<String>,
+    pub(super) display_name: Option<String>,
+    pub(super) bio: Option<String>,
 }

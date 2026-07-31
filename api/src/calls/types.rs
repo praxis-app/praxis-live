@@ -11,60 +11,60 @@ pub(crate) struct CallPath {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct JoinCallResponse {
-    pub(crate) livekit_url: String,
-    pub(crate) room_name: String,
-    pub(crate) token: String,
-    pub(crate) call: CallResponse,
+pub(super) struct JoinCallResponse {
+    pub(super) livekit_url: String,
+    pub(super) room_name: String,
+    pub(super) token: String,
+    pub(super) call: CallResponse,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CallResponse {
-    pub(crate) id: String,
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-    pub(crate) room_name: String,
-    pub(crate) status: String,
+pub(super) struct CallResponse {
+    pub(super) id: String,
+    pub(super) server_id: String,
+    pub(super) channel_id: String,
+    pub(super) room_name: String,
+    pub(super) status: String,
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct CallPayload {
-    pub(crate) call: CallResponse,
+pub(super) struct CallPayload {
+    pub(super) call: CallResponse,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CallUserResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) display_name: Option<String>,
-    pub(crate) profile_picture: Option<crate::users::UserImageRef>,
+pub(super) struct CallUserResponse {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) display_name: Option<String>,
+    pub(super) profile_picture: Option<crate::users::UserImageRef>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CallSummaryResponse {
-    pub(crate) messages: u64,
-    pub(crate) proposals: u64,
-    pub(crate) polls: u64,
+pub(super) struct CallSummaryResponse {
+    pub(super) messages: u64,
+    pub(super) proposals: u64,
+    pub(super) polls: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CallArtifactResponse {
     #[serde(rename = "type")]
-    pub(crate) kind: &'static str,
+    pub(super) kind: &'static str,
     pub(crate) id: String,
-    pub(crate) server_id: String,
-    pub(crate) channel_id: String,
-    pub(crate) room_name: String,
-    pub(crate) status: String,
-    pub(crate) started_by: CallUserResponse,
-    pub(crate) participants: Vec<CallUserResponse>,
-    pub(crate) participant_count: usize,
-    pub(crate) duration_seconds: i64,
-    pub(crate) summary: CallSummaryResponse,
+    pub(super) server_id: String,
+    pub(super) channel_id: String,
+    pub(super) room_name: String,
+    pub(super) status: String,
+    pub(super) started_by: CallUserResponse,
+    pub(super) participants: Vec<CallUserResponse>,
+    pub(super) participant_count: usize,
+    pub(super) duration_seconds: i64,
+    pub(super) summary: CallSummaryResponse,
     pub(crate) created_at: String,
-    pub(crate) ended_at: Option<String>,
+    pub(super) ended_at: Option<String>,
 }

@@ -165,7 +165,7 @@ pub(crate) fn validate_server_config_change(
     Ok(())
 }
 
-pub(crate) async fn create_poll_action_role<C: ConnectionTrait>(
+async fn create_poll_action_role<C: ConnectionTrait>(
     database: &C,
     poll_action_id: Uuid,
     request: CreatePollActionServerRoleRequest,

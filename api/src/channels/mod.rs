@@ -1,7 +1,7 @@
 pub(crate) mod extractors;
 mod handlers;
 mod routes;
-pub(crate) mod service;
+mod service;
 pub(crate) mod types;
 
 pub(crate) use routes::router;
