@@ -118,11 +118,13 @@ export const MoveProposalToForumDialog = ({
           'forum',
         ],
       });
+
       const destinationChannelName =
         sourceReference.destinationChannelName ||
         forumChannels.find(
           (channel) => channel.id === sourceReference.destinationChannelId,
         )?.name;
+
       if (destinationChannelName) {
         updateActiveDecisionCache(
           queryClient,
@@ -141,6 +143,7 @@ export const MoveProposalToForumDialog = ({
           queryKey: getActiveDecisionsQueryKey(serverId),
         });
       }
+
       onOpenChange(false);
       navigate(
         `${serverPath}/c/${sourceReference.destinationChannelId}/posts/${post.id}`,
