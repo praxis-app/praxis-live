@@ -33,7 +33,7 @@ const proposalVotes = [
 
 const proposal = {
   id: 'landing-proposal',
-  body: "Rename the outreach volunteers role and give phone bank coordinators the access they need for Saturday's phone bank.",
+  body: 'Rename the Outreach Volunteer role to Phone Bank Coordinator and update its access.',
   pollType: 'proposal',
   stage: 'ratified',
   config: proposalConfig,
@@ -128,7 +128,7 @@ export const LandingProposalVisual = () => {
                     className="mr-1 inline-block size-3.5 rounded-full align-[-1px]"
                     style={{ backgroundColor: '#e91e63' }}
                   />
-                  <span className="font-normal">Phone bank coordinators</span>
+                  <span className="font-normal">Phone bank coordinator</span>
                 </span>
               </button>
 
@@ -147,7 +147,7 @@ export const LandingProposalVisual = () => {
                         <Minus className="size-3.5" />
                       </span>
                       <span className="min-w-0 truncate">
-                        Outreach volunteers
+                        Outreach volunteer
                       </span>
                     </div>
                     <div
@@ -161,7 +161,7 @@ export const LandingProposalVisual = () => {
                         <Plus className="size-3.5" />
                       </span>
                       <span className="min-w-0 truncate">
-                        Phone bank coordinators
+                        Phone bank coordinator
                       </span>
                     </div>
                   </div>
