@@ -7,52 +7,60 @@ import {
   ThumbsUp,
   Users,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   variant: 'flow' | 'conversation' | 'forum' | 'decision';
 }
 
 export const LandingVisual = ({ variant }: Props) => {
+  const { t } = useTranslation();
+
   if (variant === 'conversation') {
     return (
       <div className="border-border bg-card rounded-[1.75rem] border p-4 shadow-xl shadow-black/5 sm:p-6">
         <div className="mb-6 flex items-center justify-between border-b pb-4">
           <div className="flex items-center gap-2 font-semibold">
             <Hash className="text-muted-foreground size-5" />
-            phonebank
+            {t('landing.visuals.conversation.channel')}
           </div>
           <div className="flex items-center gap-2 rounded-full bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-neutral-950">
             <Phone className="size-3.5" />
-            Join call
+            {t('landing.visuals.conversation.joinCall')}
           </div>
         </div>
         <div className="space-y-5">
           <div className="flex gap-3">
             <div className="bg-praxis-coral-soft text-praxis-coral flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold">
-              AR
+              {t('landing.visuals.conversation.firstUserInitials')}
             </div>
             <div>
-              <p className="text-sm font-semibold">Ari</p>
+              <p className="text-sm font-semibold">
+                {t('landing.visuals.conversation.firstUserName')}
+              </p>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
-                We still need six volunteers for Saturday morning. Who can
-                make calls?
+                {t('landing.visuals.conversation.firstMessage')}
               </p>
             </div>
           </div>
           <div className="flex gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-              MK
+              {t('landing.visuals.conversation.secondUserInitials')}
             </div>
             <div>
-              <p className="text-sm font-semibold">Mika</p>
+              <p className="text-sm font-semibold">
+                {t('landing.visuals.conversation.secondUserName')}
+              </p>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
-                I can take the first shift and help train new callers.
+                {t('landing.visuals.conversation.secondMessage')}
               </p>
             </div>
           </div>
           <div className="border-border text-muted-foreground flex items-center gap-2 rounded-xl border px-4 py-3 text-sm">
             <MessageCircle className="size-4" />
-            Message #phonebank
+            {t('landing.visuals.conversation.messagePrompt', {
+              channel: t('landing.visuals.conversation.channel'),
+            })}
           </div>
         </div>
       </div>
@@ -66,25 +74,24 @@ export const LandingVisual = ({ variant }: Props) => {
           <div className="flex items-start justify-between gap-4">
             <div>
               <span className="bg-praxis-coral-soft text-praxis-coral rounded-full px-2.5 py-1 text-xs font-semibold">
-                Open discussion
+                {t('landing.visuals.forum.status')}
               </span>
               <h3 className="mt-4 text-lg font-bold">
-                Saturday phone bank plan
+                {t('landing.visuals.forum.title')}
               </h3>
             </div>
             <MoreHorizontal className="text-muted-foreground size-5 shrink-0" />
           </div>
           <p className="text-muted-foreground mt-3 text-sm leading-6">
-            We still need to fill the afternoon shifts, divide up the call
-            list, and make sure new volunteers are trained before Saturday.
-            What can everyone take on?
+            {t('landing.visuals.forum.body')}
           </p>
           <div className="border-border mt-6 flex items-center justify-between border-t pt-4 text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
-              <MessageCircle className="size-4" /> 8 replies
+              <MessageCircle className="size-4" />
+              {t('landing.visuals.forum.replies')}
             </span>
             <span className="font-medium text-emerald-700 dark:text-emerald-300">
-              Active now
+              {t('landing.visuals.forum.activity')}
             </span>
           </div>
         </div>
@@ -102,20 +109,22 @@ export const LandingVisual = ({ variant }: Props) => {
       <div className="border-border bg-card relative rounded-[1.75rem] border p-5 shadow-2xl shadow-black/10 sm:p-7">
         <div className="mb-7 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <Hash className="text-muted-foreground size-4" /> community
+            <Hash className="text-muted-foreground size-4" />
+            {t('landing.visuals.flow.channel')}
           </div>
           <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-            <Users className="size-4" /> 12 online
+            <Users className="size-4" />
+            {t('landing.visuals.flow.online')}
           </div>
         </div>
         <div className="space-y-3">
           <div className="bg-muted/70 rounded-2xl p-4">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <MessageCircle className="text-praxis-coral size-4" /> Talk it
-              through
+              <MessageCircle className="text-praxis-coral size-4" />
+              {t('landing.visuals.flow.conversationTitle')}
             </div>
             <p className="text-muted-foreground mt-2 text-xs leading-5">
-              Chat naturally, share context, and jump into a channel call.
+              {t('landing.visuals.flow.conversationDescription')}
             </p>
           </div>
           <div className="flex justify-center">
@@ -123,10 +132,11 @@ export const LandingVisual = ({ variant }: Props) => {
           </div>
           <div className="bg-praxis-green-soft dark:bg-praxis-green/20 rounded-2xl p-4">
             <div className="text-praxis-green flex items-center gap-2 text-sm font-semibold dark:text-emerald-300">
-              <ThumbsUp className="size-4" /> Decide together
+              <ThumbsUp className="size-4" />
+              {t('landing.visuals.flow.decisionTitle')}
             </div>
             <p className="text-muted-foreground mt-2 text-xs leading-5">
-              Focus the discussion, propose a path, vote, and ratify the result.
+              {t('landing.visuals.flow.decisionDescription')}
             </p>
           </div>
         </div>

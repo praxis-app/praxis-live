@@ -821,6 +821,7 @@
   },
 
   "landing": {
+    "brandName": "praxis",
     "actions": {
       "acceptInvite": "Accept invite",
       "backToLanding": "About Praxis",
@@ -839,7 +840,7 @@
       "openSource": "Free and open source software for groups that decide together."
     },
     "mobileHero": {
-      "description": "Keep your group’s conversations, focused discussion, and decisions together without losing the context that moves you forward.",
+      "description": "Keep your group's conversations, focused discussion, and decisions together without losing the context that moves you forward.",
       "visualTitle": "Your group, in one flow",
       "online": "12 online",
       "conversationTitle": "Talk it through",
@@ -871,9 +872,51 @@
       "openAppToVote": "Open Praxis to vote on proposals.",
       "signUpToVote": "Sign up to vote on proposals."
     },
+    "visuals": {
+      "flow": {
+        "channel": "community",
+        "online": "12 online",
+        "conversationTitle": "Talk it through",
+        "conversationDescription": "Chat naturally, share context, and jump into a channel call.",
+        "decisionTitle": "Decide together",
+        "decisionDescription": "Focus the discussion, propose a path, vote, and ratify the result."
+      },
+      "conversation": {
+        "channel": "phonebank",
+        "joinCall": "Join call",
+        "firstUserInitials": "AR",
+        "firstUserName": "Ari",
+        "firstMessage": "We still need six volunteers for Saturday morning. Who can make calls?",
+        "secondUserInitials": "MK",
+        "secondUserName": "Mika",
+        "secondMessage": "I can take the first shift and help train new callers.",
+        "messagePrompt": "Message #{{channel}}"
+      },
+      "forum": {
+        "status": "Open discussion",
+        "title": "Saturday phone bank plan",
+        "body": "We still need to fill the afternoon shifts, divide up the call list, and make sure new volunteers are trained before Saturday. What can everyone take on?",
+        "replies": "8 replies",
+        "activity": "Active now"
+      },
+      "proposal": {
+        "authorInitials": "AR",
+        "authorName": "Ari",
+        "timestamp": "just now",
+        "body": "Rename the Outreach Volunteer role to Phone Bank Coordinator and update its access.",
+        "actionTitle": "Role change proposal:",
+        "nameLabel": "Name",
+        "permissionsLabel": "Permissions",
+        "previousRoleName": "Outreach volunteer",
+        "roleName": "Phone bank coordinator",
+        "manageChannels": "Manage channels",
+        "createInvites": "Create invites",
+        "noDeadline": "∞"
+      }
+    },
     "finalCta": {
       "title": "Keep the flow. Make the decision.",
-      "description": "Bring your group’s conversations, deliberation, and collective action together in Praxis."
+      "description": "Bring your group's conversations, deliberation, and collective action together in Praxis."
     },
     "footer": {
       "description": "Praxis is free and open source software.",
