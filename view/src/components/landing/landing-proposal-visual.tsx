@@ -33,7 +33,7 @@ const proposalVotes = [
 
 const proposal = {
   id: 'landing-proposal',
-  body: 'Give the organizing team what they need to coordinate the fall event.',
+  body: "Rename the outreach volunteers role and give phone bank coordinators the access they need for Saturday's phone bank.",
   pollType: 'proposal',
   stage: 'ratified',
   config: proposalConfig,
@@ -88,7 +88,7 @@ export const LandingProposalVisual = () => {
             <span className="text-muted-foreground text-sm">just now</span>
           </div>
 
-          <div className="border-border bg-card relative min-w-0 rounded-md border px-3 py-3.5 shadow-xl shadow-black/5 before:absolute before:inset-y-0 before:left-0 before:w-3 before:rounded-l-md before:border-l-3 before:border-l-(--border)">
+          <div className="border-border bg-card before:border-l-border relative min-w-0 rounded-md border px-3 py-3.5 shadow-xl shadow-black/5 before:absolute before:inset-y-0 before:left-0 before:w-3 before:rounded-l-md before:border-l-3">
             <button
               type="button"
               aria-label={t('proposals.actions.viewSettings')}
@@ -105,7 +105,7 @@ export const LandingProposalVisual = () => {
               onClick={() => setIsSettingsDialogOpen(true)}
             />
 
-            <p className="wrap-break-word pt-3 pb-3 text-sm sm:text-base">
+            <p className="pt-3 pb-3 text-sm wrap-break-word sm:text-base">
               {proposal.body}
             </p>
 
@@ -128,7 +128,7 @@ export const LandingProposalVisual = () => {
                     className="mr-1 inline-block size-3.5 rounded-full align-[-1px]"
                     style={{ backgroundColor: '#e91e63' }}
                   />
-                  <span className="font-normal">Organizers</span>
+                  <span className="font-normal">Phone bank coordinators</span>
                 </span>
               </button>
 
@@ -146,7 +146,9 @@ export const LandingProposalVisual = () => {
                       >
                         <Minus className="size-3.5" />
                       </span>
-                      <span className="min-w-0 truncate">Event helpers</span>
+                      <span className="min-w-0 truncate">
+                        Outreach volunteers
+                      </span>
                     </div>
                     <div
                       className="flex min-w-0 items-center gap-2 border px-1.5 py-1.5 text-xs sm:text-sm"
@@ -158,7 +160,9 @@ export const LandingProposalVisual = () => {
                       >
                         <Plus className="size-3.5" />
                       </span>
-                      <span className="min-w-0 truncate">Organizers</span>
+                      <span className="min-w-0 truncate">
+                        Phone bank coordinators
+                      </span>
                     </div>
                   </div>
 

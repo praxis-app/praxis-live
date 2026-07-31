@@ -19,7 +19,7 @@ export const LandingVisual = ({ variant }: Props) => {
         <div className="mb-6 flex items-center justify-between border-b pb-4">
           <div className="flex items-center gap-2 font-semibold">
             <Hash className="text-muted-foreground size-5" />
-            courtyard
+            phonebank
           </div>
           <div className="flex items-center gap-2 rounded-full bg-neutral-950 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-neutral-950">
             <Phone className="size-3.5" />
@@ -34,7 +34,8 @@ export const LandingVisual = ({ variant }: Props) => {
             <div>
               <p className="text-sm font-semibold">Ari</p>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
-                What if we make the courtyard accessible before the fall event?
+                We still need six volunteers for Saturday morning. Who can
+                make calls?
               </p>
             </div>
           </div>
@@ -45,13 +46,13 @@ export const LandingVisual = ({ variant }: Props) => {
             <div>
               <p className="text-sm font-semibold">Mika</p>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
-                I’m in. Let’s work through the options together.
+                I can take the first shift and help train new callers.
               </p>
             </div>
           </div>
           <div className="border-border text-muted-foreground flex items-center gap-2 rounded-xl border px-4 py-3 text-sm">
             <MessageCircle className="size-4" />
-            Message #courtyard
+            Message #phonebank
           </div>
         </div>
       </div>
@@ -68,14 +69,15 @@ export const LandingVisual = ({ variant }: Props) => {
                 Open discussion
               </span>
               <h3 className="mt-4 text-lg font-bold">
-                Courtyard accessibility plan
+                Saturday phone bank plan
               </h3>
             </div>
             <MoreHorizontal className="text-muted-foreground size-5 shrink-0" />
           </div>
           <p className="text-muted-foreground mt-3 text-sm leading-6">
-            Bring the ideas from chat into one focused thread, compare the
-            routes, and capture what the group learns.
+            We still need to fill the afternoon shifts, divide up the call
+            list, and make sure new volunteers are trained before Saturday.
+            What can everyone take on?
           </p>
           <div className="border-border mt-6 flex items-center justify-between border-t pt-4 text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
