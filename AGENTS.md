@@ -33,6 +33,7 @@ The Rust backend under `api/src` is organized into modules divided by domain or 
 - `types.rs` contains module-specific request/response and data transfer types.
 - `models.rs`, when present, contains persisted/domain model definitions.
 - `extractors.rs`, when present, contains custom request extraction logic.
+- Keep Rust modules, types, fields, and functions as private as possible. Use `pub(super)` or `pub(crate)` for internal access, and reserve `pub` for intentional public APIs.
 
 ## Required verifications
 
