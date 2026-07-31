@@ -182,28 +182,26 @@ export const ProposalVoteButtons = ({
         });
       }
 
-      updateActiveDecisionCache(queryClient, serverId, pollId, (decision) => {
-        if (result.isRatifyingVote) {
-          return undefined;
-        }
-        const responseCountChange =
-          result.action === 'create'
-            ? 1
-            : result.action === 'delete'
-              ? -1
-              : 0;
-        return {
-          ...decision,
-          responseCount: Math.max(
-            0,
-            decision.responseCount + responseCountChange,
-          ),
-          hasResponded: result.action !== 'delete',
-        };
-      });
       if (result.isRatifyingVote) {
         void queryClient.invalidateQueries({
           queryKey: getActiveDecisionsQueryKey(serverId),
+        });
+      } else {
+        updateActiveDecisionCache(queryClient, serverId, pollId, (decision) => {
+          const responseCountChange =
+            result.action === 'create'
+              ? 1
+              : result.action === 'delete'
+                ? -1
+                : 0;
+          return {
+            ...decision,
+            responseCount: Math.max(
+              0,
+              decision.responseCount + responseCountChange,
+            ),
+            hasResponded: result.action !== 'delete',
+          };
         });
       }
       updateCachedProposal?.(updateProposal);
