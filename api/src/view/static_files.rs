@@ -9,6 +9,9 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+const REVALIDATE_CACHE_CONTROL: &str = "no-cache";
+const IMMUTABLE_CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
+
 pub(crate) fn attach(app: Router) -> Router {
     // Vite dev server will handle the frontend in dev
     if cfg!(debug_assertions) {
@@ -100,6 +103,7 @@ async fn serve_file(path: PathBuf, status: StatusCode) -> Response {
     match tokio::fs::read(&path).await {
         Ok(contents) => Response::builder()
             .status(status)
+            .header(header::CACHE_CONTROL, cache_control_for_path(&path))
             .header(
                 header::CONTENT_TYPE,
                 mime_guess::from_path(&path)
@@ -122,5 +126,15 @@ async fn serve_file(path: PathBuf, status: StatusCode) -> Response {
             ),
         )
             .into_response(),
+    }
+}
+
+fn cache_control_for_path(path: &Path) -> &'static str {
+    if path.components().any(|component| {
+        matches!(component, Component::Normal(segment) if segment == "assets")
+    }) {
+        IMMUTABLE_CACHE_CONTROL
+    } else {
+        REVALIDATE_CACHE_CONTROL
     }
 }
