@@ -9,10 +9,13 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use uuid::Uuid as NativeUuid;
 
-use super::models::{
-    CreateUserError, CurrentUserPermissions, CurrentUserResponse,
-    StoredUserImage, UpdateUserProfileRequest, UserImageRef,
-    UserProfileResponse, UserRecord,
+use super::{
+    models::UserRecord,
+    types::{
+        CreateUserError, CurrentUserPermissions, CurrentUserResponse,
+        StoredUserImage, UpdateUserProfileRequest, UserImageRef,
+        UserProfileResponse,
+    },
 };
 use crate::{
     common::{

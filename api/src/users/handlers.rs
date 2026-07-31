@@ -8,11 +8,11 @@ use sea_orm::DatabaseConnection;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    models::{
+    service,
+    types::{
         CurrentUserPayload, FirstUserResponse, UpdateUserProfileRequest,
         UserImagePath, UserImagePayload, UserProfilePayload,
     },
-    service,
 };
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
