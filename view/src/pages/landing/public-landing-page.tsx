@@ -53,7 +53,7 @@ export const PublicLandingPage = () => {
           <div className="relative mx-auto max-w-xl">
             <div className="border-praxis-coral/35 absolute -top-16 -right-20 size-56 rounded-full border" />
             <div className="bg-praxis-coral/20 absolute top-36 -left-28 size-64 rounded-full" />
-            <div className="bg-praxis-green/30 absolute -right-10 bottom-28 size-36 rounded-full blur-2xl" />
+            <div className="bg-praxis-gold/30 absolute -right-10 bottom-28 size-36 rounded-full blur-2xl" />
 
             <div className="relative">
               <h1 className="mx-auto max-w-md text-[2.6rem] leading-[0.98] font-bold tracking-[-0.045em] text-balance">
@@ -151,7 +151,7 @@ export const PublicLandingPage = () => {
           </div>
         </div>
 
-        <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-32 lg:px-8">
           <LandingBenefitSection
             eyebrow={t('landing.chat.eyebrow')}
             title={t('landing.chat.title')}
@@ -168,6 +168,18 @@ export const PublicLandingPage = () => {
             visual={<LandingVisual variant="forum" />}
             reversed
           />
+          <div
+            className="hidden items-center gap-4 lg:flex"
+            aria-hidden="true"
+          >
+            <div className="from-transparent via-border to-border h-px flex-1 bg-linear-to-r" />
+            <div className="flex items-center gap-2">
+              <span className="bg-praxis-coral size-2 rounded-full" />
+              <span className="bg-praxis-gold size-2 rounded-full" />
+              <span className="bg-praxis-green size-2 rounded-full" />
+            </div>
+            <div className="from-border via-border to-transparent h-px flex-1 bg-linear-to-r" />
+          </div>
           <LandingBenefitSection
             eyebrow={t('landing.decisions.eyebrow')}
             title={t('landing.decisions.title')}
@@ -177,7 +189,7 @@ export const PublicLandingPage = () => {
           />
         </div>
 
-        <section className="px-4 pb-24 sm:px-6 sm:pb-32 lg:px-8">
+        <section className="px-4 pb-16 sm:px-6 sm:pb-32 lg:px-8">
           <div className="relative mx-auto max-w-6xl overflow-hidden rounded-4xl bg-neutral-950 px-6 py-14 text-center text-white shadow-2xl shadow-black/20 sm:px-12 sm:py-20">
             <div className="border-praxis-coral/40 absolute -top-24 -right-20 size-72 rounded-full border" />
             <div className="bg-praxis-green/35 absolute -bottom-28 -left-12 size-64 rounded-full" />

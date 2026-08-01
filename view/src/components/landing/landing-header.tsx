@@ -35,7 +35,7 @@ export const LandingHeader = ({
           className="focus-visible:ring-ring flex items-center gap-2.5 rounded-md text-xl font-bold tracking-tight focus-visible:ring-2 focus-visible:outline-none"
         >
           <img src={appIconImg} alt="" className="size-8" />
-          praxis
+          {t('landing.brandName')}
         </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-3">
