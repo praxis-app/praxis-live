@@ -142,7 +142,7 @@ export const LandingVisual = ({ variant }: Props) => {
         </div>
       </div>
       <div className="bg-praxis-coral absolute top-0 right-0 -z-10 size-32 rounded-full opacity-20 blur-3xl" />
-      <div className="bg-praxis-green/20 absolute bottom-0 left-0 -z-10 size-40 rounded-full blur-3xl" />
+      <div className="bg-praxis-gold/20 absolute bottom-0 left-0 -z-10 size-40 rounded-full blur-3xl" />
     </div>
   );
 };

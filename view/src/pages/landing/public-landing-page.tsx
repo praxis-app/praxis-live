@@ -53,7 +53,7 @@ export const PublicLandingPage = () => {
           <div className="relative mx-auto max-w-xl">
             <div className="border-praxis-coral/35 absolute -top-16 -right-20 size-56 rounded-full border" />
             <div className="bg-praxis-coral/20 absolute top-36 -left-28 size-64 rounded-full" />
-            <div className="bg-praxis-green/30 absolute -right-10 bottom-28 size-36 rounded-full blur-2xl" />
+            <div className="bg-praxis-gold/30 absolute -right-10 bottom-28 size-36 rounded-full blur-2xl" />
 
             <div className="relative">
               <h1 className="mx-auto max-w-md text-[2.6rem] leading-[0.98] font-bold tracking-[-0.045em] text-balance">
@@ -175,6 +175,7 @@ export const PublicLandingPage = () => {
             <div className="from-transparent via-border to-border h-px flex-1 bg-linear-to-r" />
             <div className="flex items-center gap-2">
               <span className="bg-praxis-coral size-2 rounded-full" />
+              <span className="bg-praxis-gold size-2 rounded-full" />
               <span className="bg-praxis-green size-2 rounded-full" />
             </div>
             <div className="from-border via-border to-transparent h-px flex-1 bg-linear-to-r" />
