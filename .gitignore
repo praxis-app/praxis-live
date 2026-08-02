@@ -24,6 +24,7 @@ content/*
 playwright-report/
 test-results/
 .playwright-cli/
+output/playwright/
 .fallow
 
 # Local only files
