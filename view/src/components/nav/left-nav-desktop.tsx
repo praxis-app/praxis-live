@@ -174,9 +174,10 @@ export const LeftNavDesktop = ({ me }: Props) => {
         <Link
           to={`${serverPath}${NavigationPaths.Events}`}
           className={cn(
-            'text-muted-foreground hover:bg-accent flex items-center gap-2 rounded-lg px-2 py-[0.225rem] text-[0.925rem]',
-            eventsActive && 'bg-accent text-foreground',
+            'text-muted-foreground hover:bg-foreground/10 active:bg-foreground/15 dark:hover:bg-accent dark:active:bg-accent/80 flex items-center gap-2 rounded-lg px-2 py-[0.225rem] text-[0.925rem]',
+            eventsActive && 'bg-foreground/10 text-foreground dark:bg-accent',
           )}
+          aria-current={eventsActive ? 'page' : undefined}
         >
           <MdEvent className="size-6" />
           {t('navigation.labels.events')}
