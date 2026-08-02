@@ -216,9 +216,19 @@
   --fc-event-text-color: var(--secondary-foreground);
   --fc-more-link-bg-color: var(--muted);
   --fc-more-link-text-color: var(--foreground);
+  position: relative;
   overflow: hidden;
-  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
+}
+
+.events-calendar::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border: 1px solid var(--border);
+  border-radius: inherit;
+  pointer-events: none;
+  content: '';
 }
 
 .events-calendar .fc-scrollgrid {

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
+import { cn } from '@/lib/shared.utils';
 import { useNavStore } from '@/store/nav.store';
 import { type ReactNode, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -90,7 +91,12 @@ export const TopNav = ({
   };
 
   return (
-    <header className="flex h-13.75 items-center justify-between border-b border-[--color-border] px-2">
+    <header
+      className={cn(
+        'flex h-13.75 items-center justify-between border-b border-[--color-border]',
+        isDesktop && hideBackButtonOnDesktop ? 'px-6' : 'px-2',
+      )}
+    >
       <div className="mr-1 flex min-w-0 flex-1 items-center gap-2.5">
         {renderBackBtn()}
 

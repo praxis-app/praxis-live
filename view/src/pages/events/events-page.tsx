@@ -70,17 +70,14 @@ export const EventsPage = () => {
         <main className="flex-1 overflow-y-auto p-3 sm:p-6">
           <div className="mx-auto max-w-7xl space-y-4">
             <div className="space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
-              <div className="grid grid-cols-[auto_1fr_auto] gap-2 sm:flex">
+              <div className="grid grid-cols-[auto_1fr_auto] gap-2 sm:hidden">
                 <Button
                   variant="outline"
-                  size={isDesktop ? 'default' : 'icon'}
+                  size="icon"
                   aria-label={t('events.actions.previous')}
                   onClick={() => setMonth(addMonths(month, -1))}
                 >
-                  <LuChevronLeft className="size-5 sm:hidden" />
-                  <span className="hidden sm:inline">
-                    {t('events.actions.previous')}
-                  </span>
+                  <LuChevronLeft className="size-5" />
                 </Button>
                 <Button
                   variant="outline"
@@ -92,14 +89,39 @@ export const EventsPage = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  size={isDesktop ? 'default' : 'icon'}
+                  size="icon"
                   aria-label={t('events.actions.next')}
                   onClick={() => setMonth(addMonths(month, 1))}
                 >
-                  <LuChevronRight className="size-5 sm:hidden" />
-                  <span className="hidden sm:inline">
-                    {t('events.actions.next')}
-                  </span>
+                  <LuChevronRight className="size-5" />
+                </Button>
+              </div>
+              <div className="hidden items-center gap-2 sm:flex">
+                <div className="flex">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="rounded-r-none"
+                    aria-label={t('events.actions.previous')}
+                    onClick={() => setMonth(addMonths(month, -1))}
+                  >
+                    <LuChevronLeft className="size-5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="-ml-px rounded-l-none"
+                    aria-label={t('events.actions.next')}
+                    onClick={() => setMonth(addMonths(month, 1))}
+                  >
+                    <LuChevronRight className="size-5" />
+                  </Button>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setMonth(startOfMonth(new Date()))}
+                >
+                  {t('events.actions.today')}
                 </Button>
               </div>
               <div className="bg-muted grid grid-cols-4 gap-1 rounded-xl p-1 sm:flex sm:bg-transparent sm:p-0">
