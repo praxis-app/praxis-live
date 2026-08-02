@@ -3,25 +3,31 @@ use chrono::Utc;
 use entity::{
     channels,
     enums::{
-        PollActionPermissionAbilityAction, PollActionPermissionChangeType,
-        PollActionPermissionSubject, PollActionRoleMemberChangeType,
-        PollActionType, ServerAbilitySubject, ServerRoleAbilityAction,
+        EventAttendeeStatus, PollActionPermissionAbilityAction,
+        PollActionPermissionChangeType, PollActionPermissionSubject,
+        PollActionRoleMemberChangeType, PollActionType, ServerAbilitySubject,
+        ServerRoleAbilityAction,
     },
+    event_attendees, events, poll_action_event_hosts, poll_action_events,
     poll_action_permissions, poll_action_role_members, poll_action_roles,
     poll_action_server_configs, poll_actions, polls, server_configs,
-    server_role_members, server_role_permissions, server_roles, users,
+    server_members, server_role_members, server_role_permissions, server_roles,
+    users,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
-    IntoActiveModel, QueryFilter, QuerySelect, Set, TransactionTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
+    TransactionTrait,
 };
+use std::collections::HashSet;
 use uuid::Uuid as NativeUuid;
 
 use crate::{
-    common::{request::parse_uuid, ApiError, AppResult},
+    common::{request::parse_uuid, text::sanitize_text, ApiError, AppResult},
     poll_actions::types::{
-        CreatePollActionRequest, CreatePollActionServerRoleRequest,
+        CreatePollActionEventRequest, CreatePollActionRequest,
+        CreatePollActionServerRoleRequest, PollActionEventResponse,
         PollActionPermissionResponse, PollActionResponse,
         PollActionServerConfigResponse, PollActionServerRoleMemberResponse,
         PollActionServerRoleResponse, PollActionUserResponse,
@@ -32,6 +38,7 @@ use crate::{
 pub(crate) async fn create_poll_action<C: ConnectionTrait>(
     database: &C,
     poll_id: Uuid,
+    server_id: Uuid,
     request: CreatePollActionRequest,
     current_server_config: &server_configs::Model,
 ) -> AppResult<poll_actions::Model> {
@@ -63,10 +70,190 @@ pub(crate) async fn create_poll_action<C: ConnectionTrait>(
                     .await?;
             }
         }
+        PollActionType::PlanEvent => {
+            if let Some(event) = request.event {
+                create_poll_action_event(database, action.id, server_id, event)
+                    .await?;
+            }
+        }
         _ => {}
     }
 
     Ok(action)
+}
+
+pub(crate) fn validate_plan_event_request(
+    request: &CreatePollActionEventRequest,
+) -> AppResult<()> {
+    let name = sanitize_text(&request.name);
+    if name.is_empty() {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event name is required.",
+        ));
+    }
+    if name.chars().count() > 255 {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event names must be 255 characters or less.",
+        ));
+    }
+    if sanitize_text(&request.description).is_empty() {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event description is required.",
+        ));
+    }
+    if request
+        .ends_at
+        .is_some_and(|ends_at| ends_at <= request.starts_at)
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event end time must be after its start time.",
+        ));
+    }
+    if !request.online
+        && request
+            .location
+            .as_deref()
+            .map(sanitize_text)
+            .map(|location| location.is_empty())
+            .unwrap_or(true)
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "In-person events require a location.",
+        ));
+    }
+    if request
+        .location
+        .as_deref()
+        .is_some_and(|location| sanitize_text(location).chars().count() > 255)
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event locations must be 255 characters or less.",
+        ));
+    }
+    if let Some(link) = request
+        .external_link
+        .as_deref()
+        .map(str::trim)
+        .filter(|link| !link.is_empty())
+    {
+        validate_external_link(link)?;
+    }
+    parse_event_host_ids(&request.host_ids)?;
+    Ok(())
+}
+
+async fn create_poll_action_event<C: ConnectionTrait>(
+    database: &C,
+    poll_action_id: Uuid,
+    server_id: Uuid,
+    request: CreatePollActionEventRequest,
+) -> AppResult<()> {
+    validate_plan_event_request(&request)?;
+    let host_ids = parse_event_host_ids(&request.host_ids)?;
+    let memberships = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .filter(server_members::Column::UserId.is_in(host_ids.iter().copied()))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let member_ids: HashSet<Uuid> = memberships
+        .into_iter()
+        .map(|membership| membership.user_id)
+        .collect();
+    if host_ids.iter().any(|host_id| !member_ids.contains(host_id)) {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event hosts must be members of the proposal's server.",
+        ));
+    }
+
+    let proposed_event = poll_action_events::ActiveModel {
+        id: Set(NativeUuid::new_v4()),
+        poll_action_id: Set(poll_action_id),
+        name: Set(sanitize_text(&request.name)),
+        description: Set(sanitize_text(&request.description)),
+        starts_at: Set(request.starts_at),
+        ends_at: Set(request.ends_at),
+        online: Set(request.online),
+        location: Set(request
+            .location
+            .map(|location| sanitize_text(&location))
+            .filter(|location| !location.is_empty())),
+        external_link: Set(request
+            .external_link
+            .map(|link| link.trim().to_owned())
+            .filter(|link| !link.is_empty())),
+        ..Default::default()
+    }
+    .insert(database)
+    .await
+    .map_err(internal_error)?;
+
+    for host_id in host_ids {
+        poll_action_event_hosts::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
+            poll_action_event_id: Set(proposed_event.id),
+            user_id: Set(host_id),
+            ..Default::default()
+        }
+        .insert(database)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    Ok(())
+}
+
+fn parse_event_host_ids(values: &[String]) -> AppResult<Vec<Uuid>> {
+    if values.is_empty() {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Events require at least one host.",
+        ));
+    }
+
+    let mut unique = HashSet::with_capacity(values.len());
+    let mut host_ids = Vec::with_capacity(values.len());
+    for value in values {
+        let host_id = value.parse::<Uuid>().map_err(|_| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Event host IDs must be UUIDs.",
+            )
+        })?;
+        if !unique.insert(host_id) {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Event hosts must be distinct.",
+            ));
+        }
+        host_ids.push(host_id);
+    }
+    Ok(host_ids)
+}
+
+fn validate_external_link(value: &str) -> AppResult<()> {
+    let uri = value.parse::<axum::http::Uri>().map_err(|_| {
+        ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event external links must be valid HTTP(S) URLs.",
+        )
+    })?;
+    if !matches!(uri.scheme_str(), Some("http" | "https"))
+        || uri.authority().is_none()
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event external links must be valid HTTP(S) URLs.",
+        ));
+    }
+    Ok(())
 }
 
 async fn create_poll_action_server_config<C: ConnectionTrait>(
@@ -296,6 +483,9 @@ pub(crate) async fn implement_poll_action(
             implement_change_server_config(&transaction, poll_id, action.id)
                 .await?
         }
+        PollActionType::PlanEvent => {
+            implement_plan_event(&transaction, poll_id, action.id).await?
+        }
         _ => {}
     }
 
@@ -351,11 +541,173 @@ pub(crate) async fn shape_poll_action(
             voting_time_limit: config.voting_time_limit,
             prev_voting_time_limit: config.prev_voting_time_limit,
         });
+    let event = shape_poll_action_event(database, action.id).await?;
     Ok(Some(PollActionResponse {
         id: action.id.to_string(),
         action_type: action.action_type,
         server_role,
         server_config,
+        event,
+    }))
+}
+
+async fn implement_plan_event(
+    database: &DatabaseTransaction,
+    poll_id: Uuid,
+    poll_action_id: Uuid,
+) -> AppResult<()> {
+    let proposed = poll_action_events::Entity::find()
+        .filter(poll_action_events::Column::PollActionId.eq(poll_action_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Proposed event is required.",
+            )
+        })?;
+    let poll = polls::Entity::find_by_id(poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+    let channel = channels::Entity::find_by_id(poll.channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
+        })?;
+
+    let event = match events::Entity::find()
+        .filter(events::Column::SourcePollActionId.eq(poll_action_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    {
+        Some(event) => event,
+        None => events::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
+            server_id: Set(channel.server_id),
+            source_poll_action_id: Set(Some(poll_action_id)),
+            name: Set(proposed.name),
+            description: Set(proposed.description),
+            starts_at: Set(proposed.starts_at),
+            ends_at: Set(proposed.ends_at),
+            online: Set(proposed.online),
+            location: Set(proposed.location),
+            external_link: Set(proposed.external_link),
+            ..Default::default()
+        }
+        .insert(database)
+        .await
+        .map_err(internal_error)?,
+    };
+
+    let hosts = poll_action_event_hosts::Entity::find()
+        .filter(
+            poll_action_event_hosts::Column::PollActionEventId.eq(proposed.id),
+        )
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    for host in hosts {
+        let existing = event_attendees::Entity::find()
+            .filter(event_attendees::Column::EventId.eq(event.id))
+            .filter(event_attendees::Column::UserId.eq(host.user_id))
+            .one(database)
+            .await
+            .map_err(internal_error)?;
+        if let Some(attendee) = existing {
+            if attendee.status != EventAttendeeStatus::Host {
+                let mut active = attendee.into_active_model();
+                active.status = Set(EventAttendeeStatus::Host);
+                active.updated_at = Set(Utc::now().fixed_offset());
+                active.update(database).await.map_err(internal_error)?;
+            }
+        } else {
+            event_attendees::ActiveModel {
+                id: Set(NativeUuid::new_v4()),
+                event_id: Set(event.id),
+                user_id: Set(host.user_id),
+                status: Set(EventAttendeeStatus::Host),
+                ..Default::default()
+            }
+            .insert(database)
+            .await
+            .map_err(internal_error)?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn shape_poll_action_event(
+    database: &DatabaseConnection,
+    poll_action_id: Uuid,
+) -> AppResult<Option<PollActionEventResponse>> {
+    let proposed = match poll_action_events::Entity::find()
+        .filter(poll_action_events::Column::PollActionId.eq(poll_action_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    {
+        Some(event) => event,
+        None => return Ok(None),
+    };
+    let hosts = poll_action_event_hosts::Entity::find()
+        .filter(
+            poll_action_event_hosts::Column::PollActionEventId.eq(proposed.id),
+        )
+        .order_by_asc(poll_action_event_hosts::Column::CreatedAt)
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let host_ids: Vec<Uuid> = hosts.iter().map(|host| host.user_id).collect();
+    let users = users::Entity::find()
+        .filter(users::Column::Id.is_in(host_ids.iter().copied()))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let users_by_id: std::collections::HashMap<Uuid, users::Model> =
+        users.into_iter().map(|user| (user.id, user)).collect();
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &host_ids)
+            .await?;
+    let created_event_id = events::Entity::find()
+        .filter(events::Column::SourcePollActionId.eq(poll_action_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .map(|event| event.id.to_string());
+
+    Ok(Some(PollActionEventResponse {
+        id: proposed.id.to_string(),
+        name: proposed.name,
+        description: proposed.description,
+        starts_at: crate::messages::types::serialize_timestamp(
+            proposed.starts_at,
+        ),
+        ends_at: proposed
+            .ends_at
+            .map(crate::messages::types::serialize_timestamp),
+        online: proposed.online,
+        location: proposed.location,
+        external_link: proposed.external_link,
+        hosts: hosts
+            .into_iter()
+            .filter_map(|host| users_by_id.get(&host.user_id))
+            .map(|user| PollActionUserResponse {
+                id: user.id.to_string(),
+                name: user.name.clone(),
+                display_name: user.display_name.clone(),
+                profile_picture: profile_pictures.get(&user.id).cloned(),
+            })
+            .collect(),
+        created_event_id,
     }))
 }
 

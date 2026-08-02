@@ -5,6 +5,7 @@ mod auth;
 mod calls;
 mod channels;
 mod common;
+mod events;
 mod feeds;
 mod forum;
 mod health;

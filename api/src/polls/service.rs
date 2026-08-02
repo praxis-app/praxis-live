@@ -247,6 +247,7 @@ pub(super) async fn broadcast_poll_image_upload(
 
 pub(crate) struct PreparedPollCreation {
     request: CreatePollRequest,
+    server_id: Uuid,
     channel_id: Uuid,
     poll_type: PollType,
     server_config: server_config_entities::Model,
@@ -335,6 +336,7 @@ async fn prepare_poll_creation(
 
     Ok(PreparedPollCreation {
         request,
+        server_id,
         channel_id,
         poll_type,
         server_config,
@@ -351,6 +353,7 @@ pub(crate) async fn insert_prepared_poll<C: ConnectionTrait>(
 ) -> AppResult<polls::Model> {
     let PreparedPollCreation {
         request,
+        server_id,
         channel_id,
         poll_type,
         server_config,
@@ -402,6 +405,7 @@ pub(crate) async fn insert_prepared_poll<C: ConnectionTrait>(
             poll_actions::service::create_poll_action(
                 database,
                 poll.id,
+                server_id,
                 action,
                 &server_config,
             )
@@ -1706,12 +1710,25 @@ fn validate_action(
     }
     let payload_matches_action = match action.action_type {
         PollActionType::ChangeSettings => {
-            action.server_role.is_none() && action.server_config.is_some()
+            action.server_role.is_none()
+                && action.server_config.is_some()
+                && action.event.is_none()
         }
         PollActionType::ChangeRole | PollActionType::CreateRole => {
-            action.server_role.is_some() && action.server_config.is_none()
+            action.server_role.is_some()
+                && action.server_config.is_none()
+                && action.event.is_none()
         }
-        _ => action.server_role.is_none() && action.server_config.is_none(),
+        PollActionType::PlanEvent => {
+            action.server_role.is_none()
+                && action.server_config.is_none()
+                && action.event.is_some()
+        }
+        _ => {
+            action.server_role.is_none()
+                && action.server_config.is_none()
+                && action.event.is_none()
+        }
     };
     if !payload_matches_action {
         return Err(ApiError::new(
@@ -1764,6 +1781,11 @@ fn validate_action(
                 "Polls to change server roles must include at least 1 change.",
             ));
         }
+    }
+    if action.action_type == PollActionType::PlanEvent {
+        crate::poll_actions::service::validate_plan_event_request(
+            action.event.as_ref().expect("checked above"),
+        )?;
     }
     Ok(())
 }
