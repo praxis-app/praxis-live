@@ -77,6 +77,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
     hasMultipleServers;
 
   const serverName = server?.name || INITIAL_SERVER_NAME;
+  const eventsActive = location.pathname.startsWith(`${serverPath}/events`);
 
   return (
     <div className="dark:bg-card bg-secondary flex h-full w-60 flex-col border-r border-[--color-border]">
@@ -170,20 +171,16 @@ export const LeftNavDesktop = ({ me }: Props) => {
       </Dialog>
 
       <div className="border-b border-[--color-border] p-2">
-        <Button
-          asChild
-          variant={
-            location.pathname.startsWith(`${serverPath}/events`)
-              ? 'secondary'
-              : 'ghost'
-          }
-          className="w-full justify-start"
+        <Link
+          to={`${serverPath}${NavigationPaths.Events}`}
+          className={cn(
+            'text-muted-foreground hover:bg-accent flex items-center gap-2 rounded-lg px-2 py-[0.225rem] text-[0.925rem]',
+            eventsActive && 'bg-accent text-foreground',
+          )}
         >
-          <Link to={`${serverPath}${NavigationPaths.Events}`}>
-            <MdEvent className="size-5" />
-            {t('navigation.labels.events')}
-          </Link>
-        </Button>
+          <MdEvent className="size-6" />
+          {t('navigation.labels.events')}
+        </Link>
       </div>
 
       <ChannelListDesktop />

@@ -18,6 +18,7 @@ interface Props {
   backBtnIcon?: ReactNode;
   goBackOnEscape?: boolean;
   showSearch?: boolean;
+  hideBackButtonOnDesktop?: boolean;
 }
 
 export const TopNav = ({
@@ -27,6 +28,7 @@ export const TopNav = ({
   backBtnIcon,
   goBackOnEscape = false,
   showSearch = true,
+  hideBackButtonOnDesktop = false,
 }: Props) => {
   const { isNavSheetOpen, setIsNavSheetOpen } = useNavStore();
 
@@ -72,6 +74,8 @@ export const TopNav = ({
   }, [handleBackClick, isNavSheetOpen, setIsNavSheetOpen, goBackOnEscape]);
 
   const renderBackBtn = () => {
+    if (isDesktop && hideBackButtonOnDesktop) return null;
+
     const renderBtn = () => (
       <Button variant="ghost" size="icon" onClick={() => handleBackClick()}>
         {backBtnIcon || <LuArrowLeft className="size-6" />}

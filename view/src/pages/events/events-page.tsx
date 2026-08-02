@@ -18,6 +18,7 @@ import {
 } from '@/lib/event-date.utils';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LuCalendarDays, LuChevronLeft, LuChevronRight } from 'react-icons/lu';
 
 type EventFilter = 'upcoming' | 'this-week' | 'online' | 'past';
 
@@ -64,38 +65,56 @@ export const EventsPage = () => {
           header={t('events.title')}
           subheader={monthLabel}
           showSearch={false}
+          hideBackButtonOnDesktop
         />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6">
           <div className="mx-auto max-w-7xl space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex gap-2">
+            <div className="space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
+              <div className="grid grid-cols-[auto_1fr_auto] gap-2 sm:flex">
                 <Button
                   variant="outline"
+                  size={isDesktop ? 'default' : 'icon'}
+                  aria-label={t('events.actions.previous')}
                   onClick={() => setMonth(addMonths(month, -1))}
                 >
-                  {t('events.actions.previous')}
+                  <LuChevronLeft className="size-5 sm:hidden" />
+                  <span className="hidden sm:inline">
+                    {t('events.actions.previous')}
+                  </span>
                 </Button>
                 <Button
                   variant="outline"
+                  className="min-w-0"
                   onClick={() => setMonth(startOfMonth(new Date()))}
                 >
+                  <LuCalendarDays className="size-4 sm:hidden" />
                   {t('events.actions.today')}
                 </Button>
                 <Button
                   variant="outline"
+                  size={isDesktop ? 'default' : 'icon'}
+                  aria-label={t('events.actions.next')}
                   onClick={() => setMonth(addMonths(month, 1))}
                 >
-                  {t('events.actions.next')}
+                  <LuChevronRight className="size-5 sm:hidden" />
+                  <span className="hidden sm:inline">
+                    {t('events.actions.next')}
+                  </span>
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-1">
+              <div className="bg-muted grid grid-cols-4 gap-1 rounded-xl p-1 sm:flex sm:bg-transparent sm:p-0">
                 {(
                   ['upcoming', 'this-week', 'online', 'past'] as EventFilter[]
                 ).map((value) => (
                   <Button
                     key={value}
                     size="sm"
-                    variant={filter === value ? 'default' : 'ghost'}
+                    variant={filter === value ? 'secondary' : 'ghost'}
+                    className={
+                      filter === value
+                        ? 'bg-background hover:bg-background shadow-xs'
+                        : 'text-muted-foreground'
+                    }
                     onClick={() => setFilter(value)}
                   >
                     {t(`events.filters.${value}`)}
@@ -127,9 +146,9 @@ export const EventsPage = () => {
               !query.isError &&
               (isDesktop ? (
                 <EventsCalendar
-                  days={days}
                   events={events}
                   month={month}
+                  onMonthChange={setMonth}
                   serverPath={serverPath}
                 />
               ) : events.length > 0 ? (
