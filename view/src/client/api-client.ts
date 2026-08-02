@@ -15,6 +15,12 @@ import {
 } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
 import {
+  type EventDetailRes,
+  type EventRes,
+  type EventRsvpReq,
+  type EventsQuery,
+} from '@/types/event.types';
+import {
   type CreateForumPostReq,
   type CreateForumReplyReq,
   type ForumPostRes,
@@ -579,6 +585,38 @@ class ApiClient {
   deleteServer = async (serverId: string) => {
     const path = `/servers/${serverId}`;
     return this.executeRequest<void>('delete', path);
+  };
+
+  // -------------------------------------------------------------------------
+  // Events
+  // -------------------------------------------------------------------------
+
+  getEvents = async (serverId: string, query: EventsQuery) => {
+    const path = `/servers/${serverId}/events`;
+    return this.executeRequest<{ events: EventRes[] }>('get', path, {
+      params: { ...query },
+    });
+  };
+
+  getEvent = async (serverId: string, eventId: string) => {
+    const path = `/servers/${serverId}/events/${eventId}`;
+    return this.executeRequest<{ event: EventDetailRes }>('get', path);
+  };
+
+  updateEventRsvp = async (
+    serverId: string,
+    eventId: string,
+    data: EventRsvpReq,
+  ) => {
+    const path = `/servers/${serverId}/events/${eventId}/rsvp`;
+    return this.executeRequest<{ event: EventDetailRes }>('put', path, {
+      data,
+    });
+  };
+
+  clearEventRsvp = async (serverId: string, eventId: string) => {
+    const path = `/servers/${serverId}/events/${eventId}/rsvp`;
+    return this.executeRequest<{ event: EventDetailRes }>('delete', path);
   };
 
   addServerMembers = async (serverId: string, userIds: string[]) => {

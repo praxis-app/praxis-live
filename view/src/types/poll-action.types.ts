@@ -10,6 +10,30 @@ import type { DecisionMakingModel } from './poll.types';
 import { type ServerConfigReq } from './server-config.types';
 import { type UserRes } from './user.types';
 
+export interface CreatePollActionEventReq {
+  name: string;
+  description: string;
+  startsAt: string;
+  endsAt?: string;
+  online: boolean;
+  location?: string;
+  externalLink?: string;
+  hostIds: string[];
+}
+
+export interface PollActionEventRes {
+  id: string;
+  name: string;
+  description: string;
+  startsAt: string;
+  endsAt?: string | null;
+  online: boolean;
+  location?: string | null;
+  externalLink?: string | null;
+  hosts: UserRes[];
+  createdEventId?: string | null;
+}
+
 export type PollActionType = (typeof POLL_ACTION_TYPE)[number];
 
 export type RoleAttributeChangeType =
@@ -23,6 +47,7 @@ export interface PollActionReq {
   actionType: PollActionType;
   serverRole?: PollActionServerRoleReq;
   serverConfig?: PollActionServerConfigRes;
+  event?: PollActionEventRes;
 }
 
 export interface PollActionServerRoleReq {
@@ -49,6 +74,7 @@ export interface CreatePollActionReq {
   actionType: PollActionType;
   serverRole?: CreatePollActionServerRoleReq;
   serverConfig?: ServerConfigReq;
+  event?: CreatePollActionEventReq;
 }
 
 export interface CreatePollActionServerRoleReq {
@@ -81,6 +107,7 @@ export interface PollActionRes {
   actionType: PollActionType;
   serverRole?: PollActionServerRoleRes;
   serverConfig?: PollActionServerConfigRes;
+  event?: PollActionEventRes;
 }
 
 export interface PollActionServerConfigRes extends ServerConfigReq {

@@ -28,6 +28,14 @@ export const createProposalFormSchema = zod
     serverRoleMembers: zod.array(zod.string()).optional(),
     selectedServerRoleId: zod.string().optional(),
     serverConfig: serverConfigSchema.optional(),
+    eventName: zod.string().max(255).optional(),
+    eventDescription: zod.string().optional(),
+    eventStartsAt: zod.string().optional(),
+    eventEndsAt: zod.string().optional(),
+    eventOnline: zod.boolean().optional(),
+    eventLocation: zod.string().max(255).optional(),
+    eventExternalLink: zod.string().optional(),
+    eventHostIds: zod.array(zod.string()).optional(),
   })
   .refine(
     (data) => {
@@ -53,11 +61,67 @@ export const createProposalFormSchema = zod
       message: t('proposals.errors.generalProposalRequiresBody'),
     },
   )
+  .superRefine((data, context) => {
+    if (data.action !== 'plan-event') return;
+    const required: Array<keyof typeof data> = [
+      'eventName',
+      'eventDescription',
+      'eventStartsAt',
+    ];
+    for (const field of required) {
+      if (!data[field]) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: t('proposals.errors.eventRequired'),
+        });
+      }
+    }
+    if (!data.eventOnline && !data.eventLocation?.trim()) {
+      context.addIssue({
+        code: 'custom',
+        path: ['eventLocation'],
+        message: t('proposals.errors.eventLocationRequired'),
+      });
+    }
+    if (!data.eventHostIds?.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['eventHostIds'],
+        message: t('proposals.errors.eventHostRequired'),
+      });
+    }
+    if (
+      data.eventStartsAt &&
+      data.eventEndsAt &&
+      new Date(data.eventEndsAt) <= new Date(data.eventStartsAt)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['eventEndsAt'],
+        message: t('proposals.errors.eventEndAfterStart'),
+      });
+    }
+    if (data.eventExternalLink) {
+      try {
+        const url = new URL(data.eventExternalLink);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:')
+          throw Error();
+      } catch {
+        context.addIssue({
+          code: 'custom',
+          path: ['eventExternalLink'],
+          message: t('proposals.errors.eventLinkInvalid'),
+        });
+      }
+    }
+  })
   .refine(
     (data) =>
       data.action === 'general' ||
       data.action === 'change-role' ||
       data.action === 'change-settings' ||
+      data.action === 'plan-event' ||
       data.action === 'test',
     {
       message: t('prompts.inDev'),
@@ -74,4 +138,5 @@ export interface CreateProposalWizardContext {
   usersEligibleForServerRole?: UserRes[];
   serverConfig?: ServerConfigRes;
   proposedServerConfig?: ServerConfigReq;
+  serverMembers?: UserRes[];
 }

@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { Wizard } from '../../../shared/wizard/wizard';
 import { ProposalDetailsStep } from './create-proposal-form-steps/proposal-details-step';
 import { ProposalReviewStep } from './create-proposal-form-steps/proposal-review-step';
+import { PlanEventStep } from './create-proposal-form-steps/plan-event-step';
 import { ServerRoleAttributesStep } from './create-proposal-form-steps/server-role-attributes-step';
 import { ServerRoleMembersStep } from './create-proposal-form-steps/server-role-members-step';
 import { ServerRolePermissionsStep } from './create-proposal-form-steps/server-role-permissions-step';
@@ -63,6 +64,14 @@ export const CreateProposalForm = ({
       permissions: {},
       serverRoleMembers: [],
       selectedServerRoleId: '',
+      eventName: '',
+      eventDescription: '',
+      eventStartsAt: '',
+      eventEndsAt: '',
+      eventOnline: false,
+      eventLocation: '',
+      eventExternalLink: '',
+      eventHostIds: [],
     },
   });
 
@@ -94,6 +103,16 @@ export const CreateProposalForm = ({
     enabled:
       isRolePoll && !!serverId && !!selectedServerRoleId && currentStep > 1,
   });
+
+  const { data: serverMembersData, isLoading: isServerMembersLoading } =
+    useQuery({
+      queryKey: ['servers', serverId, 'members'],
+      queryFn: () => {
+        if (!serverId) throw new Error('Server ID is required');
+        return api.getServerMembers(serverId);
+      },
+      enabled: actionType === 'plan-event' && !!serverId,
+    });
 
   // Get eligible users for the selected role
   const { data: eligibleUsersData, isLoading: isEligibleUsersLoading } =
@@ -252,6 +271,25 @@ export const CreateProposalForm = ({
                   values.serverConfig || {},
                 )
               : undefined,
+          event:
+            values.action === 'plan-event'
+              ? {
+                  name: values.eventName!.trim(),
+                  description: values.eventDescription!.trim(),
+                  startsAt: new Date(values.eventStartsAt!).toISOString(),
+                  endsAt: values.eventEndsAt
+                    ? new Date(values.eventEndsAt).toISOString()
+                    : undefined,
+                  online: !!values.eventOnline,
+                  location: values.eventOnline
+                    ? undefined
+                    : values.eventLocation?.trim(),
+                  externalLink: values.eventOnline
+                    ? values.eventExternalLink?.trim() || undefined
+                    : undefined,
+                  hostIds: values.eventHostIds || [],
+                }
+              : undefined,
         },
       };
 
@@ -379,6 +417,15 @@ export const CreateProposalForm = ({
           },
         ]
       : []),
+    ...(actionType === 'plan-event'
+      ? [
+          {
+            id: 'plan-event',
+            component: PlanEventStep,
+            props: { isLoading: isServerMembersLoading },
+          },
+        ]
+      : []),
     {
       id: 'proposal-review',
       component: ProposalReviewStep,
@@ -388,7 +435,23 @@ export const CreateProposalForm = ({
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
-      const isValid = await form.trigger();
+      const stepId = steps[currentStep]?.id;
+      const isValid = await form.trigger(
+        stepId === 'proposal-details'
+          ? ['body', 'action']
+          : stepId === 'plan-event'
+            ? [
+                'eventName',
+                'eventDescription',
+                'eventStartsAt',
+                'eventEndsAt',
+                'eventOnline',
+                'eventLocation',
+                'eventExternalLink',
+                'eventHostIds',
+              ]
+            : undefined,
+      );
       if (!isValid) {
         return;
       }
@@ -418,6 +481,7 @@ export const CreateProposalForm = ({
         usersEligibleForServerRole: eligibleUsersData?.users,
         serverConfig: serverConfigData?.serverConfig,
         proposedServerConfig,
+        serverMembers: serverMembersData?.users,
       }}
       onNext={handleNext}
       onPrevious={handlePrevious}

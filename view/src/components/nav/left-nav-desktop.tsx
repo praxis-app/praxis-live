@@ -37,12 +37,13 @@ import { useTranslation } from 'react-i18next';
 import {
   MdAddCircle,
   MdExpandMore,
+  MdEvent,
   MdOutlineSettings,
   MdRocketLaunch,
   MdSettings,
 } from 'react-icons/md';
 import { TbSwitchHorizontal } from 'react-icons/tb';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface Props {
@@ -57,6 +58,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const [showServerSwitchDialog, setShowServerSwitchDialog] = useState(false);
 
   const { t } = useTranslation();
+  const location = useLocation();
   const { server, serverPath, myServerCount } = useServerData();
   const { signUpPath } = useAuthData();
 
@@ -166,6 +168,23 @@ export const LeftNavDesktop = ({ me }: Props) => {
           />
         </DialogContent>
       </Dialog>
+
+      <div className="border-b border-[--color-border] p-2">
+        <Button
+          asChild
+          variant={
+            location.pathname.startsWith(`${serverPath}/events`)
+              ? 'secondary'
+              : 'ghost'
+          }
+          className="w-full justify-start"
+        >
+          <Link to={`${serverPath}${NavigationPaths.Events}`}>
+            <MdEvent className="size-5" />
+            {t('navigation.labels.events')}
+          </Link>
+        </Button>
+      </div>
 
       <ChannelListDesktop />
 

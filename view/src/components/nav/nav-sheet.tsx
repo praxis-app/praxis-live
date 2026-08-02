@@ -27,6 +27,7 @@ import { useTranslation } from 'react-i18next';
 import { LuChevronRight } from 'react-icons/lu';
 import {
   MdExitToApp,
+  MdEvent,
   MdForum,
   MdPersonAdd,
   MdRocketLaunch,
@@ -153,6 +154,17 @@ export const NavSheet = ({ trigger }: Props) => {
 
         <div className="bg-background dark:bg-card flex h-full w-full flex-col gap-6 overflow-y-auto rounded-t-2xl px-4 pt-7 pb-12">
           {/* TODO: Add visual indicator for current channel */}
+
+          <Link
+            to={`${serverPath}${NavigationPaths.Events}`}
+            onClick={() => setIsNavSheetOpen(false)}
+            className="flex items-center gap-1.5 text-lg tracking-[0.01em]"
+          >
+            <MdEvent className="mr-1 size-6" />
+            <div>{t('navigation.labels.events')}</div>
+          </Link>
+
+          <Separator />
 
           {channels.map((channel) => (
             <Link

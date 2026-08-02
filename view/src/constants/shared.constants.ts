@@ -26,6 +26,7 @@ export enum NavigationPaths {
   Root = '/',
   About = '/about',
   Explore = '/explore',
+  Events = '/events',
   Login = '/auth/login',
   GeneralSettings = '/settings/general',
   Invites = '/settings/invites',

@@ -187,7 +187,8 @@
       "createdInThisCall": "Created in this call",
       "createdInAnotherCall": "Created in another call",
       "createdInChannel": "Created in channel",
-      "votingDeadline": "Voting deadline"
+      "votingDeadline": "Voting deadline",
+      "plannedEvent": "Planned event: {{name}}"
     },
     "headers": {
       "availableRoles": "Available Roles",
@@ -207,7 +208,8 @@
       "selectedRole": "Selected Role",
       "selectedRoleInfo": "Selected Role Information",
       "voteProgress": "Vote Progress",
-      "proposalSettings": "Proposal Settings"
+      "proposalSettings": "Proposal Settings",
+      "planEvent": "Plan Event"
     },
     "placeholders": {
       "action": "Select an action type",
@@ -242,7 +244,8 @@
       "rolesPermissionsDescription": "Configure the roles and permissions changes",
       "selectRoleDescription": "Choose the role you want to modify",
       "proposalSettings": "The decision rules captured when this proposal was created.",
-      "votingDeadline": "The date and time when voting ends."
+      "votingDeadline": "The date and time when voting ends.",
+      "planEvent": "Set the event details and choose at least one host. The event will be created if this proposal passes."
     },
     "actionTypes": {
       "changeRole": "Change role",
@@ -277,7 +280,57 @@
       "errorCreatingProposal": "Error creating proposal",
       "longBody": "Proposal body cannot exceed 6000 characters",
       "testProposalRequiresBody": "Test proposals must include a body",
-      "generalProposalRequiresBody": "General proposals must include a body"
+      "generalProposalRequiresBody": "General proposals must include a body",
+      "eventRequired": "This event field is required",
+      "eventLocationRequired": "Add a location for an in-person event",
+      "eventHostRequired": "Choose at least one event host",
+      "eventEndAfterStart": "The event must end after it starts",
+      "eventLinkInvalid": "Enter a valid http or https link"
+    }
+  },
+
+  "events": {
+    "title": "Events",
+    "actions": {
+      "previous": "Previous",
+      "next": "Next",
+      "today": "Today",
+      "viewEvent": "View event",
+      "interested": "Interested",
+      "going": "Going"
+    },
+    "filters": {
+      "upcoming": "Upcoming",
+      "this-week": "This week",
+      "online": "Online",
+      "past": "Past"
+    },
+    "labels": {
+      "name": "Event name",
+      "description": "Description",
+      "startsAt": "Starts",
+      "endsAt": "Ends (optional)",
+      "online": "Online",
+      "inPerson": "In person",
+      "location": "Location",
+      "externalLink": "Online event link (optional)",
+      "hosts": "Hosts",
+      "hostedBy": "Hosted by {{names}}",
+      "hostRsvp": "Hosts are automatically attending this event.",
+      "going": "Going",
+      "interested": "Interested",
+      "attendanceCounts": "{{going}} going · {{interested}} interested",
+      "more": "+{{count}} more"
+    },
+    "empty": {
+      "title": "No events here",
+      "description": "Try another month or filter.",
+      "attendees": "No one yet."
+    },
+    "errors": {
+      "load": "Events could not be loaded.",
+      "loadDetail": "This event could not be loaded.",
+      "rsvp": "Your RSVP could not be updated."
     }
   },
 
@@ -938,7 +991,8 @@
       "instanceRoles": "Instance Roles",
       "proposals": "Proposals",
       "invites": "Invites",
-      "roles": "Roles"
+      "roles": "Roles",
+      "events": "Events"
     },
     "descriptions": {
       "navDrawer": "Create a new room, join a room, or view your settings.",

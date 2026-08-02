@@ -23,10 +23,16 @@ import {
 } from '../create-proposal-form.types';
 import { ServerConfigChanges } from '../../server-config-changes';
 import { getServerConfigChanges } from '../../server-config-changes.utils';
+import { EventSummary } from '@/components/events/event-summary';
 
 export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
   const {
-    context: { selectedServerRole, usersEligibleForServerRole, serverConfig },
+    context: {
+      selectedServerRole,
+      usersEligibleForServerRole,
+      serverConfig,
+      serverMembers,
+    },
     onSubmit,
     onPrevious,
     isSubmitting,
@@ -278,6 +284,33 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
                       ),
                   ) as never
                 }
+              />
+            </CardContent>
+          </Card>
+        )}
+        {action === 'plan-event' && formValues.eventStartsAt && (
+          <Card className="gap-3 py-5">
+            <CardHeader>
+              <CardTitle className="text-base">
+                {t('proposals.headers.planEvent')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EventSummary
+                name={formValues.eventName || ''}
+                description={formValues.eventDescription || ''}
+                startsAt={new Date(formValues.eventStartsAt).toISOString()}
+                endsAt={
+                  formValues.eventEndsAt
+                    ? new Date(formValues.eventEndsAt).toISOString()
+                    : undefined
+                }
+                online={!!formValues.eventOnline}
+                location={formValues.eventLocation}
+                externalLink={formValues.eventExternalLink}
+                hosts={(serverMembers || []).filter((user) =>
+                  formValues.eventHostIds?.includes(user.id),
+                )}
               />
             </CardContent>
           </Card>
