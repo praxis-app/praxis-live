@@ -134,9 +134,10 @@ export const EventsPage = () => {
                     variant={filter === value ? 'secondary' : 'ghost'}
                     className={
                       filter === value
-                        ? 'bg-background hover:bg-background shadow-xs'
+                        ? 'bg-background hover:bg-background sm:bg-foreground sm:text-background sm:hover:bg-foreground/90 shadow-xs'
                         : 'text-muted-foreground'
                     }
+                    aria-pressed={filter === value}
                     onClick={() => setFilter(value)}
                   >
                     {t(`events.filters.${value}`)}
