@@ -7,7 +7,7 @@ import { cn } from '@/lib/shared.utils';
 import { useNavStore } from '@/store/nav.store';
 import { type ReactNode, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuArrowLeft } from 'react-icons/lu';
+import { LuArrowLeft, LuListTodo } from 'react-icons/lu';
 import { MdSearch } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -20,6 +20,8 @@ interface Props {
   goBackOnEscape?: boolean;
   showSearch?: boolean;
   hideBackButtonOnDesktop?: boolean;
+  isDecisionsPanelOpen?: boolean;
+  onToggleDecisionsPanel?: () => void;
 }
 
 export const TopNav = ({
@@ -30,6 +32,8 @@ export const TopNav = ({
   goBackOnEscape = false,
   showSearch = true,
   hideBackButtonOnDesktop = false,
+  isDecisionsPanelOpen = false,
+  onToggleDecisionsPanel,
 }: Props) => {
   const { isNavSheetOpen, setIsNavSheetOpen } = useNavStore();
 
@@ -110,15 +114,32 @@ export const TopNav = ({
         </div>
       </div>
 
-      {showSearch && (
-        <Button
-          onClick={() => toast(t('prompts.inDev'))}
-          variant="ghost"
-          size="icon"
-        >
-          <MdSearch className="size-6" />
-        </Button>
-      )}
+      <div className="flex items-center gap-1">
+        {isDesktop && onToggleDecisionsPanel && (
+          <Button
+            type="button"
+            aria-label={t('decisions.actions.togglePanel')}
+            aria-controls="active-decisions-panel"
+            aria-expanded={isDecisionsPanelOpen}
+            onClick={onToggleDecisionsPanel}
+            variant="ghost"
+            size="icon"
+          >
+            <LuListTodo className="size-5.5" />
+          </Button>
+        )}
+
+        {showSearch && (
+          <Button
+            aria-label={t('actions.search')}
+            onClick={() => toast(t('prompts.inDev'))}
+            variant="ghost"
+            size="icon"
+          >
+            <MdSearch className="size-6" />
+          </Button>
+        )}
+      </div>
     </header>
   );
 };

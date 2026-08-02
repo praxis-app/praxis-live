@@ -235,16 +235,22 @@
   border: 0;
 }
 
-.events-calendar .fc-col-header-cell-cushion,
-.events-calendar .fc-daygrid-day-number {
+.events-calendar .fc-col-header-cell-cushion {
   padding: 0.5rem;
   color: var(--foreground);
   font-size: 0.75rem;
   font-weight: 500;
 }
 
-.events-calendar .fc-day-other .fc-daygrid-day-number {
-  color: var(--muted-foreground);
+.events-calendar .events-calendar-day-top {
+  padding: 0.075rem 0.075rem 0;
+}
+
+.events-calendar .events-calendar-day-number {
+  padding: 0;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .events-calendar .fc-daygrid-day-frame {

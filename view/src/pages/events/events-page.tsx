@@ -1,5 +1,6 @@
 import { EventsAgenda } from '@/components/events/events-agenda';
 import { EventsCalendar } from '@/components/events/events-calendar';
+import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
 import { TopNav } from '@/components/nav/top-nav';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useEventsQuery } from '@/hooks/events/use-events-query';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
+import { LocalStorageKeys } from '@/constants/shared.constants';
 import {
   addDays,
   addMonths,
@@ -16,57 +18,108 @@ import {
   startOfMonth,
   startOfWeek,
 } from '@/lib/event-date.utils';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCalendarDays, LuChevronLeft, LuChevronRight } from 'react-icons/lu';
 
 type EventFilter = 'upcoming' | 'this-week' | 'online' | 'past';
 
+const LARGE_DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
+
+const getDefaultDecisionsPanelOpen = () => {
+  const storedPreference = localStorage.getItem(
+    LocalStorageKeys.DecisionsPanelOpen,
+  );
+  return (
+    storedPreference === 'true' ||
+    (storedPreference !== 'false' &&
+      window.matchMedia(LARGE_DESKTOP_MEDIA_QUERY).matches)
+  );
+};
+
 export const EventsPage = () => {
   const [month, setMonth] = useState(startOfMonth(new Date()));
   const [filter, setFilter] = useState<EventFilter>('upcoming');
-  const { t } = useTranslation();
-  const isDesktop = useIsDesktop();
+  const [isDecisionsPanelOpen, setIsDecisionsPanelOpen] = useState(
+    getDefaultDecisionsPanelOpen,
+  );
+
   const { me } = useAuthData();
   const { serverId, serverPath } = useServerData();
+
+  const { t } = useTranslation();
+  const isDesktop = useIsDesktop();
+
+  useEffect(() => {
+    setIsDecisionsPanelOpen(getDefaultDecisionsPanelOpen());
+  }, [serverId]);
+
+  const closeDecisionsPanel = () => {
+    localStorage.setItem(LocalStorageKeys.DecisionsPanelOpen, 'false');
+    setIsDecisionsPanelOpen(false);
+  };
+
+  const toggleDecisionsPanel = () => {
+    const nextIsOpen = !isDecisionsPanelOpen;
+    localStorage.setItem(
+      LocalStorageKeys.DecisionsPanelOpen,
+      String(nextIsOpen),
+    );
+    setIsDecisionsPanelOpen(nextIsOpen);
+  };
+
   const days = useMemo(() => {
     const first = startOfWeek(month);
     return Array.from({ length: 42 }, (_, index) => addDays(first, index));
   }, [month]);
+
   const from = days[0];
   const to = addDays(days[days.length - 1], 1);
-  const query = useEventsQuery(serverId, {
+
+  const eventsQuery = useEventsQuery(serverId, {
     from: from.toISOString(),
     to: to.toISOString(),
     online: filter === 'online' ? true : undefined,
   });
+
   const events = useMemo(() => {
     const now = new Date();
     const weekStart = startOfWeek(now);
     const weekEnd = addDays(weekStart, 7);
-    return (query.data?.events || []).filter((event) => {
+    return (eventsQuery.data?.events || []).filter((event) => {
       if (filter === 'past') return eventEnd(event) < now;
       if (filter === 'this-week')
         return eventOverlapsRange(event, weekStart, weekEnd);
       if (filter === 'online') return event.online && eventEnd(event) >= now;
       return eventEnd(event) >= now;
     });
-  }, [filter, query.data?.events]);
+  }, [filter, eventsQuery.data?.events]);
+
   const monthLabel = new Intl.DateTimeFormat(undefined, {
     month: 'long',
     year: 'numeric',
   }).format(month);
 
+  const showEventsEmptyMessage =
+    !eventsQuery.isLoading &&
+    !eventsQuery.isError &&
+    events.length === 0 &&
+    !isDesktop;
+
   return (
     <div className="fixed inset-0 flex">
       {isDesktop && <LeftNavDesktop me={me} />}
+
       <div className="flex min-w-0 flex-1 flex-col">
         <TopNav
           header={t('events.title')}
           subheader={monthLabel}
-          showSearch={false}
+          showSearch={isDesktop}
           hideBackButtonOnDesktop
+          isDecisionsPanelOpen={isDecisionsPanelOpen}
+          onToggleDecisionsPanel={toggleDecisionsPanel}
         />
+
         <main className="flex-1 overflow-y-auto p-3 sm:p-6">
           <div className="mx-auto max-w-7xl space-y-4">
             <div className="space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
@@ -96,6 +149,7 @@ export const EventsPage = () => {
                   <LuChevronRight className="size-5" />
                 </Button>
               </div>
+
               <div className="hidden items-center gap-2 sm:flex">
                 <div className="flex">
                   <Button
@@ -124,6 +178,7 @@ export const EventsPage = () => {
                   {t('events.actions.today')}
                 </Button>
               </div>
+
               <div className="bg-muted grid grid-cols-4 gap-1 rounded-xl p-1 sm:flex sm:bg-transparent sm:p-0">
                 {(
                   ['upcoming', 'this-week', 'online', 'past'] as EventFilter[]
@@ -145,28 +200,25 @@ export const EventsPage = () => {
                 ))}
               </div>
             </div>
-            {query.isLoading && (
+            {eventsQuery.isLoading && (
               <div className="space-y-3">
                 <Skeleton className="h-24 w-full" />
                 <Skeleton className="h-64 w-full" />
               </div>
             )}
-            {query.isError && (
+            {eventsQuery.isError && (
               <p className="text-destructive">{t('events.errors.load')}</p>
             )}
-            {!query.isLoading &&
-              !query.isError &&
-              events.length === 0 &&
-              !isDesktop && (
-                <div className="rounded-xl border border-dashed p-12 text-center">
-                  <h2 className="font-semibold">{t('events.empty.title')}</h2>
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    {t('events.empty.description')}
-                  </p>
-                </div>
-              )}
-            {!query.isLoading &&
-              !query.isError &&
+            {showEventsEmptyMessage && (
+              <div className="rounded-xl border border-dashed p-12 text-center">
+                <h2 className="font-semibold">{t('events.empty.title')}</h2>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {t('events.empty.description')}
+                </p>
+              </div>
+            )}
+            {!eventsQuery.isLoading &&
+              !eventsQuery.isError &&
               (isDesktop ? (
                 <EventsCalendar
                   events={events}
@@ -180,6 +232,12 @@ export const EventsPage = () => {
           </div>
         </main>
       </div>
+      {isDesktop && (
+        <DecisionsPanel
+          isOpen={isDecisionsPanelOpen}
+          onClose={closeDecisionsPanel}
+        />
+      )}
     </div>
   );
 };
