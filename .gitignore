@@ -21,6 +21,7 @@ content/*
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+!.vscode/livekit-server.cjs
 playwright-report/
 test-results/
 .fallow
