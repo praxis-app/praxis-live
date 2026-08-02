@@ -23,6 +23,7 @@ content/*
 !.vscode/extensions.json
 playwright-report/
 test-results/
+.playwright-cli/
 .fallow
 
 # Local only files
