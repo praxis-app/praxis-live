@@ -10,10 +10,7 @@ import { useServerData } from '@/hooks/use-server-data';
 import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
-import {
-  type ChannelRes,
-  type FeedQuery,
-} from '@/types/channel.types';
+import { type ChannelRes, type FeedQuery } from '@/types/channel.types';
 import {
   type DecisionMakingModel,
   type PollRes,
@@ -183,9 +180,13 @@ export const ProposalVoteButtons = ({
       }
 
       if (result.isRatifyingVote) {
+        if (feedQueryKey) {
+          void queryClient.invalidateQueries({ queryKey: feedQueryKey });
+        }
         void queryClient.invalidateQueries({
           queryKey: getActiveDecisionsQueryKey(serverId),
         });
+        toast(t('proposals.prompts.ratifiedSuccess'));
       } else {
         updateActiveDecisionCache(queryClient, serverId, pollId, (decision) => {
           const responseCountChange =
@@ -206,9 +207,6 @@ export const ProposalVoteButtons = ({
       }
       updateCachedProposal?.(updateProposal);
 
-      if (result.isRatifyingVote) {
-        toast(t('proposals.prompts.ratifiedSuccess'));
-      }
       onVoteSuccess?.();
     },
     onError(error: Error) {
