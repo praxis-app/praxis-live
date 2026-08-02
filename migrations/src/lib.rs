@@ -12,6 +12,7 @@ mod m20260525_000001_preserve_call_decisions;
 mod m20260629_000001_add_poll_action_execution;
 mod m20260703_000001_add_poll_action_server_configs;
 mod m20260715_000001_add_forum_channel_schema;
+mod m20260802_000001_add_events;
 
 pub struct Migrator;
 
@@ -33,6 +34,7 @@ impl MigratorTrait for Migrator {
                 m20260703_000001_add_poll_action_server_configs::Migration,
             ),
             Box::new(m20260715_000001_add_forum_channel_schema::Migration),
+            Box::new(m20260802_000001_add_events::Migration),
         ]
     }
 }

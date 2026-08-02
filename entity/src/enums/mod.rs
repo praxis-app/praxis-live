@@ -1,3 +1,4 @@
+mod events;
 pub mod forums;
 mod macros;
 pub mod poll_actions;
@@ -5,6 +6,7 @@ pub mod polls;
 pub mod roles;
 pub mod votes;
 
+pub use events::EventAttendeeStatus;
 pub use forums::{ChannelType, ForumPostStatus};
 
 pub use poll_actions::{
