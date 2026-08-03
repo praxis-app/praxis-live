@@ -11,10 +11,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { UserAvatar } from '@/components/users/user-avatar';
 import { useState } from 'react';
-import { LuSearch } from 'react-icons/lu';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { LuSearch, LuX } from 'react-icons/lu';
 import { useWizardContext } from '../../../../shared/wizard/wizard-hooks';
 import {
   type CreateProposalFormSchema,
@@ -24,22 +25,41 @@ import { EventDateTimeField } from './event-date-time-field';
 
 export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+
   const { context, onNext, onPrevious } =
     useWizardContext<CreateProposalWizardContext>();
+
   const form = useFormContext<CreateProposalFormSchema>();
   const { t } = useTranslation();
+
   const online = form.watch('eventOnline');
   const hostIds = form.watch('eventHostIds') || [];
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
-  const members = normalizedSearchTerm
-    ? (context.serverMembers || []).filter((user) =>
+
+  const serverMembers = context.serverMembers || [];
+  const selectedHosts = hostIds.flatMap((hostId) => {
+    const host = serverMembers.find((user) => user.id === hostId);
+    return host ? [host] : [];
+  });
+
+  const matchingMembers = normalizedSearchTerm
+    ? serverMembers.filter((user) =>
         (user.displayName || user.name)
           .toLowerCase()
           .includes(normalizedSearchTerm),
       )
     : [];
 
-  if (isLoading) return <p>{t('actions.loading')}</p>;
+  const setHostIds = (ids: string[]) => {
+    form.setValue('eventHostIds', ids, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  if (isLoading) {
+    return <p>{t('actions.loading')}</p>;
+  }
 
   return (
     <div className="space-y-5">
@@ -51,6 +71,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
           {t('proposals.descriptions.planEvent')}
         </p>
       </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField
           control={form.control}
@@ -135,6 +156,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
             </FormItem>
           )}
         />
+
         {!online && (
           <FormField
             control={form.control}
@@ -154,6 +176,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
             )}
           />
         )}
+
         {online && (
           <FormField
             control={form.control}
@@ -175,8 +198,44 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
           />
         )}
       </div>
+
       <div className="space-y-3">
         <FormLabel>{t('events.labels.hosts')}</FormLabel>
+        {!!selectedHosts.length && (
+          <div className="flex flex-wrap gap-2">
+            {selectedHosts.map((host) => {
+              const name = host.displayName || host.name;
+              return (
+                <div
+                  key={host.id}
+                  className="bg-muted/70 border-border/70 inline-flex max-w-full items-center gap-2 rounded-full border py-1 pr-1 pl-1.5 shadow-xs"
+                >
+                  <UserAvatar
+                    userId={host.id}
+                    name={name}
+                    imageId={host.profilePicture?.id}
+                    className="size-6"
+                    fallbackClassName="text-xs"
+                  />
+                  <span className="max-w-40 truncate text-sm font-medium">
+                    {name}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`${t('actions.remove')} ${name}`}
+                    onClick={() =>
+                      setHostIds(hostIds.filter((id) => id !== host.id))
+                    }
+                    className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-6 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                  >
+                    <LuX className="size-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="relative">
           <LuSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input
@@ -186,21 +245,20 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
             className="h-11 pl-9"
           />
         </div>
+
         {normalizedSearchTerm && (
           <div className="max-h-52 overflow-hidden overflow-y-auto rounded-lg border">
-            {members.length ? (
-              members.map((user) => (
+            {matchingMembers.length ? (
+              matchingMembers.map((user) => (
                 <RoleMemberOption
                   key={user.id}
                   user={user}
                   className="rounded-none px-3"
                   selectedUserIds={hostIds}
-                  setSelectedUserIds={(ids) =>
-                    form.setValue('eventHostIds', ids, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
+                  setSelectedUserIds={(ids) => {
+                    setHostIds(ids);
+                    if (ids.includes(user.id)) setSearchTerm('');
+                  }}
                 />
               ))
             ) : (
@@ -210,12 +268,14 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
             )}
           </div>
         )}
+
         {form.formState.errors.eventHostIds && (
           <p className="text-destructive text-sm">
             {form.formState.errors.eventHostIds.message}
           </p>
         )}
       </div>
+
       <div className="flex justify-between">
         <Button variant="outline" onClick={onPrevious}>
           {t('actions.previous')}
