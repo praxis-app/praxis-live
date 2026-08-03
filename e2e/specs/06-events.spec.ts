@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import {
   authorizationHeaders,
   createAuthenticatedUser,
@@ -55,11 +55,39 @@ type PollResponse = {
   };
 };
 
-const toDateTimeLocal = (date: Date) => {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate(),
-  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+const selectEventDate = async (
+  dialog: Locator,
+  page: Page,
+  label: string,
+  date: Date,
+) => {
+  await dialog.getByRole('button', { name: label }).click();
+  await page
+    .getByRole('button', {
+      name: new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'full',
+      }).format(date),
+      exact: true,
+    })
+    .click();
+};
+
+const selectEventTime = async (
+  dialog: Locator,
+  page: Page,
+  label: string,
+  date: Date,
+) => {
+  await dialog.getByRole('button', { name: label }).click();
+  await page
+    .getByRole('button', {
+      name: new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(date),
+      exact: true,
+    })
+    .click();
 };
 
 test('user can propose and ratify an online event with all details preserved', async ({
@@ -101,11 +129,15 @@ test('user can propose and ratify an online event with all details preserved', a
 
   await dialog.getByLabel('Event name').fill(eventName);
   await dialog.getByLabel('Description').fill(eventDescription);
-  await dialog.getByLabel('Starts').fill(toDateTimeLocal(startsAt));
-  await dialog.getByLabel('Ends (optional)').fill(toDateTimeLocal(endsAt));
+  await selectEventDate(dialog, page, 'Start Date', startsAt);
+  await selectEventTime(dialog, page, 'Start Time', startsAt);
+  await selectEventDate(dialog, page, 'End Date (optional)', endsAt);
+  await selectEventTime(dialog, page, 'End Time', endsAt);
   await dialog.getByRole('switch', { name: 'Online' }).click();
   await dialog.getByLabel('Online event link (optional)').fill(externalLink);
-  await dialog.getByPlaceholder('Search members...').fill(host.user.name);
+  await dialog
+    .getByPlaceholder("Type a member's name to add hosts...")
+    .fill(host.user.name);
   await dialog.getByText(host.user.name, { exact: true }).click();
   await dialog.getByRole('button', { name: 'Next' }).click();
 

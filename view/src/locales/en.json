@@ -245,7 +245,7 @@
       "selectRoleDescription": "Choose the role you want to modify",
       "proposalSettings": "The decision rules captured when this proposal was created.",
       "votingDeadline": "The date and time when voting ends.",
-      "planEvent": "Set the event details and choose at least one host. The event will be created if this proposal passes."
+      "planEvent": "Set the event details and choose at least one host. The event will be automatically created if this proposal passes."
     },
     "actionTypes": {
       "changeRole": "Change role",
@@ -295,6 +295,9 @@
       "previous": "Previous",
       "next": "Next",
       "today": "Today",
+      "clear": "Clear",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
       "viewEvent": "View event",
       "interested": "Interested",
       "going": "Going"
@@ -310,6 +313,10 @@
       "description": "Description",
       "startsAt": "Starts",
       "endsAt": "Ends (optional)",
+      "startDate": "Start Date",
+      "startTime": "Start Time",
+      "endDate": "End Date (optional)",
+      "endTime": "End Time",
       "online": "Online",
       "inPerson": "In person",
       "location": "Location",
@@ -321,6 +328,15 @@
       "interested": "Interested",
       "attendanceCounts": "{{going}} going · {{interested}} interested",
       "more": "+{{count}} more"
+    },
+    "placeholders": {
+      "name": "e.g. Monthly community meetup",
+      "description": "Share the agenda, goals, and anything attendees should know.",
+      "location": "e.g. Community center, Room 2",
+      "externalLink": "https://meet.example.com/...",
+      "hosts": "Type a member's name to add hosts...",
+      "selectDate": "Select date",
+      "selectTime": "Select time"
     },
     "empty": {
       "title": "No events here",

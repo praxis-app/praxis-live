@@ -1,15 +1,15 @@
+import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { EventsAgenda } from '@/components/events/events-agenda';
 import { EventsCalendar } from '@/components/events/events-calendar';
-import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
 import { TopNav } from '@/components/nav/top-nav';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuthData } from '@/hooks/use-auth-data';
+import { LocalStorageKeys } from '@/constants/shared.constants';
 import { useEventsQuery } from '@/hooks/events/use-events-query';
+import { useAuthData } from '@/hooks/use-auth-data';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
-import { LocalStorageKeys } from '@/constants/shared.constants';
 import {
   addDays,
   addMonths,
@@ -17,7 +17,7 @@ import {
   eventOverlapsRange,
   startOfMonth,
   startOfWeek,
-} from '@/lib/event-date.utils';
+} from '@/lib/event.utils';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCalendarDays, LuChevronLeft, LuChevronRight } from 'react-icons/lu';

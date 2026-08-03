@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatEventDateTime } from '@/lib/event-date.utils';
+import { formatEventDateTime } from '@/lib/event.utils';
 import { type EventRes } from '@/types/event.types';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';

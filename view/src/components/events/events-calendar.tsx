@@ -1,4 +1,4 @@
-import { startOfMonth } from '@/lib/event-date.utils';
+import { startOfMonth } from '@/lib/event.utils';
 import { type EventRes } from '@/types/event.types';
 import { Calendar, type CalendarApi, type EventClickInfo } from 'fullcalendar';
 import dayGridPlugin from 'fullcalendar/daygrid';

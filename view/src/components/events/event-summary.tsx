@@ -3,7 +3,7 @@ import {
   formatEventDateTime,
   formatEventDuration,
   getTimeZone,
-} from '@/lib/event-date.utils';
+} from '@/lib/event.utils';
 import { type UserRes } from '@/types/user.types';
 import { useTranslation } from 'react-i18next';
 import {
