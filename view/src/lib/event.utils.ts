@@ -16,10 +16,8 @@ export const startOfMonth = (date: Date) =>
 export const addMonths = (date: Date, months: number) =>
   new Date(date.getFullYear(), date.getMonth() + months, 1);
 
-export const eventEnd = (event: {
-  startsAt: string;
-  endsAt?: string | null;
-}) => new Date(event.endsAt || event.startsAt);
+export const eventEnd = (event: { startsAt: string; endsAt?: string | null }) =>
+  new Date(event.endsAt || event.startsAt);
 
 export const eventOverlapsRange = (
   event: { startsAt: string; endsAt?: string | null },
@@ -34,8 +32,8 @@ export const formatEventDateTime = (
   const start = new Date(startsAt);
   const end = endsAt ? new Date(endsAt) : null;
   const date = new Intl.DateTimeFormat(undefined, {
-    weekday: 'short',
-    month: 'short',
+    weekday: 'long',
+    month: 'long',
     day: 'numeric',
     year: 'numeric',
   }).format(start);
@@ -43,16 +41,12 @@ export const formatEventDateTime = (
     hour: 'numeric',
     minute: '2-digit',
   });
-  if (!end) return `${date}, ${time.format(start)}`;
+  const startTime = time.format(start).toLowerCase();
+  if (!end) return `${date} at ${startTime}`;
   const sameDay = start.toDateString() === end.toDateString();
   return sameDay
-    ? `${date}, ${time.format(start)}–${time.format(end)}`
-    : `${date}, ${time.format(start)} – ${new Intl.DateTimeFormat(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      }).format(end)}`;
+    ? `${date} at ${startTime} - ${time.format(end).toLowerCase()}`
+    : `${date} at ${startTime}`;
 };
 
 export const getTimeZone = () =>

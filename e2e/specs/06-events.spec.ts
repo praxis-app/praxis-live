@@ -147,7 +147,10 @@ test('user can propose and ratify an online event with all details preserved', a
   ).toBeVisible();
   await expect(dialog.getByText(/1h 30m/)).toBeVisible();
   await expect(
-    dialog.locator('[data-slot="badge"]').filter({ hasText: /^Online$/ }),
+    dialog
+      .getByText('Event type', { exact: true })
+      .locator('..')
+      .getByText('Online', { exact: true }),
   ).toBeVisible();
   await expect(dialog.getByRole('link', { name: externalLink })).toBeVisible();
   await expect(
@@ -188,7 +191,9 @@ test('user can propose and ratify an online event with all details preserved', a
   await proposal
     .getByRole('button', { name: `Planned event: ${eventName}` })
     .click();
-  await expect(proposal.getByText(eventName, { exact: true })).toBeVisible();
+  await expect(
+    proposal.getByRole('heading', { name: eventName, exact: true }),
+  ).toBeVisible();
   await expect(
     proposal.getByText(eventDescription, { exact: true }),
   ).toBeVisible();

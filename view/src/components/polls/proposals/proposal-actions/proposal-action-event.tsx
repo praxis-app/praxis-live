@@ -13,10 +13,18 @@ export const ProposalActionEvent = ({ action }: { action: PollActionRes }) => {
   return (
     <ProposalActionAccordion
       value="event"
-      summary={t('proposals.labels.plannedEvent', { name: action.event.name })}
+      ariaLabel={t('proposals.labels.plannedEvent', {
+        name: action.event.name,
+      })}
+      summary={
+        <>
+          {t('proposals.labels.eventProposal')}:{' '}
+          <span className="font-normal">{action.event.name}</span>
+        </>
+      }
     >
       <div className="sm:col-span-2">
-        <EventSummary {...action.event} />
+        <EventSummary {...action.event} embedded />
         {action.event.createdEventId && (
           <Button asChild className="mt-4" size="sm">
             <Link to={`${serverPath}/events/${action.event.createdEventId}`}>

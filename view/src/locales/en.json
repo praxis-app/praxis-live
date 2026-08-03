@@ -188,7 +188,8 @@
       "createdInAnotherCall": "Created in another call",
       "createdInChannel": "Created in channel",
       "votingDeadline": "Voting deadline",
-      "plannedEvent": "Planned event: {{name}}"
+      "plannedEvent": "Planned event: {{name}}",
+      "eventProposal": "Event proposal"
     },
     "headers": {
       "availableRoles": "Available Roles",
@@ -317,6 +318,8 @@
       "startTime": "Start Time",
       "endDate": "End Date (optional)",
       "endTime": "End Time",
+      "duration": "Duration",
+      "eventType": "Event type",
       "online": "Online",
       "inPerson": "In person",
       "location": "Location",
@@ -328,6 +331,9 @@
       "interested": "Interested",
       "attendanceCounts": "{{going}} going · {{interested}} interested",
       "more": "+{{count}} more"
+    },
+    "headers": {
+      "whatToExpect": "What to Expect"
     },
     "placeholders": {
       "name": "e.g. Monthly community meetup",

@@ -289,31 +289,27 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
           </Card>
         )}
         {action === 'plan-event' && formValues.eventStartsAt && (
-          <Card className="gap-3 py-5">
-            <CardHeader>
-              <CardTitle className="text-base">
-                {t('proposals.headers.planEvent')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <EventSummary
-                name={formValues.eventName || ''}
-                description={formValues.eventDescription || ''}
-                startsAt={new Date(formValues.eventStartsAt).toISOString()}
-                endsAt={
-                  formValues.eventEndsAt
-                    ? new Date(formValues.eventEndsAt).toISOString()
-                    : undefined
-                }
-                online={!!formValues.eventOnline}
-                location={formValues.eventLocation}
-                externalLink={formValues.eventExternalLink}
-                hosts={(serverMembers || []).filter((user) =>
-                  formValues.eventHostIds?.includes(user.id),
-                )}
-              />
-            </CardContent>
-          </Card>
+          <div className="space-y-2.5">
+            <h3 className="text-sm font-semibold">
+              {t('proposals.headers.planEvent')}
+            </h3>
+            <EventSummary
+              name={formValues.eventName || ''}
+              description={formValues.eventDescription || ''}
+              startsAt={new Date(formValues.eventStartsAt).toISOString()}
+              endsAt={
+                formValues.eventEndsAt
+                  ? new Date(formValues.eventEndsAt).toISOString()
+                  : undefined
+              }
+              online={!!formValues.eventOnline}
+              location={formValues.eventLocation}
+              externalLink={formValues.eventExternalLink}
+              hosts={(serverMembers || []).filter((user) =>
+                formValues.eventHostIds?.includes(user.id),
+              )}
+            />
+          </div>
         )}
       </div>
 
