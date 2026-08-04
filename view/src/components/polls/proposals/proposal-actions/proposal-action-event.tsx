@@ -1,4 +1,5 @@
 import { EventSummary } from '@/components/events/event-summary';
+import { LazyLoadImage } from '@/components/images/lazy-load-image';
 import { Button } from '@/components/ui/button';
 import { useServerData } from '@/hooks/use-server-data';
 import { type PollActionRes } from '@/types/poll-action.types';
@@ -18,6 +19,7 @@ export const ProposalActionEvent = ({
   const { t } = useTranslation();
   const { serverPath } = useServerData();
   if (!action.event) return null;
+  const coverPhoto = action.event.coverPhoto;
   return (
     <ProposalActionAccordion
       value="event"
@@ -25,10 +27,24 @@ export const ProposalActionEvent = ({
         name: action.event.name,
       })}
       summary={
-        <>
-          {t('proposals.labels.eventProposal')}:{' '}
-          <span className="font-normal">{action.event.name}</span>
-        </>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0">
+            {t('proposals.labels.eventProposal')}:
+          </span>
+          {coverPhoto && !coverPhoto.isPlaceholder && (
+            <LazyLoadImage
+              alt={t('images.labels.coverPhoto')}
+              src={coverPhoto.src}
+              imageId={coverPhoto.id}
+              isPlaceholder={coverPhoto.isPlaceholder}
+              channelId={channelId}
+              pollId={pollId}
+              eventCoverPhoto
+              className="size-4 shrink-0 rounded-full"
+            />
+          )}
+          <span className="truncate font-normal">{action.event.name}</span>
+        </span>
       }
     >
       <div className="sm:col-span-2">

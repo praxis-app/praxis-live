@@ -199,14 +199,21 @@ test('user can propose and ratify an online event with all details preserved', a
     name: `Majority Vote Proposal: ${proposalBody}`,
   });
   await expect(proposal).toBeVisible();
-  await proposal
-    .getByRole('button', { name: `Planned event: ${eventName}` })
-    .click();
+  const eventTrigger = proposal.getByRole('button', {
+    name: `Planned event: ${eventName}`,
+  });
   await expect(
-    proposal.getByRole('heading', { name: eventName, exact: true }),
+    eventTrigger.getByRole('img', { name: 'Cover photo' }),
+  ).toBeVisible();
+  await eventTrigger.click();
+  const eventRegion = proposal.getByRole('region', {
+    name: `Planned event: ${eventName}`,
+  });
+  await expect(
+    eventRegion.getByRole('heading', { name: eventName, exact: true }),
   ).toBeVisible();
   await expect(
-    proposal.getByRole('img', { name: 'Cover photo' }),
+    eventRegion.getByRole('img', { name: 'Cover photo' }),
   ).toBeVisible();
 
   const proposedCoverResponse = await request.get(

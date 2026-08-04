@@ -59,7 +59,9 @@ export const EventSummary = ({
   const coverPhotoSrc = coverPhotoFile
     ? URL.createObjectURL(coverPhotoFile)
     : undefined;
-  const coverPhotoElement = (coverPhoto || coverPhotoSrc) && (
+  const hasCoverPhoto =
+    !!coverPhotoSrc || (!!coverPhoto && !coverPhoto.isPlaceholder);
+  const coverPhotoElement = hasCoverPhoto && (
     <LazyLoadImage
       alt={t('images.labels.coverPhoto')}
       src={coverPhotoSrc}
