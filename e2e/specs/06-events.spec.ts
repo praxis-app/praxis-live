@@ -152,6 +152,9 @@ test('user can propose and ratify an online event with all details preserved', a
   await dialog.getByText(host.user.name, { exact: true }).click();
   await dialog.getByRole('button', { name: 'Next' }).click();
 
+  await expect(
+    dialog.getByRole('heading', { name: 'Plan Event', exact: true }),
+  ).toHaveCount(0);
   await expect(dialog.getByText(eventName, { exact: true })).toBeVisible();
   await expect(dialog.getByRole('img', { name: 'Cover photo' })).toBeVisible();
   await expect(

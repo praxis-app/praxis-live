@@ -77,11 +77,11 @@ export const EventSummary = ({
     return (
       <div className="min-w-0 px-1">
         {coverPhotoElement && <div className="pb-4">{coverPhotoElement}</div>}
-        <div className="pb-4">
-          <p className="leading-relaxed font-medium text-[#dd3f4f] uppercase">
+        <div className="pb-5">
+          <p className="text-event-accent text-sm leading-relaxed font-medium tracking-wide uppercase">
             {formatEventDateTime(startsAt, endsAt)}
           </p>
-          <h3 className="mt-3 text-xl leading-tight font-normal tracking-tight sm:text-[1.375rem]">
+          <h3 className="mt-2 text-lg leading-tight font-medium tracking-tight sm:text-xl">
             {name}
           </h3>
         </div>
@@ -150,10 +150,13 @@ export const EventSummary = ({
 
         {description && (
           <div className="border-t pt-4">
-            <p className="mb-2 text-xl font-normal">
+            <p className="mb-2 text-base font-medium">
               {t('events.headers.whatToExpect')}
             </p>
-            <FormattedText text={description} className="leading-relaxed" />
+            <FormattedText
+              text={description}
+              className="text-sm leading-relaxed"
+            />
           </div>
         )}
       </div>
@@ -171,7 +174,7 @@ export const EventSummary = ({
       <div className="border-b px-4 py-5 sm:px-5">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs leading-relaxed font-bold tracking-wide text-[#dd3f4f] uppercase">
+            <p className="text-event-accent text-xs leading-relaxed font-bold tracking-wide uppercase">
               {formatEventDateTime(startsAt, endsAt)} · {getTimeZone()}
             </p>
             <h3 className="mt-1.5 text-xl leading-tight font-semibold tracking-tight sm:text-2xl">
