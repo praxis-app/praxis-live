@@ -35,7 +35,7 @@ pub(super) async fn list_events(
     ensure_server_member(database, server_id, user_id).await?;
     validate_date_range(query.from, query.to)?;
 
-    let mut event_query = events::Entity::find()
+    let event_query = events::Entity::find()
         .filter(events::Column::ServerId.eq(server_id))
         .filter(events::Column::StartsAt.lt(query.to))
         .filter(
@@ -49,9 +49,6 @@ pub(super) async fn list_events(
         )
         .order_by_asc(events::Column::StartsAt)
         .order_by_asc(events::Column::Id);
-    if let Some(online) = query.online {
-        event_query = event_query.filter(events::Column::Online.eq(online));
-    }
 
     let events = event_query.all(database).await.map_err(internal_error)?;
     let context = load_attendee_context(database, &events).await?;

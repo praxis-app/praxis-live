@@ -31,7 +31,6 @@ export interface EventDetailRes extends EventRes {
 export interface EventsQuery {
   from: string;
   to: string;
-  online?: boolean;
 }
 
 export interface EventRsvpReq {

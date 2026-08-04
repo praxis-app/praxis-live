@@ -307,11 +307,10 @@
       "addEndDateTime": "Add end date and time",
       "removeEndDateTime": "Remove end date and time"
     },
-    "filters": {
-      "upcoming": "Upcoming",
-      "this-week": "This week",
-      "online": "Online",
-      "past": "Past"
+    "views": {
+      "month": "Month",
+      "week": "Week",
+      "list": "List"
     },
     "labels": {
       "name": "Event name",
@@ -330,12 +329,17 @@
       "externalLink": "Online event link (optional)",
       "hosts": "Hosts",
       "hostedBy": "Hosted by {{names}}",
+      "hosting": "Hosting",
       "hostRsvp": "Hosts are automatically attending this event.",
       "going": "Going",
       "interested": "Interested",
       "attendanceCounts": "{{going}} going · {{interested}} interested",
       "more": "+{{count}} more",
       "coverPhoto": "Cover photo (optional)"
+    },
+    "list": {
+      "count_one": "{{count}} event",
+      "count_other": "{{count}} events"
     },
     "headers": {
       "whatToExpect": "What to Expect"

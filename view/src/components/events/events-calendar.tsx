@@ -1,48 +1,56 @@
-import { startOfMonth } from '@/lib/event.utils';
 import { type EventRes } from '@/types/event.types';
 import { Calendar, type CalendarApi, type EventClickInfo } from 'fullcalendar';
 import dayGridPlugin from 'fullcalendar/daygrid';
+import timeGridPlugin from 'fullcalendar/timegrid';
 import classicThemePlugin from 'fullcalendar/themes/classic';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
   events: EventRes[];
-  month: Date;
-  onMonthChange: (month: Date) => void;
+  date: Date;
+  view: CalendarView;
+  onDateChange: (date: Date) => void;
   serverPath: string;
 }
 
+export type CalendarView = 'month' | 'week';
+
 export const EventsCalendar = ({
   events,
-  month,
-  onMonthChange,
+  date,
+  view,
+  onDateChange,
   serverPath,
 }: Props) => {
   const elementRef = useRef<HTMLDivElement>(null);
   const calendarRef = useRef<CalendarApi | null>(null);
   const eventElementsRef = useRef(new Map<string, Set<HTMLElement>>());
-  const initialMonthRef = useRef(month);
-  const onMonthChangeRef = useRef(onMonthChange);
+  const initialDateRef = useRef(date);
+  const initialViewRef = useRef(view);
+  const onDateChangeRef = useRef(onDateChange);
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
 
   useEffect(() => {
-    onMonthChangeRef.current = onMonthChange;
+    onDateChangeRef.current = onDateChange;
     navigateRef.current = navigate;
-  }, [navigate, onMonthChange]);
+  }, [navigate, onDateChange]);
 
   useEffect(() => {
     if (!elementRef.current) return;
 
     const calendar = new Calendar(elementRef.current, {
-      plugins: [dayGridPlugin, classicThemePlugin],
-      initialView: 'dayGridMonth',
-      initialDate: initialMonthRef.current,
+      plugins: [dayGridPlugin, timeGridPlugin, classicThemePlugin],
+      initialView:
+        initialViewRef.current === 'month' ? 'dayGridMonth' : 'timeGridWeek',
+      initialDate: initialDateRef.current,
       headerToolbar: false,
       height: 'auto',
       fixedWeekCount: true,
       dayMaxEvents: 3,
+      nowIndicator: true,
+      scrollTime: '08:00:00',
       dayCellTopClass: 'events-calendar-day-top',
       dayCellTopInnerClass: 'events-calendar-day-number',
       eventClass: 'events-calendar-event',
@@ -75,7 +83,7 @@ export const EventsCalendar = ({
         meridiem: 'narrow',
       },
       datesSet: ({ view }) => {
-        onMonthChangeRef.current(startOfMonth(view.currentStart));
+        onDateChangeRef.current(view.currentStart);
       },
       eventClick: (info: EventClickInfo) => {
         info.jsEvent.preventDefault();
@@ -94,13 +102,17 @@ export const EventsCalendar = ({
   useEffect(() => {
     const calendar = calendarRef.current;
     if (!calendar) return;
-    if (
-      calendar.getDate().getFullYear() !== month.getFullYear() ||
-      calendar.getDate().getMonth() !== month.getMonth()
-    ) {
-      calendar.gotoDate(month);
+    const nextView = view === 'month' ? 'dayGridMonth' : 'timeGridWeek';
+    if (calendar.view.type !== nextView) {
+      calendar.changeView(nextView, date);
+    } else if (calendar.getDate().toDateString() !== date.toDateString()) {
+      calendar.gotoDate(date);
     }
-  }, [month]);
+    calendar.setOption(
+      'height',
+      view === 'week' ? 'calc(100vh - 12rem)' : 'auto',
+    );
+  }, [date, view]);
 
   useEffect(() => {
     const calendar = calendarRef.current;

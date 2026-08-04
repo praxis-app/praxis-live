@@ -22,7 +22,6 @@ pub(super) struct EventCoverPhotoPath {
 pub(super) struct ListEventsQuery {
     pub(super) from: DateTimeWithTimeZone,
     pub(super) to: DateTimeWithTimeZone,
-    pub(super) online: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
