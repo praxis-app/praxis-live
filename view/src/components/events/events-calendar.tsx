@@ -44,6 +44,7 @@ export const EventsCalendar = ({
       dayMaxEvents: 3,
       dayCellTopClass: 'events-calendar-day-top',
       dayCellTopInnerClass: 'events-calendar-day-number',
+      eventClass: 'events-calendar-event',
       displayEventTime: true,
       eventTimeFormat: {
         hour: 'numeric',

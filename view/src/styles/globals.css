@@ -260,13 +260,19 @@
   min-height: 7rem;
 }
 
-.events-calendar .fc-event {
+.events-calendar .fc-event,
+.events-calendar .events-calendar-event {
   margin-inline: 0.2rem;
   border-radius: calc(var(--radius-sm) - 1px);
-  cursor: pointer;
   font-size: 0.75rem;
 }
 
-.events-calendar .fc-event:hover {
+.events-calendar .events-calendar-event,
+.events-calendar .events-calendar-event * {
+  cursor: pointer;
+}
+
+.events-calendar .fc-event:hover,
+.events-calendar .events-calendar-event:hover {
   background: var(--accent);
 }

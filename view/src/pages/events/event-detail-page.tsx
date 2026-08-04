@@ -1,3 +1,4 @@
+import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { EventSummary } from '@/components/events/event-summary';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
 import { TopNav } from '@/components/nav/top-nav';
@@ -5,14 +6,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/users/user-avatar';
+import { LocalStorageKeys } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useEventQuery } from '@/hooks/events/use-event-query';
 import { useEventRsvp } from '@/hooks/events/use-event-rsvp';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
 import { type UserRes } from '@/types/user.types';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
+
+const LARGE_DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
+
+const getDefaultDecisionsPanelOpen = () => {
+  const storedPreference = localStorage.getItem(
+    LocalStorageKeys.DecisionsPanelOpen,
+  );
+  return (
+    storedPreference === 'true' ||
+    (storedPreference !== 'false' &&
+      window.matchMedia(LARGE_DESKTOP_MEDIA_QUERY).matches)
+  );
+};
 
 const Attendees = ({ users }: { users: UserRes[] }) => (
   <div className="flex flex-wrap gap-3">
@@ -31,6 +47,9 @@ const Attendees = ({ users }: { users: UserRes[] }) => (
 );
 
 export const EventDetailPage = () => {
+  const [isDecisionsPanelOpen, setIsDecisionsPanelOpen] = useState(
+    getDefaultDecisionsPanelOpen,
+  );
   const { eventId } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -43,6 +62,24 @@ export const EventDetailPage = () => {
   const setRsvp = (status: 'interested' | 'going') =>
     rsvp.mutate(event?.currentUserStatus === status ? null : status);
 
+  useEffect(() => {
+    setIsDecisionsPanelOpen(getDefaultDecisionsPanelOpen());
+  }, [serverId]);
+
+  const closeDecisionsPanel = () => {
+    localStorage.setItem(LocalStorageKeys.DecisionsPanelOpen, 'false');
+    setIsDecisionsPanelOpen(false);
+  };
+
+  const toggleDecisionsPanel = () => {
+    const nextIsOpen = !isDecisionsPanelOpen;
+    localStorage.setItem(
+      LocalStorageKeys.DecisionsPanelOpen,
+      String(nextIsOpen),
+    );
+    setIsDecisionsPanelOpen(nextIsOpen);
+  };
+
   return (
     <div className="fixed inset-0 flex">
       {isDesktop && <LeftNavDesktop me={me} />}
@@ -50,7 +87,9 @@ export const EventDetailPage = () => {
         <TopNav
           header={event?.name || t('events.title')}
           onBackClick={() => navigate(`${serverPath}/events`)}
-          showSearch={false}
+          showSearch={isDesktop}
+          isDecisionsPanelOpen={isDecisionsPanelOpen}
+          onToggleDecisionsPanel={toggleDecisionsPanel}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="mx-auto max-w-3xl space-y-5">
@@ -62,11 +101,7 @@ export const EventDetailPage = () => {
             )}
             {event && (
               <>
-                <Card>
-                  <CardContent>
-                    <EventSummary {...event} eventId={event.id} />
-                  </CardContent>
-                </Card>
+                <EventSummary {...event} eventId={event.id} />
                 <div className="flex gap-2">
                   <Button
                     variant={
@@ -95,49 +130,42 @@ export const EventDetailPage = () => {
                     {t('events.actions.going')} · {event.goingCount}
                   </Button>
                 </div>
-                {event.currentUserStatus === 'host' && (
-                  <p className="text-muted-foreground text-sm">
-                    {t('events.labels.hostRsvp')}
-                  </p>
-                )}
                 {rsvp.isError && (
                   <p className="text-destructive text-sm">
                     {t('events.errors.rsvp')}
                   </p>
                 )}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('events.labels.going')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {event.going.length ? (
+                {event.going.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t('events.labels.going')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
                       <Attendees users={event.going} />
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        {t('events.empty.attendees')}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('events.labels.interested')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {event.interested.length ? (
+                    </CardContent>
+                  </Card>
+                )}
+                {event.interested.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t('events.labels.interested')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
                       <Attendees users={event.interested} />
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        {t('events.empty.attendees')}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             )}
           </div>
         </main>
       </div>
+      {isDesktop && (
+        <DecisionsPanel
+          isOpen={isDecisionsPanelOpen}
+          onClose={closeDecisionsPanel}
+        />
+      )}
     </div>
   );
 };

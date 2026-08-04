@@ -57,14 +57,29 @@ export const formatEventDuration = (
   endsAt?: string | null,
 ) => {
   if (!endsAt) return null;
-  const minutes = Math.round(
+  let remainingMinutes = Math.round(
     (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60_000,
   );
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return [hours ? `${hours}h` : '', remainder ? `${remainder}m` : '']
-    .filter(Boolean)
-    .join(' ');
+  if (remainingMinutes <= 0) return null;
+
+  const units = [
+    { minutes: 30 * 24 * 60, label: 'mo' },
+    { minutes: 7 * 24 * 60, label: 'w' },
+    { minutes: 24 * 60, label: 'd' },
+    { minutes: 60, label: 'h' },
+    { minutes: 1, label: 'm' },
+  ];
+  const parts: string[] = [];
+
+  for (const unit of units) {
+    const value = Math.floor(remainingMinutes / unit.minutes);
+    if (!value) continue;
+    parts.push(`${value}${unit.label}`);
+    remainingMinutes %= unit.minutes;
+    if (parts.length === 2) break;
+  }
+
+  return parts.join(' ');
 };
 
 export const parseDateValue = (value: string) => {

@@ -317,6 +317,16 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     page.getByText(`Hosted by ${host.user.name}`, { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Toggle active decisions' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Search' })).toBeVisible();
+  await expect(page.getByText('No one yet.', { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText('Hosts are automatically attending this event.', {
+      exact: true,
+    }),
+  ).toHaveCount(0);
 
   const interestedResponsePromise = page.waitForResponse(
     (response) =>
@@ -376,6 +386,7 @@ test('user can propose and ratify an online event with all details preserved', a
     .getByRole('grid')
     .getByText(eventName, { exact: true });
   await expect(calendarEvent).toBeVisible();
+  await expect(calendarEvent).toHaveCSS('cursor', 'pointer');
   await calendarEvent.click();
   await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
   await expect(page.getByRole('button', { name: 'Going · 1' })).toBeVisible();

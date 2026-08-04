@@ -55,7 +55,12 @@ export const ProposalActionEvent = ({
           embedded
         />
         {action.event.createdEventId && (
-          <Button asChild className="mt-4" size="sm">
+          <Button
+            asChild
+            variant="link"
+            className="text-muted-foreground hover:text-foreground mt-3 ml-1 h-auto px-0"
+            size="sm"
+          >
             <Link to={`${serverPath}/events/${action.event.createdEventId}`}>
               {t('events.actions.viewEvent')}
             </Link>
