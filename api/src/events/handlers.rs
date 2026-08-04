@@ -116,6 +116,7 @@ pub(super) async fn get_event_cover_photo(
                 .content_type
                 .unwrap_or_else(|| "application/octet-stream".to_owned()),
         )
+        .header("x-content-type-options", "nosniff")
         .body(Body::from(image.bytes))
         .map_err(|error| {
             crate::common::ApiError::new(

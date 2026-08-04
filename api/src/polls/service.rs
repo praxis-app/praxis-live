@@ -600,7 +600,6 @@ pub(super) async fn store_poll_action_event_cover_photo(
     upload_root: &Path,
     poll: &polls::Model,
     image_id: Uuid,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<crate::poll_actions::types::PollActionEventCoverPhotoResponse> {
     if bytes.is_empty() {
@@ -609,6 +608,8 @@ pub(super) async fn store_poll_action_event_cover_photo(
             "No image uploaded",
         ));
     }
+
+    let content_type = validate_event_cover_photo(&bytes)?;
 
     let image =
         load_poll_action_event_cover_photo(database, poll.id, image_id).await?;
@@ -626,7 +627,7 @@ pub(super) async fn store_poll_action_event_cover_photo(
     let poll_action_event_id = image.poll_action_event_id;
     let mut active = image.into_active_model();
     active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(content_type);
+    active.content_type = Set(Some(content_type.to_owned()));
     let image = active.update(database).await.map_err(internal_error)?;
     crate::poll_actions::service::sync_event_cover_photo(
         database,
@@ -643,8 +644,15 @@ pub(super) async fn get_poll_action_event_cover_photo(
     channel_id: Uuid,
     poll_id: Uuid,
     image_id: Uuid,
+    user_id: Option<Uuid>,
 ) -> AppResult<StoredPollImage> {
     load_poll(database, server_id, channel_id, poll_id).await?;
+    if let Some(user_id) = user_id {
+        channels::ensure_channel_membership(database, channel_id, user_id)
+            .await?;
+    } else if servers::default_server_id(database).await? != server_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
+    }
     let image =
         load_poll_action_event_cover_photo(database, poll_id, image_id).await?;
     let storage_key = image.storage_key.ok_or_else(|| {
@@ -659,6 +667,34 @@ pub(super) async fn get_poll_action_event_cover_photo(
         content_type: image.content_type,
         bytes,
     })
+}
+
+fn validate_event_cover_photo(bytes: &[u8]) -> AppResult<&'static str> {
+    let format = image::guess_format(bytes).map_err(|_| {
+        ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event cover photo must be a PNG, JPEG, GIF, or WebP image.",
+        )
+    })?;
+    let content_type = match format {
+        image::ImageFormat::Png => "image/png",
+        image::ImageFormat::Jpeg => "image/jpeg",
+        image::ImageFormat::Gif => "image/gif",
+        image::ImageFormat::WebP => "image/webp",
+        _ => {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Event cover photo must be a PNG, JPEG, GIF, or WebP image.",
+            ));
+        }
+    };
+    image::load_from_memory_with_format(bytes, format).map_err(|_| {
+        ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event cover photo is not a valid image.",
+        )
+    })?;
+    Ok(content_type)
 }
 
 async fn load_poll_action_event_cover_photo<C: ConnectionTrait>(
@@ -1990,8 +2026,9 @@ fn internal_error(error: impl std::fmt::Display) -> ApiError {
 #[cfg(test)]
 mod tests {
     use chrono::{FixedOffset, TimeZone};
+    use std::io::Cursor;
 
-    use super::resolve_poll_closing_at;
+    use super::{resolve_poll_closing_at, validate_event_cover_photo};
 
     fn timestamp(minute: u32) -> chrono::DateTime<FixedOffset> {
         FixedOffset::east_opt(0)
@@ -2032,5 +2069,31 @@ mod tests {
         );
 
         assert_eq!(closing_at, Some(requested_closing_at));
+    }
+
+    #[test]
+    fn event_cover_photo_type_comes_from_decoded_bytes() {
+        let mut bytes = Cursor::new(Vec::new());
+        image::DynamicImage::new_rgba8(1, 1)
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .expect("test PNG should encode");
+
+        assert_eq!(
+            validate_event_cover_photo(bytes.get_ref()).expect("valid PNG"),
+            "image/png"
+        );
+    }
+
+    #[test]
+    fn event_cover_photo_rejects_active_content() {
+        assert!(
+            validate_event_cover_photo(
+                br#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_event_cover_photo(b"<script>alert(1)</script>").is_err()
+        );
     }
 }

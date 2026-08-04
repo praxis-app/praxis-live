@@ -256,7 +256,6 @@ pub(super) async fn upload_poll_action_event_cover_photo(
         &state.upload_root,
         &context.poll,
         context.image_id,
-        file.as_ref().and_then(|file| file.content_type.clone()),
         file.map(|file| file.bytes).unwrap_or_default(),
     )
     .await?;
@@ -285,6 +284,7 @@ pub(super) async fn upload_poll_action_event_cover_photo(
 pub(super) async fn get_poll_action_event_cover_photo(
     State(state): State<PollsState>,
     Path(path): Path<PollImagePath>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Response<Body>> {
     let image = service::get_poll_action_event_cover_photo(
         &state.database,
@@ -293,6 +293,7 @@ pub(super) async fn get_poll_action_event_cover_photo(
         path.channel_id,
         path.poll_id,
         path.image_id,
+        user_id,
     )
     .await?;
 
@@ -304,6 +305,7 @@ pub(super) async fn get_poll_action_event_cover_photo(
                 .content_type
                 .unwrap_or_else(|| "application/octet-stream".to_owned()),
         )
+        .header("x-content-type-options", "nosniff")
         .body(Body::from(image.bytes))
         .map_err(internal_error)
 }

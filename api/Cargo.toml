@@ -12,6 +12,7 @@ chrono.workspace = true
 dashmap.workspace = true
 dotenv.workspace = true
 entity = { path = "../entity" }
+image.workspace = true
 jsonwebtoken.workspace = true
 livekit-api.workspace = true
 migrations = { path = "../migrations" }
