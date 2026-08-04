@@ -49,9 +49,6 @@ export const formatEventDateTime = (
     : `${date} at ${startTime}`;
 };
 
-export const getTimeZone = () =>
-  Intl.DateTimeFormat().resolvedOptions().timeZone;
-
 export const formatEventDuration = (
   startsAt: string,
   endsAt?: string | null,
