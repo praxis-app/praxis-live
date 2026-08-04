@@ -1,13 +1,10 @@
+import { LazyLoadImage } from '@/components/images/lazy-load-image';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { UserAvatar } from '@/components/users/user-avatar';
-import { LazyLoadImage } from '@/components/images/lazy-load-image';
-import {
-  formatEventDateTime,
-  formatEventDuration,
-} from '@/lib/event.utils';
+import { formatEventDateTime, formatEventDuration } from '@/lib/event.utils';
 import { cn } from '@/lib/shared.utils';
-import { type UserRes } from '@/types/user.types';
 import { type ImageRes } from '@/types/image.types';
+import { type UserRes } from '@/types/user.types';
 import { useTranslation } from 'react-i18next';
 import {
   MdLink,
@@ -51,15 +48,20 @@ export const EventSummary = ({
   embedded = false,
 }: Props) => {
   const { t } = useTranslation();
-  const duration = formatEventDuration(startsAt, endsAt);
+
   const eventType = online
     ? t('events.labels.online')
     : t('events.labels.inPerson');
+
   const coverPhotoSrc = coverPhotoFile
     ? URL.createObjectURL(coverPhotoFile)
     : undefined;
+
   const hasCoverPhoto =
     !!coverPhotoSrc || (!!coverPhoto && !coverPhoto.isPlaceholder);
+
+  const duration = formatEventDuration(startsAt, endsAt);
+
   const coverPhotoElement = hasCoverPhoto && (
     <LazyLoadImage
       alt={t('images.labels.coverPhoto')}
@@ -70,10 +72,7 @@ export const EventSummary = ({
       pollId={pollId}
       eventId={eventId}
       eventCoverPhoto={!!pollId}
-      className={cn(
-        'h-36 w-full',
-        embedded ? 'rounded-lg' : 'rounded-none',
-      )}
+      className={cn('h-36 w-full', embedded ? 'rounded-lg' : 'rounded-none')}
     />
   );
 
