@@ -198,6 +198,11 @@
 }
 
 .events-calendar {
+  --events-calendar-event-hover: color-mix(
+    in oklab,
+    var(--secondary-foreground) 12%,
+    var(--secondary)
+  );
   --fc-classic-background: transparent;
   --fc-classic-faint: color-mix(in oklab, var(--muted) 45%, transparent);
   --fc-classic-muted: var(--muted);
@@ -275,5 +280,5 @@
 .events-calendar .fc-event:hover,
 .events-calendar .events-calendar-event:hover,
 .events-calendar .events-calendar-event.is-hovered {
-  background: var(--accent);
+  background: var(--events-calendar-event-hover);
 }
