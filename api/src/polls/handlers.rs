@@ -12,8 +12,9 @@ use super::{
     service,
     types::{
         ActiveDecisionsResponse, CallDecisionResponse, CreatePollRequest,
-        DeletePollResponse, ListActiveDecisionsQuery, PollImagePath,
-        PollImagePayload, PollPath, PollPayload,
+        DeletePollResponse, ListActiveDecisionsQuery,
+        PollActionEventCoverPhotoPayload, PollImagePath, PollImagePayload,
+        PollPath, PollPayload,
     },
 };
 use crate::{
@@ -242,6 +243,69 @@ pub(super) async fn upload_poll_image(
     }
 
     Ok((StatusCode::CREATED, Json(PollImagePayload { image })))
+}
+
+pub(super) async fn upload_poll_action_event_cover_photo(
+    State(state): State<PollsState>,
+    context: PollImageUploadContext,
+    multipart: Multipart,
+) -> AppResult<(StatusCode, Json<PollActionEventCoverPhotoPayload>)> {
+    let file = multipart_file(multipart, "file").await?;
+    let image = service::store_poll_action_event_cover_photo(
+        &state.database,
+        &state.upload_root,
+        &context.poll,
+        context.image_id,
+        file.as_ref().and_then(|file| file.content_type.clone()),
+        file.map(|file| file.bytes).unwrap_or_default(),
+    )
+    .await?;
+
+    if let Err(error) = service::broadcast_poll_update(
+        &state.database,
+        &state.pub_sub_service,
+        context.server_id,
+        context.channel_id,
+        Some(context.user_id),
+        context.poll.id,
+    )
+    .await
+    {
+        tracing::warn!(
+            "failed to broadcast uploaded event cover photo: {error}"
+        );
+    }
+
+    Ok((
+        StatusCode::CREATED,
+        Json(PollActionEventCoverPhotoPayload { image }),
+    ))
+}
+
+pub(super) async fn get_poll_action_event_cover_photo(
+    State(state): State<PollsState>,
+    Path(path): Path<PollImagePath>,
+) -> AppResult<Response<Body>> {
+    let image = service::get_poll_action_event_cover_photo(
+        &state.database,
+        &state.upload_root,
+        path.server_id,
+        path.channel_id,
+        path.poll_id,
+        path.image_id,
+    )
+    .await?;
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            image
+                .content_type
+                .unwrap_or_else(|| "application/octet-stream".to_owned()),
+        )
+        .body(Body::from(image.bytes))
+        .map_err(internal_error)
 }
 
 pub(super) async fn get_poll_image(

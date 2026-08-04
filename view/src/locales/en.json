@@ -301,7 +301,8 @@
       "nextMonth": "Next month",
       "viewEvent": "View event",
       "interested": "Interested",
-      "going": "Going"
+      "going": "Going",
+      "uploadCoverPhoto": "Upload cover photo"
     },
     "filters": {
       "upcoming": "Upcoming",
@@ -330,7 +331,8 @@
       "going": "Going",
       "interested": "Interested",
       "attendanceCounts": "{{going}} going · {{interested}} interested",
-      "more": "+{{count}} more"
+      "more": "+{{count}} more",
+      "coverPhoto": "Cover photo (optional)"
     },
     "headers": {
       "whatToExpect": "What to Expect"

@@ -5,8 +5,9 @@ use entity::{
     enums::{
         PollActionType, PollDecisionMakingModel, PollStage, PollType, VoteType,
     },
-    forum_posts, poll_actions as poll_action_entities, poll_configs,
-    poll_images, poll_option_selections, poll_options, polls,
+    forum_posts, poll_action_event_cover_photos, poll_action_events,
+    poll_actions as poll_action_entities, poll_configs, poll_images,
+    poll_option_selections, poll_options, polls,
     server_configs as server_config_entities, users, votes,
 };
 use sea_orm::{
@@ -594,6 +595,107 @@ pub(super) async fn store_poll_image(
     Ok(shape_poll_image(&image))
 }
 
+pub(super) async fn store_poll_action_event_cover_photo(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    poll: &polls::Model,
+    image_id: Uuid,
+    content_type: Option<String>,
+    bytes: Vec<u8>,
+) -> AppResult<crate::poll_actions::types::PollActionEventCoverPhotoResponse> {
+    if bytes.is_empty() {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "No image uploaded",
+        ));
+    }
+
+    let image =
+        load_poll_action_event_cover_photo(database, poll.id, image_id).await?;
+    let storage_key = format!("poll-action-event-cover-photos/{image_id}");
+    let destination = upload_root.join(&storage_key);
+    if let Some(parent) = destination.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(internal_error)?;
+    }
+    tokio::fs::write(&destination, bytes)
+        .await
+        .map_err(internal_error)?;
+
+    let poll_action_event_id = image.poll_action_event_id;
+    let mut active = image.into_active_model();
+    active.storage_key = Set(Some(storage_key));
+    active.content_type = Set(content_type);
+    let image = active.update(database).await.map_err(internal_error)?;
+    crate::poll_actions::service::sync_event_cover_photo(
+        database,
+        poll_action_event_id,
+    )
+    .await?;
+    Ok(shape_poll_action_event_cover_photo(&image))
+}
+
+pub(super) async fn get_poll_action_event_cover_photo(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    server_id: Uuid,
+    channel_id: Uuid,
+    poll_id: Uuid,
+    image_id: Uuid,
+) -> AppResult<StoredPollImage> {
+    load_poll(database, server_id, channel_id, poll_id).await?;
+    let image =
+        load_poll_action_event_cover_photo(database, poll_id, image_id).await?;
+    let storage_key = image.storage_key.ok_or_else(|| {
+        ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
+    })?;
+    let bytes = tokio::fs::read(upload_root.join(storage_key))
+        .await
+        .map_err(|_| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
+        })?;
+    Ok(StoredPollImage {
+        content_type: image.content_type,
+        bytes,
+    })
+}
+
+async fn load_poll_action_event_cover_photo<C: ConnectionTrait>(
+    database: &C,
+    poll_id: Uuid,
+    image_id: Uuid,
+) -> AppResult<poll_action_event_cover_photos::Model> {
+    let image = poll_action_event_cover_photos::Entity::find_by_id(image_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
+        })?;
+    let proposed_event =
+        poll_action_events::Entity::find_by_id(image.poll_action_event_id)
+            .one(database)
+            .await
+            .map_err(internal_error)?;
+    let belongs_to_poll = match proposed_event {
+        Some(proposed_event) => poll_action_entities::Entity::find_by_id(
+            proposed_event.poll_action_id,
+        )
+        .filter(poll_action_entities::Column::PollId.eq(poll_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .is_some(),
+        None => false,
+    };
+    if belongs_to_poll {
+        Ok(image)
+    } else {
+        Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."))
+    }
+}
+
 pub(super) async fn get_poll_image(
     database: &DatabaseConnection,
     upload_root: &Path,
@@ -647,6 +749,37 @@ pub(super) async fn delete_poll(
         .all(database)
         .await
         .map_err(internal_error)?;
+
+    let action = poll_action_entities::Entity::find()
+        .filter(poll_action_entities::Column::PollId.eq(poll.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    if let Some(action) = action {
+        if let Some(proposed_event) = poll_action_events::Entity::find()
+            .filter(poll_action_events::Column::PollActionId.eq(action.id))
+            .one(database)
+            .await
+            .map_err(internal_error)?
+        {
+            if let Some(cover_photo) =
+                poll_action_event_cover_photos::Entity::find()
+                    .filter(
+                        poll_action_event_cover_photos::Column::PollActionEventId
+                            .eq(proposed_event.id),
+                    )
+                    .one(database)
+                    .await
+                    .map_err(internal_error)?
+            {
+                if let Some(storage_key) = cover_photo.storage_key {
+                    tokio::fs::remove_file(upload_root.join(storage_key))
+                        .await
+                        .map_err(internal_error)?;
+                }
+            }
+        }
+    }
 
     for storage_key in
         images.iter().filter_map(|image| image.storage_key.as_ref())
@@ -1336,6 +1469,16 @@ fn shape_poll_config(config: poll_configs::Model) -> PollConfigResponse {
 
 fn shape_poll_image(image: &poll_images::Model) -> PollImageResponse {
     PollImageResponse {
+        id: image.id.to_string(),
+        is_placeholder: image.storage_key.is_none(),
+        created_at: serialize_timestamp(image.created_at),
+    }
+}
+
+fn shape_poll_action_event_cover_photo(
+    image: &poll_action_event_cover_photos::Model,
+) -> crate::poll_actions::types::PollActionEventCoverPhotoResponse {
+    crate::poll_actions::types::PollActionEventCoverPhotoResponse {
         id: image.id.to_string(),
         is_placeholder: image.storage_key.is_none(),
         created_at: serialize_timestamp(image.created_at),

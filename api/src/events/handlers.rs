@@ -1,15 +1,17 @@
 use axum::{
+    body::Body,
     extract::{Path, Query, State},
+    http::{header, Response, StatusCode},
     response::Json,
 };
 use sea_orm::DatabaseConnection;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use super::{
     service,
     types::{
-        EventPath, EventPayload, EventsResponse, ListEventsQuery,
-        UpsertEventRsvpRequest,
+        EventCoverPhotoPath, EventPath, EventPayload, EventsResponse,
+        ListEventsQuery, UpsertEventRsvpRequest,
     },
 };
 use crate::{
@@ -21,6 +23,7 @@ use crate::{
 pub(super) struct EventsState {
     database: DatabaseConnection,
     jwt_secret: Arc<str>,
+    upload_root: Arc<PathBuf>,
 }
 
 impl EventsState {
@@ -31,6 +34,7 @@ impl EventsState {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
+            upload_root: Arc::new(crate::common::storage::upload_root()),
         }
     }
 }
@@ -87,4 +91,36 @@ pub(super) async fn clear_rsvp(
     service::clear_rsvp(&state.database, path.server_id, path.event_id, user_id)
         .await
         .map(|event| Json(EventPayload { event }))
+}
+
+pub(super) async fn get_event_cover_photo(
+    State(state): State<EventsState>,
+    Path(path): Path<EventCoverPhotoPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+) -> AppResult<Response<Body>> {
+    let image = service::get_event_cover_photo(
+        &state.database,
+        &state.upload_root,
+        path.server_id,
+        path.event_id,
+        path.image_id,
+        user_id,
+    )
+    .await?;
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            header::CONTENT_TYPE,
+            image
+                .content_type
+                .unwrap_or_else(|| "application/octet-stream".to_owned()),
+        )
+        .body(Body::from(image.bytes))
+        .map_err(|error| {
+            crate::common::ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error.to_string(),
+            )
+        })
 }

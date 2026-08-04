@@ -36,6 +36,7 @@ export const createProposalFormSchema = zod
     eventLocation: zod.string().max(255).optional(),
     eventExternalLink: zod.string().optional(),
     eventHostIds: zod.array(zod.string()).optional(),
+    eventCoverPhoto: zod.instanceof(File).optional(),
   })
   .refine(
     (data) => {

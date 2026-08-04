@@ -6,7 +6,15 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ProposalActionAccordion } from './proposal-action-accordion';
 
-export const ProposalActionEvent = ({ action }: { action: PollActionRes }) => {
+export const ProposalActionEvent = ({
+  action,
+  channelId,
+  pollId,
+}: {
+  action: PollActionRes;
+  channelId: string;
+  pollId: string;
+}) => {
   const { t } = useTranslation();
   const { serverPath } = useServerData();
   if (!action.event) return null;
@@ -24,7 +32,12 @@ export const ProposalActionEvent = ({ action }: { action: PollActionRes }) => {
       }
     >
       <div className="sm:col-span-2">
-        <EventSummary {...action.event} embedded />
+        <EventSummary
+          {...action.event}
+          channelId={channelId}
+          pollId={pollId}
+          embedded
+        />
         {action.event.createdEventId && (
           <Button asChild className="mt-4" size="sm">
             <Link to={`${serverPath}/events/${action.event.createdEventId}`}>

@@ -461,6 +461,29 @@ class ApiClient {
     });
   };
 
+  getPollActionEventCoverPhoto = (
+    serverId: string,
+    channelId: string,
+    pollId: string,
+    imageId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/event-cover-photos/${imageId}`;
+    return this.executeRequest<Blob>('get', path, { responseType: 'blob' });
+  };
+
+  uploadPollActionEventCoverPhoto = async (
+    serverId: string,
+    channelId: string,
+    pollId: string,
+    imageId: string,
+    formData: FormData,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/event-cover-photos/${imageId}/upload`;
+    return this.executeRequest<{ image: ImageRes }>('post', path, {
+      data: formData,
+    });
+  };
+
   getVotersByPollOption = async (
     serverId: string,
     channelId: string,
@@ -601,6 +624,15 @@ class ApiClient {
   getEvent = async (serverId: string, eventId: string) => {
     const path = `/servers/${serverId}/events/${eventId}`;
     return this.executeRequest<{ event: EventDetailRes }>('get', path);
+  };
+
+  getEventCoverPhoto = (
+    serverId: string,
+    eventId: string,
+    imageId: string,
+  ) => {
+    const path = `/servers/${serverId}/events/${eventId}/cover-photos/${imageId}`;
+    return this.executeRequest<Blob>('get', path, { responseType: 'blob' });
   };
 
   updateEventRsvp = async (

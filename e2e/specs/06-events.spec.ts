@@ -19,6 +19,12 @@ type UserSummary = {
   displayName?: string | null;
 };
 
+type ImageSummary = {
+  id: string;
+  isPlaceholder?: boolean;
+  createdAt: string;
+};
+
 type ProposedEvent = {
   name: string;
   description: string;
@@ -28,6 +34,7 @@ type ProposedEvent = {
   location: string | null;
   externalLink: string | null;
   hosts: UserSummary[];
+  coverPhoto: ImageSummary | null;
   createdEventId?: string | null;
 };
 
@@ -129,6 +136,10 @@ test('user can propose and ratify an online event with all details preserved', a
 
   await dialog.getByLabel('Event name').fill(eventName);
   await dialog.getByLabel('Description').fill(eventDescription);
+  await dialog
+    .getByTestId('image-input')
+    .setInputFiles('view/src/assets/images/app-icon.png');
+  await expect(dialog.getByRole('img', { name: 'app-icon.png' })).toBeVisible();
   await selectEventDate(dialog, page, 'Start Date', startsAt);
   await selectEventTime(dialog, page, 'Start Time', startsAt);
   await selectEventDate(dialog, page, 'End Date (optional)', endsAt);
@@ -142,16 +153,12 @@ test('user can propose and ratify an online event with all details preserved', a
   await dialog.getByRole('button', { name: 'Next' }).click();
 
   await expect(dialog.getByText(eventName, { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('img', { name: 'Cover photo' })).toBeVisible();
   await expect(
     dialog.getByText(eventDescription, { exact: true }),
   ).toBeVisible();
   await expect(dialog.getByText(/1h 30m/)).toBeVisible();
-  await expect(
-    dialog
-      .getByText('Event type', { exact: true })
-      .locator('..')
-      .getByText('Online', { exact: true }),
-  ).toBeVisible();
+  await expect(dialog.getByText('Online', { exact: true })).toBeVisible();
   await expect(dialog.getByRole('link', { name: externalLink })).toBeVisible();
   await expect(
     dialog.getByText(`Hosted by ${host.user.name}`, { exact: true }),
@@ -182,6 +189,7 @@ test('user can propose and ratify an online event with all details preserved', a
     externalLink,
   });
   expect(proposedEvent.hosts.map((user) => user.id)).toEqual([host.userId]);
+  expect(proposedEvent.coverPhoto).toMatchObject({ isPlaceholder: true });
 
   await expect(dialog).toBeHidden();
   const proposal = page.getByRole('article', {
@@ -194,6 +202,17 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     proposal.getByRole('heading', { name: eventName, exact: true }),
   ).toBeVisible();
+  await expect(
+    proposal.getByRole('img', { name: 'Cover photo' }),
+  ).toBeVisible();
+
+  const proposedCoverResponse = await request.get(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls/${poll.id}/event-cover-photos/${proposedEvent.coverPhoto!.id}`,
+    { headers: authorizationHeaders(proposer) },
+  );
+  await expect(proposedCoverResponse).toBeOK();
+  expect(proposedCoverResponse.headers()['content-type']).toBe('image/png');
+  expect((await proposedCoverResponse.body()).length).toBeGreaterThan(0);
   await expect(
     proposal.getByText(eventDescription, { exact: true }),
   ).toBeVisible();
@@ -246,6 +265,16 @@ test('user can propose and ratify an online event with all details preserved', a
     goingCount: 0,
   });
   expect(createdEvent.hosts.map((user) => user.id)).toEqual([host.userId]);
+  expect(createdEvent.coverPhoto).toBeTruthy();
+  expect(createdEvent.coverPhoto?.id).not.toBe(proposedEvent.coverPhoto?.id);
+
+  const eventCoverResponse = await request.get(
+    `/api/servers/${server.id}/events/${createdEvent.id}/cover-photos/${createdEvent.coverPhoto!.id}`,
+    { headers: authorizationHeaders(proposer) },
+  );
+  await expect(eventCoverResponse).toBeOK();
+  expect(eventCoverResponse.headers()['content-type']).toBe('image/png');
+  expect((await eventCoverResponse.body()).length).toBeGreaterThan(0);
 
   const viewEventLink = proposal.getByRole('link', { name: 'View event' });
   await expect(viewEventLink).toHaveAttribute(
@@ -271,6 +300,7 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     page.getByText(eventName, { exact: true }).first(),
   ).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Cover photo' })).toBeVisible();
   await expect(page.getByText(eventDescription, { exact: true })).toBeVisible();
   await expect(page.getByText(/1h 30m/)).toBeVisible();
   await expect(page.getByRole('link', { name: externalLink })).toBeVisible();

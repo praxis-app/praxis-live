@@ -64,7 +64,7 @@ export const EventDetailPage = () => {
               <>
                 <Card>
                   <CardContent>
-                    <EventSummary {...event} />
+                    <EventSummary {...event} eventId={event.id} />
                   </CardContent>
                 </Card>
                 <div className="flex gap-2">

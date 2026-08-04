@@ -26,6 +26,8 @@ pub(crate) struct CreatePollActionEventRequest {
     pub(crate) location: Option<String>,
     pub(crate) external_link: Option<String>,
     pub(crate) host_ids: Vec<String>,
+    #[serde(default)]
+    pub(crate) cover_photo: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,8 +86,17 @@ pub(super) struct PollActionEventResponse {
     pub(super) location: Option<String>,
     pub(super) external_link: Option<String>,
     pub(super) hosts: Vec<PollActionUserResponse>,
+    pub(super) cover_photo: Option<PollActionEventCoverPhotoResponse>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) created_event_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PollActionEventCoverPhotoResponse {
+    pub(crate) id: String,
+    pub(crate) is_placeholder: bool,
+    pub(crate) created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

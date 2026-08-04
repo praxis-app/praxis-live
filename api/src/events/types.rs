@@ -10,6 +10,14 @@ pub(super) struct EventPath {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct EventCoverPhotoPath {
+    pub(super) server_id: Uuid,
+    pub(super) event_id: Uuid,
+    pub(super) image_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct ListEventsQuery {
     pub(super) from: DateTimeWithTimeZone,
@@ -43,6 +51,7 @@ pub(super) struct EventResponse {
     pub(super) online: bool,
     pub(super) location: Option<String>,
     pub(super) external_link: Option<String>,
+    pub(super) cover_photo: Option<EventCoverPhotoResponse>,
     pub(super) hosts: Vec<EventUserResponse>,
     pub(super) going_count: usize,
     pub(super) interested_count: usize,
@@ -50,6 +59,13 @@ pub(super) struct EventResponse {
     pub(super) source_poll_action_id: Option<String>,
     pub(super) created_at: String,
     pub(super) updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct EventCoverPhotoResponse {
+    pub(super) id: String,
+    pub(super) created_at: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -69,4 +85,9 @@ pub(super) struct EventsResponse {
 #[derive(Debug, Serialize)]
 pub(super) struct EventPayload {
     pub(super) event: EventDetailResponse,
+}
+
+pub(super) struct StoredEventCoverPhoto {
+    pub(super) content_type: Option<String>,
+    pub(super) bytes: Vec<u8>,
 }

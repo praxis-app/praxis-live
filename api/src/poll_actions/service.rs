@@ -8,11 +8,12 @@ use entity::{
         PollActionRoleMemberChangeType, PollActionType, ServerAbilitySubject,
         ServerRoleAbilityAction,
     },
-    event_attendees, events, poll_action_event_hosts, poll_action_events,
-    poll_action_permissions, poll_action_role_members, poll_action_roles,
-    poll_action_server_configs, poll_actions, polls, server_configs,
-    server_members, server_role_members, server_role_permissions, server_roles,
-    users,
+    event_attendees, event_cover_photos, events,
+    poll_action_event_cover_photos, poll_action_event_hosts,
+    poll_action_events, poll_action_permissions, poll_action_role_members,
+    poll_action_roles, poll_action_server_configs, poll_actions, polls,
+    server_configs, server_members, server_role_members,
+    server_role_permissions, server_roles, users,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
@@ -27,10 +28,11 @@ use crate::{
     common::{request::parse_uuid, text::sanitize_text, ApiError, AppResult},
     poll_actions::types::{
         CreatePollActionEventRequest, CreatePollActionRequest,
-        CreatePollActionServerRoleRequest, PollActionEventResponse,
-        PollActionPermissionResponse, PollActionResponse,
-        PollActionServerConfigResponse, PollActionServerRoleMemberResponse,
-        PollActionServerRoleResponse, PollActionUserResponse,
+        CreatePollActionServerRoleRequest, PollActionEventCoverPhotoResponse,
+        PollActionEventResponse, PollActionPermissionResponse,
+        PollActionResponse, PollActionServerConfigResponse,
+        PollActionServerRoleMemberResponse, PollActionServerRoleResponse,
+        PollActionUserResponse,
     },
     servers, users as users_service,
 };
@@ -200,6 +202,17 @@ async fn create_poll_action_event<C: ConnectionTrait>(
             id: Set(NativeUuid::new_v4()),
             poll_action_event_id: Set(proposed_event.id),
             user_id: Set(host_id),
+            ..Default::default()
+        }
+        .insert(database)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    if request.cover_photo {
+        poll_action_event_cover_photos::ActiveModel {
+            id: Set(NativeUuid::new_v4()),
+            poll_action_event_id: Set(proposed_event.id),
             ..Default::default()
         }
         .insert(database)
@@ -642,6 +655,76 @@ async fn implement_plan_event(
         }
     }
 
+    sync_event_cover_photo(database, proposed.id).await?;
+
+    Ok(())
+}
+
+pub(crate) async fn sync_event_cover_photo<C: ConnectionTrait>(
+    database: &C,
+    poll_action_event_id: Uuid,
+) -> AppResult<()> {
+    let proposed = poll_action_events::Entity::find_by_id(poll_action_event_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Proposed event not found.")
+        })?;
+    let Some(event) = events::Entity::find()
+        .filter(events::Column::SourcePollActionId.eq(proposed.poll_action_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    else {
+        return Ok(());
+    };
+    let existing_cover = event_cover_photos::Entity::find()
+        .filter(event_cover_photos::Column::EventId.eq(event.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    if existing_cover.is_none() {
+        let proposed_cover = poll_action_event_cover_photos::Entity::find()
+            .filter(
+                poll_action_event_cover_photos::Column::PollActionEventId
+                    .eq(poll_action_event_id),
+            )
+            .one(database)
+            .await
+            .map_err(internal_error)?;
+        if let Some(proposed_cover) = proposed_cover {
+            if let Some(source_storage_key) = proposed_cover.storage_key {
+                let cover_photo_id = NativeUuid::new_v4();
+                let storage_key =
+                    format!("event-cover-photos/{cover_photo_id}");
+                let upload_root = crate::common::storage::upload_root();
+                let destination = upload_root.join(&storage_key);
+                if let Some(parent) = destination.parent() {
+                    tokio::fs::create_dir_all(parent)
+                        .await
+                        .map_err(internal_error)?;
+                }
+                tokio::fs::copy(
+                    upload_root.join(source_storage_key),
+                    &destination,
+                )
+                .await
+                .map_err(internal_error)?;
+                event_cover_photos::ActiveModel {
+                    id: Set(cover_photo_id),
+                    event_id: Set(event.id),
+                    storage_key: Set(storage_key),
+                    content_type: Set(proposed_cover.content_type),
+                    ..Default::default()
+                }
+                .insert(database)
+                .await
+                .map_err(internal_error)?;
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -683,6 +766,21 @@ async fn shape_poll_action_event(
         .await
         .map_err(internal_error)?
         .map(|event| event.id.to_string());
+    let cover_photo = poll_action_event_cover_photos::Entity::find()
+        .filter(
+            poll_action_event_cover_photos::Column::PollActionEventId
+                .eq(proposed.id),
+        )
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .map(|image| PollActionEventCoverPhotoResponse {
+            id: image.id.to_string(),
+            is_placeholder: image.storage_key.is_none(),
+            created_at: crate::messages::types::serialize_timestamp(
+                image.created_at,
+            ),
+        });
 
     Ok(Some(PollActionEventResponse {
         id: proposed.id.to_string(),
@@ -707,6 +805,7 @@ async fn shape_poll_action_event(
                 profile_picture: profile_pictures.get(&user.id).cloned(),
             })
             .collect(),
+        cover_photo,
         created_event_id,
     }))
 }

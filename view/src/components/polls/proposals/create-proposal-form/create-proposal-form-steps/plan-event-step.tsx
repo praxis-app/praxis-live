@@ -1,4 +1,6 @@
 import { RoleMemberOption } from '@/components/roles/role-member-option';
+import { AttachedImagePreview } from '@/components/images/attached-image-preview';
+import { ImageInput } from '@/components/images/image-input';
 import { type WizardStepProps } from '@/components/shared/wizard/wizard.types';
 import { Button } from '@/components/ui/button';
 import {
@@ -86,6 +88,31 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
                   {...field}
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="eventCoverPhoto"
+          render={({ field }) => (
+            <FormItem className="sm:col-span-2">
+              <FormLabel>{t('events.labels.coverPhoto')}</FormLabel>
+              {field.value ? (
+                <AttachedImagePreview
+                  selectedImages={[field.value]}
+                  handleRemove={() => field.onChange(undefined)}
+                  imageContainerClassName="w-full"
+                />
+              ) : (
+                <ImageInput
+                  onChange={(files) => field.onChange(files[0])}
+                >
+                  <Button type="button" variant="outline">
+                    {t('events.actions.uploadCoverPhoto')}
+                  </Button>
+                </ImageInput>
+              )}
               <FormMessage />
             </FormItem>
           )}

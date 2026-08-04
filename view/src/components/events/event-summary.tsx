@@ -1,5 +1,6 @@
 import { FormattedText } from '@/components/shared/formatted-text';
 import { UserAvatar } from '@/components/users/user-avatar';
+import { LazyLoadImage } from '@/components/images/lazy-load-image';
 import {
   formatEventDateTime,
   formatEventDuration,
@@ -7,6 +8,7 @@ import {
 } from '@/lib/event.utils';
 import { cn } from '@/lib/shared.utils';
 import { type UserRes } from '@/types/user.types';
+import { type ImageRes } from '@/types/image.types';
 import { useTranslation } from 'react-i18next';
 import {
   MdLink,
@@ -25,6 +27,11 @@ interface Props {
   location?: string | null;
   externalLink?: string | null;
   hosts: UserRes[];
+  coverPhoto?: ImageRes | null;
+  coverPhotoFile?: File;
+  channelId?: string;
+  pollId?: string;
+  eventId?: string;
   embedded?: boolean;
 }
 
@@ -37,6 +44,11 @@ export const EventSummary = ({
   location,
   externalLink,
   hosts,
+  coverPhoto,
+  coverPhotoFile,
+  channelId,
+  pollId,
+  eventId,
   embedded = false,
 }: Props) => {
   const { t } = useTranslation();
@@ -44,10 +56,27 @@ export const EventSummary = ({
   const eventType = online
     ? t('events.labels.online')
     : t('events.labels.inPerson');
+  const coverPhotoSrc = coverPhotoFile
+    ? URL.createObjectURL(coverPhotoFile)
+    : undefined;
+  const coverPhotoElement = (coverPhoto || coverPhotoSrc) && (
+    <LazyLoadImage
+      alt={t('images.labels.coverPhoto')}
+      src={coverPhotoSrc}
+      imageId={coverPhoto?.id}
+      isPlaceholder={coverPhoto?.isPlaceholder}
+      channelId={channelId}
+      pollId={pollId}
+      eventId={eventId}
+      eventCoverPhoto={!!pollId}
+      className="h-36 w-full rounded-lg"
+    />
+  );
 
   if (embedded) {
     return (
       <div className="min-w-0 px-1">
+        {coverPhotoElement && <div className="pb-4">{coverPhotoElement}</div>}
         <div className="pb-4">
           <p className="leading-relaxed font-medium text-[#dd3f4f] uppercase">
             {formatEventDateTime(startsAt, endsAt)}
@@ -138,6 +167,7 @@ export const EventSummary = ({
         !embedded && 'bg-card rounded-xl border shadow-sm',
       )}
     >
+      {coverPhotoElement}
       <div className="border-b px-4 py-5 sm:px-5">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">

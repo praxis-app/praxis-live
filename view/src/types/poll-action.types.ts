@@ -9,6 +9,7 @@ import {
 import type { DecisionMakingModel } from './poll.types';
 import { type ServerConfigReq } from './server-config.types';
 import { type UserRes } from './user.types';
+import { type ImageRes } from './image.types';
 
 export interface CreatePollActionEventReq {
   name: string;
@@ -19,6 +20,7 @@ export interface CreatePollActionEventReq {
   location?: string;
   externalLink?: string;
   hostIds: string[];
+  coverPhoto?: boolean;
 }
 
 export interface PollActionEventRes {
@@ -31,6 +33,7 @@ export interface PollActionEventRes {
   location?: string | null;
   externalLink?: string | null;
   hosts: UserRes[];
+  coverPhoto?: ImageRes | null;
   createdEventId?: string | null;
 }
 

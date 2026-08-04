@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { validateImageInput } from '@/lib/image.utilts';
 import { Wizard } from '../../../shared/wizard/wizard';
 import { ProposalDetailsStep } from './create-proposal-form-steps/proposal-details-step';
 import { ProposalReviewStep } from './create-proposal-form-steps/proposal-review-step';
@@ -72,6 +73,7 @@ export const CreateProposalForm = ({
       eventLocation: '',
       eventExternalLink: '',
       eventHostIds: [],
+      eventCoverPhoto: undefined,
     },
   });
 
@@ -148,6 +150,9 @@ export const CreateProposalForm = ({
       }
       if (!values.action) {
         throw new Error('Action is required');
+      }
+      if (values.eventCoverPhoto) {
+        validateImageInput(values.eventCoverPhoto);
       }
 
       const nameChange =
@@ -288,17 +293,39 @@ export const CreateProposalForm = ({
                     ? values.eventExternalLink?.trim() || undefined
                     : undefined,
                   hostIds: values.eventHostIds || [],
+                  coverPhoto: !!values.eventCoverPhoto,
                 }
               : undefined,
         },
       };
 
-      if (createProposal) {
-        return createProposal(request);
+      const result = createProposal
+        ? await createProposal(request)
+        : callId
+          ? await api.createCallPoll(serverId, channelId, callId, request)
+          : await api.createPoll(serverId, channelId, request);
+
+      if (values.eventCoverPhoto) {
+        const placeholder = result.poll.action?.event?.coverPhoto;
+        if (!placeholder) {
+          throw new Error('Event cover photo placeholder was not created');
+        }
+        const formData = new FormData();
+        formData.set('file', values.eventCoverPhoto);
+        const { image } = await api.uploadPollActionEventCoverPhoto(
+          serverId,
+          channelId,
+          result.poll.id,
+          placeholder.id,
+          formData,
+        );
+        result.poll.action!.event!.coverPhoto = {
+          ...image,
+          src: URL.createObjectURL(values.eventCoverPhoto),
+        };
       }
-      return callId
-        ? api.createCallPoll(serverId, channelId, callId, request)
-        : api.createPoll(serverId, channelId, request);
+
+      return result;
     },
     onSuccess: ({ poll }) => {
       if (!channelId || !serverId) {
@@ -449,6 +476,7 @@ export const CreateProposalForm = ({
                 'eventLocation',
                 'eventExternalLink',
                 'eventHostIds',
+                'eventCoverPhoto',
               ]
             : undefined,
       );

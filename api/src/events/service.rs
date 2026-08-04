@@ -1,7 +1,8 @@
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{
-    enums::EventAttendeeStatus, event_attendees, events, server_members, users,
+    enums::EventAttendeeStatus, event_attendees, event_cover_photos, events,
+    server_members, users,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
@@ -10,11 +11,12 @@ use sea_orm::{
     TransactionTrait,
 };
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    EventDetailResponse, EventResponse, EventUserResponse, EventsResponse,
-    ListEventsQuery,
+    EventCoverPhotoResponse, EventDetailResponse, EventResponse,
+    EventUserResponse, EventsResponse, ListEventsQuery, StoredEventCoverPhoto,
 };
 use crate::{
     common::{ApiError, AppResult},
@@ -149,6 +151,35 @@ pub(super) async fn clear_rsvp(
     shape_event_detail(database, event, user_id).await
 }
 
+pub(super) async fn get_event_cover_photo(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    server_id: Uuid,
+    event_id: Uuid,
+    image_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<StoredEventCoverPhoto> {
+    ensure_server_member(database, server_id, user_id).await?;
+    load_event(database, server_id, event_id).await?;
+    let image = event_cover_photos::Entity::find_by_id(image_id)
+        .filter(event_cover_photos::Column::EventId.eq(event_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
+        })?;
+    let bytes = tokio::fs::read(upload_root.join(image.storage_key))
+        .await
+        .map_err(|_| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
+        })?;
+    Ok(StoredEventCoverPhoto {
+        content_type: image.content_type,
+        bytes,
+    })
+}
+
 async fn ensure_server_member(
     database: &DatabaseConnection,
     server_id: Uuid,
@@ -254,6 +285,7 @@ struct AttendeeContext {
     users: HashMap<Uuid, users::Model>,
     profile_pictures:
         std::collections::BTreeMap<Uuid, users_service::UserImageRef>,
+    cover_photos: HashMap<Uuid, event_cover_photos::Model>,
 }
 
 async fn load_attendee_context(
@@ -266,11 +298,14 @@ async fn load_attendee_context(
             attendees_by_event: HashMap::new(),
             users: HashMap::new(),
             profile_pictures: std::collections::BTreeMap::new(),
+            cover_photos: HashMap::new(),
         });
     }
 
     let attendees = event_attendees::Entity::find()
-        .filter(event_attendees::Column::EventId.is_in(event_ids))
+        .filter(
+            event_attendees::Column::EventId.is_in(event_ids.iter().copied()),
+        )
         .order_by_asc(event_attendees::Column::CreatedAt)
         .all(database)
         .await
@@ -293,6 +328,11 @@ async fn load_attendee_context(
     let profile_pictures =
         users_service::get_user_profile_pictures_map(database, &user_ids)
             .await?;
+    let cover_photos = event_cover_photos::Entity::find()
+        .filter(event_cover_photos::Column::EventId.is_in(event_ids))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
 
     let mut attendees_by_event: HashMap<Uuid, Vec<event_attendees::Model>> =
         HashMap::new();
@@ -307,6 +347,10 @@ async fn load_attendee_context(
         attendees_by_event,
         users: users.into_iter().map(|user| (user.id, user)).collect(),
         profile_pictures,
+        cover_photos: cover_photos
+            .into_iter()
+            .map(|image| (image.event_id, image))
+            .collect(),
     })
 }
 
@@ -343,6 +387,12 @@ fn shape_event(
         online: event.online,
         location: event.location,
         external_link: event.external_link,
+        cover_photo: context.cover_photos.get(&event.id).map(|image| {
+            EventCoverPhotoResponse {
+                id: image.id.to_string(),
+                created_at: serialize_timestamp(image.created_at),
+            }
+        }),
         hosts,
         going_count,
         interested_count,

@@ -308,6 +308,8 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
               hosts={(serverMembers || []).filter((user) =>
                 formValues.eventHostIds?.includes(user.id),
               )}
+              coverPhotoFile={formValues.eventCoverPhoto}
+              embedded
             />
           </div>
         )}

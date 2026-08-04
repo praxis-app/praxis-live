@@ -1,4 +1,5 @@
 import { type UserRes } from './user.types';
+import { type ImageRes } from './image.types';
 
 export type EventRsvpStatus = 'interested' | 'going';
 export type EventAttendeeStatus = 'host' | EventRsvpStatus;
@@ -12,6 +13,7 @@ export interface EventRes {
   online: boolean;
   location: string | null;
   externalLink: string | null;
+  coverPhoto: ImageRes | null;
   hosts: UserRes[];
   goingCount: number;
   interestedCount: number;

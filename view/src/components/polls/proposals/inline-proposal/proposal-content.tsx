@@ -100,7 +100,13 @@ export const ProposalContent = ({
 
       {body && <FormattedText text={body} className="pt-1 pb-2" />}
 
-      {action && <ProposalAction action={action} />}
+      {action && (
+        <ProposalAction
+          action={action}
+          channelId={channel.id}
+          pollId={id}
+        />
+      )}
 
       <CardAction className="flex w-full flex-wrap gap-2">
         <ProposalVoteButtons

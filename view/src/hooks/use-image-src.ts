@@ -11,6 +11,8 @@ interface UseImageSrcProps {
   channelId?: string;
   messageId?: string;
   pollId?: string;
+  eventId?: string;
+  eventCoverPhoto?: boolean;
   userId?: string;
   onError?: () => void;
   ref: RefObject<HTMLElement | null>;
@@ -22,6 +24,8 @@ export const useImageSrc = ({
   channelId,
   messageId,
   pollId,
+  eventId,
+  eventCoverPhoto = false,
   userId,
   onError,
   ref,
@@ -50,6 +54,16 @@ export const useImageSrc = ({
           imageId,
           inviteToken,
         );
+      } else if (eventCoverPhoto && pollId && channelId) {
+        if (!serverId) {
+          throw new Error('Server ID is required for event cover photos');
+        }
+        result = await api.getPollActionEventCoverPhoto(
+          serverId,
+          channelId,
+          pollId,
+          imageId,
+        );
       } else if (pollId && channelId) {
         if (!serverId) {
           throw new Error('Server ID is required for poll images');
@@ -61,6 +75,11 @@ export const useImageSrc = ({
           imageId,
           inviteToken,
         );
+      } else if (eventId) {
+        if (!serverId) {
+          throw new Error('Server ID is required for event cover photos');
+        }
+        result = await api.getEventCoverPhoto(serverId, eventId, imageId);
       } else if (userId) {
         result = await api.getUserImage(userId, imageId);
       } else {
@@ -84,6 +103,8 @@ export const useImageSrc = ({
       imageId,
       messageId,
       pollId,
+      eventId,
+      eventCoverPhoto,
       userId,
     ],
     queryFn: getImageSrc,
