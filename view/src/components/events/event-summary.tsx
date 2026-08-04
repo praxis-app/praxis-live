@@ -28,7 +28,7 @@ interface Props {
   channelId?: string;
   pollId?: string;
   eventId?: string;
-  embedded?: boolean;
+  layout?: 'standalone' | 'nested';
 }
 
 export const EventSummary = ({
@@ -45,7 +45,7 @@ export const EventSummary = ({
   channelId,
   pollId,
   eventId,
-  embedded = false,
+  layout = 'standalone',
 }: Props) => {
   const { t } = useTranslation();
 
@@ -61,6 +61,7 @@ export const EventSummary = ({
     !!coverPhotoSrc || (!!coverPhoto && !coverPhoto.isPlaceholder);
 
   const duration = formatEventDuration(startsAt, endsAt);
+  const isNested = layout === 'nested';
 
   const coverPhotoElement = hasCoverPhoto && (
     <LazyLoadImage
@@ -72,7 +73,7 @@ export const EventSummary = ({
       pollId={pollId}
       eventId={eventId}
       eventCoverPhoto={!!pollId}
-      className={cn('h-36 w-full', embedded ? 'rounded-lg' : 'rounded-none')}
+      className={cn('h-36 w-full', isNested ? 'rounded-lg' : 'rounded-none')}
     />
   );
 
@@ -80,15 +81,15 @@ export const EventSummary = ({
     <div
       className={cn(
         'min-w-0',
-        embedded
+        isNested
           ? 'px-1'
           : 'bg-card overflow-hidden rounded-xl border shadow-[0_8px_18px_-14px_rgb(0_0_0/0.12)]',
       )}
     >
       {coverPhotoElement && (
-        <div className={cn(embedded && 'pb-4')}>{coverPhotoElement}</div>
+        <div className={cn(isNested && 'pb-4')}>{coverPhotoElement}</div>
       )}
-      <div className={cn(!embedded && 'px-5 py-5')}>
+      <div className={cn(!isNested && 'px-5 py-5')}>
         <div className="pb-5">
           <p className="text-event-accent text-sm leading-relaxed font-medium tracking-wide uppercase">
             {formatEventDateTime(startsAt, endsAt)}

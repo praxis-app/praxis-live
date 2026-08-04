@@ -52,7 +52,7 @@ export const ProposalActionEvent = ({
           {...action.event}
           channelId={channelId}
           pollId={pollId}
-          embedded
+          layout="nested"
         />
         {action.event.createdEventId && (
           <Button

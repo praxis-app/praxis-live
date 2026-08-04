@@ -310,7 +310,7 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
                 formValues.eventHostIds?.includes(user.id),
               )}
               coverPhotoFile={formValues.eventCoverPhoto}
-              embedded
+              layout="nested"
             />
           </div>
         )}
