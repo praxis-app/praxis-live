@@ -137,17 +137,6 @@ export const EventSummary = ({
             </div>
           )}
 
-          <div className="flex min-h-6 min-w-0 items-center gap-2.5">
-            {online ? (
-              <MdVideocam className="text-muted-foreground size-4 shrink-0" />
-            ) : (
-              <MdLocationOn className="text-muted-foreground size-4 shrink-0" />
-            )}
-            <span className="min-w-0 truncate">
-              {online ? eventType : location}
-            </span>
-          </div>
-
           {externalLink && (
             <a
               className="text-primary flex min-h-6 min-w-0 items-center gap-2.5 hover:underline"
@@ -159,6 +148,17 @@ export const EventSummary = ({
               <span className="truncate">{externalLink}</span>
             </a>
           )}
+
+          <div className="flex min-h-6 min-w-0 items-center gap-2.5">
+            {online ? (
+              <MdVideocam className="text-muted-foreground size-4 shrink-0" />
+            ) : (
+              <MdLocationOn className="text-muted-foreground size-4 shrink-0" />
+            )}
+            <span className="min-w-0 truncate">
+              {online ? eventType : location}
+            </span>
+          </div>
         </div>
 
         {description && (
