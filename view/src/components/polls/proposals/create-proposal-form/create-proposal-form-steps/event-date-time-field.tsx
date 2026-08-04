@@ -39,7 +39,7 @@ export const EventDateTimeField = ({
   const updateValue = (nextDate: string, nextTime: string) => {
     setDate(nextDate);
     setTime(nextTime);
-    onChange(nextDate && nextTime ? `${nextDate}T${nextTime}` : '');
+    onChange(nextDate || nextTime ? `${nextDate}T${nextTime}` : '');
   };
 
   return (

@@ -3,6 +3,7 @@ import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-pan
 import { type WizardStepData } from '@/components/shared/wizard/wizard.types';
 import { useServerData } from '@/hooks/use-server-data';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
+import { getNextHourDateTimeValue } from '@/lib/event.utils';
 import { type CallDecisionRes } from '@/types/call.types';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import {
@@ -67,7 +68,7 @@ export const CreateProposalForm = ({
       selectedServerRoleId: '',
       eventName: '',
       eventDescription: '',
-      eventStartsAt: '',
+      eventStartsAt: getNextHourDateTimeValue(),
       eventEndsAt: '',
       eventOnline: false,
       eventLocation: '',

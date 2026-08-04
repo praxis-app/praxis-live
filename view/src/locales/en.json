@@ -286,6 +286,7 @@
       "eventLocationRequired": "Add a location for an in-person event",
       "eventHostRequired": "Choose at least one event host",
       "eventEndAfterStart": "The event must end after it starts",
+      "eventDateTimeInvalid": "Choose a valid date and time",
       "eventLinkInvalid": "Enter a valid http or https link"
     }
   },
@@ -302,7 +303,9 @@
       "viewEvent": "View event",
       "interested": "Interested",
       "going": "Going",
-      "uploadCoverPhoto": "Upload cover photo"
+      "uploadCoverPhoto": "Upload cover photo",
+      "addEndDateTime": "Add end date and time",
+      "removeEndDateTime": "Remove end date and time"
     },
     "filters": {
       "upcoming": "Upcoming",

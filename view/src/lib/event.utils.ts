@@ -95,6 +95,24 @@ export const toDateValue = (date: Date) =>
     String(date.getDate()).padStart(2, '0'),
   ].join('-');
 
+export const toLocalDateTimeValue = (date: Date) =>
+  `${toDateValue(date)}T${String(date.getHours()).padStart(2, '0')}:${String(
+    date.getMinutes(),
+  ).padStart(2, '0')}`;
+
+export const getNextHourDateTimeValue = () => {
+  const date = new Date();
+  date.setHours(date.getHours() + 1, 0, 0, 0);
+  return toLocalDateTimeValue(date);
+};
+
+export const addHoursToDateTimeValue = (value: string, hours: number) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setHours(date.getHours() + hours);
+  return toLocalDateTimeValue(date);
+};
+
 export const formatDateValue = (value: string) => {
   const date = parseDateValue(value);
   if (!date) return '';

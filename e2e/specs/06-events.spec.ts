@@ -142,6 +142,10 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(dialog.getByRole('img', { name: 'app-icon.png' })).toBeVisible();
   await selectEventDate(dialog, page, 'Start Date', startsAt);
   await selectEventTime(dialog, page, 'Start Time', startsAt);
+  await expect(
+    dialog.getByRole('button', { name: 'End Date (optional)' }),
+  ).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Add end date and time' }).click();
   await selectEventDate(dialog, page, 'End Date (optional)', endsAt);
   await selectEventTime(dialog, page, 'End Time', endsAt);
   await dialog.getByRole('switch', { name: 'Online' }).click();
@@ -386,9 +390,7 @@ test('user can propose and ratify an online event with all details preserved', a
     .getByRole('grid')
     .locator('.events-calendar-event')
     .filter({ hasText: eventName });
-  await expect
-    .poll(() => calendarEventSegments.count())
-    .toBeGreaterThan(1);
+  await expect.poll(() => calendarEventSegments.count()).toBeGreaterThan(1);
   await calendarEventSegments.first().hover();
   await expect
     .poll(() =>

@@ -14,10 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { UserAvatar } from '@/components/users/user-avatar';
+import { addHoursToDateTimeValue } from '@/lib/event.utils';
 import { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { LuSearch, LuX } from 'react-icons/lu';
+import { LuPlus, LuSearch, LuX } from 'react-icons/lu';
 import { useWizardContext } from '../../../../shared/wizard/wizard-hooks';
 import {
   type CreateProposalFormSchema,
@@ -28,14 +29,20 @@ import { EventDateTimeField } from './event-date-time-field';
 export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
   const [searchTerm, setSearchTerm] = useState('');
 
+  const form = useFormContext<CreateProposalFormSchema>();
+  const [showEndsAt, setShowEndsAt] = useState(
+    () => !!form.getValues('eventEndsAt'),
+  );
+
   const { context, onNext, onPrevious } =
     useWizardContext<CreateProposalWizardContext>();
 
-  const form = useFormContext<CreateProposalFormSchema>();
   const { t } = useTranslation();
 
   const online = form.watch('eventOnline');
   const hostIds = form.watch('eventHostIds') || [];
+  const startsAt = form.watch('eventStartsAt') || '';
+  const endsAt = form.watch('eventEndsAt') || '';
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
   const serverMembers = context.serverMembers || [];
@@ -105,9 +112,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
                   imageContainerClassName="w-full"
                 />
               ) : (
-                <ImageInput
-                  onChange={(files) => field.onChange(files[0])}
-                >
+                <ImageInput onChange={(files) => field.onChange(files[0])}>
                   <Button type="button" variant="outline">
                     {t('events.actions.uploadCoverPhoto')}
                   </Button>
@@ -145,29 +150,72 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
                 timeLabel={t('events.labels.startTime')}
                 timePlaceholder={t('events.placeholders.selectTime')}
                 value={field.value}
-                onChange={field.onChange}
+                onChange={(value) => {
+                  field.onChange(value);
+                  if (showEndsAt && endsAt) {
+                    form.setValue(
+                      'eventEndsAt',
+                      addHoursToDateTimeValue(value, 1),
+                      { shouldDirty: true, shouldValidate: true },
+                    );
+                  }
+                }}
               />
               <FormMessage />
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="eventEndsAt"
-          render={({ field }) => (
-            <FormItem className="sm:col-span-2">
-              <EventDateTimeField
-                dateLabel={t('events.labels.endDate')}
-                datePlaceholder={t('events.placeholders.selectDate')}
-                timeLabel={t('events.labels.endTime')}
-                timePlaceholder={t('events.placeholders.selectTime')}
-                value={field.value}
-                onChange={field.onChange}
-              />
-              <FormMessage />
-            </FormItem>
+
+        {showEndsAt && (
+          <FormField
+            control={form.control}
+            name="eventEndsAt"
+            render={({ field }) => (
+              <FormItem className="sm:col-span-2">
+                <EventDateTimeField
+                  dateLabel={t('events.labels.endDate')}
+                  datePlaceholder={t('events.placeholders.selectDate')}
+                  timeLabel={t('events.labels.endTime')}
+                  timePlaceholder={t('events.placeholders.selectTime')}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-fit sm:col-span-2"
+          onClick={() => {
+            if (showEndsAt) {
+              form.setValue('eventEndsAt', '', {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+            } else {
+              form.setValue(
+                'eventEndsAt',
+                addHoursToDateTimeValue(startsAt, 1),
+                { shouldDirty: true, shouldValidate: true },
+              );
+            }
+            setShowEndsAt(!showEndsAt);
+          }}
+        >
+          <LuPlus
+            className={showEndsAt ? 'rotate-45 transition-transform' : ''}
+          />
+          {t(
+            showEndsAt
+              ? 'events.actions.removeEndDateTime'
+              : 'events.actions.addEndDateTime',
           )}
-        />
+        </Button>
+
         <FormField
           control={form.control}
           name="eventOnline"

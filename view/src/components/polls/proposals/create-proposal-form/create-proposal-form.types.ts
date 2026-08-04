@@ -11,6 +11,21 @@ import {
   type ServerConfigRes,
 } from '@/types/server-config.types';
 
+const isValidEventDateTime = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const [, year, month, day, hour, minute] = match.map(Number);
+  const date = new Date(year, month - 1, day, hour, minute);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day &&
+    date.getHours() === hour &&
+    date.getMinutes() === minute
+  );
+};
+
 export const createProposalFormSchema = zod
   .object({
     body: zod
@@ -67,7 +82,6 @@ export const createProposalFormSchema = zod
     const required: Array<keyof typeof data> = [
       'eventName',
       'eventDescription',
-      'eventStartsAt',
     ];
     for (const field of required) {
       if (!data[field]) {
@@ -77,6 +91,30 @@ export const createProposalFormSchema = zod
           message: t('proposals.errors.eventRequired'),
         });
       }
+    }
+    const hasValidStart =
+      !!data.eventStartsAt && isValidEventDateTime(data.eventStartsAt);
+    if (!data.eventStartsAt) {
+      context.addIssue({
+        code: 'custom',
+        path: ['eventStartsAt'],
+        message: t('proposals.errors.eventRequired'),
+      });
+    } else if (!hasValidStart) {
+      context.addIssue({
+        code: 'custom',
+        path: ['eventStartsAt'],
+        message: t('proposals.errors.eventDateTimeInvalid'),
+      });
+    }
+    const hasValidEnd =
+      !data.eventEndsAt || isValidEventDateTime(data.eventEndsAt);
+    if (!hasValidEnd) {
+      context.addIssue({
+        code: 'custom',
+        path: ['eventEndsAt'],
+        message: t('proposals.errors.eventDateTimeInvalid'),
+      });
     }
     if (!data.eventOnline && !data.eventLocation?.trim()) {
       context.addIssue({
@@ -93,9 +131,10 @@ export const createProposalFormSchema = zod
       });
     }
     if (
-      data.eventStartsAt &&
+      hasValidStart &&
       data.eventEndsAt &&
-      new Date(data.eventEndsAt) <= new Date(data.eventStartsAt)
+      hasValidEnd &&
+      new Date(data.eventEndsAt) <= new Date(data.eventStartsAt!)
     ) {
       context.addIssue({
         code: 'custom',
