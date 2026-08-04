@@ -21,6 +21,7 @@ export const EventsCalendar = ({
 }: Props) => {
   const elementRef = useRef<HTMLDivElement>(null);
   const calendarRef = useRef<CalendarApi | null>(null);
+  const eventElementsRef = useRef(new Map<string, Set<HTMLElement>>());
   const initialMonthRef = useRef(month);
   const onMonthChangeRef = useRef(onMonthChange);
   const navigate = useNavigate();
@@ -45,6 +46,28 @@ export const EventsCalendar = ({
       dayCellTopClass: 'events-calendar-day-top',
       dayCellTopInnerClass: 'events-calendar-day-number',
       eventClass: 'events-calendar-event',
+      eventDidMount: ({ event, el }) => {
+        const eventElements = eventElementsRef.current;
+        const elements = eventElements.get(event.id) || new Set<HTMLElement>();
+        elements.add(el);
+        eventElements.set(event.id, elements);
+      },
+      eventWillUnmount: ({ event, el }) => {
+        const eventElements = eventElementsRef.current;
+        const elements = eventElements.get(event.id);
+        elements?.delete(el);
+        if (!elements?.size) eventElements.delete(event.id);
+      },
+      eventMouseEnter: ({ event }) => {
+        eventElementsRef.current
+          .get(event.id)
+          ?.forEach((element) => element.classList.add('is-hovered'));
+      },
+      eventMouseLeave: ({ event }) => {
+        eventElementsRef.current
+          .get(event.id)
+          ?.forEach((element) => element.classList.remove('is-hovered'));
+      },
       displayEventTime: true,
       eventTimeFormat: {
         hour: 'numeric',

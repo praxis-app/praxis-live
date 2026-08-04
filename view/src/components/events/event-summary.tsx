@@ -83,7 +83,7 @@ export const EventSummary = ({
         'min-w-0',
         embedded
           ? 'px-1'
-          : 'bg-card overflow-hidden rounded-xl border shadow-sm',
+          : 'bg-card overflow-hidden rounded-xl border shadow-[0_8px_18px_-14px_rgb(0_0_0/0.12)]',
       )}
     >
       {coverPhotoElement && (

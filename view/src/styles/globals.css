@@ -273,6 +273,7 @@
 }
 
 .events-calendar .fc-event:hover,
-.events-calendar .events-calendar-event:hover {
+.events-calendar .events-calendar-event:hover,
+.events-calendar .events-calendar-event.is-hovered {
   background: var(--accent);
 }
