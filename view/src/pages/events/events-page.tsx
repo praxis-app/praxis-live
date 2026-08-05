@@ -146,7 +146,6 @@ export const EventsPage = () => {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopNav
           header={t('events.title')}
-          subheader={dateLabel}
           showSearch={isDesktop}
           hideBackButtonOnDesktop
           isDecisionsPanelOpen={isDecisionsPanelOpen}
@@ -157,7 +156,7 @@ export const EventsPage = () => {
           <div className="mx-auto max-w-7xl space-y-6">
             <div
               className={cn(
-                'mt-1 space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0 sm:border-b sm:pb-6.5',
+                'mt-1 space-y-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3 sm:space-y-0 sm:border-b sm:pb-6.5',
                 view === 'list' && 'mx-auto w-full max-w-3xl',
               )}
             >
@@ -217,7 +216,11 @@ export const EventsPage = () => {
                 </Button>
               </div>
 
-              <div className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1 sm:flex sm:bg-transparent sm:p-0">
+              <div className="text-muted-foreground text-center text-sm font-medium whitespace-nowrap">
+                {dateLabel}
+              </div>
+
+              <div className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1 sm:flex sm:justify-self-end sm:bg-transparent sm:p-0">
                 {EVENT_VIEWS.map((value) => (
                   <Button
                     key={value}
