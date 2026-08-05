@@ -126,7 +126,15 @@ export const EventsCalendar = ({
         end: event.endsAt || undefined,
       })),
     );
-  }, [events]);
+    if (view === 'week') {
+      const start = events[0] && new Date(events[0].startsAt);
+      calendar.scrollToTime(
+        start
+          ? { hours: Math.max(0, start.getHours() - 1), minutes: start.getMinutes() }
+          : '08:00:00',
+      );
+    }
+  }, [events, view]);
 
   return <div ref={elementRef} className="events-calendar" />;
 };
