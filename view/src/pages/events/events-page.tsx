@@ -136,8 +136,7 @@ export const EventsPage = () => {
     );
   };
 
-  const showEventsEmptyMessage =
-    !eventsQuery.isLoading && !eventsQuery.isError && events.length === 0;
+  const showEventsEmptyMessage = eventsQuery.isSuccess && events.length === 0;
 
   return (
     <div className="fixed inset-0 flex">
@@ -231,7 +230,7 @@ export const EventsPage = () => {
                 ))}
               </div>
             </div>
-            {eventsQuery.isLoading && (
+            {eventsQuery.isPending && (
               <div className="space-y-3">
                 <Skeleton className="h-24 w-full" />
                 <Skeleton className="h-64 w-full" />
@@ -248,8 +247,7 @@ export const EventsPage = () => {
                 </p>
               </div>
             )}
-            {!eventsQuery.isLoading &&
-              !eventsQuery.isError &&
+            {eventsQuery.isSuccess &&
               (view === 'list' ? (
                 events.length > 0 && (
                   <EventsList events={events} serverPath={serverPath} />
