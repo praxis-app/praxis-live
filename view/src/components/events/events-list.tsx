@@ -12,7 +12,7 @@ export const EventsList = ({ events, serverPath }: Props) => {
   const { t } = useTranslation();
 
   return (
-    <section className="mx-auto w-full max-w-2xl space-y-4">
+    <section className="mx-auto w-full max-w-3xl space-y-4">
       <div className="flex items-center gap-2 px-1">
         <LuCalendarDays className="text-muted-foreground size-5" />
         <h2 className="font-semibold">

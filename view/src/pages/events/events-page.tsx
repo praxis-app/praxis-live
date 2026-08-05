@@ -21,6 +21,7 @@ import {
   startOfWeek,
   toDateValue,
 } from '@/lib/event.utils';
+import { cn } from '@/lib/shared.utils';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCalendarDays, LuChevronLeft, LuChevronRight } from 'react-icons/lu';
@@ -154,7 +155,12 @@ export const EventsPage = () => {
 
         <main className="flex-1 overflow-y-auto p-3 sm:p-6">
           <div className="mx-auto max-w-7xl space-y-6">
-            <div className="mb-6.5 space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0 sm:border-b sm:pb-6">
+            <div
+              className={cn(
+                'space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0',
+                view === 'list' && 'mx-auto w-full max-w-3xl',
+              )}
+            >
               <div className="grid grid-cols-[auto_1fr_auto] gap-2 sm:hidden">
                 <Button
                   variant="outline"
