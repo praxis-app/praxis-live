@@ -154,7 +154,7 @@ export const EventsPage = () => {
 
         <main className="flex-1 overflow-y-auto p-3 sm:p-6">
           <div className="mx-auto max-w-7xl space-y-6">
-            <div className="space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
+            <div className="mb-6.5 space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0 sm:border-b sm:pb-6">
               <div className="grid grid-cols-[auto_1fr_auto] gap-2 sm:hidden">
                 <Button
                   variant="outline"
