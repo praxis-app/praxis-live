@@ -16,16 +16,28 @@ import { useServerData } from '@/hooks/use-server-data';
 import {
   addDays,
   addMonths,
+  parseDateValue,
   startOfMonth,
   startOfWeek,
+  toDateValue,
 } from '@/lib/event.utils';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCalendarDays, LuChevronLeft, LuChevronRight } from 'react-icons/lu';
+import { useSearchParams } from 'react-router-dom';
 
 type EventView = CalendarView | 'list';
 
 const LARGE_DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
+const EVENT_VIEWS: EventView[] = ['list', 'month', 'week'];
+
+const isEventView = (value: string | null): value is EventView =>
+  EVENT_VIEWS.some((view) => view === value);
+
+const getDateFromParam = (value: string | null) => {
+  const date = value && parseDateValue(value);
+  return date && toDateValue(date) === value ? date : new Date();
+};
 
 const getDefaultDecisionsPanelOpen = () => {
   const storedPreference = localStorage.getItem(
@@ -39,8 +51,6 @@ const getDefaultDecisionsPanelOpen = () => {
 };
 
 export const EventsPage = () => {
-  const [date, setDate] = useState(new Date());
-  const [view, setView] = useState<EventView>('list');
   const [isDecisionsPanelOpen, setIsDecisionsPanelOpen] = useState(
     getDefaultDecisionsPanelOpen,
   );
@@ -50,6 +60,11 @@ export const EventsPage = () => {
 
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const viewParam = searchParams.get('view');
+  const view = isEventView(viewParam) ? viewParam : 'list';
+  const date = getDateFromParam(searchParams.get('date'));
 
   useEffect(() => {
     setIsDecisionsPanelOpen(getDefaultDecisionsPanelOpen());
@@ -67,6 +82,13 @@ export const EventsPage = () => {
       String(nextIsOpen),
     );
     setIsDecisionsPanelOpen(nextIsOpen);
+  };
+
+  const setEventState = (nextView: EventView, nextDate: Date) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('view', nextView);
+    nextSearchParams.set('date', toDateValue(nextDate));
+    setSearchParams(nextSearchParams);
   };
 
   const { from, to } = useMemo(() => {
@@ -106,7 +128,8 @@ export const EventsPage = () => {
   }, [date, view]);
 
   const navigateDate = (direction: -1 | 1) => {
-    setDate(
+    setEventState(
+      view,
       view === 'week'
         ? addDays(date, direction * 7)
         : addMonths(date, direction),
@@ -145,7 +168,7 @@ export const EventsPage = () => {
                 <Button
                   variant="outline"
                   className="min-w-0"
-                  onClick={() => setDate(new Date())}
+                  onClick={() => setEventState(view, new Date())}
                 >
                   <LuCalendarDays className="size-4 sm:hidden" />
                   {t('events.actions.today')}
@@ -181,13 +204,16 @@ export const EventsPage = () => {
                     <LuChevronRight className="size-5" />
                   </Button>
                 </div>
-                <Button variant="outline" onClick={() => setDate(new Date())}>
+                <Button
+                  variant="outline"
+                  onClick={() => setEventState(view, new Date())}
+                >
                   {t('events.actions.today')}
                 </Button>
               </div>
 
               <div className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1 sm:flex sm:bg-transparent sm:p-0">
-                {(['list', 'month', 'week'] as EventView[]).map((value) => (
+                {EVENT_VIEWS.map((value) => (
                   <Button
                     key={value}
                     size="sm"
@@ -198,7 +224,7 @@ export const EventsPage = () => {
                         : 'text-muted-foreground'
                     }
                     aria-pressed={view === value}
-                    onClick={() => setView(value)}
+                    onClick={() => setEventState(value, date)}
                   >
                     {t(`events.views.${value}`)}
                   </Button>
@@ -233,7 +259,6 @@ export const EventsPage = () => {
                   events={events}
                   date={date}
                   view={view}
-                  onDateChange={setDate}
                   serverPath={serverPath}
                 />
               ))}

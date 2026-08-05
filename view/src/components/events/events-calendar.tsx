@@ -10,7 +10,6 @@ interface Props {
   events: EventRes[];
   date: Date;
   view: CalendarView;
-  onDateChange: (date: Date) => void;
   serverPath: string;
 }
 
@@ -20,7 +19,6 @@ export const EventsCalendar = ({
   events,
   date,
   view,
-  onDateChange,
   serverPath,
 }: Props) => {
   const elementRef = useRef<HTMLDivElement>(null);
@@ -28,14 +26,12 @@ export const EventsCalendar = ({
   const eventElementsRef = useRef(new Map<string, Set<HTMLElement>>());
   const initialDateRef = useRef(date);
   const initialViewRef = useRef(view);
-  const onDateChangeRef = useRef(onDateChange);
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
 
   useEffect(() => {
-    onDateChangeRef.current = onDateChange;
     navigateRef.current = navigate;
-  }, [navigate, onDateChange]);
+  }, [navigate]);
 
   useEffect(() => {
     if (!elementRef.current) return;
@@ -81,9 +77,6 @@ export const EventsCalendar = ({
         hour: 'numeric',
         minute: '2-digit',
         meridiem: 'narrow',
-      },
-      datesSet: ({ view }) => {
-        onDateChangeRef.current(view.currentStart);
       },
       eventClick: (info: EventClickInfo) => {
         info.jsEvent.preventDefault();
