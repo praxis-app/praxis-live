@@ -237,7 +237,12 @@ export const EventsPage = () => {
               </div>
             </div>
             {eventsQuery.isPending && (
-              <div className="space-y-3">
+              <div
+                className={cn(
+                  'space-y-3',
+                  view === 'list' && 'mx-auto w-full max-w-3xl',
+                )}
+              >
                 <Skeleton className="h-24 w-full" />
                 <Skeleton className="h-64 w-full" />
               </div>
