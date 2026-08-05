@@ -157,7 +157,7 @@ export const EventsPage = () => {
           <div className="mx-auto max-w-7xl space-y-6">
             <div
               className={cn(
-                'space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0',
+                'mt-1 space-y-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0 sm:border-b sm:pb-6.5',
                 view === 'list' && 'mx-auto w-full max-w-3xl',
               )}
             >
