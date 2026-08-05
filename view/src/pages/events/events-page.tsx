@@ -146,6 +146,7 @@ export const EventsPage = () => {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopNav
           header={t('events.title')}
+          subheader={isDesktop ? undefined : dateLabel}
           showSearch={isDesktop}
           hideBackButtonOnDesktop
           isDecisionsPanelOpen={isDecisionsPanelOpen}
@@ -216,11 +217,13 @@ export const EventsPage = () => {
                 </Button>
               </div>
 
-              <div className="text-muted-foreground text-center text-sm font-medium whitespace-nowrap">
-                {dateLabel}
-              </div>
+              {isDesktop && (
+                <div className="text-muted-foreground text-center text-sm font-medium whitespace-nowrap">
+                  {dateLabel}
+                </div>
+              )}
 
-              <div className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1 sm:flex sm:justify-self-end sm:bg-transparent sm:p-0">
+              <div className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1 sm:col-start-3 sm:flex sm:justify-self-end sm:bg-transparent sm:p-0">
                 {EVENT_VIEWS.map((value) => (
                   <Button
                     key={value}
