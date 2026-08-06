@@ -15,6 +15,8 @@ export type DecisionMakingModel = (typeof DECISION_MAKING_MODEL)[number];
 
 export type PollStage = (typeof POLL_STAGE)[number];
 
+export type PollClosedReason = 'event-start-elapsed';
+
 export type PollType = (typeof POLL_TYPE)[number];
 
 export interface PollRes {
@@ -22,6 +24,7 @@ export interface PollRes {
   body: string;
   pollType: PollType;
   stage: PollStage;
+  closedReason?: PollClosedReason;
   action?: PollActionRes;
   config: PollConfigRes;
   options?: PollOptionRes[];

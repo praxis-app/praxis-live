@@ -19,7 +19,6 @@ use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
     IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Set,
-    TransactionTrait,
 };
 use std::collections::HashSet;
 use uuid::Uuid as NativeUuid;
@@ -104,6 +103,12 @@ pub(crate) fn validate_plan_event_request(
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Event description is required.",
+        ));
+    }
+    if request.starts_at <= Utc::now().fixed_offset() {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Event start time must be in the future.",
         ));
     }
     if request
@@ -460,52 +465,46 @@ async fn create_poll_action_role<C: ConnectionTrait>(
     Ok(role)
 }
 
-pub(crate) async fn implement_poll_action(
-    database: &DatabaseConnection,
+pub(crate) async fn implement_poll_action_in_transaction(
+    transaction: &DatabaseTransaction,
     poll_id: Uuid,
 ) -> AppResult<bool> {
-    let transaction = database.begin().await.map_err(internal_error)?;
     let action = match poll_actions::Entity::find()
         .filter(poll_actions::Column::PollId.eq(poll_id))
         .lock(LockType::Update)
-        .one(&transaction)
+        .one(transaction)
         .await
         .map_err(internal_error)?
     {
         Some(action) => action,
-        None => {
-            transaction.commit().await.map_err(internal_error)?;
-            return Ok(false);
-        }
+        None => return Ok(false),
     };
 
     if action.executed_at.is_some() {
-        transaction.commit().await.map_err(internal_error)?;
         return Ok(false);
     }
 
     match action.action_type {
         PollActionType::ChangeRole => {
-            implement_change_server_role(&transaction, action.id).await?
+            implement_change_server_role(transaction, action.id).await?
         }
         PollActionType::CreateRole => {
-            implement_create_server_role(&transaction, poll_id, action.id)
+            implement_create_server_role(transaction, poll_id, action.id)
                 .await?
         }
         PollActionType::ChangeSettings => {
-            implement_change_server_config(&transaction, poll_id, action.id)
+            implement_change_server_config(transaction, poll_id, action.id)
                 .await?
         }
         PollActionType::PlanEvent => {
-            implement_plan_event(&transaction, poll_id, action.id).await?
+            implement_plan_event(transaction, poll_id, action.id).await?
         }
         _ => {}
     }
 
     let mut active = action.into_active_model();
     active.executed_at = Set(Some(Utc::now().fixed_offset()));
-    active.update(&transaction).await.map_err(internal_error)?;
-    transaction.commit().await.map_err(internal_error)?;
+    active.update(transaction).await.map_err(internal_error)?;
     Ok(true)
 }
 

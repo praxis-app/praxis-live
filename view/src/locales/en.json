@@ -267,6 +267,7 @@
     "outcomes": {
       "ratified": "Ratified — the proposal passed.",
       "closedWithoutConsensus": "Closed without consensus.",
+      "eventStartElapsed": "This proposal expired because the event start time passed.",
       "failedRules": "Failed conditions: {{rules}}.",
       "finalizing": "Voting has ended. Finalizing the result…",
       "eligibleAtDeadline": "All conditions are met. Eligible to pass when voting closes.",
@@ -287,6 +288,7 @@
       "eventHostRequired": "Choose at least one event host",
       "eventEndAfterStart": "The event must end after it starts",
       "eventDateTimeInvalid": "Choose a valid date and time",
+      "eventStartFuture": "Choose a start time in the future",
       "eventLinkInvalid": "Enter a valid http or https link"
     }
   },

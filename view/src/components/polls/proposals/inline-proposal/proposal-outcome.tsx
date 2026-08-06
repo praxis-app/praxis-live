@@ -25,6 +25,14 @@ export const ProposalOutcome = ({ poll }: Props) => {
   }
 
   if (poll.stage === 'closed') {
+    if (poll.closedReason === 'event-start-elapsed') {
+      return (
+        <p className="text-destructive text-sm">
+          {t('proposals.outcomes.eventStartElapsed')}
+        </p>
+      );
+    }
+
     const failedRules = [
       !status.agreementMet && poll.config.decisionMakingModel !== 'consent'
         ? t('proposals.labels.approval')

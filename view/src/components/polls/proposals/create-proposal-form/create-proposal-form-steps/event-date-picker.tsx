@@ -21,6 +21,7 @@ interface Props {
   placeholder: string;
   value: string;
   onChange: (value: string) => void;
+  minDate?: Date;
 }
 
 const weekdays = Array.from({ length: 7 }, (_, index) =>
@@ -35,6 +36,7 @@ export const EventDatePicker = ({
   placeholder,
   value,
   onChange,
+  minDate,
 }: Props) => {
   const [open, setOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(
@@ -47,6 +49,7 @@ export const EventDatePicker = ({
     year: 'numeric',
   }).format(visibleMonth);
   const calendarDays = getCalendarDays(visibleMonth);
+  const minDateValue = minDate ? toDateValue(minDate) : undefined;
 
   const changeMonth = (offset: number) => {
     setVisibleMonth(
@@ -125,9 +128,11 @@ export const EventDatePicker = ({
                 dateStyle: 'full',
               }).format(day.date)}
               aria-pressed={day.value === value}
+              disabled={!!minDateValue && day.value < minDateValue}
               onClick={() => selectDate(day.value)}
               className={cn(
                 'hover:bg-accent focus-visible:ring-ring flex aspect-square items-center justify-center rounded-md text-sm font-medium outline-none focus-visible:ring-2',
+                'disabled:pointer-events-none disabled:opacity-35',
                 !day.isCurrentMonth && 'text-muted-foreground/50',
                 day.value === todayValue && 'border-primary/60 border',
                 day.value === value &&
@@ -152,6 +157,7 @@ export const EventDatePicker = ({
             type="button"
             variant="ghost"
             size="sm"
+            disabled={!!minDateValue && todayValue < minDateValue}
             onClick={() => selectDate(todayValue)}
           >
             {t('events.actions.today')}

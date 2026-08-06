@@ -75,6 +75,21 @@ impl_enum_string_conversions!(PollStage {
     Closed => "closed",
 });
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "poll_closed_reason_enum"
+)]
+pub enum PollClosedReason {
+    #[sea_orm(string_value = "event-start-elapsed")]
+    EventStartElapsed,
+}
+
+impl_enum_string_conversions!(PollClosedReason {
+    EventStartElapsed => "event-start-elapsed",
+});
+
 #[derive(
     Clone,
     Copy,

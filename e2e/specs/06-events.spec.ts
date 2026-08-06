@@ -5,7 +5,9 @@ import {
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
+import { assertUuid, runDatabaseCommand } from '../lib/db';
 import {
+  getPollVoteSummary,
   makeProposalsRatifyWithOneAgreeVote,
   openCreateProposalDialog,
   selectRadixOption,
@@ -386,6 +388,7 @@ test('user can propose and ratify an online event with all details preserved', a
   });
   await page.getByRole('link', { name: 'Events', exact: true }).click();
   await calendarResponsePromise;
+  await page.getByRole('button', { name: 'Month', exact: true }).click();
   const calendarEventSegments = page
     .getByRole('grid')
     .locator('.events-calendar-event')
@@ -406,4 +409,105 @@ test('user can propose and ratify an online event with all details preserved', a
   await calendarEventSegments.first().click();
   await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
   await expect(page.getByRole('button', { name: 'Going · 1' })).toBeVisible();
+});
+
+test('past event proposals are rejected and stale proposals expire automatically', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('stale-event-proposer'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+
+  const proposalPath =
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
+  const planEventAction = (startsAt: Date) => ({
+    actionType: 'plan-event',
+    event: {
+      name: `Time-sensitive event ${proposer.user.suffix}`,
+      description: 'This event must still be upcoming when ratified.',
+      startsAt: startsAt.toISOString(),
+      online: true,
+      hostIds: [proposer.userId],
+      coverPhoto: false,
+    },
+  });
+
+  const pastProposalResponse = await request.post(proposalPath, {
+    headers: authorizationHeaders(proposer),
+    data: {
+      body: `Past event ${proposer.user.suffix}`,
+      pollType: 'proposal',
+      action: planEventAction(new Date(Date.now() - 60_000)),
+    },
+  });
+  expect(pastProposalResponse.status()).toBe(422);
+  await expect(pastProposalResponse.json()).resolves.toEqual({
+    error: 'Event start time must be in the future.',
+  });
+
+  const proposalBody = `Stale event ${proposer.user.suffix}`;
+  const createProposalResponse = await request.post(proposalPath, {
+    headers: authorizationHeaders(proposer),
+    data: {
+      body: proposalBody,
+      pollType: 'proposal',
+      action: planEventAction(new Date(Date.now() + 60 * 60_000)),
+    },
+  });
+  await expect(createProposalResponse).toBeOK();
+  const { poll } = (await createProposalResponse.json()) as PollResponse;
+  const action = poll.action;
+  expect(action?.actionType).toBe('plan-event');
+  if (!action) {
+    throw new Error('Plan-event proposal response did not include its action.');
+  }
+
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+  const proposal = page.getByRole('article', {
+    name: `Majority Vote Proposal: ${proposalBody}`,
+  });
+  await expect(proposal).toBeVisible();
+  await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
+  expect(getPollVoteSummary(poll.id)).toBe('0:none');
+
+  assertUuid(action.id, 'Poll action ID');
+  const updateOutput = runDatabaseCommand(
+    `UPDATE poll_action_events SET starts_at = now() - interval '1 minute' WHERE poll_action_id = '${action.id}';`,
+  );
+  expect(updateOutput).toContain('UPDATE 1');
+
+  await expect(proposal.getByText('Closed', { exact: true })).toBeVisible();
+  await expect(
+    proposal.getByText(
+      'This proposal expired because the event start time passed.',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(proposal.getByRole('link', { name: 'View event' })).toHaveCount(
+    0,
+  );
+  expect(getPollVoteSummary(poll.id)).toBe('0:none');
+
+  const eventsResponse = await request.get(`/api/servers/${server.id}/events`, {
+    headers: authorizationHeaders(proposer),
+    params: {
+      from: new Date(Date.now() - 24 * 60 * 60_000).toISOString(),
+      to: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
+    },
+  });
+  await expect(eventsResponse).toBeOK();
+  const { events } = (await eventsResponse.json()) as {
+    events: EventResponse[];
+  };
+  expect(
+    events.filter((event) => event.sourcePollActionId === action.id),
+  ).toHaveLength(0);
 });

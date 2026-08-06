@@ -55,6 +55,8 @@ pub(crate) struct PollResponse {
     pub(super) poll_type: PollType,
     pub(super) stage: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) closed_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) action: Option<PollActionResponse>,
     pub(super) config: PollConfigResponse,
     pub(super) options: Vec<PollOptionResponse>,

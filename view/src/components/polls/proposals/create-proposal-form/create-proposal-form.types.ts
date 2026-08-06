@@ -106,6 +106,12 @@ export const createProposalFormSchema = zod
         path: ['eventStartsAt'],
         message: t('proposals.errors.eventDateTimeInvalid'),
       });
+    } else if (new Date(data.eventStartsAt) <= new Date()) {
+      context.addIssue({
+        code: 'custom',
+        path: ['eventStartsAt'],
+        message: t('proposals.errors.eventStartFuture'),
+      });
     }
     const hasValidEnd =
       !data.eventEndsAt || isValidEventDateTime(data.eventEndsAt);

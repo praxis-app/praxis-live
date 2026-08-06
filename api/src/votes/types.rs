@@ -47,6 +47,8 @@ pub(super) struct CreateVoteResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) poll_option_ids: Option<Vec<String>>,
     pub(super) is_ratifying_vote: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) closed_reason: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -58,6 +60,8 @@ pub(super) struct VotePayload {
 #[serde(rename_all = "camelCase")]
 pub(super) struct UpdateVoteResponse {
     pub(super) is_ratifying_vote: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) closed_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

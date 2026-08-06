@@ -3,7 +3,8 @@ use chrono::{DateTime, Duration, FixedOffset, Utc};
 use entity::{
     channel_members, channels as channel_entities,
     enums::{
-        PollActionType, PollDecisionMakingModel, PollStage, PollType, VoteType,
+        PollActionType, PollClosedReason, PollDecisionMakingModel, PollStage,
+        PollType, VoteType,
     },
     forum_posts, poll_action_event_cover_photos, poll_action_events,
     poll_actions as poll_action_entities, poll_configs, poll_images,
@@ -12,10 +13,10 @@ use entity::{
 };
 use sea_orm::{
     prelude::Uuid,
-    sea_query::{LockType, NullOrdering, Order},
+    sea_query::{JoinType, LockType, NullOrdering, Order},
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
     DatabaseConnection, DeleteResult, EntityTrait, IntoActiveModel,
-    QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait,
+    QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -63,6 +64,12 @@ enum ProposalSyncAction {
     None,
     Ratify,
     Close,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ProposalFinalization {
+    Ratified,
+    Closed(PollClosedReason),
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -891,16 +898,44 @@ where
         })?;
     let mut active = poll.into_active_model();
     active.stage = Set(PollStage::Ratified);
+    active.closed_reason = Set(None);
     active.update(database).await.map_err(internal_error)?;
     Ok(())
+}
+
+pub(crate) async fn finalize_ratifiable_proposal(
+    transaction: &sea_orm::DatabaseTransaction,
+    poll_id: Uuid,
+    now: DateTime<FixedOffset>,
+) -> AppResult<ProposalFinalization> {
+    if plan_event_start_has_elapsed(transaction, poll_id, now).await? {
+        close_poll_with_reason(
+            transaction,
+            poll_id,
+            Some(PollClosedReason::EventStartElapsed),
+        )
+        .await?;
+        return Ok(ProposalFinalization::Closed(
+            PollClosedReason::EventStartElapsed,
+        ));
+    }
+
+    poll_actions::service::implement_poll_action_in_transaction(
+        transaction,
+        poll_id,
+    )
+    .await?;
+    ratify_poll(transaction, poll_id).await?;
+    Ok(ProposalFinalization::Ratified)
 }
 
 async fn synchronize_proposals(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
 ) -> AppResult<ProposalSyncSummary> {
-    let mut summary =
-        retry_pending_poll_actions(database, pub_sub_service).await?;
+    let mut summary = ProposalSyncSummary::default();
+    expire_stale_event_proposals(database, pub_sub_service, &mut summary)
+        .await?;
     let configs = poll_configs::Entity::find()
         .filter(poll_configs::Column::ClosingAt.is_not_null())
         .all(database)
@@ -972,31 +1007,34 @@ async fn synchronize_proposals(
     Ok(summary)
 }
 
-async fn retry_pending_poll_actions(
+async fn expire_stale_event_proposals(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
-) -> AppResult<ProposalSyncSummary> {
-    let actions = poll_action_entities::Entity::find()
-        .filter(poll_action_entities::Column::ExecutedAt.is_null())
+    summary: &mut ProposalSyncSummary,
+) -> AppResult<()> {
+    let now = Utc::now().fixed_offset();
+    let proposals = polls::Entity::find()
+        .join(JoinType::InnerJoin, polls::Relation::Action.def())
+        .join(
+            JoinType::InnerJoin,
+            poll_action_entities::Relation::ProposedEvent.def(),
+        )
+        .filter(polls::Column::PollType.eq(PollType::Proposal))
+        .filter(polls::Column::Stage.eq(PollStage::Voting))
+        .filter(
+            poll_action_entities::Column::ActionType
+                .eq(PollActionType::PlanEvent),
+        )
+        .filter(poll_action_events::Column::StartsAt.lte(now))
+        .order_by_asc(poll_action_events::Column::StartsAt)
+        .limit(PROPOSAL_SYNC_BATCH_SIZE as u64)
         .all(database)
         .await
         .map_err(internal_error)?;
-    let mut summary = ProposalSyncSummary::default();
 
-    for action in actions {
-        let Some(poll) = polls::Entity::find_by_id(action.poll_id)
-            .filter(polls::Column::Stage.eq(PollStage::Ratified))
-            .one(database)
-            .await
-            .map_err(internal_error)?
-        else {
-            continue;
-        };
-
+    for poll in proposals {
         summary.processed += 1;
-        match poll_actions::service::implement_poll_action(database, poll.id)
-            .await
-        {
+        match expire_stale_event_proposal(database, poll.id, now).await {
             Ok(true) => {
                 broadcast_stored_poll_update(
                     database,
@@ -1005,19 +1043,86 @@ async fn retry_pending_poll_actions(
                     None,
                 )
                 .await?;
+                summary.closed += 1;
             }
             Ok(false) => {}
             Err(error) => {
                 summary.failed += 1;
                 tracing::warn!(
                     poll_id = %poll.id,
-                    "Failed to retry poll action: {error}"
+                    "Failed to expire stale event proposal: {error}"
                 );
             }
         }
     }
 
-    Ok(summary)
+    Ok(())
+}
+
+async fn expire_stale_event_proposal(
+    database: &DatabaseConnection,
+    poll_id: Uuid,
+    now: DateTime<FixedOffset>,
+) -> AppResult<bool> {
+    let transaction = database.begin().await.map_err(internal_error)?;
+    let poll = polls::Entity::find_by_id(poll_id)
+        .lock(LockType::Update)
+        .one(&transaction)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+
+    if poll.stage != PollStage::Voting
+        || !plan_event_start_has_elapsed(&transaction, poll_id, now).await?
+    {
+        transaction.commit().await.map_err(internal_error)?;
+        return Ok(false);
+    }
+
+    close_poll_with_reason(
+        &transaction,
+        poll_id,
+        Some(PollClosedReason::EventStartElapsed),
+    )
+    .await?;
+    transaction.commit().await.map_err(internal_error)?;
+    Ok(true)
+}
+
+async fn plan_event_start_has_elapsed<C>(
+    database: &C,
+    poll_id: Uuid,
+    now: DateTime<FixedOffset>,
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
+    let action = poll_action_entities::Entity::find()
+        .filter(poll_action_entities::Column::PollId.eq(poll_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    let Some(action) = action else {
+        return Ok(false);
+    };
+    if action.action_type != PollActionType::PlanEvent {
+        return Ok(false);
+    }
+
+    let proposed_event = poll_action_events::Entity::find()
+        .filter(poll_action_events::Column::PollActionId.eq(action.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Proposed event is required.",
+            )
+        })?;
+    Ok(proposed_event.starts_at <= now)
 }
 
 async fn close_expired_polls(
@@ -1442,6 +1547,7 @@ async fn shape_poll(
         body: decrypt_poll_body(database, &poll).await?,
         poll_type: poll.poll_type,
         stage: poll.stage.to_string(),
+        closed_reason: poll.closed_reason.map(|reason| reason.to_string()),
         action: if is_proposal {
             poll_actions::service::shape_poll_action(database, poll.id).await?
         } else {
@@ -1747,10 +1853,17 @@ async fn synchronize_proposal(
             transaction.commit().await.map_err(internal_error)?;
         }
         ProposalSyncAction::Ratify => {
-            ratify_poll(&transaction, poll.id).await?;
+            let finalization = finalize_ratifiable_proposal(
+                &transaction,
+                poll.id,
+                Utc::now().fixed_offset(),
+            )
+            .await?;
             transaction.commit().await.map_err(internal_error)?;
-            poll_actions::service::implement_poll_action(database, poll.id)
-                .await?;
+            return Ok(match finalization {
+                ProposalFinalization::Ratified => ProposalSyncAction::Ratify,
+                ProposalFinalization::Closed(_) => ProposalSyncAction::Close,
+            });
         }
         ProposalSyncAction::Close => {
             close_poll(&transaction, poll.id).await?;
@@ -1799,6 +1912,17 @@ async fn close_poll<C>(database: &C, poll_id: Uuid) -> AppResult<()>
 where
     C: ConnectionTrait,
 {
+    close_poll_with_reason(database, poll_id, None).await
+}
+
+async fn close_poll_with_reason<C>(
+    database: &C,
+    poll_id: Uuid,
+    reason: Option<PollClosedReason>,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     let poll = polls::Entity::find_by_id(poll_id)
         .one(database)
         .await
@@ -1808,6 +1932,7 @@ where
         })?;
     let mut active = poll.into_active_model();
     active.stage = Set(PollStage::Closed);
+    active.closed_reason = Set(reason);
     active.update(database).await.map_err(internal_error)?;
     Ok(())
 }

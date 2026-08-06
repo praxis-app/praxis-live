@@ -76,6 +76,7 @@ export const ProposalVoteButtons = ({
         return {
           action: 'create' as const,
           isRatifyingVote: vote.isRatifyingVote,
+          closedReason: vote.closedReason,
           voteId: vote.id,
           voteType,
         };
@@ -90,7 +91,7 @@ export const ProposalVoteButtons = ({
         };
       }
       // Update vote
-      const { isRatifyingVote } = await api.updateVote(
+      const { isRatifyingVote, closedReason } = await api.updateVote(
         serverId,
         channel.id,
         pollId,
@@ -100,6 +101,7 @@ export const ProposalVoteButtons = ({
       return {
         action: 'update' as const,
         isRatifyingVote,
+        closedReason,
         voteId: myVote.id,
         voteType,
       };
@@ -151,6 +153,9 @@ export const ProposalVoteButtons = ({
           votes,
           agreementVoteCount,
           stage: result.isRatifyingVote ? 'ratified' : proposal.stage,
+          ...(result.closedReason
+            ? { stage: 'closed', closedReason: result.closedReason }
+            : {}),
           myVote: { id: result.voteId, voteType: result.voteType! },
         };
       };
@@ -179,14 +184,20 @@ export const ProposalVoteButtons = ({
         });
       }
 
-      if (result.isRatifyingVote) {
+      if (result.isRatifyingVote || result.closedReason) {
         if (feedQueryKey) {
           void queryClient.invalidateQueries({ queryKey: feedQueryKey });
         }
         void queryClient.invalidateQueries({
           queryKey: getActiveDecisionsQueryKey(serverId),
         });
-        toast(t('proposals.prompts.ratifiedSuccess'));
+        toast(
+          t(
+            result.closedReason
+              ? 'proposals.outcomes.eventStartElapsed'
+              : 'proposals.prompts.ratifiedSuccess',
+          ),
+        );
       } else {
         updateActiveDecisionCache(queryClient, serverId, pollId, (decision) => {
           const responseCountChange =

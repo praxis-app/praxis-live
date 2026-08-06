@@ -10,6 +10,7 @@ interface Props {
   timePlaceholder: string;
   value?: string;
   onChange: (value: string) => void;
+  minDate?: Date;
 }
 
 const getDateTimeParts = (value?: string) => {
@@ -24,6 +25,7 @@ export const EventDateTimeField = ({
   timePlaceholder,
   value,
   onChange,
+  minDate,
 }: Props) => {
   const initialParts = getDateTimeParts(value);
   const [date, setDate] = useState(initialParts.date);
@@ -53,6 +55,7 @@ export const EventDateTimeField = ({
           label={dateLabel}
           placeholder={datePlaceholder}
           value={date}
+          minDate={minDate}
           onChange={(nextDate) => updateValue(nextDate, time)}
         />
       </div>

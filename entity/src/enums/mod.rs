@@ -15,7 +15,8 @@ pub use poll_actions::{
     PollActionType,
 };
 pub use polls::{
-    PollDecisionMakingModel, PollStage, PollType, ServerDecisionMakingModel,
+    PollClosedReason, PollDecisionMakingModel, PollStage, PollType,
+    ServerDecisionMakingModel,
 };
 pub use roles::{
     InstanceAbilitySubject, InstanceRoleAbilityAction, ServerAbilitySubject,

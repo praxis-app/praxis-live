@@ -149,6 +149,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
                 datePlaceholder={t('events.placeholders.selectDate')}
                 timeLabel={t('events.labels.startTime')}
                 timePlaceholder={t('events.placeholders.selectTime')}
+                minDate={new Date()}
                 value={field.value}
                 onChange={(value) => {
                   field.onChange(value);
