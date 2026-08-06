@@ -92,6 +92,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
                 <Input
                   placeholder={t('events.placeholders.name')}
                   className="h-11"
+                  autoComplete="off"
                   {...field}
                 />
               </FormControl>
@@ -132,6 +133,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
                 <Textarea
                   placeholder={t('events.placeholders.description')}
                   className="min-h-24 resize-y"
+                  autoComplete="off"
                   {...field}
                 />
               </FormControl>
@@ -244,6 +246,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
                   <Input
                     placeholder={t('events.placeholders.location')}
                     className="h-11"
+                    autoComplete="off"
                     {...field}
                   />
                 </FormControl>
@@ -265,6 +268,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
                     type="url"
                     placeholder={t('events.placeholders.externalLink')}
                     className="h-11"
+                    autoComplete="off"
                     {...field}
                   />
                 </FormControl>
@@ -318,6 +322,7 @@ export const PlanEventStep = ({ isLoading }: WizardStepProps) => {
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder={t('events.placeholders.hosts')}
+            autoComplete="off"
             className="h-11 pl-9"
           />
         </div>

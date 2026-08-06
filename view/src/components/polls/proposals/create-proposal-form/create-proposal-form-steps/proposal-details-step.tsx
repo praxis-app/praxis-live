@@ -129,6 +129,7 @@ export const ProposalDetailsStep = ({ isLoading }: WizardStepProps) => {
                   {...field}
                   placeholder={t('proposals.placeholders.body')}
                   className="w-full resize-none md:min-w-md"
+                  autoComplete="off"
                   rows={4}
                 />
               </FormControl>
