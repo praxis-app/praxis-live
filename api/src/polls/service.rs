@@ -97,13 +97,13 @@ pub(crate) fn spawn_proposal_synchronizer(
             interval.tick().await;
 
             match synchronize_proposals(&database, &pub_sub_service).await {
-                Ok(summary) if summary.processed > 0 => {
+                Ok(summary) if summary.ratified > 0 || summary.closed > 0 => {
                     tracing::info!(
-                        processed = summary.processed,
+                        checked = summary.processed,
                         ratified = summary.ratified,
                         closed = summary.closed,
                         failed = summary.failed,
-                        "Synchronized proposals."
+                        "Synchronized proposals"
                     );
                 }
                 Ok(_) => {}
