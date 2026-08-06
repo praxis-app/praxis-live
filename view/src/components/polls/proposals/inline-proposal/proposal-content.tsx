@@ -138,6 +138,7 @@ export const ProposalContent = ({
             votes={votes ?? []}
             config={config}
             memberCount={memberCount}
+            closedReason={poll.closedReason}
             isOpen={isVoteProgressDialogOpen}
             onOpenChange={setIsVoteProgressDialogOpen}
           />

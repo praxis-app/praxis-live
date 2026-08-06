@@ -26,11 +26,7 @@ export const ProposalOutcome = ({ poll }: Props) => {
 
   if (poll.stage === 'closed') {
     if (poll.closedReason === 'event-start-elapsed') {
-      return (
-        <p className="text-destructive text-sm">
-          {t('proposals.outcomes.eventStartElapsed')}
-        </p>
-      );
+      return null;
     }
 
     const failedRules = [

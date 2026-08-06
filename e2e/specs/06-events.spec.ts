@@ -490,6 +490,16 @@ test('past event proposals are rejected and stale proposals expire automatically
       'This proposal expired because the event start time passed.',
       { exact: true },
     ),
+  ).toHaveCount(0);
+  await proposal.getByRole('button', { name: 'Closed', exact: true }).click();
+  const voteProgressDialog = page.getByRole('dialog', {
+    name: 'Vote Progress',
+  });
+  await expect(
+    voteProgressDialog.getByText(
+      'This proposal expired because the event start time passed.',
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(proposal.getByRole('link', { name: 'View event' })).toHaveCount(
     0,
