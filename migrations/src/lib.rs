@@ -15,6 +15,7 @@ mod m20260715_000001_add_forum_channel_schema;
 mod m20260802_000001_add_events;
 mod m20260803_000001_add_event_cover_photos;
 mod m20260805_000001_add_poll_closed_reason;
+mod m20260806_000001_add_event_host_ineligible_closed_reason;
 
 pub struct Migrator;
 
@@ -39,6 +40,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260802_000001_add_events::Migration),
             Box::new(m20260803_000001_add_event_cover_photos::Migration),
             Box::new(m20260805_000001_add_poll_closed_reason::Migration),
+            Box::new(
+                m20260806_000001_add_event_host_ineligible_closed_reason::Migration,
+            ),
         ]
     }
 }

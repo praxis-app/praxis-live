@@ -6,17 +6,18 @@ use entity::{
         PollActionType, PollClosedReason, PollDecisionMakingModel, PollStage,
         PollType, VoteType,
     },
-    forum_posts, poll_action_event_cover_photos, poll_action_events,
-    poll_actions as poll_action_entities, poll_configs, poll_images,
-    poll_option_selections, poll_options, polls,
-    server_configs as server_config_entities, users, votes,
+    forum_posts, poll_action_event_cover_photos, poll_action_event_hosts,
+    poll_action_events, poll_actions as poll_action_entities, poll_configs,
+    poll_images, poll_option_selections, poll_options, polls,
+    server_configs as server_config_entities, server_members, users, votes,
 };
 use sea_orm::{
     prelude::Uuid,
     sea_query::{JoinType, LockType, NullOrdering, Order},
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
     DatabaseConnection, DeleteResult, EntityTrait, IntoActiveModel,
-    QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, TransactionTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set,
+    TransactionTrait,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -908,16 +909,11 @@ pub(crate) async fn finalize_ratifiable_proposal(
     poll_id: Uuid,
     now: DateTime<FixedOffset>,
 ) -> AppResult<ProposalFinalization> {
-    if plan_event_start_has_elapsed(transaction, poll_id, now).await? {
-        close_poll_with_reason(
-            transaction,
-            poll_id,
-            Some(PollClosedReason::EventStartElapsed),
-        )
-        .await?;
-        return Ok(ProposalFinalization::Closed(
-            PollClosedReason::EventStartElapsed,
-        ));
+    if let Some(reason) =
+        plan_event_closed_reason(transaction, poll_id, now).await?
+    {
+        close_poll_with_reason(transaction, poll_id, Some(reason)).await?;
+        return Ok(ProposalFinalization::Closed(reason));
     }
 
     poll_actions::service::implement_poll_action_in_transaction(
@@ -1025,9 +1021,7 @@ async fn expire_stale_event_proposals(
             poll_action_entities::Column::ActionType
                 .eq(PollActionType::PlanEvent),
         )
-        .filter(poll_action_events::Column::StartsAt.lte(now))
         .order_by_asc(poll_action_events::Column::StartsAt)
-        .limit(PROPOSAL_SYNC_BATCH_SIZE as u64)
         .all(database)
         .await
         .map_err(internal_error)?;
@@ -1074,28 +1068,22 @@ async fn expire_stale_event_proposal(
             ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
         })?;
 
-    if poll.stage != PollStage::Voting
-        || !plan_event_start_has_elapsed(&transaction, poll_id, now).await?
-    {
+    let reason = plan_event_closed_reason(&transaction, poll_id, now).await?;
+    if poll.stage != PollStage::Voting || reason.is_none() {
         transaction.commit().await.map_err(internal_error)?;
         return Ok(false);
     }
 
-    close_poll_with_reason(
-        &transaction,
-        poll_id,
-        Some(PollClosedReason::EventStartElapsed),
-    )
-    .await?;
+    close_poll_with_reason(&transaction, poll_id, reason).await?;
     transaction.commit().await.map_err(internal_error)?;
     Ok(true)
 }
 
-async fn plan_event_start_has_elapsed<C>(
+async fn plan_event_closed_reason<C>(
     database: &C,
     poll_id: Uuid,
     now: DateTime<FixedOffset>,
-) -> AppResult<bool>
+) -> AppResult<Option<PollClosedReason>>
 where
     C: ConnectionTrait,
 {
@@ -1104,11 +1092,12 @@ where
         .one(database)
         .await
         .map_err(internal_error)?;
+
     let Some(action) = action else {
-        return Ok(false);
+        return Ok(None);
     };
     if action.action_type != PollActionType::PlanEvent {
-        return Ok(false);
+        return Ok(None);
     }
 
     let proposed_event = poll_action_events::Entity::find()
@@ -1122,7 +1111,47 @@ where
                 "Proposed event is required.",
             )
         })?;
-    Ok(proposed_event.starts_at <= now)
+    if proposed_event.starts_at <= now {
+        return Ok(Some(PollClosedReason::EventStartElapsed));
+    }
+
+    let poll = polls::Entity::find_by_id(poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+
+    let channel = channel_entities::Entity::find_by_id(poll.channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
+        })?;
+
+    let host_ids = poll_action_event_hosts::Entity::find()
+        .filter(
+            poll_action_event_hosts::Column::PollActionEventId
+                .eq(proposed_event.id),
+        )
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|host| host.user_id)
+        .collect::<Vec<_>>();
+
+    let member_count = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(channel.server_id))
+        .filter(server_members::Column::UserId.is_in(host_ids.iter().copied()))
+        .count(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok((member_count < host_ids.len() as u64)
+        .then_some(PollClosedReason::EventHostIneligible))
 }
 
 async fn close_expired_polls(

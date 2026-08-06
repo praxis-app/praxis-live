@@ -268,6 +268,7 @@
       "ratified": "Ratified — the proposal passed.",
       "closedWithoutConsensus": "Closed without consensus.",
       "eventStartElapsed": "This proposal expired because the event start time passed.",
+      "eventHostIneligible": "This proposal expired because a proposed event host is no longer a server member.",
       "failedRules": "Failed conditions: {{rules}}.",
       "finalizing": "Voting has ended. Finalizing the result…",
       "eligibleAtDeadline": "All conditions are met. Eligible to pass when voting closes.",

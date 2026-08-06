@@ -68,10 +68,17 @@ export const VoteProgressDialog = ({
             </DialogDescription>
           </VisuallyHidden>
         </DialogHeader>
+
         <div className="space-y-6 pt-2">
           {closedReason === 'event-start-elapsed' && (
             <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
               {t('proposals.outcomes.eventStartElapsed')}
+            </p>
+          )}
+
+          {closedReason === 'event-host-ineligible' && (
+            <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+              {t('proposals.outcomes.eventHostIneligible')}
             </p>
           )}
 

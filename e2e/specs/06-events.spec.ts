@@ -521,3 +521,100 @@ test('past event proposals are rejected and stale proposals expire automatically
     events.filter((event) => event.sourcePollActionId === action.id),
   ).toHaveLength(0);
 });
+
+test('event proposal expires when a proposed host leaves the server', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('departed-host-proposer'),
+  );
+  const host = await signUpViaApi(
+    request,
+    createTestUser('departed-event-host'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  const proposalBody = `Event with departing host ${proposer.user.suffix}`;
+  const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60_000);
+  const createProposalResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+    {
+      headers: authorizationHeaders(proposer),
+      data: {
+        body: proposalBody,
+        pollType: 'proposal',
+        action: {
+          actionType: 'plan-event',
+          event: {
+            name: `Hosted event ${proposer.user.suffix}`,
+            description: 'This event requires its proposed host to remain.',
+            startsAt: startsAt.toISOString(),
+            online: true,
+            hostIds: [host.userId],
+            coverPhoto: false,
+          },
+        },
+      },
+    },
+  );
+  await expect(createProposalResponse).toBeOK();
+  const { poll } = (await createProposalResponse.json()) as PollResponse;
+  const action = poll.action;
+  expect(action?.actionType).toBe('plan-event');
+  if (!action) {
+    throw new Error('Plan-event proposal response did not include its action.');
+  }
+
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+  const proposal = page.getByRole('article', {
+    name: `Majority Vote Proposal: ${proposalBody}`,
+  });
+  await expect(proposal).toBeVisible();
+  await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
+
+  const removeHostResponse = await request.delete(
+    `/api/servers/${server.id}/members`,
+    {
+      headers: authorizationHeaders(proposer),
+      data: { userIds: [host.userId] },
+    },
+  );
+  await expect(removeHostResponse).toBeOK();
+
+  await expect(proposal.getByText('Closed', { exact: true })).toBeVisible();
+  const closedReason =
+    'This proposal expired because a proposed event host is no longer a server member.';
+  await expect(
+    proposal.getByText(closedReason, { exact: true }),
+  ).toHaveCount(0);
+  await proposal.getByRole('button', { name: 'Closed', exact: true }).click();
+  const voteProgressDialog = page.getByRole('dialog', {
+    name: 'Vote Progress',
+  });
+  await expect(
+    voteProgressDialog.getByText(closedReason, { exact: true }),
+  ).toBeVisible();
+  await expect(proposal.getByRole('button', { name: 'Agree' })).toHaveCount(0);
+  expect(getPollVoteSummary(poll.id)).toBe('0:none');
+
+  const eventsResponse = await request.get(`/api/servers/${server.id}/events`, {
+    headers: authorizationHeaders(proposer),
+    params: {
+      from: new Date(startsAt.getTime() - 24 * 60 * 60_000).toISOString(),
+      to: new Date(startsAt.getTime() + 24 * 60 * 60_000).toISOString(),
+    },
+  });
+  await expect(eventsResponse).toBeOK();
+  const { events } = (await eventsResponse.json()) as {
+    events: EventResponse[];
+  };
+  expect(
+    events.filter((event) => event.sourcePollActionId === action.id),
+  ).toHaveLength(0);
+});

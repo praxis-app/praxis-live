@@ -25,7 +25,7 @@ export const ProposalOutcome = ({ poll }: Props) => {
   }
 
   if (poll.stage === 'closed') {
-    if (poll.closedReason === 'event-start-elapsed') {
+    if (poll.closedReason) {
       return null;
     }
 

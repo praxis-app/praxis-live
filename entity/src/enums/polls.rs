@@ -84,10 +84,13 @@ impl_enum_string_conversions!(PollStage {
 pub enum PollClosedReason {
     #[sea_orm(string_value = "event-start-elapsed")]
     EventStartElapsed,
+    #[sea_orm(string_value = "event-host-ineligible")]
+    EventHostIneligible,
 }
 
 impl_enum_string_conversions!(PollClosedReason {
     EventStartElapsed => "event-start-elapsed",
+    EventHostIneligible => "event-host-ineligible",
 });
 
 #[derive(
