@@ -8,18 +8,32 @@ pub(crate) struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         create_event_attendee_status_enum(manager).await?;
+        create_poll_closed_reason_enum(manager).await?;
+        add_poll_closed_reason(manager).await?;
         create_poll_action_events(manager).await?;
         create_poll_action_event_hosts(manager).await?;
+        create_poll_action_event_cover_photos(manager).await?;
         create_events(manager).await?;
-        create_event_attendees(manager).await
+        create_event_attendees(manager).await?;
+        create_event_cover_photos(manager).await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(EventCoverPhotos::Table).to_owned())
+            .await?;
         manager
             .drop_table(Table::drop().table(EventAttendees::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Events::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(PollActionEventCoverPhotos::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
             .drop_table(
@@ -29,6 +43,8 @@ impl MigrationTrait for Migration {
         manager
             .drop_table(Table::drop().table(PollActionEvents::Table).to_owned())
             .await?;
+        drop_poll_closed_reason(manager).await?;
+        drop_poll_closed_reason_enum(manager).await?;
         drop_event_attendee_status_enum(manager).await
     }
 }
@@ -68,6 +84,74 @@ async fn drop_event_attendee_status_enum(
     }
 
     Ok(())
+}
+
+async fn create_poll_closed_reason_enum(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() == DbBackend::Postgres {
+        manager
+            .create_type(
+                Type::create()
+                    .as_enum(Alias::new("poll_closed_reason_enum"))
+                    .values([
+                        Alias::new("event-start-elapsed"),
+                        Alias::new("event-host-ineligible"),
+                    ])
+                    .to_owned(),
+            )
+            .await?;
+    }
+
+    Ok(())
+}
+
+async fn drop_poll_closed_reason_enum(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() == DbBackend::Postgres {
+        manager
+            .drop_type(
+                Type::drop()
+                    .name(Alias::new("poll_closed_reason_enum"))
+                    .to_owned(),
+            )
+            .await?;
+    }
+
+    Ok(())
+}
+
+async fn add_poll_closed_reason(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    manager
+        .alter_table(
+            Table::alter()
+                .table(Polls::Table)
+                .add_column(ColumnDef::new(Polls::ClosedReason).enumeration(
+                    Alias::new("poll_closed_reason_enum"),
+                    [
+                        Alias::new("event-start-elapsed"),
+                        Alias::new("event-host-ineligible"),
+                    ],
+                ))
+                .to_owned(),
+        )
+        .await
+}
+
+async fn drop_poll_closed_reason(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    manager
+        .alter_table(
+            Table::alter()
+                .table(Polls::Table)
+                .drop_column(Polls::ClosedReason)
+                .to_owned(),
+        )
+        .await
 }
 
 async fn create_poll_action_events(
@@ -199,6 +283,58 @@ async fn create_poll_action_event_hosts(
                         .name("poll-action-event-hosts-event-user-key")
                         .col(PollActionEventHosts::PollActionEventId)
                         .col(PollActionEventHosts::UserId)
+                        .unique(),
+                )
+                .to_owned(),
+        )
+        .await
+}
+
+async fn create_poll_action_event_cover_photos(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    manager
+        .create_table(
+            Table::create()
+                .table(PollActionEventCoverPhotos::Table)
+                .col(
+                    ColumnDef::new(PollActionEventCoverPhotos::Id)
+                        .uuid()
+                        .not_null()
+                        .primary_key(),
+                )
+                .col(
+                    ColumnDef::new(
+                        PollActionEventCoverPhotos::PollActionEventId,
+                    )
+                    .uuid()
+                    .not_null(),
+                )
+                .col(
+                    ColumnDef::new(PollActionEventCoverPhotos::StorageKey)
+                        .string(),
+                )
+                .col(
+                    ColumnDef::new(PollActionEventCoverPhotos::ContentType)
+                        .string(),
+                )
+                .col(timestamp(PollActionEventCoverPhotos::CreatedAt))
+                .col(timestamp(PollActionEventCoverPhotos::UpdatedAt))
+                .foreign_key(
+                    ForeignKey::create()
+                        .name("poll-action-event-cover-photos-event-id-fkey")
+                        .from(
+                            PollActionEventCoverPhotos::Table,
+                            PollActionEventCoverPhotos::PollActionEventId,
+                        )
+                        .to(PollActionEvents::Table, PollActionEvents::Id)
+                        .on_delete(ForeignKeyAction::Cascade)
+                        .on_update(ForeignKeyAction::Cascade),
+                )
+                .index(
+                    Index::create()
+                        .name("poll-action-event-cover-photos-event-id-key")
+                        .col(PollActionEventCoverPhotos::PollActionEventId)
                         .unique(),
                 )
                 .to_owned(),
@@ -378,6 +514,52 @@ async fn create_event_attendees(
         .await
 }
 
+async fn create_event_cover_photos(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    manager
+        .create_table(
+            Table::create()
+                .table(EventCoverPhotos::Table)
+                .col(
+                    ColumnDef::new(EventCoverPhotos::Id)
+                        .uuid()
+                        .not_null()
+                        .primary_key(),
+                )
+                .col(
+                    ColumnDef::new(EventCoverPhotos::EventId).uuid().not_null(),
+                )
+                .col(
+                    ColumnDef::new(EventCoverPhotos::StorageKey)
+                        .string()
+                        .not_null(),
+                )
+                .col(ColumnDef::new(EventCoverPhotos::ContentType).string())
+                .col(timestamp(EventCoverPhotos::CreatedAt))
+                .col(timestamp(EventCoverPhotos::UpdatedAt))
+                .foreign_key(
+                    ForeignKey::create()
+                        .name("event-cover-photos-event-id-fkey")
+                        .from(
+                            EventCoverPhotos::Table,
+                            EventCoverPhotos::EventId,
+                        )
+                        .to(Events::Table, Events::Id)
+                        .on_delete(ForeignKeyAction::Cascade)
+                        .on_update(ForeignKeyAction::Cascade),
+                )
+                .index(
+                    Index::create()
+                        .name("event-cover-photos-event-id-key")
+                        .col(EventCoverPhotos::EventId)
+                        .unique(),
+                )
+                .to_owned(),
+        )
+        .await
+}
+
 fn timestamp<T>(column: T) -> ColumnDef
 where
     T: IntoIden,
@@ -417,6 +599,17 @@ enum PollActionEventHosts {
 }
 
 #[derive(DeriveIden)]
+enum PollActionEventCoverPhotos {
+    Table,
+    Id,
+    PollActionEventId,
+    StorageKey,
+    ContentType,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
 enum Events {
     Table,
     Id,
@@ -445,9 +638,26 @@ enum EventAttendees {
 }
 
 #[derive(DeriveIden)]
+enum EventCoverPhotos {
+    Table,
+    Id,
+    EventId,
+    StorageKey,
+    ContentType,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
 enum PollActions {
     Table,
     Id,
+}
+
+#[derive(DeriveIden)]
+enum Polls {
+    Table,
+    ClosedReason,
 }
 
 #[derive(DeriveIden)]
