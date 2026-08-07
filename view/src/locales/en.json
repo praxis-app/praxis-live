@@ -470,6 +470,7 @@
     "actions": {
       "closePanel": "Close active decisions",
       "openDecision": "Open {{type}} in {{channel}}",
+      "panel": "Decisions",
       "togglePanel": "Toggle active decisions"
     },
     "errors": {

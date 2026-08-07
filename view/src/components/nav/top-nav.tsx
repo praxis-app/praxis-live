@@ -1,5 +1,11 @@
 import { NavSheet } from '@/components/nav/nav-sheet';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
@@ -114,32 +120,44 @@ export const TopNav = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        {isDesktop && onToggleDecisionsPanel && (
-          <Button
-            type="button"
-            aria-label={t('decisions.actions.togglePanel')}
-            aria-controls="active-decisions-panel"
-            aria-expanded={isDecisionsPanelOpen}
-            onClick={onToggleDecisionsPanel}
-            variant="ghost"
-            size="icon"
-          >
-            <LuListTodo className="size-5.5" />
-          </Button>
-        )}
+      <TooltipProvider>
+        <div className="flex items-center gap-1">
+          {isDesktop && onToggleDecisionsPanel && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  aria-label={t('decisions.actions.togglePanel')}
+                  aria-controls="active-decisions-panel"
+                  aria-expanded={isDecisionsPanelOpen}
+                  onClick={onToggleDecisionsPanel}
+                  variant="ghost"
+                  size="icon"
+                >
+                  <LuListTodo className="size-5.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('decisions.actions.panel')}</TooltipContent>
+            </Tooltip>
+          )}
 
-        {showSearch && (
-          <Button
-            aria-label={t('actions.search')}
-            onClick={() => toast(t('prompts.inDev'))}
-            variant="ghost"
-            size="icon"
-          >
-            <MdSearch className="size-6" />
-          </Button>
-        )}
-      </div>
+          {showSearch && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label={t('actions.search')}
+                  onClick={() => toast(t('prompts.inDev'))}
+                  variant="ghost"
+                  size="icon"
+                >
+                  <MdSearch className="size-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('actions.search')}</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </TooltipProvider>
     </header>
   );
 };

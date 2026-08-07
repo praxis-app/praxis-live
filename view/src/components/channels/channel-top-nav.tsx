@@ -3,6 +3,12 @@ import { ChannelDetailsDrawer } from '@/components/channels/channel-details-draw
 import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { NavSheet } from '@/components/nav/nav-sheet';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { truncate } from '@/lib/text.utils';
@@ -114,45 +120,57 @@ export const ChannelTopNav = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        {channel && videoCallsEnabled && (
-          <ChannelCallButton
-            callConfig={callConfig}
-            callPreferences={callPreferences}
-            channel={channel}
-            serverName={serverName}
-            isJoining={isJoiningCall}
-            isPreJoinOpen={isPreJoinOpen}
-            onCancelPreJoin={onCancelPreJoin}
-            onConfirmJoin={onConfirmJoinCall}
-            onJoin={onJoinCall}
-            onLeave={onLeaveCall}
-          />
-        )}
+      <TooltipProvider>
+        <div className="flex items-center gap-1">
+          {channel && videoCallsEnabled && (
+            <ChannelCallButton
+              callConfig={callConfig}
+              callPreferences={callPreferences}
+              channel={channel}
+              serverName={serverName}
+              isJoining={isJoiningCall}
+              isPreJoinOpen={isPreJoinOpen}
+              onCancelPreJoin={onCancelPreJoin}
+              onConfirmJoin={onConfirmJoinCall}
+              onJoin={onJoinCall}
+              onLeave={onLeaveCall}
+            />
+          )}
 
-        {isDesktop && (
-          <Button
-            type="button"
-            aria-label={t('decisions.actions.togglePanel')}
-            aria-controls="active-decisions-panel"
-            aria-expanded={isDecisionsPanelOpen}
-            onClick={onToggleDecisionsPanel}
-            variant="ghost"
-            size="icon"
-          >
-            <LuListTodo className="size-5.5" />
-          </Button>
-        )}
+          {isDesktop && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  aria-label={t('decisions.actions.togglePanel')}
+                  aria-controls="active-decisions-panel"
+                  aria-expanded={isDecisionsPanelOpen}
+                  onClick={onToggleDecisionsPanel}
+                  variant="ghost"
+                  size="icon"
+                >
+                  <LuListTodo className="size-5.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('decisions.actions.panel')}</TooltipContent>
+            </Tooltip>
+          )}
 
-        <Button
-          aria-label={searchLabel}
-          onClick={() => toast(t('prompts.inDev'))}
-          variant="ghost"
-          size="icon"
-        >
-          <MdSearch className="size-6" />
-        </Button>
-      </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={searchLabel}
+                onClick={() => toast(t('prompts.inDev'))}
+                variant="ghost"
+                size="icon"
+              >
+                <MdSearch className="size-6" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{searchLabel}</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
     </header>
   );
 };
