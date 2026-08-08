@@ -113,7 +113,7 @@ pub(crate) async fn multipart_json_file<T: DeserializeOwned>(
         ApiError::new(StatusCode::BAD_REQUEST, "Multipart payload is required.")
     })?;
     let file = file.ok_or_else(|| {
-        ApiError::new(StatusCode::BAD_REQUEST, "Cover photo is required.")
+        ApiError::new(StatusCode::BAD_REQUEST, "Multipart file is required.")
     })?;
     Ok((payload, file))
 }
