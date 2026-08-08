@@ -320,27 +320,6 @@ pub(super) async fn create_forum_post_proposal(
     request: crate::polls::types::CreatePollRequest,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<ForumPostResponse> {
-    create_forum_post_proposal_inner(
-        database,
-        server_id,
-        channel_id,
-        post_id,
-        user_id,
-        request,
-        cover_photo.map(|bytes| (upload_root, bytes)),
-    )
-    .await
-}
-
-async fn create_forum_post_proposal_inner(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    post_id: Uuid,
-    user_id: Uuid,
-    request: crate::polls::types::CreatePollRequest,
-    cover_photo: Option<(&std::path::Path, Vec<u8>)>,
-) -> AppResult<ForumPostResponse> {
     let post = load_post(database, channel_id, post_id).await?;
     ensure_post_accepts_proposal(&post, user_id)?;
     let prepared = polls_service::prepare_forum_proposal(
@@ -362,7 +341,7 @@ async fn create_forum_post_proposal_inner(
     active.updated_at = Set(Utc::now().fixed_offset());
     active.update(&transaction).await.map_err(internal_error)?;
     let cover_path = match cover_photo {
-        Some((upload_root, bytes)) => Some(
+        Some(bytes) => Some(
             polls_service::attach_event_cover_photo(
                 &transaction,
                 upload_root,
