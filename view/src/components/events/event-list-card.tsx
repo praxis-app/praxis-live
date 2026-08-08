@@ -20,7 +20,6 @@ interface Props {
 
 export const EventListCard = ({ event, serverPath }: Props) => {
   const { t } = useTranslation();
-  const attendanceCount = event.goingCount + event.interestedCount;
   const status =
     event.currentUserStatus === 'host'
       ? t('events.labels.hosting')
@@ -64,7 +63,7 @@ export const EventListCard = ({ event, serverPath }: Props) => {
             </div>
             <Badge variant="secondary">
               <LuUsers />
-              {attendanceCount}
+              {t('events.labels.goingCount', { count: event.goingCount })}
             </Badge>
           </div>
         </div>

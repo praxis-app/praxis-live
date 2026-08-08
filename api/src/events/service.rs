@@ -266,7 +266,17 @@ async fn shape_event_detail(
         .get(&event.id)
         .map(Vec::as_slice)
         .unwrap_or(&[]);
-    let going = attendee_users(attendees, EventAttendeeStatus::Going, &context);
+    let going = attendees
+        .iter()
+        .filter(|attendee| {
+            matches!(
+                attendee.status,
+                EventAttendeeStatus::Host | EventAttendeeStatus::Going
+            )
+        })
+        .filter_map(|attendee| context.users.get(&attendee.user_id))
+        .map(|user| event_user_response(user, &context))
+        .collect();
     let interested =
         attendee_users(attendees, EventAttendeeStatus::Interested, &context);
 
@@ -364,7 +374,12 @@ fn shape_event(
     let hosts = attendee_users(attendees, EventAttendeeStatus::Host, context);
     let going_count = attendees
         .iter()
-        .filter(|attendee| attendee.status == EventAttendeeStatus::Going)
+        .filter(|attendee| {
+            matches!(
+                attendee.status,
+                EventAttendeeStatus::Host | EventAttendeeStatus::Going
+            )
+        })
         .count();
     let interested_count = attendees
         .iter()
@@ -411,13 +426,20 @@ fn attendee_users(
         .iter()
         .filter(|attendee| attendee.status == status)
         .filter_map(|attendee| context.users.get(&attendee.user_id))
-        .map(|user| EventUserResponse {
-            id: user.id.to_string(),
-            name: user.name.clone(),
-            display_name: user.display_name.clone(),
-            profile_picture: context.profile_pictures.get(&user.id).cloned(),
-        })
+        .map(|user| event_user_response(user, context))
         .collect()
+}
+
+fn event_user_response(
+    user: &users::Model,
+    context: &AttendeeContext,
+) -> EventUserResponse {
+    EventUserResponse {
+        id: user.id.to_string(),
+        name: user.name.clone(),
+        display_name: user.display_name.clone(),
+        profile_picture: context.profile_pictures.get(&user.id).cloned(),
+    }
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

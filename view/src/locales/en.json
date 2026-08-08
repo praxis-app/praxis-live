@@ -335,8 +335,8 @@
       "hosting": "Hosting",
       "hostRsvp": "Hosts are automatically attending this event.",
       "going": "Going",
+      "goingCount": "{{count}} going",
       "interested": "Interested",
-      "attendanceCounts": "{{going}} going · {{interested}} interested",
       "more": "+{{count}} more",
       "coverPhoto": "Cover photo (optional)"
     },

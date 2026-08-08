@@ -278,7 +278,7 @@ test('user can propose and ratify an online event with all details preserved', a
     externalLink: proposedEvent.externalLink,
     currentUserStatus: null,
     interestedCount: 0,
-    goingCount: 0,
+    goingCount: 1,
   });
   expect(createdEvent.hosts.map((user) => user.id)).toEqual([host.userId]);
   expect(createdEvent.coverPhoto).toBeTruthy();
@@ -312,6 +312,7 @@ test('user can propose and ratify an online event with all details preserved', a
   ).event;
   expect(initialDetail).toMatchObject(createdEvent);
   expect(initialDetail.hosts.map((user) => user.id)).toEqual([host.userId]);
+  expect(initialDetail.going.map((user) => user.id)).toEqual([host.userId]);
 
   await expect(
     page.getByText(eventName, { exact: true }).first(),
@@ -361,7 +362,7 @@ test('user can propose and ratify an online event with all details preserved', a
       response.url().includes(`/events/${createdEvent.id}/rsvp`) &&
       response.status() === 200,
   );
-  await page.getByRole('button', { name: 'Going · 0' }).click();
+  await page.getByRole('button', { name: 'Going · 1' }).click();
   const goingResponse = await goingResponsePromise;
   const goingEvent = (
     (await goingResponse.json()) as {
@@ -376,7 +377,7 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     page.getByRole('button', { name: 'Interested · 0' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Going · 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Going · 2' })).toBeVisible();
 
   const calendarResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
@@ -408,7 +409,7 @@ test('user can propose and ratify an online event with all details preserved', a
     .toBe(true);
   await calendarEventSegments.first().click();
   await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
-  await expect(page.getByRole('button', { name: 'Going · 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Going · 2' })).toBeVisible();
 });
 
 test('invalid cover photo rolls back event proposal creation', async ({
