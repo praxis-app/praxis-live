@@ -198,7 +198,7 @@ test('user can propose and ratify an online event with all details preserved', a
     externalLink,
   });
   expect(proposedEvent.hosts.map((user) => user.id)).toEqual([host.userId]);
-  expect(proposedEvent.coverPhoto).toMatchObject({ isPlaceholder: true });
+  expect(proposedEvent.coverPhoto).toMatchObject({ isPlaceholder: false });
 
   await expect(dialog).toBeHidden();
   const proposal = page.getByRole('article', {
@@ -409,6 +409,92 @@ test('user can propose and ratify an online event with all details preserved', a
   await calendarEventSegments.first().click();
   await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
   await expect(page.getByRole('button', { name: 'Going · 1' })).toBeVisible();
+});
+
+test('invalid cover photo rolls back event proposal creation', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('event-cover-failure'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  const proposalBody = `Atomic cover failure ${proposer.user.suffix}`;
+  const eventName = `Atomic cover event ${proposer.user.suffix}`;
+  let proposalCreateRequests = 0;
+
+  page.on('request', (pageRequest) => {
+    const url = new URL(pageRequest.url());
+    if (
+      pageRequest.method() === 'POST' &&
+      url.pathname ===
+        `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`
+    ) {
+      proposalCreateRequests += 1;
+    }
+  });
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+
+  await openCreateProposalDialog(page);
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(dialog, page, 'Select an action type', 'Plan event');
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await dialog.getByLabel('Event name').fill(eventName);
+  await dialog
+    .getByLabel('Description')
+    .fill('The proposal must roll back when cover validation fails.');
+  await dialog
+    .getByTestId('image-input')
+    .setInputFiles('e2e/fixtures/invalid-image.png');
+  await dialog.getByRole('switch', { name: 'Online' }).click();
+  await dialog
+    .getByPlaceholder("Type a member's name to add hosts...")
+    .fill(proposer.user.name);
+  await dialog.getByText(proposer.user.name, { exact: true }).click();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname ===
+        `/api/servers/${server.id}/channels/${server.generalChannelId}/polls` &&
+      response.status() === 422,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  await createProposalResponse;
+
+  await expect(dialog).toBeVisible();
+  await expect(
+    page.getByText(
+      'Event cover photo must be a PNG, JPEG, GIF, or WebP image.',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.getByRole('article', {
+    name: `Majority Vote Proposal: ${proposalBody}`,
+  })).toHaveCount(0);
+  expect(proposalCreateRequests).toBe(1);
+  expect(
+    runDatabaseCommand(
+      `SELECT COUNT(*) FROM poll_action_events WHERE name = '${eventName}';`,
+      { tuplesOnly: true },
+    ).trim(),
+  ).toBe('0');
+  expect(
+    runDatabaseCommand(
+      `SELECT COUNT(*) FROM polls WHERE user_id = '${proposer.userId}';`,
+      { tuplesOnly: true },
+    ).trim(),
+  ).toBe('0');
 });
 
 test('past event proposals are rejected and stale proposals expire automatically', async ({

@@ -77,7 +77,10 @@ export const ForumPostMenu = ({
     },
   );
 
-  const createProposal = async (request: CreatePollReq) => {
+  const createProposal = async (
+    request: CreatePollReq,
+    eventCoverPhoto?: File,
+  ) => {
     if (!serverId) throw new Error('Server ID is required');
     if (post.status === 'closed') {
       throw new Error(t('forums.prompts.closedPost'));
@@ -87,6 +90,7 @@ export const ForumPostMenu = ({
       channel.id,
       post.id,
       request,
+      eventCoverPhoto,
     );
     if (!updatedPost.proposal) {
       throw new Error('Created forum proposal is missing');

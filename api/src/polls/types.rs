@@ -148,17 +148,6 @@ pub(super) struct PollImageResponse {
 }
 
 #[derive(Debug, Serialize)]
-pub(super) struct PollImagePayload {
-    pub(super) image: PollImageResponse,
-}
-
-#[derive(Debug, Serialize)]
-pub(super) struct PollActionEventCoverPhotoPayload {
-    pub(super) image:
-        crate::poll_actions::types::PollActionEventCoverPhotoResponse,
-}
-
-#[derive(Debug, Serialize)]
 pub(super) struct DeletePollResponse {
     pub(super) affected: u64,
 }

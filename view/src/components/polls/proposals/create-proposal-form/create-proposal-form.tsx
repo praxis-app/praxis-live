@@ -4,6 +4,7 @@ import { type WizardStepData } from '@/components/shared/wizard/wizard.types';
 import { useServerData } from '@/hooks/use-server-data';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
 import { getNextHourDateTimeValue } from '@/lib/event.utils';
+import { handleError } from '@/lib/error.utils';
 import { type CallDecisionRes } from '@/types/call.types';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import {
@@ -14,11 +15,8 @@ import { type CreatePollReq, type PollRes } from '@/types/poll.types';
 import { type ServerPermissionKeys } from '@/types/role.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AxiosError } from 'axios';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 import { validateImageInput } from '@/lib/image.utilts';
 import { Wizard } from '../../../shared/wizard/wizard';
 import { ProposalDetailsStep } from './create-proposal-form-steps/proposal-details-step';
@@ -40,7 +38,10 @@ interface Props {
   callId?: string;
   onSuccess: (poll: PollRes) => void;
   onNavigate: () => void;
-  createProposal?: (request: CreatePollReq) => Promise<{ poll: PollRes }>;
+  createProposal?: (
+    request: CreatePollReq,
+    eventCoverPhoto?: File,
+  ) => Promise<{ poll: PollRes }>;
 }
 
 export const CreateProposalForm = ({
@@ -52,7 +53,6 @@ export const CreateProposalForm = ({
 }: Props) => {
   const [currentStep, setCurrentStep] = useState(0);
 
-  const { t } = useTranslation();
   const { serverId } = useServerData();
   const queryClient = useQueryClient();
 
@@ -301,29 +301,27 @@ export const CreateProposalForm = ({
       };
 
       const result = createProposal
-        ? await createProposal(request)
+        ? await createProposal(request, values.eventCoverPhoto)
         : callId
-          ? await api.createCallPoll(serverId, channelId, callId, request)
-          : await api.createPoll(serverId, channelId, request);
+          ? await api.createCallPoll(
+              serverId,
+              channelId,
+              callId,
+              request,
+              values.eventCoverPhoto,
+            )
+          : await api.createPoll(
+              serverId,
+              channelId,
+              request,
+              values.eventCoverPhoto,
+            );
 
       if (values.eventCoverPhoto) {
-        const placeholder = result.poll.action?.event?.coverPhoto;
-        if (!placeholder) {
-          throw new Error('Event cover photo placeholder was not created');
+        const coverPhoto = result.poll.action?.event?.coverPhoto;
+        if (coverPhoto) {
+          coverPhoto.src = URL.createObjectURL(values.eventCoverPhoto);
         }
-        const formData = new FormData();
-        formData.set('file', values.eventCoverPhoto);
-        const { image } = await api.uploadPollActionEventCoverPhoto(
-          serverId,
-          channelId,
-          result.poll.id,
-          placeholder.id,
-          formData,
-        );
-        result.poll.action!.event!.coverPhoto = {
-          ...image,
-          src: URL.createObjectURL(values.eventCoverPhoto),
-        };
       }
 
       return result;
@@ -390,15 +388,7 @@ export const CreateProposalForm = ({
 
       onSuccess(poll);
     },
-    onError(error: Error) {
-      if (error instanceof AxiosError && error.response?.data) {
-        toast(error.response?.data);
-        return;
-      }
-      toast(t('proposals.errors.errorCreatingProposal'), {
-        description: error.message,
-      });
-    },
+    onError: handleError,
   });
 
   // Determine which steps to show based on action type

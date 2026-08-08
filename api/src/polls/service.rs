@@ -20,7 +20,7 @@ use sea_orm::{
     TransactionTrait,
 };
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::time::{self, MissedTickBehavior};
 use uuid::Uuid as NativeUuid;
 
@@ -151,10 +151,33 @@ pub(crate) fn spawn_expired_poll_closer(
 
 pub(super) async fn create_poll(
     database: &DatabaseConnection,
+    upload_root: &Path,
     server_id: Uuid,
     channel_id: Uuid,
     user_id: Uuid,
     request: CreatePollRequest,
+    cover_photo: Option<Vec<u8>>,
+) -> AppResult<PollResponse> {
+    create_poll_inner(
+        database,
+        server_id,
+        channel_id,
+        None,
+        user_id,
+        request,
+        cover_photo.map(|bytes| (upload_root, bytes)),
+    )
+    .await
+}
+
+async fn create_poll_inner(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    call_id: Option<Uuid>,
+    user_id: Uuid,
+    request: CreatePollRequest,
+    cover_photo: Option<(&Path, Vec<u8>)>,
 ) -> AppResult<PollResponse> {
     let prepared = prepare_poll_creation(
         database, server_id, channel_id, user_id, request, false,
@@ -162,33 +185,41 @@ pub(super) async fn create_poll(
     .await?;
     let transaction = database.begin().await.map_err(internal_error)?;
     let poll =
-        insert_prepared_poll(&transaction, None, user_id, prepared).await?;
-    transaction.commit().await.map_err(internal_error)?;
+        insert_prepared_poll(&transaction, call_id, user_id, prepared).await?;
+    let cover_path = match cover_photo {
+        Some((upload_root, bytes)) => Some(
+            attach_event_cover_photo(&transaction, upload_root, poll.id, bytes)
+                .await?,
+        ),
+        None => None,
+    };
+    commit_creation(transaction, cover_path).await?;
     get_poll_response(database, server_id, channel_id, poll.id, Some(user_id))
         .await
 }
 
 pub(super) async fn create_call_poll(
     database: &DatabaseConnection,
+    upload_root: &Path,
     server_id: Uuid,
     channel_id: Uuid,
     call_id: Uuid,
     user_id: Uuid,
     request: CreatePollRequest,
+    cover_photo: Option<Vec<u8>>,
 ) -> AppResult<PollResponse> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
-    let prepared = prepare_poll_creation(
-        database, server_id, channel_id, user_id, request, false,
+    create_poll_inner(
+        database,
+        server_id,
+        channel_id,
+        Some(call_id),
+        user_id,
+        request,
+        cover_photo.map(|bytes| (upload_root, bytes)),
     )
-    .await?;
-    let transaction = database.begin().await.map_err(internal_error)?;
-    let poll =
-        insert_prepared_poll(&transaction, Some(call_id), user_id, prepared)
-            .await?;
-    transaction.commit().await.map_err(internal_error)?;
-    get_poll_response(database, server_id, channel_id, poll.id, Some(user_id))
-        .await
+    .await
 }
 
 pub(crate) async fn broadcast_poll_update(
@@ -225,33 +256,6 @@ pub(crate) async fn broadcast_poll_update(
     }
 
     Ok(())
-}
-
-pub(super) async fn broadcast_poll_image_upload(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    channel_id: Uuid,
-    sender_id: Uuid,
-    poll_id: &str,
-    image_id: &str,
-) -> AppResult<()> {
-    let body = serde_json::json!({
-        "type": "image",
-        "isPlaceholder": false,
-        "pollId": poll_id,
-        "imageId": image_id,
-    });
-
-    broadcast_to_channel_members(
-        database,
-        pub_sub_service,
-        server_id,
-        channel_id,
-        sender_id,
-        body,
-    )
-    .await
 }
 
 pub(crate) struct PreparedPollCreation {
@@ -448,6 +452,99 @@ pub(crate) async fn insert_prepared_poll<C: ConnectionTrait>(
     Ok(poll)
 }
 
+pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
+    database: &C,
+    upload_root: &Path,
+    poll_id: Uuid,
+    bytes: Vec<u8>,
+) -> AppResult<PathBuf> {
+    if bytes.is_empty() {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "No image uploaded",
+        ));
+    }
+    let content_type = validate_event_cover_photo(&bytes)?;
+    let action = poll_action_entities::Entity::find()
+        .filter(poll_action_entities::Column::PollId.eq(poll_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "An event cover photo requires an event proposal.",
+            )
+        })?;
+    let event = poll_action_events::Entity::find()
+        .filter(poll_action_events::Column::PollActionId.eq(action.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "An event cover photo requires an event proposal.",
+            )
+        })?;
+    let image = poll_action_event_cover_photos::Entity::find()
+        .filter(
+            poll_action_event_cover_photos::Column::PollActionEventId
+                .eq(event.id),
+        )
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "The event proposal must request a cover photo.",
+            )
+        })?;
+
+    let storage_key = format!("poll-action-event-cover-photos/{}", image.id);
+    let destination = upload_root.join(&storage_key);
+    if let Some(parent) = destination.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(internal_error)?;
+    }
+    if let Err(error) = tokio::fs::write(&destination, bytes).await {
+        let _ = tokio::fs::remove_file(&destination).await;
+        return Err(internal_error(error));
+    }
+
+    let mut active = image.into_active_model();
+    active.storage_key = Set(Some(storage_key));
+    active.content_type = Set(Some(content_type.to_owned()));
+    if let Err(error) = active.update(database).await {
+        if let Err(cleanup_error) = tokio::fs::remove_file(&destination).await {
+            tracing::warn!(
+                "failed to clean up event cover photo after database error: {cleanup_error}"
+            );
+        }
+        return Err(internal_error(error));
+    }
+    Ok(destination)
+}
+
+pub(crate) async fn commit_creation(
+    transaction: sea_orm::DatabaseTransaction,
+    cover_path: Option<PathBuf>,
+) -> AppResult<()> {
+    if let Err(error) = transaction.commit().await {
+        if let Some(path) = cover_path {
+            if let Err(cleanup_error) = tokio::fs::remove_file(path).await {
+                tracing::warn!(
+                    "failed to clean up event cover photo after transaction error: {cleanup_error}"
+                );
+            }
+        }
+        return Err(internal_error(error));
+    }
+    Ok(())
+}
+
 pub(crate) async fn get_inline_polls(
     database: &DatabaseConnection,
     server_id: Uuid,
@@ -559,90 +656,6 @@ pub(super) async fn get_call_decision(
         active_item,
         recent_result,
     })
-}
-
-pub(super) async fn store_poll_image(
-    database: &DatabaseConnection,
-    upload_root: &Path,
-    poll: &polls::Model,
-    image_id: Uuid,
-    content_type: Option<String>,
-    bytes: Vec<u8>,
-) -> AppResult<PollImageResponse> {
-    if bytes.is_empty() {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "No image uploaded",
-        ));
-    }
-
-    let image = poll_images::Entity::find_by_id(image_id)
-        .filter(poll_images::Column::PollId.eq(poll.id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
-        })?;
-
-    let storage_key = format!("poll-images/{image_id}");
-    let destination = upload_root.join(&storage_key);
-    if let Some(parent) = destination.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(internal_error)?;
-    }
-    tokio::fs::write(&destination, bytes)
-        .await
-        .map_err(internal_error)?;
-
-    let mut active = image.into_active_model();
-    active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(content_type);
-    let image = active.update(database).await.map_err(internal_error)?;
-    Ok(shape_poll_image(&image))
-}
-
-pub(super) async fn store_poll_action_event_cover_photo(
-    database: &DatabaseConnection,
-    upload_root: &Path,
-    poll: &polls::Model,
-    image_id: Uuid,
-    bytes: Vec<u8>,
-) -> AppResult<crate::poll_actions::types::PollActionEventCoverPhotoResponse> {
-    if bytes.is_empty() {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "No image uploaded",
-        ));
-    }
-
-    let content_type = validate_event_cover_photo(&bytes)?;
-
-    let image =
-        load_poll_action_event_cover_photo(database, poll.id, image_id).await?;
-    let storage_key = format!("poll-action-event-cover-photos/{image_id}");
-    let destination = upload_root.join(&storage_key);
-    if let Some(parent) = destination.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(internal_error)?;
-    }
-    tokio::fs::write(&destination, bytes)
-        .await
-        .map_err(internal_error)?;
-
-    let poll_action_event_id = image.poll_action_event_id;
-    let mut active = image.into_active_model();
-    active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(Some(content_type.to_owned()));
-    let image = active.update(database).await.map_err(internal_error)?;
-    crate::poll_actions::service::sync_event_cover_photo(
-        database,
-        poll_action_event_id,
-    )
-    .await?;
-    Ok(shape_poll_action_event_cover_photo(&image))
 }
 
 pub(super) async fn get_poll_action_event_cover_photo(
@@ -1646,16 +1659,6 @@ fn shape_poll_image(image: &poll_images::Model) -> PollImageResponse {
     }
 }
 
-fn shape_poll_action_event_cover_photo(
-    image: &poll_action_event_cover_photos::Model,
-) -> crate::poll_actions::types::PollActionEventCoverPhotoResponse {
-    crate::poll_actions::types::PollActionEventCoverPhotoResponse {
-        id: image.id.to_string(),
-        is_placeholder: image.storage_key.is_none(),
-        created_at: serialize_timestamp(image.created_at),
-    }
-}
-
 async fn decrypt_poll_body(
     database: &DatabaseConnection,
     poll: &polls::Model,
@@ -2120,30 +2123,6 @@ fn validate_action(
             action.event.as_ref().expect("checked above"),
         )?;
     }
-    Ok(())
-}
-
-async fn broadcast_to_channel_members(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    channel_id: Uuid,
-    sender_id: Uuid,
-    body: serde_json::Value,
-) -> AppResult<()> {
-    let members =
-        channels::get_channel_member_user_ids(database, channel_id).await?;
-
-    for member_id in members {
-        if member_id == sender_id {
-            continue;
-        }
-
-        let topic =
-            PubSubTopic::new_poll(server_id, channel_id, member_id).to_string();
-        pub_sub_service.publish(&topic, body.clone()).await?;
-    }
-
     Ok(())
 }
 

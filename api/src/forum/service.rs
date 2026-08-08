@@ -106,10 +106,31 @@ fn forum_post_cursor_condition(
 
 pub(super) async fn create_forum_post(
     database: &DatabaseConnection,
+    upload_root: &std::path::Path,
     server_id: Uuid,
     channel_id: Uuid,
     user_id: Uuid,
     request: CreateForumPostRequest,
+    cover_photo: Option<Vec<u8>>,
+) -> AppResult<ForumPostResponse> {
+    create_forum_post_inner(
+        database,
+        server_id,
+        channel_id,
+        user_id,
+        request,
+        cover_photo.map(|bytes| (upload_root, bytes)),
+    )
+    .await
+}
+
+async fn create_forum_post_inner(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    user_id: Uuid,
+    request: CreateForumPostRequest,
+    cover_photo: Option<(&std::path::Path, Vec<u8>)>,
 ) -> AppResult<ForumPostResponse> {
     let title = validate_title(&request.title)?;
     let body = validate_body(&request.body, "A forum post body is required.")?;
@@ -179,7 +200,25 @@ pub(super) async fn create_forum_post(
     .insert(&transaction)
     .await
     .map_err(internal_error)?;
-    transaction.commit().await.map_err(internal_error)?;
+    let cover_path = match (cover_photo, proposal.as_ref()) {
+        (Some((upload_root, bytes)), Some(proposal)) => Some(
+            polls_service::attach_event_cover_photo(
+                &transaction,
+                upload_root,
+                proposal.id,
+                bytes,
+            )
+            .await?,
+        ),
+        (Some(_), None) => {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "An event cover photo requires a forum proposal.",
+            ));
+        }
+        (None, _) => None,
+    };
+    polls_service::commit_creation(transaction, cover_path).await?;
 
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
@@ -273,11 +312,34 @@ pub(super) async fn update_forum_post(
 
 pub(super) async fn create_forum_post_proposal(
     database: &DatabaseConnection,
+    upload_root: &std::path::Path,
     server_id: Uuid,
     channel_id: Uuid,
     post_id: Uuid,
     user_id: Uuid,
     request: crate::polls::types::CreatePollRequest,
+    cover_photo: Option<Vec<u8>>,
+) -> AppResult<ForumPostResponse> {
+    create_forum_post_proposal_inner(
+        database,
+        server_id,
+        channel_id,
+        post_id,
+        user_id,
+        request,
+        cover_photo.map(|bytes| (upload_root, bytes)),
+    )
+    .await
+}
+
+async fn create_forum_post_proposal_inner(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    post_id: Uuid,
+    user_id: Uuid,
+    request: crate::polls::types::CreatePollRequest,
+    cover_photo: Option<(&std::path::Path, Vec<u8>)>,
 ) -> AppResult<ForumPostResponse> {
     let post = load_post(database, channel_id, post_id).await?;
     ensure_post_accepts_proposal(&post, user_id)?;
@@ -299,7 +361,19 @@ pub(super) async fn create_forum_post_proposal(
     active.poll_id = Set(Some(proposal.id));
     active.updated_at = Set(Utc::now().fixed_offset());
     active.update(&transaction).await.map_err(internal_error)?;
-    transaction.commit().await.map_err(internal_error)?;
+    let cover_path = match cover_photo {
+        Some((upload_root, bytes)) => Some(
+            polls_service::attach_event_cover_photo(
+                &transaction,
+                upload_root,
+                proposal.id,
+                bytes,
+            )
+            .await?,
+        ),
+        None => None,
+    };
+    polls_service::commit_creation(transaction, cover_path).await?;
 
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }

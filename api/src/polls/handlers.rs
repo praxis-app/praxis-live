@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{Multipart, Path, Query, State},
+    extract::{Path, Query, State},
     http::{header, Response, StatusCode},
     response::Json,
 };
@@ -8,13 +8,12 @@ use sea_orm::DatabaseConnection;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    extractors::{PollDeleteContext, PollImageUploadContext},
+    extractors::PollDeleteContext,
     service,
     types::{
         ActiveDecisionsResponse, CallDecisionResponse, CreatePollRequest,
-        DeletePollResponse, ListActiveDecisionsQuery,
-        PollActionEventCoverPhotoPayload, PollImagePath, PollImagePayload,
-        PollPath, PollPayload,
+        DeletePollResponse, ListActiveDecisionsQuery, PollImagePath, PollPath,
+        PollPayload,
     },
 };
 use crate::{
@@ -22,7 +21,8 @@ use crate::{
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
-        request::multipart_file, storage::upload_root, ApiError, AppResult,
+        request::JsonOrEventCoverPhoto, storage::upload_root, ApiError,
+        AppResult,
     },
     pub_sub::PubSubService,
     servers::types::ServerPath,
@@ -66,14 +66,19 @@ impl channels::extractors::HasDatabase for PollsState {
 pub(super) async fn create_poll(
     State(state): State<PollsState>,
     context: ChannelWriteContext,
-    Json(payload): Json<CreatePollRequest>,
+    JsonOrEventCoverPhoto {
+        payload,
+        cover_photo,
+    }: JsonOrEventCoverPhoto<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
     let poll = service::create_poll(
         &state.database,
+        &state.upload_root,
         context.server_id,
         context.channel_id,
         context.user_id,
         payload,
+        cover_photo,
     )
     .await?;
 
@@ -148,15 +153,20 @@ pub(super) async fn move_proposal_to_forum(
 pub(super) async fn create_call_poll(
     State(state): State<PollsState>,
     context: CallWriteContext,
-    Json(payload): Json<CreatePollRequest>,
+    JsonOrEventCoverPhoto {
+        payload,
+        cover_photo,
+    }: JsonOrEventCoverPhoto<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
     let poll = service::create_call_poll(
         &state.database,
+        &state.upload_root,
         context.server_id,
         context.channel_id,
         context.call_id,
         context.user_id,
         payload,
+        cover_photo,
     )
     .await?;
 
@@ -209,76 +219,6 @@ pub(super) async fn get_active_decisions(
     .await?;
 
     Ok(Json(decisions))
-}
-
-pub(super) async fn upload_poll_image(
-    State(state): State<PollsState>,
-    context: PollImageUploadContext,
-    multipart: Multipart,
-) -> AppResult<(StatusCode, Json<PollImagePayload>)> {
-    let file = multipart_file(multipart, "file").await?;
-
-    let image = service::store_poll_image(
-        &state.database,
-        &state.upload_root,
-        &context.poll,
-        context.image_id,
-        file.as_ref().and_then(|file| file.content_type.clone()),
-        file.map(|file| file.bytes).unwrap_or_default(),
-    )
-    .await?;
-
-    if let Err(error) = service::broadcast_poll_image_upload(
-        &state.database,
-        &state.pub_sub_service,
-        context.server_id,
-        context.channel_id,
-        context.user_id,
-        &context.poll.id.to_string(),
-        &context.image_id.to_string(),
-    )
-    .await
-    {
-        tracing::warn!("failed to broadcast uploaded poll image: {error}");
-    }
-
-    Ok((StatusCode::CREATED, Json(PollImagePayload { image })))
-}
-
-pub(super) async fn upload_poll_action_event_cover_photo(
-    State(state): State<PollsState>,
-    context: PollImageUploadContext,
-    multipart: Multipart,
-) -> AppResult<(StatusCode, Json<PollActionEventCoverPhotoPayload>)> {
-    let file = multipart_file(multipart, "file").await?;
-    let image = service::store_poll_action_event_cover_photo(
-        &state.database,
-        &state.upload_root,
-        &context.poll,
-        context.image_id,
-        file.map(|file| file.bytes).unwrap_or_default(),
-    )
-    .await?;
-
-    if let Err(error) = service::broadcast_poll_update(
-        &state.database,
-        &state.pub_sub_service,
-        context.server_id,
-        context.channel_id,
-        Some(context.user_id),
-        context.poll.id,
-    )
-    .await
-    {
-        tracing::warn!(
-            "failed to broadcast uploaded event cover photo: {error}"
-        );
-    }
-
-    Ok((
-        StatusCode::CREATED,
-        Json(PollActionEventCoverPhotoPayload { image }),
-    ))
 }
 
 pub(super) async fn get_poll_action_event_cover_photo(

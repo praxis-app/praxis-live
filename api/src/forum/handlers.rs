@@ -3,7 +3,7 @@ use axum::{
     response::Json,
 };
 use sea_orm::DatabaseConnection;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use super::{
     events,
@@ -21,7 +21,10 @@ use super::{
 use crate::{
     auth::HasJwtSecret,
     channels::extractors::HasDatabase,
-    common::{response::EmptyResponse, AppResult},
+    common::{
+        request::JsonOrEventCoverPhoto, response::EmptyResponse,
+        storage::upload_root, AppResult,
+    },
     polls::{self, types::CreatePollRequest},
     pub_sub::PubSubService,
 };
@@ -31,6 +34,7 @@ pub(super) struct ForumState {
     database: DatabaseConnection,
     jwt_secret: Arc<str>,
     pub_sub_service: PubSubService,
+    upload_root: Arc<PathBuf>,
 }
 
 impl ForumState {
@@ -43,6 +47,7 @@ impl ForumState {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
             pub_sub_service,
+            upload_root: Arc::new(upload_root()),
         }
     }
 }
@@ -80,14 +85,19 @@ pub(super) async fn list_forum_posts(
 pub(super) async fn create_forum_post(
     State(state): State<ForumState>,
     context: ForumAccessContext,
-    Json(payload): Json<CreateForumPostRequest>,
+    JsonOrEventCoverPhoto {
+        payload,
+        cover_photo,
+    }: JsonOrEventCoverPhoto<CreateForumPostRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
     let post = service::create_forum_post(
         &state.database,
+        &state.upload_root,
         context.server_id,
         context.channel_id,
         context.user_id,
         payload,
+        cover_photo,
     )
     .await?;
     let proposal_id = post
@@ -124,15 +134,20 @@ pub(super) async fn create_forum_post(
 pub(super) async fn create_forum_post_proposal(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-    Json(payload): Json<CreatePollRequest>,
+    JsonOrEventCoverPhoto {
+        payload,
+        cover_photo,
+    }: JsonOrEventCoverPhoto<CreatePollRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
     let post = service::create_forum_post_proposal(
         &state.database,
+        &state.upload_root,
         context.server_id,
         context.channel_id,
         context.post_id,
         context.user_id,
         payload,
+        cover_photo,
     )
     .await?;
     events::broadcast_forum_post(
