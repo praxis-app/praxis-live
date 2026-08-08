@@ -158,26 +158,28 @@ pub(super) async fn create_poll(
     request: CreatePollRequest,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<PollResponse> {
-    create_poll_inner(
+    create_poll_record(
         database,
+        upload_root,
         server_id,
         channel_id,
         None,
         user_id,
         request,
-        cover_photo.map(|bytes| (upload_root, bytes)),
+        cover_photo,
     )
     .await
 }
 
-async fn create_poll_inner(
+async fn create_poll_record(
     database: &DatabaseConnection,
+    upload_root: &Path,
     server_id: Uuid,
     channel_id: Uuid,
     call_id: Option<Uuid>,
     user_id: Uuid,
     request: CreatePollRequest,
-    cover_photo: Option<(&Path, Vec<u8>)>,
+    cover_photo: Option<Vec<u8>>,
 ) -> AppResult<PollResponse> {
     let prepared = prepare_poll_creation(
         database, server_id, channel_id, user_id, request, false,
@@ -187,7 +189,7 @@ async fn create_poll_inner(
     let poll =
         insert_prepared_poll(&transaction, call_id, user_id, prepared).await?;
     let cover_path = match cover_photo {
-        Some((upload_root, bytes)) => Some(
+        Some(bytes) => Some(
             attach_event_cover_photo(&transaction, upload_root, poll.id, bytes)
                 .await?,
         ),
@@ -210,14 +212,15 @@ pub(super) async fn create_call_poll(
 ) -> AppResult<PollResponse> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
-    create_poll_inner(
+    create_poll_record(
         database,
+        upload_root,
         server_id,
         channel_id,
         Some(call_id),
         user_id,
         request,
-        cover_photo.map(|bytes| (upload_root, bytes)),
+        cover_photo,
     )
     .await
 }
