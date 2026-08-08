@@ -13,12 +13,12 @@ pub(crate) struct MultipartFile {
     pub(crate) bytes: Vec<u8>,
 }
 
-pub(crate) struct JsonOrEventCoverPhoto<T> {
+pub(crate) struct JsonOrMultipartFile<T> {
     pub(crate) payload: T,
-    pub(crate) cover_photo: Option<Vec<u8>>,
+    pub(crate) file: Option<MultipartFile>,
 }
 
-impl<T, S> FromRequest<S> for JsonOrEventCoverPhoto<T>
+impl<T, S> FromRequest<S> for JsonOrMultipartFile<T>
 where
     T: DeserializeOwned + Send,
     S: Send + Sync,
@@ -40,11 +40,10 @@ where
                 Multipart::from_request(request, state).await.map_err(
                     |error| ApiError::new(error.status(), error.body_text()),
                 )?;
-            let (payload, cover_photo) =
-                multipart_json_file(multipart, "payload", "coverPhoto").await?;
+            let (payload, file) = multipart_json_file(multipart).await?;
             return Ok(Self {
                 payload,
-                cover_photo: Some(cover_photo),
+                file: Some(file),
             });
         }
 
@@ -55,7 +54,7 @@ where
             })?;
         Ok(Self {
             payload,
-            cover_photo: None,
+            file: None,
         })
     }
 }
@@ -80,11 +79,9 @@ pub(crate) async fn multipart_file(
     Ok(None)
 }
 
-pub(crate) async fn multipart_json_file<T: DeserializeOwned>(
+async fn multipart_json_file<T: DeserializeOwned>(
     mut multipart: Multipart,
-    json_field_name: &str,
-    file_field_name: &str,
-) -> AppResult<(T, Vec<u8>)> {
+) -> AppResult<(T, MultipartFile)> {
     let mut payload = None;
     let mut file = None;
 
@@ -92,7 +89,7 @@ pub(crate) async fn multipart_json_file<T: DeserializeOwned>(
         multipart.next_field().await.map_err(internal_error)?
     {
         match field.name() {
-            Some(name) if name == json_field_name => {
+            Some("payload") => {
                 let text = field.text().await.map_err(internal_error)?;
                 payload = Some(serde_json::from_str(&text).map_err(|_| {
                     ApiError::new(
@@ -101,9 +98,14 @@ pub(crate) async fn multipart_json_file<T: DeserializeOwned>(
                     )
                 })?);
             }
-            Some(name) if name == file_field_name => {
-                file =
-                    Some(field.bytes().await.map_err(internal_error)?.to_vec());
+            Some("file") => {
+                let content_type = field.content_type().map(ToOwned::to_owned);
+                let bytes =
+                    field.bytes().await.map_err(internal_error)?.to_vec();
+                file = Some(MultipartFile {
+                    content_type,
+                    bytes,
+                });
             }
             _ => {}
         }

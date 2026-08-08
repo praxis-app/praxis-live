@@ -273,7 +273,7 @@ class ApiClient {
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts`;
     return this.executeRequest<{ post: ForumPostRes }>('post', path, {
-      data: getJsonOrFormData(data, { coverPhoto: eventCoverPhoto }),
+      data: getJsonOrFormData(data, { file: eventCoverPhoto }),
     });
   };
 
@@ -305,7 +305,7 @@ class ApiClient {
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/proposal`;
     return this.executeRequest<{ post: ForumPostRes }>('post', path, {
-      data: getJsonOrFormData(data, { coverPhoto: eventCoverPhoto }),
+      data: getJsonOrFormData(data, { file: eventCoverPhoto }),
     });
   };
 
@@ -496,7 +496,7 @@ class ApiClient {
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/polls`;
     return this.executeRequest<{ poll: PollRes }>('post', path, {
-      data: getJsonOrFormData(data, { coverPhoto: eventCoverPhoto }),
+      data: getJsonOrFormData(data, { file: eventCoverPhoto }),
     });
   };
 
@@ -509,7 +509,7 @@ class ApiClient {
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/polls`;
     return this.executeRequest<{ poll: PollRes }>('post', path, {
-      data: getJsonOrFormData(data, { coverPhoto: eventCoverPhoto }),
+      data: getJsonOrFormData(data, { file: eventCoverPhoto }),
     });
   };
 

@@ -22,7 +22,7 @@ use crate::{
     auth::HasJwtSecret,
     channels::extractors::HasDatabase,
     common::{
-        request::JsonOrEventCoverPhoto, response::EmptyResponse,
+        request::JsonOrMultipartFile, response::EmptyResponse,
         storage::upload_root, AppResult,
     },
     polls::{self, types::CreatePollRequest},
@@ -85,11 +85,11 @@ pub(super) async fn list_forum_posts(
 pub(super) async fn create_forum_post(
     State(state): State<ForumState>,
     context: ForumAccessContext,
-    JsonOrEventCoverPhoto {
-        payload,
-        cover_photo,
-    }: JsonOrEventCoverPhoto<CreateForumPostRequest>,
+    JsonOrMultipartFile { payload, file }: JsonOrMultipartFile<
+        CreateForumPostRequest,
+    >,
 ) -> AppResult<Json<ForumPostPayload>> {
+    let cover_photo = file.map(|file| file.bytes);
     let post = service::create_forum_post(
         &state.database,
         &state.upload_root,
@@ -134,11 +134,11 @@ pub(super) async fn create_forum_post(
 pub(super) async fn create_forum_post_proposal(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-    JsonOrEventCoverPhoto {
-        payload,
-        cover_photo,
-    }: JsonOrEventCoverPhoto<CreatePollRequest>,
+    JsonOrMultipartFile { payload, file }: JsonOrMultipartFile<
+        CreatePollRequest,
+    >,
 ) -> AppResult<Json<ForumPostPayload>> {
+    let cover_photo = file.map(|file| file.bytes);
     let post = service::create_forum_post_proposal(
         &state.database,
         &state.upload_root,
