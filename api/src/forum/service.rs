@@ -113,25 +113,6 @@ pub(super) async fn create_forum_post(
     request: CreateForumPostRequest,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<ForumPostResponse> {
-    create_forum_post_inner(
-        database,
-        server_id,
-        channel_id,
-        user_id,
-        request,
-        cover_photo.map(|bytes| (upload_root, bytes)),
-    )
-    .await
-}
-
-async fn create_forum_post_inner(
-    database: &DatabaseConnection,
-    server_id: Uuid,
-    channel_id: Uuid,
-    user_id: Uuid,
-    request: CreateForumPostRequest,
-    cover_photo: Option<(&std::path::Path, Vec<u8>)>,
-) -> AppResult<ForumPostResponse> {
     let title = validate_title(&request.title)?;
     let body = validate_body(&request.body, "A forum post body is required.")?;
     let prepared_proposal = match request.proposal {
@@ -201,7 +182,7 @@ async fn create_forum_post_inner(
     .await
     .map_err(internal_error)?;
     let cover_path = match (cover_photo, proposal.as_ref()) {
-        (Some((upload_root, bytes)), Some(proposal)) => Some(
+        (Some(bytes), Some(proposal)) => Some(
             polls_service::attach_event_cover_photo(
                 &transaction,
                 upload_root,
