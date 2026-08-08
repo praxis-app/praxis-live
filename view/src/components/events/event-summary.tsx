@@ -5,8 +5,10 @@ import { formatEventDateTime, formatEventDuration } from '@/lib/event.utils';
 import { cn } from '@/lib/shared.utils';
 import { type ImageRes } from '@/types/image.types';
 import { type UserRes } from '@/types/user.types';
+import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  MdGroups,
   MdLink,
   MdLocationOn,
   MdPeople,
@@ -23,12 +25,15 @@ interface Props {
   location?: string | null;
   externalLink?: string | null;
   hosts: UserRes[];
+  goingCount?: number;
+  interestedCount?: number;
   coverPhoto?: ImageRes | null;
   coverPhotoFile?: File;
   channelId?: string;
   pollId?: string;
   eventId?: string;
   layout?: 'standalone' | 'nested';
+  children?: ReactNode;
 }
 
 export const EventSummary = ({
@@ -40,12 +45,15 @@ export const EventSummary = ({
   location,
   externalLink,
   hosts,
+  goingCount,
+  interestedCount,
   coverPhoto,
   coverPhotoFile,
   channelId,
   pollId,
   eventId,
   layout = 'standalone',
+  children,
 }: Props) => {
   const { t } = useTranslation();
 
@@ -97,9 +105,29 @@ export const EventSummary = ({
           <h3 className="mt-2 text-lg leading-tight font-medium tracking-tight sm:text-xl">
             {name}
           </h3>
+          {children && <div className="mt-4">{children}</div>}
         </div>
 
         <div className="text-muted-foreground space-y-0.5 pb-5 text-sm">
+          {goingCount !== undefined && interestedCount !== undefined && (
+            <div className="flex min-h-6 min-w-0 items-center gap-2.5">
+              <MdGroups className="text-muted-foreground size-4 shrink-0" />
+              <span>
+                {interestedCount > 0 && (
+                  <>
+                    {interestedCount} {t('events.labels.interested')}
+                  </>
+                )}
+                {interestedCount > 0 && goingCount > 0 && ' · '}
+                {goingCount > 0 && (
+                  <>
+                    {goingCount} {t('events.labels.going')}
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+
           <div className="flex min-h-6 min-w-0 items-center gap-2.5">
             <MdPeople className="text-muted-foreground size-4 shrink-0" />
             <div className="flex min-w-0 items-center gap-2">

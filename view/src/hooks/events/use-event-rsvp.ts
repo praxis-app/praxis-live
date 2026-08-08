@@ -8,6 +8,14 @@ import {
 } from '@/types/event.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+const isEventsResponse = (
+  data: unknown,
+): data is { events: EventRes[] } =>
+  typeof data === 'object' &&
+  data !== null &&
+  'events' in data &&
+  Array.isArray(data.events);
+
 export const useEventRsvp = (
   serverId: string | undefined,
   eventId: string | undefined,
@@ -15,16 +23,16 @@ export const useEventRsvp = (
   const queryClient = useQueryClient();
   const updateCaches = (event: EventDetailRes) => {
     queryClient.setQueryData(getEventQueryKey(serverId, eventId), { event });
-    queryClient.setQueriesData<{ events: EventRes[] }>(
+    queryClient.setQueriesData(
       { queryKey: getEventsQueryKey(serverId) },
-      (old) =>
-        old
-          ? {
-              events: old.events.map((item) =>
-                item.id === event.id ? event : item,
-              ),
-            }
-          : old,
+      (old: unknown) => {
+        if (!isEventsResponse(old)) return old;
+        return {
+          events: old.events.map((item) =>
+            item.id === event.id ? event : item,
+          ),
+        };
+      },
     );
   };
   const mutation = useMutation({

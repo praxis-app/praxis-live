@@ -341,7 +341,7 @@ test('user can propose and ratify an online event with all details preserved', a
       response.url().includes(`/events/${createdEvent.id}/rsvp`) &&
       response.status() === 200,
   );
-  await page.getByRole('button', { name: 'Interested · 0' }).click();
+  await page.getByRole('button', { name: 'Interested', exact: true }).click();
   const interestedResponse = await interestedResponsePromise;
   const interestedEvent = (
     (await interestedResponse.json()) as {
@@ -353,8 +353,14 @@ test('user can propose and ratify an online event with all details preserved', a
     proposer.userId,
   );
   await expect(
-    page.getByRole('button', { name: 'Interested · 1' }),
+    page.getByRole('button', { name: 'Interested', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    page.getByText('1 Interested · 1 Going', { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByText('Your RSVP could not be updated.', { exact: true }),
+  ).toHaveCount(0);
 
   const goingResponsePromise = page.waitForResponse(
     (response) =>
@@ -362,7 +368,7 @@ test('user can propose and ratify an online event with all details preserved', a
       response.url().includes(`/events/${createdEvent.id}/rsvp`) &&
       response.status() === 200,
   );
-  await page.getByRole('button', { name: 'Going · 1' }).click();
+  await page.getByRole('button', { name: 'Going', exact: true }).click();
   const goingResponse = await goingResponsePromise;
   const goingEvent = (
     (await goingResponse.json()) as {
@@ -375,9 +381,17 @@ test('user can propose and ratify an online event with all details preserved', a
   );
   expect(goingEvent.going.map((user) => user.id)).toContain(proposer.userId);
   await expect(
-    page.getByRole('button', { name: 'Interested · 0' }),
+    page.getByRole('button', { name: 'Interested', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false');
+  await expect(
+    page.getByRole('button', { name: 'Going', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    page.getByText('2 Going', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Going · 2' })).toBeVisible();
+  await expect(
+    page.getByText('Your RSVP could not be updated.', { exact: true }),
+  ).toHaveCount(0);
 
   const calendarResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
@@ -409,7 +423,9 @@ test('user can propose and ratify an online event with all details preserved', a
     .toBe(true);
   await calendarEventSegments.first().click();
   await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
-  await expect(page.getByRole('button', { name: 'Going · 2' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Going', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('invalid cover photo rolls back event proposal creation', async ({
