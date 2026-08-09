@@ -106,7 +106,6 @@ export const ProposalContent = ({
           images={poll.images}
           channelId={channel.id}
           pollId={poll.id}
-          className="-mr-1.5 -ml-0.5"
           imageClassName="max-h-128 rounded-lg object-contain"
         />
       )}

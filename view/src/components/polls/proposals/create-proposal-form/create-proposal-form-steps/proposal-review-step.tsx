@@ -186,7 +186,10 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-5">
-              <AttachedImagePreview selectedImages={formValues.images} />
+              <AttachedImagePreview
+                selectedImages={formValues.images}
+                imageClassName="rounded-lg"
+              />
             </CardContent>
           </Card>
         )}

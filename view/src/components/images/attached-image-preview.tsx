@@ -36,6 +36,7 @@ const SavedImagePreview = ({
   pollId,
   handleDelete,
   className,
+  imageClassName,
   disabled,
 }: {
   savedImage: ImageRes;
@@ -43,6 +44,7 @@ const SavedImagePreview = ({
   messageId?: string;
   pollId?: string;
   className?: string;
+  imageClassName?: string;
   handleDelete?(id: string): void;
   disabled?: boolean;
 }) => {
@@ -59,7 +61,12 @@ const SavedImagePreview = ({
 
   return (
     <div ref={ref} className={cn(className, disabled && 'opacity-50')}>
-      <img alt={t('images.labels.attachedImage')} src={src} width="100%" />
+      <img
+        alt={t('images.labels.attachedImage')}
+        src={src}
+        width="100%"
+        className={imageClassName}
+      />
       {handleDelete && (
         <RemoveButton
           onClick={() => handleDelete(savedImage.id)}
@@ -74,6 +81,7 @@ interface Props {
   handleDelete?: (id: string) => void;
   handleRemove?: (imageName: string) => void;
   imageContainerClassName?: string;
+  imageClassName?: string;
   savedImages?: ImageRes[];
   selectedImages: File[];
   className?: string;
@@ -87,6 +95,7 @@ export const AttachedImagePreview = ({
   handleDelete,
   handleRemove,
   imageContainerClassName,
+  imageClassName,
   savedImages,
   selectedImages,
   className,
@@ -115,6 +124,7 @@ export const AttachedImagePreview = ({
             key={savedImage.id}
             disabled={disabled}
             className={containerClassName}
+            imageClassName={imageClassName}
             handleDelete={handleDelete}
             savedImage={savedImage}
             channelId={channelId}
@@ -128,7 +138,12 @@ export const AttachedImagePreview = ({
           className={cn(containerClassName, disabled && 'opacity-50')}
           key={image.name}
         >
-          <img alt={image.name} src={URL.createObjectURL(image)} width="100%" />
+          <img
+            alt={image.name}
+            src={URL.createObjectURL(image)}
+            width="100%"
+            className={imageClassName}
+          />
           {handleRemove && (
             <RemoveButton
               onClick={() => handleRemove(image.name)}
