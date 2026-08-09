@@ -298,7 +298,7 @@ export const InlinePoll = ({
               channelId={channel.id}
               pollId={poll.id}
               className="-mx-3"
-              imageClassName="max-h-128 object-contain"
+              imageClassName="max-h-128 rounded-lg object-contain"
             />
           )}
 
