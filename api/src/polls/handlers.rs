@@ -12,8 +12,8 @@ use super::{
     service,
     types::{
         ActiveDecisionsResponse, CallDecisionResponse, CreatePollRequest,
-        DeletePollResponse, ListActiveDecisionsQuery, PollImagePath, PollPath,
-        PollPayload,
+        DeletePollResponse, ListActiveDecisionsQuery,
+        PollActionEventCoverPhotoPath, PollImagePath, PollPath, PollPayload,
     },
 };
 use crate::{
@@ -21,7 +21,8 @@ use crate::{
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
-        request::JsonOrMultipartFile, storage::upload_root, ApiError, AppResult,
+        request::JsonOrMultipartFiles, storage::upload_root, ApiError,
+        AppResult,
     },
     pub_sub::PubSubService,
     servers::types::ServerPath,
@@ -65,11 +66,14 @@ impl channels::extractors::HasDatabase for PollsState {
 pub(super) async fn create_poll(
     State(state): State<PollsState>,
     context: ChannelWriteContext,
-    JsonOrMultipartFile { payload, file }: JsonOrMultipartFile<
-        CreatePollRequest,
-    >,
+    JsonOrMultipartFiles {
+        payload,
+        file,
+        files,
+    }: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
     let cover_photo = file.map(|file| file.bytes);
+    let images = files.into_iter().map(|file| file.bytes).collect();
     let poll = service::create_poll(
         &state.database,
         &state.upload_root,
@@ -77,6 +81,7 @@ pub(super) async fn create_poll(
         context.channel_id,
         context.user_id,
         payload,
+        images,
         cover_photo,
     )
     .await?;
@@ -152,11 +157,14 @@ pub(super) async fn move_proposal_to_forum(
 pub(super) async fn create_call_poll(
     State(state): State<PollsState>,
     context: CallWriteContext,
-    JsonOrMultipartFile { payload, file }: JsonOrMultipartFile<
-        CreatePollRequest,
-    >,
+    JsonOrMultipartFiles {
+        payload,
+        file,
+        files,
+    }: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
     let cover_photo = file.map(|file| file.bytes);
+    let images = files.into_iter().map(|file| file.bytes).collect();
     let poll = service::create_call_poll(
         &state.database,
         &state.upload_root,
@@ -165,6 +173,7 @@ pub(super) async fn create_call_poll(
         context.call_id,
         context.user_id,
         payload,
+        images,
         cover_photo,
     )
     .await?;
@@ -222,7 +231,7 @@ pub(super) async fn get_active_decisions(
 
 pub(super) async fn get_poll_action_event_cover_photo(
     State(state): State<PollsState>,
-    Path(path): Path<PollImagePath>,
+    Path(path): Path<PollActionEventCoverPhotoPath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Response<Body>> {
     let image = service::get_poll_action_event_cover_photo(
@@ -252,6 +261,7 @@ pub(super) async fn get_poll_action_event_cover_photo(
 pub(super) async fn get_poll_image(
     State(state): State<PollsState>,
     Path(path): Path<PollImagePath>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
 ) -> AppResult<Response<Body>> {
     let image = service::get_poll_image(
         &state.database,
@@ -260,6 +270,7 @@ pub(super) async fn get_poll_image(
         path.channel_id,
         path.poll_id,
         path.image_id,
+        user_id,
     )
     .await?;
 
@@ -271,6 +282,7 @@ pub(super) async fn get_poll_image(
                 .content_type
                 .unwrap_or_else(|| "application/octet-stream".to_owned()),
         )
+        .header("x-content-type-options", "nosniff")
         .body(Body::from(image.bytes))
         .map_err(internal_error)
 }

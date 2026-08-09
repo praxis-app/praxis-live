@@ -1,9 +1,9 @@
-import { type ImageRes } from '@/types/image.types';
 import {
   type CreatePollActionReq,
   type PollActionRes,
 } from '@/types/poll-action.types';
 import { type UserRes } from '@/types/user.types';
+import { type ImageRes } from '@/types/image.types';
 import { type VoteRes } from '@/types/vote.types';
 import {
   DECISION_MAKING_MODEL,
@@ -30,9 +30,9 @@ export interface PollRes {
   action?: PollActionRes;
   config: PollConfigRes;
   options?: PollOptionRes[];
-  images: ImageRes[];
   user: UserRes;
   votes: VoteRes[];
+  images: ImageRes[];
   myVote?: VoteRes;
   agreementVoteCount: number;
   memberCount: number;

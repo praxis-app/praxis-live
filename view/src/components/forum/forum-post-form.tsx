@@ -71,6 +71,7 @@ export const ForumPostForm = ({ channel, onSuccess }: Props) => {
 
   const createPostWithProposal = async (
     proposal: CreatePollReq,
+    images: File[],
     eventCoverPhoto?: File,
   ) => {
     if (!serverId) throw new Error('Server ID is required');
@@ -80,6 +81,7 @@ export const ForumPostForm = ({ channel, onSuccess }: Props) => {
       serverId,
       channel.id,
       request,
+      images,
       eventCoverPhoto,
     );
     if (!post.proposal) {

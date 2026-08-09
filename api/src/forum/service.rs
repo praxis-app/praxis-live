@@ -111,8 +111,17 @@ pub(super) async fn create_forum_post(
     channel_id: Uuid,
     user_id: Uuid,
     request: CreateForumPostRequest,
+    images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<ForumPostResponse> {
+    if request.proposal.is_none()
+        && (!images.is_empty() || cover_photo.is_some())
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Poll images require a forum proposal.",
+        ));
+    }
     let title = validate_title(&request.title)?;
     let body = validate_body(&request.body, "A forum post body is required.")?;
     let prepared_proposal = match request.proposal {
@@ -181,25 +190,20 @@ pub(super) async fn create_forum_post(
     .insert(&transaction)
     .await
     .map_err(internal_error)?;
-    let cover_path = match (cover_photo, proposal.as_ref()) {
-        (Some(bytes), Some(proposal)) => Some(
-            polls_service::attach_event_cover_photo(
+    let image_paths = match proposal.as_ref() {
+        Some(proposal) => {
+            polls_service::attach_poll_creation_images(
                 &transaction,
                 upload_root,
                 proposal.id,
-                bytes,
+                images,
+                cover_photo,
             )
-            .await?,
-        ),
-        (Some(_), None) => {
-            return Err(ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "An event cover photo requires a forum proposal.",
-            ));
+            .await?
         }
-        (None, _) => None,
+        None => vec![],
     };
-    polls_service::commit_creation(transaction, cover_path).await?;
+    polls_service::commit_creation(transaction, image_paths).await?;
 
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
@@ -299,6 +303,7 @@ pub(super) async fn create_forum_post_proposal(
     post_id: Uuid,
     user_id: Uuid,
     request: crate::polls::types::CreatePollRequest,
+    images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<ForumPostResponse> {
     let post = load_post(database, channel_id, post_id).await?;
@@ -321,19 +326,15 @@ pub(super) async fn create_forum_post_proposal(
     active.poll_id = Set(Some(proposal.id));
     active.updated_at = Set(Utc::now().fixed_offset());
     active.update(&transaction).await.map_err(internal_error)?;
-    let cover_path = match cover_photo {
-        Some(bytes) => Some(
-            polls_service::attach_event_cover_photo(
-                &transaction,
-                upload_root,
-                proposal.id,
-                bytes,
-            )
-            .await?,
-        ),
-        None => None,
-    };
-    polls_service::commit_creation(transaction, cover_path).await?;
+    let image_paths = polls_service::attach_poll_creation_images(
+        &transaction,
+        upload_root,
+        proposal.id,
+        images,
+        cover_photo,
+    )
+    .await?;
+    polls_service::commit_creation(transaction, image_paths).await?;
 
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }

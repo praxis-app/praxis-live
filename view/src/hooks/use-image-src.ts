@@ -73,7 +73,6 @@ export const useImageSrc = ({
           channelId,
           pollId,
           imageId,
-          inviteToken,
         );
       } else if (eventId) {
         if (!serverId) {

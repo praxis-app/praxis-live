@@ -35,6 +35,7 @@ type PollResponse = {
       text: string;
       voteCount: number;
     }[];
+    images: { id: string }[];
   };
 };
 
@@ -128,6 +129,137 @@ test('authenticated user can create and vote in a poll', async ({
   await expect(createdPoll.getByText('1 vote').first()).toBeVisible();
   await expect(activeDecision.getByText('Responded')).toBeVisible();
   await expect(activeDecision.getByText(/^1\/\d+$/)).toBeVisible();
+});
+
+test('authenticated user can create a poll with an image attachment', async ({
+  context,
+  page,
+  request,
+}) => {
+  const authenticatedUser = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('poll-image'),
+  );
+  const server = await getDefaultServer(request, authenticatedUser);
+  const question = `Poll image ${authenticatedUser.user.suffix}?`;
+
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+  await openCreatePollDialog(page);
+
+  const dialog = page.getByRole('dialog', { name: 'Create a Poll' });
+  await dialog
+    .getByPlaceholder('What question do you want to ask?')
+    .fill(question);
+  await dialog.getByPlaceholder('Answer 1').fill('Yes');
+  await dialog.getByPlaceholder('Answer 2').fill('No');
+  await expect(
+    dialog.getByText('Attached images', { exact: true }),
+  ).toHaveCount(0);
+
+  await dialog
+    .getByTestId('image-input')
+    .setInputFiles('view/src/assets/images/app-icon.png');
+  await expect(
+    dialog.getByText('Attached images', { exact: true }),
+  ).toBeVisible();
+
+  const createPollResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create poll' }).click();
+  const response = await createPollResponse;
+  const { poll } = (await response.json()) as PollResponse;
+
+  expect(response.request().headers()['content-type']).toContain(
+    'multipart/form-data',
+  );
+  expect(poll.images).toHaveLength(1);
+  await expect(dialog).toBeHidden();
+
+  let createdPoll = page.locator(`[data-decision-id="${poll.id}"]`);
+  await expect(
+    createdPoll.getByRole('img', { name: 'Attached image' }),
+  ).toBeVisible();
+
+  await page.reload();
+  createdPoll = page.locator(`[data-decision-id="${poll.id}"]`);
+  await expect(createdPoll.getByText(question)).toBeVisible();
+  await expect(
+    createdPoll.getByRole('img', { name: 'Attached image' }),
+  ).toBeVisible();
+});
+
+test('authenticated user can create a proposal with an image attachment', async ({
+  context,
+  page,
+  request,
+}) => {
+  const authenticatedUser = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('proposal-image'),
+  );
+  const server = await getDefaultServer(request, authenticatedUser);
+  const proposalBody = `Proposal image ${authenticatedUser.user.suffix}`;
+
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+  await openCreateProposalDialog(page);
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Create a New Proposal',
+  });
+  await selectRadixOption(dialog, page, 'Select an action type', 'Test');
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await expect(
+    dialog.getByText('Attached images', { exact: true }),
+  ).toHaveCount(0);
+
+  await dialog
+    .getByTestId('image-input')
+    .setInputFiles('view/src/assets/images/app-icon.png');
+  await expect(
+    dialog.getByText('Attached images', { exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  const response = await createProposalResponse;
+  const { poll } = (await response.json()) as PollResponse;
+
+  expect(response.request().headers()['content-type']).toContain(
+    'multipart/form-data',
+  );
+  expect(poll.images).toHaveLength(1);
+  await expect(dialog).toBeHidden();
+
+  let proposal = page.locator(`[data-decision-id="${poll.id}"]`);
+  await expect(proposal.getByText(proposalBody)).toBeVisible();
+  await expect(
+    proposal.getByRole('img', { name: 'Attached image' }),
+  ).toBeVisible();
+
+  await page.reload();
+  proposal = page.locator(`[data-decision-id="${poll.id}"]`);
+  await expect(proposal.getByText(proposalBody)).toBeVisible();
+  await expect(
+    proposal.getByRole('img', { name: 'Attached image' }),
+  ).toBeVisible();
 });
 
 test('active decisions panel loads the next page when scrolled to the bottom', async ({

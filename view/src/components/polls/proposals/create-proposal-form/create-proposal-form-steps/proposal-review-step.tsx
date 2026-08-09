@@ -24,6 +24,7 @@ import {
 import { ServerConfigChanges } from '../../server-config-changes';
 import { getServerConfigChanges } from '../../server-config-changes.utils';
 import { EventSummary } from '@/components/events/event-summary';
+import { AttachedImagePreview } from '@/components/images/attached-image-preview';
 
 export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
   const {
@@ -173,6 +174,19 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
               <p className="text-sm leading-relaxed whitespace-pre-wrap">
                 {body}
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {formValues.images.length > 0 && (
+          <Card className="gap-2 py-4">
+            <CardHeader className="px-4 sm:px-5">
+              <CardTitle className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                {t('images.labels.attachedImages')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 sm:px-5">
+              <AttachedImagePreview selectedImages={formValues.images} />
             </CardContent>
           </Card>
         )}

@@ -79,6 +79,7 @@ export const ForumPostMenu = ({
 
   const createProposal = async (
     request: CreatePollReq,
+    images: File[],
     eventCoverPhoto?: File,
   ) => {
     if (!serverId) throw new Error('Server ID is required');
@@ -90,6 +91,7 @@ export const ForumPostMenu = ({
       channel.id,
       post.id,
       request,
+      images,
       eventCoverPhoto,
     );
     if (!updatedPost.proposal) {

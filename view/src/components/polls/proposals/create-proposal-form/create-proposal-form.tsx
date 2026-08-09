@@ -40,6 +40,7 @@ interface Props {
   onNavigate: () => void;
   createProposal?: (
     request: CreatePollReq,
+    images: File[],
     eventCoverPhoto?: File,
   ) => Promise<{ poll: PollRes }>;
 }
@@ -75,6 +76,7 @@ export const CreateProposalForm = ({
       eventExternalLink: '',
       eventHostIds: [],
       eventCoverPhoto: undefined,
+      images: [],
     },
   });
 
@@ -300,20 +302,24 @@ export const CreateProposalForm = ({
         },
       };
 
+      validateImageInput(values.images);
+
       const result = createProposal
-        ? await createProposal(request, values.eventCoverPhoto)
+        ? await createProposal(request, values.images, values.eventCoverPhoto)
         : callId
           ? await api.createCallPoll(
               serverId,
               channelId,
               callId,
               request,
+              values.images,
               values.eventCoverPhoto,
             )
           : await api.createPoll(
               serverId,
               channelId,
               request,
+              values.images,
               values.eventCoverPhoto,
             );
 
@@ -323,6 +329,9 @@ export const CreateProposalForm = ({
           coverPhoto.src = URL.createObjectURL(values.eventCoverPhoto);
         }
       }
+      result.poll.images.forEach((image, index) => {
+        image.src = URL.createObjectURL(values.images[index]);
+      });
 
       return result;
     },

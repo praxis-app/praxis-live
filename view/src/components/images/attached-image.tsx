@@ -42,6 +42,8 @@ export const AttachedImage = ({
     messageId,
     pollId,
     undefined,
+    false,
+    undefined,
   ]);
 
   const [isLoaded, setIsLoaded] = useState(!!previouslyLoaded);

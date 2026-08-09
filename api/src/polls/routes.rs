@@ -19,8 +19,8 @@ pub(crate) fn router(
     Router::new()
         .route("/", post(create_poll))
         .route("/{pollId}", delete(delete_poll))
-        .route("/{pollId}/move-to-forum", post(move_proposal_to_forum))
         .route("/{pollId}/images/{imageId}", get(get_poll_image))
+        .route("/{pollId}/move-to-forum", post(move_proposal_to_forum))
         .route(
             "/{pollId}/event-cover-photos/{imageId}",
             get(get_poll_action_event_cover_photo),

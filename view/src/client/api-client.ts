@@ -269,11 +269,12 @@ class ApiClient {
     serverId: string,
     channelId: string,
     data: CreateForumPostReq,
+    images: File[] = [],
     eventCoverPhoto?: File,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts`;
     return this.executeRequest<{ post: ForumPostRes }>('post', path, {
-      data: getJsonOrFormData(data, { file: eventCoverPhoto }),
+      data: getJsonOrFormData(data, { files: images, file: eventCoverPhoto }),
     });
   };
 
@@ -301,11 +302,12 @@ class ApiClient {
     channelId: string,
     postId: string,
     data: CreatePollReq,
+    images: File[] = [],
     eventCoverPhoto?: File,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/proposal`;
     return this.executeRequest<{ post: ForumPostRes }>('post', path, {
-      data: getJsonOrFormData(data, { file: eventCoverPhoto }),
+      data: getJsonOrFormData(data, { files: images, file: eventCoverPhoto }),
     });
   };
 
@@ -454,20 +456,6 @@ class ApiClient {
     });
   };
 
-  getPollImage = (
-    serverId: string,
-    channelId: string,
-    pollId: string,
-    imageId: string,
-    inviteToken?: string | null,
-  ) => {
-    const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/images/${imageId}`;
-    return this.executeRequest<Blob>('get', path, {
-      responseType: 'blob',
-      params: { inviteToken },
-    });
-  };
-
   getPollActionEventCoverPhoto = (
     serverId: string,
     channelId: string,
@@ -475,6 +463,16 @@ class ApiClient {
     imageId: string,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/event-cover-photos/${imageId}`;
+    return this.executeRequest<Blob>('get', path, { responseType: 'blob' });
+  };
+
+  getPollImage = (
+    serverId: string,
+    channelId: string,
+    pollId: string,
+    imageId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/images/${imageId}`;
     return this.executeRequest<Blob>('get', path, { responseType: 'blob' });
   };
 
@@ -492,11 +490,12 @@ class ApiClient {
     serverId: string,
     channelId: string,
     data: CreatePollReq,
+    images: File[] = [],
     eventCoverPhoto?: File,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/polls`;
     return this.executeRequest<{ poll: PollRes }>('post', path, {
-      data: getJsonOrFormData(data, { file: eventCoverPhoto }),
+      data: getJsonOrFormData(data, { files: images, file: eventCoverPhoto }),
     });
   };
 
@@ -505,11 +504,12 @@ class ApiClient {
     channelId: string,
     callId: string,
     data: CreatePollReq,
+    images: File[] = [],
     eventCoverPhoto?: File,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/polls`;
     return this.executeRequest<{ poll: PollRes }>('post', path, {
-      data: getJsonOrFormData(data, { file: eventCoverPhoto }),
+      data: getJsonOrFormData(data, { files: images, file: eventCoverPhoto }),
     });
   };
 

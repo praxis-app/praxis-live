@@ -44,8 +44,9 @@ use crate::{
     users as users_service, votes as vote_service,
 };
 
-const MAX_IMAGE_COUNT: usize = 8;
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
+const MAX_IMAGE_COUNT: usize = 5;
+const MAX_IMAGE_SIZE: usize = 8 * 1024 * 1024;
 const PROPOSAL_SYNC_BATCH_SIZE: usize = 20;
 const PROPOSAL_SYNC_INTERVAL_SECONDS: u64 = 60 * 5;
 
@@ -156,6 +157,7 @@ pub(super) async fn create_poll(
     channel_id: Uuid,
     user_id: Uuid,
     request: CreatePollRequest,
+    images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<PollResponse> {
     create_poll_record(
@@ -166,6 +168,7 @@ pub(super) async fn create_poll(
         None,
         user_id,
         request,
+        images,
         cover_photo,
     )
     .await
@@ -179,6 +182,7 @@ async fn create_poll_record(
     call_id: Option<Uuid>,
     user_id: Uuid,
     request: CreatePollRequest,
+    images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<PollResponse> {
     let prepared = prepare_poll_creation(
@@ -188,14 +192,15 @@ async fn create_poll_record(
     let transaction = database.begin().await.map_err(internal_error)?;
     let poll =
         insert_prepared_poll(&transaction, call_id, user_id, prepared).await?;
-    let cover_path = match cover_photo {
-        Some(bytes) => Some(
-            attach_event_cover_photo(&transaction, upload_root, poll.id, bytes)
-                .await?,
-        ),
-        None => None,
-    };
-    commit_creation(transaction, cover_path).await?;
+    let image_paths = attach_poll_creation_images(
+        &transaction,
+        upload_root,
+        poll.id,
+        images,
+        cover_photo,
+    )
+    .await?;
+    commit_creation(transaction, image_paths).await?;
     get_poll_response(database, server_id, channel_id, poll.id, Some(user_id))
         .await
 }
@@ -208,6 +213,7 @@ pub(super) async fn create_call_poll(
     call_id: Uuid,
     user_id: Uuid,
     request: CreatePollRequest,
+    images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<PollResponse> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
@@ -220,6 +226,7 @@ pub(super) async fn create_call_poll(
         Some(call_id),
         user_id,
         request,
+        images,
         cover_photo,
     )
     .await
@@ -441,17 +448,6 @@ pub(crate) async fn insert_prepared_poll<C: ConnectionTrait>(
         }
     }
 
-    for _ in 0..request.image_count {
-        poll_images::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            poll_id: Set(poll.id),
-            ..Default::default()
-        }
-        .insert(database)
-        .await
-        .map_err(internal_error)?;
-    }
-
     Ok(poll)
 }
 
@@ -461,13 +457,7 @@ pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
     poll_id: Uuid,
     bytes: Vec<u8>,
 ) -> AppResult<PathBuf> {
-    if bytes.is_empty() {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "No image uploaded",
-        ));
-    }
-    let content_type = validate_event_cover_photo(&bytes)?;
+    let content_type = validate_image(&bytes, "Event cover photo")?;
     let action = poll_action_entities::Entity::find()
         .filter(poll_action_entities::Column::PollId.eq(poll_id))
         .one(database)
@@ -531,21 +521,117 @@ pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
     Ok(destination)
 }
 
-pub(crate) async fn commit_creation(
-    transaction: sea_orm::DatabaseTransaction,
-    cover_path: Option<PathBuf>,
-) -> AppResult<()> {
-    if let Err(error) = transaction.commit().await {
-        if let Some(path) = cover_path {
-            if let Err(cleanup_error) = tokio::fs::remove_file(path).await {
-                tracing::warn!(
-                    "failed to clean up event cover photo after transaction error: {cleanup_error}"
-                );
+pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
+    database: &C,
+    upload_root: &Path,
+    poll_id: Uuid,
+    images: Vec<Vec<u8>>,
+    cover_photo: Option<Vec<u8>>,
+) -> AppResult<Vec<PathBuf>> {
+    if images.len() > MAX_IMAGE_COUNT {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("A poll can include up to {MAX_IMAGE_COUNT} images."),
+        ));
+    }
+    let validated_images = images
+        .iter()
+        .map(|bytes| validate_image(bytes, "Poll image"))
+        .collect::<AppResult<Vec<_>>>()?;
+
+    let mut paths = vec![];
+    for (bytes, content_type) in
+        images.into_iter().zip(validated_images.into_iter())
+    {
+        match attach_poll_image(
+            database,
+            upload_root,
+            poll_id,
+            bytes,
+            content_type,
+        )
+        .await
+        {
+            Ok(path) => paths.push(path),
+            Err(error) => {
+                cleanup_image_paths(paths).await;
+                return Err(error);
             }
+        }
+    }
+
+    if let Some(bytes) = cover_photo {
+        match attach_event_cover_photo(database, upload_root, poll_id, bytes)
+            .await
+        {
+            Ok(path) => paths.push(path),
+            Err(error) => {
+                cleanup_image_paths(paths).await;
+                return Err(error);
+            }
+        }
+    }
+
+    Ok(paths)
+}
+
+async fn attach_poll_image<C: ConnectionTrait>(
+    database: &C,
+    upload_root: &Path,
+    poll_id: Uuid,
+    bytes: Vec<u8>,
+    content_type: &str,
+) -> AppResult<PathBuf> {
+    let image_id = NativeUuid::new_v4();
+    let storage_key = format!("poll-images/{image_id}");
+    let destination = upload_root.join(&storage_key);
+    if let Some(parent) = destination.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(internal_error)?;
+    }
+    if let Err(error) = tokio::fs::write(&destination, bytes).await {
+        let _ = tokio::fs::remove_file(&destination).await;
+        return Err(internal_error(error));
+    }
+
+    let insert_result = poll_images::ActiveModel {
+        id: Set(image_id),
+        poll_id: Set(poll_id),
+        storage_key: Set(Some(storage_key)),
+        content_type: Set(Some(content_type.to_owned())),
+        ..Default::default()
+    }
+    .insert(database)
+    .await;
+    if let Err(error) = insert_result {
+        if let Err(cleanup_error) = tokio::fs::remove_file(&destination).await {
+            tracing::warn!(
+                "failed to clean up poll image after database error: {cleanup_error}"
+            );
         }
         return Err(internal_error(error));
     }
+    Ok(destination)
+}
+
+pub(crate) async fn commit_creation(
+    transaction: sea_orm::DatabaseTransaction,
+    image_paths: Vec<PathBuf>,
+) -> AppResult<()> {
+    if let Err(error) = transaction.commit().await {
+        cleanup_image_paths(image_paths).await;
+        return Err(internal_error(error));
+    }
     Ok(())
+}
+
+async fn cleanup_image_paths(paths: Vec<PathBuf>) {
+    for path in paths {
+        if let Err(error) = tokio::fs::remove_file(path).await {
+            tracing::warn!("failed to clean up image: {error}");
+        }
+    }
 }
 
 pub(crate) async fn get_inline_polls(
@@ -693,11 +779,55 @@ pub(super) async fn get_poll_action_event_cover_photo(
     })
 }
 
-fn validate_event_cover_photo(bytes: &[u8]) -> AppResult<&'static str> {
+pub(super) async fn get_poll_image(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    server_id: Uuid,
+    channel_id: Uuid,
+    poll_id: Uuid,
+    image_id: Uuid,
+    user_id: Option<Uuid>,
+) -> AppResult<StoredPollImage> {
+    load_poll(database, server_id, channel_id, poll_id).await?;
+    if let Some(user_id) = user_id {
+        channels::ensure_channel_membership(database, channel_id, user_id)
+            .await?;
+    } else if servers::default_server_id(database).await? != server_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
+    }
+    let image = poll_images::Entity::find_by_id(image_id)
+        .filter(poll_images::Column::PollId.eq(poll_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
+        })?;
+    let storage_key = image.storage_key.ok_or_else(|| {
+        ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
+    })?;
+    let bytes = tokio::fs::read(upload_root.join(storage_key))
+        .await
+        .map_err(|_| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
+        })?;
+    Ok(StoredPollImage {
+        content_type: image.content_type,
+        bytes,
+    })
+}
+
+fn validate_image(bytes: &[u8], label: &str) -> AppResult<&'static str> {
+    if bytes.is_empty() || bytes.len() > MAX_IMAGE_SIZE {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("{label} must be no larger than 8 MB."),
+        ));
+    }
     let format = image::guess_format(bytes).map_err(|_| {
         ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
-            "Event cover photo must be a PNG, JPEG, GIF, or WebP image.",
+            format!("{label} must be a PNG, JPEG, GIF, or WebP image."),
         )
     })?;
     let content_type = match format {
@@ -708,14 +838,14 @@ fn validate_event_cover_photo(bytes: &[u8]) -> AppResult<&'static str> {
         _ => {
             return Err(ApiError::new(
                 StatusCode::UNPROCESSABLE_ENTITY,
-                "Event cover photo must be a PNG, JPEG, GIF, or WebP image.",
+                format!("{label} must be a PNG, JPEG, GIF, or WebP image."),
             ));
         }
     };
     image::load_from_memory_with_format(bytes, format).map_err(|_| {
         ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
-            "Event cover photo is not a valid image.",
+            format!("{label} is not a valid image."),
         )
     })?;
     Ok(content_type)
@@ -756,37 +886,6 @@ async fn load_poll_action_event_cover_photo<C: ConnectionTrait>(
     }
 }
 
-pub(super) async fn get_poll_image(
-    database: &DatabaseConnection,
-    upload_root: &Path,
-    server_id: Uuid,
-    channel_id: Uuid,
-    poll_id: Uuid,
-    image_id: Uuid,
-) -> AppResult<StoredPollImage> {
-    load_poll(database, server_id, channel_id, poll_id).await?;
-    let image = poll_images::Entity::find_by_id(image_id)
-        .filter(poll_images::Column::PollId.eq(poll_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
-        })?;
-    let storage_key = image.storage_key.ok_or_else(|| {
-        ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
-    })?;
-    let bytes = tokio::fs::read(upload_root.join(storage_key))
-        .await
-        .map_err(|_| {
-            ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
-        })?;
-    Ok(StoredPollImage {
-        content_type: image.content_type,
-        bytes,
-    })
-}
-
 pub(super) async fn delete_poll(
     database: &DatabaseConnection,
     upload_root: &Path,
@@ -809,7 +908,13 @@ pub(super) async fn delete_poll(
         .all(database)
         .await
         .map_err(internal_error)?;
-
+    for image in images {
+        if let Some(storage_key) = image.storage_key {
+            tokio::fs::remove_file(upload_root.join(storage_key))
+                .await
+                .map_err(internal_error)?;
+        }
+    }
     let action = poll_action_entities::Entity::find()
         .filter(poll_action_entities::Column::PollId.eq(poll.id))
         .one(database)
@@ -839,14 +944,6 @@ pub(super) async fn delete_poll(
                 }
             }
         }
-    }
-
-    for storage_key in
-        images.iter().filter_map(|image| image.storage_key.as_ref())
-    {
-        tokio::fs::remove_file(upload_root.join(storage_key))
-            .await
-            .map_err(internal_error)?;
     }
 
     polls::Entity::delete_by_id(poll.id)
@@ -1573,7 +1670,6 @@ async fn shape_poll(
         .all(database)
         .await
         .map_err(internal_error)?;
-
     let shaped_votes = votes
         .iter()
         .map(|vote| vote_service::shape_vote(vote, &selections))
@@ -1616,7 +1712,6 @@ async fn shape_poll(
                 })
                 .collect()
         },
-        images: images.iter().map(shape_poll_image).collect(),
         user: PollUserResponse {
             id: user.id.to_string(),
             name: user.name,
@@ -1632,6 +1727,12 @@ async fn shape_poll(
             0
         },
         votes: shaped_votes,
+        images: images
+            .into_iter()
+            .map(|image| PollImageResponse {
+                id: image.id.to_string(),
+            })
+            .collect(),
         my_vote,
         member_count: get_poll_member_count(database, poll.id).await?,
         source_call_id: poll.call_id.map(|call_id| call_id.to_string()),
@@ -1651,14 +1752,6 @@ fn shape_poll_config(config: poll_configs::Model) -> PollConfigResponse {
         abstains_limit: config.abstains_limit,
         closing_at: config.closing_at.map(serialize_timestamp),
         multiple_choice: config.multiple_choice,
-    }
-}
-
-fn shape_poll_image(image: &poll_images::Model) -> PollImageResponse {
-    PollImageResponse {
-        id: image.id.to_string(),
-        is_placeholder: image.storage_key.is_none(),
-        created_at: serialize_timestamp(image.created_at),
     }
 }
 
@@ -1973,12 +2066,6 @@ where
 }
 
 fn validate_create_poll(request: &CreatePollRequest) -> AppResult<()> {
-    if request.image_count > MAX_IMAGE_COUNT {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Too many images.",
-        ));
-    }
     if request
         .body
         .as_ref()
@@ -2164,7 +2251,7 @@ mod tests {
     use chrono::{FixedOffset, TimeZone};
     use std::io::Cursor;
 
-    use super::{resolve_poll_closing_at, validate_event_cover_photo};
+    use super::{resolve_poll_closing_at, validate_image};
 
     fn timestamp(minute: u32) -> chrono::DateTime<FixedOffset> {
         FixedOffset::east_opt(0)
@@ -2215,7 +2302,8 @@ mod tests {
             .expect("test PNG should encode");
 
         assert_eq!(
-            validate_event_cover_photo(bytes.get_ref()).expect("valid PNG"),
+            validate_image(bytes.get_ref(), "Event cover photo")
+                .expect("valid PNG"),
             "image/png"
         );
     }
@@ -2223,13 +2311,16 @@ mod tests {
     #[test]
     fn event_cover_photo_rejects_active_content() {
         assert!(
-            validate_event_cover_photo(
+            validate_image(
                 br#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#,
+                "Event cover photo",
             )
             .is_err()
         );
-        assert!(
-            validate_event_cover_photo(b"<script>alert(1)</script>").is_err()
-        );
+        assert!(validate_image(
+            b"<script>alert(1)</script>",
+            "Event cover photo"
+        )
+        .is_err());
     }
 }

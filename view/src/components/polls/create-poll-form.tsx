@@ -1,6 +1,8 @@
 import { api } from '@/client/api-client';
 import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-panel.utils';
 import { Button } from '@/components/ui/button';
+import { ImageInput } from '@/components/images/image-input';
+import { AttachedImagePreview } from '@/components/images/attached-image-preview';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
@@ -21,6 +23,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
+import { validateImageInput } from '@/lib/image.utilts';
 import { type CallDecisionRes } from '@/types/call.types';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import { type CreatePollReq } from '@/types/poll.types';
@@ -30,6 +33,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { LuPlus, LuX } from 'react-icons/lu';
+import { MdImage } from 'react-icons/md';
 import * as z from 'zod';
 
 const MIN_OPTIONS = 2;
@@ -43,6 +47,7 @@ const createPollFormSchema = z.object({
     .min(MIN_OPTIONS, 'polls.errors.minAnswersRequired'),
   closingAt: z.number().optional(),
   allowMultipleAnswers: z.boolean(),
+  images: z.array(z.instanceof(File)),
 });
 
 type CreatePollFormSchema = z.infer<typeof createPollFormSchema>;
@@ -65,6 +70,7 @@ export const CreatePollForm = ({ channelId, callId, onSuccess }: Props) => {
       options: [{ value: '' }, { value: '' }],
       closingAt: VotingTimeLimit.OneDay,
       allowMultipleAnswers: false,
+      images: [],
     },
   });
 
@@ -95,14 +101,25 @@ export const CreatePollForm = ({ channelId, callId, onSuccess }: Props) => {
         closingAt,
       };
 
+      validateImageInput(values.images);
+
       return callId
-        ? api.createCallPoll(serverId, channelId, callId, request)
-        : api.createPoll(serverId, channelId, request);
+        ? api.createCallPoll(
+            serverId,
+            channelId,
+            callId,
+            request,
+            values.images,
+          )
+        : api.createPoll(serverId, channelId, request, values.images);
     },
-    onSuccess: ({ poll }) => {
+    onSuccess: ({ poll }, values) => {
       if (!channelId || !serverId) {
         return;
       }
+      poll.images.forEach((image, index) => {
+        image.src = URL.createObjectURL(values.images[index]);
+      });
 
       const channelFeedQueryKey = [
         'servers',
@@ -200,51 +217,98 @@ export const CreatePollForm = ({ channelId, callId, onSuccess }: Props) => {
           )}
         />
 
-        <div className="space-y-3">
-          <FormLabel>{t('polls.labels.answers')}</FormLabel>
-          {fields.map((field, index) => (
-            <FormField
-              key={field.id}
-              control={form.control}
-              name={`options.${index}.value`}
-              render={({ field: inputField }) => (
-                <FormItem>
-                  <div className="flex items-center gap-2">
-                    <FormControl>
-                      <Input
-                        placeholder={t('polls.placeholders.answer', {
-                          number: index + 1,
-                        })}
-                        {...inputField}
-                      />
-                    </FormControl>
-                    {fields.length > MIN_OPTIONS && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveOption(index)}
-                        className="shrink-0"
-                      >
-                        <LuX className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ))}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleAddOption}
-            className="mt-2"
-          >
-            <LuPlus className="mr-1 size-4" />
-            {t('polls.actions.addAnswer')}
-          </Button>
+        <div className="space-y-0.5">
+          <div className="space-y-3">
+            <FormLabel>{t('polls.labels.answers')}</FormLabel>
+            {fields.map((field, index) => (
+              <FormField
+                key={field.id}
+                control={form.control}
+                name={`options.${index}.value`}
+                render={({ field: inputField }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormControl>
+                        <Input
+                          placeholder={t('polls.placeholders.answer', {
+                            number: index + 1,
+                          })}
+                          {...inputField}
+                        />
+                      </FormControl>
+                      {fields.length > MIN_OPTIONS && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveOption(index)}
+                          className="shrink-0"
+                        >
+                          <LuX className="size-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleAddOption}
+              className="mt-2"
+            >
+              <LuPlus className="mr-1 size-4" />
+              {t('polls.actions.addAnswer')}
+            </Button>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="images"
+            render={({ field }) => (
+              <FormItem>
+                {field.value.length > 0 && (
+                  <FormLabel className="mt-2">
+                    {t('images.labels.attachedImages')}
+                  </FormLabel>
+                )}
+                <AttachedImagePreview
+                  selectedImages={field.value}
+                  handleRemove={(name) =>
+                    field.onChange(
+                      field.value.filter((image) => image.name !== name),
+                    )
+                  }
+                />
+                <ImageInput
+                  multiple
+                  onChange={(images) => {
+                    try {
+                      validateImageInput(images);
+                      field.onChange(images);
+                      form.clearErrors('images');
+                    } catch (error) {
+                      form.setError('images', {
+                        message:
+                          error instanceof Error
+                            ? error.message
+                            : 'Invalid image.',
+                      });
+                    }
+                  }}
+                >
+                  <Button type="button" variant="ghost" size="sm">
+                    <MdImage className="size-5" />
+                    {t('images.labels.attachImages')}
+                  </Button>
+                </ImageInput>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <FormField

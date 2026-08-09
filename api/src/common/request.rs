@@ -13,12 +13,13 @@ pub(crate) struct MultipartFile {
     pub(crate) bytes: Vec<u8>,
 }
 
-pub(crate) struct JsonOrMultipartFile<T> {
+pub(crate) struct JsonOrMultipartFiles<T> {
     pub(crate) payload: T,
     pub(crate) file: Option<MultipartFile>,
+    pub(crate) files: Vec<MultipartFile>,
 }
 
-impl<T, S> FromRequest<S> for JsonOrMultipartFile<T>
+impl<T, S> FromRequest<S> for JsonOrMultipartFiles<T>
 where
     T: DeserializeOwned + Send,
     S: Send + Sync,
@@ -40,10 +41,12 @@ where
                 Multipart::from_request(request, state).await.map_err(
                     |error| ApiError::new(error.status(), error.body_text()),
                 )?;
-            let (payload, file) = multipart_json_file(multipart).await?;
+            let (payload, file, files) =
+                multipart_json_files(multipart).await?;
             return Ok(Self {
                 payload,
-                file: Some(file),
+                file,
+                files,
             });
         }
 
@@ -55,6 +58,7 @@ where
         Ok(Self {
             payload,
             file: None,
+            files: vec![],
         })
     }
 }
@@ -79,11 +83,12 @@ pub(crate) async fn multipart_file(
     Ok(None)
 }
 
-async fn multipart_json_file<T: DeserializeOwned>(
+async fn multipart_json_files<T: DeserializeOwned>(
     mut multipart: Multipart,
-) -> AppResult<(T, MultipartFile)> {
+) -> AppResult<(T, Option<MultipartFile>, Vec<MultipartFile>)> {
     let mut payload = None;
     let mut file = None;
+    let mut files = vec![];
 
     while let Some(field) =
         multipart.next_field().await.map_err(internal_error)?
@@ -107,6 +112,15 @@ async fn multipart_json_file<T: DeserializeOwned>(
                     bytes,
                 });
             }
+            Some("files") => {
+                let content_type = field.content_type().map(ToOwned::to_owned);
+                let bytes =
+                    field.bytes().await.map_err(internal_error)?.to_vec();
+                files.push(MultipartFile {
+                    content_type,
+                    bytes,
+                });
+            }
             _ => {}
         }
     }
@@ -114,10 +128,13 @@ async fn multipart_json_file<T: DeserializeOwned>(
     let payload = payload.ok_or_else(|| {
         ApiError::new(StatusCode::BAD_REQUEST, "Multipart payload is required.")
     })?;
-    let file = file.ok_or_else(|| {
-        ApiError::new(StatusCode::BAD_REQUEST, "Multipart file is required.")
-    })?;
-    Ok((payload, file))
+    if file.is_none() && files.is_empty() {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "At least one multipart file is required.",
+        ));
+    }
+    Ok((payload, file, files))
 }
 
 pub(crate) fn parse_uuid(value: &str, field: &str) -> AppResult<Uuid> {

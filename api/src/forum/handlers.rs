@@ -22,7 +22,7 @@ use crate::{
     auth::HasJwtSecret,
     channels::extractors::HasDatabase,
     common::{
-        request::JsonOrMultipartFile, response::EmptyResponse,
+        request::JsonOrMultipartFiles, response::EmptyResponse,
         storage::upload_root, AppResult,
     },
     polls::{self, types::CreatePollRequest},
@@ -85,11 +85,14 @@ pub(super) async fn list_forum_posts(
 pub(super) async fn create_forum_post(
     State(state): State<ForumState>,
     context: ForumAccessContext,
-    JsonOrMultipartFile { payload, file }: JsonOrMultipartFile<
-        CreateForumPostRequest,
-    >,
+    JsonOrMultipartFiles {
+        payload,
+        file,
+        files,
+    }: JsonOrMultipartFiles<CreateForumPostRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
     let cover_photo = file.map(|file| file.bytes);
+    let images = files.into_iter().map(|file| file.bytes).collect();
     let post = service::create_forum_post(
         &state.database,
         &state.upload_root,
@@ -97,6 +100,7 @@ pub(super) async fn create_forum_post(
         context.channel_id,
         context.user_id,
         payload,
+        images,
         cover_photo,
     )
     .await?;
@@ -134,11 +138,14 @@ pub(super) async fn create_forum_post(
 pub(super) async fn create_forum_post_proposal(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-    JsonOrMultipartFile { payload, file }: JsonOrMultipartFile<
-        CreatePollRequest,
-    >,
+    JsonOrMultipartFiles {
+        payload,
+        file,
+        files,
+    }: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
     let cover_photo = file.map(|file| file.bytes);
+    let images = files.into_iter().map(|file| file.bytes).collect();
     let post = service::create_forum_post_proposal(
         &state.database,
         &state.upload_root,
@@ -147,6 +154,7 @@ pub(super) async fn create_forum_post_proposal(
         context.post_id,
         context.user_id,
         payload,
+        images,
         cover_photo,
     )
     .await?;
