@@ -6,6 +6,7 @@ import {
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { assertUuid, runDatabaseCommand } from '../lib/db';
+import { createPlanEventProposal } from '../lib/events';
 import {
   getPollVoteSummary,
   makeProposalsRatifyWithOneAgreeVote,
@@ -140,8 +141,10 @@ test('user can propose and ratify an online event with all details preserved', a
   await dialog.getByLabel('Description').fill(eventDescription);
   await dialog
     .getByTestId('image-input')
-    .setInputFiles('view/src/assets/images/app-icon.png');
-  await expect(dialog.getByRole('img', { name: 'app-icon.png' })).toBeVisible();
+    .setInputFiles('e2e/fixtures/valid-image.png');
+  await expect(
+    dialog.getByRole('img', { name: 'valid-image.png' }),
+  ).toBeVisible();
   await selectEventDate(dialog, page, 'Start Date', startsAt);
   await selectEventTime(dialog, page, 'Start Time', startsAt);
   await expect(
@@ -555,35 +558,25 @@ test('past event proposals are rejected and stale proposals expire automatically
   });
 
   const proposalBody = `Stale event ${proposer.user.suffix}`;
-  const createProposalResponse = await request.post(proposalPath, {
-    headers: authorizationHeaders(proposer),
-    data: {
-      body: proposalBody,
-      pollType: 'proposal',
-      action: planEventAction(new Date(Date.now() + 60 * 60_000)),
+  const { pollId, actionId, proposal } = await createPlanEventProposal({
+    request,
+    page,
+    proposer,
+    serverId: server.id,
+    channelId: server.generalChannelId,
+    proposalBody,
+    event: {
+      name: `Time-sensitive event ${proposer.user.suffix}`,
+      description: 'This event must still be upcoming when ratified.',
+      startsAt: new Date(Date.now() + 60 * 60_000),
+      hostIds: [proposer.userId],
     },
   });
-  await expect(createProposalResponse).toBeOK();
-  const { poll } = (await createProposalResponse.json()) as PollResponse;
-  const action = poll.action;
-  expect(action?.actionType).toBe('plan-event');
-  if (!action) {
-    throw new Error('Plan-event proposal response did not include its action.');
-  }
+  expect(getPollVoteSummary(pollId)).toBe('0:none');
 
-  const chat = new ChatPage(page);
-  await chat.goto();
-  await chat.expectChannel('general');
-  const proposal = page.getByRole('article', {
-    name: `Majority Vote Proposal: ${proposalBody}`,
-  });
-  await expect(proposal).toBeVisible();
-  await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
-  expect(getPollVoteSummary(poll.id)).toBe('0:none');
-
-  assertUuid(action.id, 'Poll action ID');
+  assertUuid(actionId, 'Poll action ID');
   const updateOutput = runDatabaseCommand(
-    `UPDATE poll_action_events SET starts_at = now() - interval '1 minute' WHERE poll_action_id = '${action.id}';`,
+    `UPDATE poll_action_events SET starts_at = now() - interval '1 minute' WHERE poll_action_id = '${actionId}';`,
   );
   expect(updateOutput).toContain('UPDATE 1');
 
@@ -607,7 +600,7 @@ test('past event proposals are rejected and stale proposals expire automatically
   await expect(proposal.getByRole('link', { name: 'View event' })).toHaveCount(
     0,
   );
-  expect(getPollVoteSummary(poll.id)).toBe('0:none');
+  expect(getPollVoteSummary(pollId)).toBe('0:none');
 
   const eventsResponse = await request.get(`/api/servers/${server.id}/events`, {
     headers: authorizationHeaders(proposer),
@@ -621,7 +614,7 @@ test('past event proposals are rejected and stale proposals expire automatically
     events: EventResponse[];
   };
   expect(
-    events.filter((event) => event.sourcePollActionId === action.id),
+    events.filter((event) => event.sourcePollActionId === actionId),
   ).toHaveLength(0);
 });
 
@@ -643,43 +636,20 @@ test('event proposal expires when a proposed host leaves the server', async ({
   await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
   const proposalBody = `Event with departing host ${proposer.user.suffix}`;
   const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60_000);
-  const createProposalResponse = await request.post(
-    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
-    {
-      headers: authorizationHeaders(proposer),
-      data: {
-        body: proposalBody,
-        pollType: 'proposal',
-        action: {
-          actionType: 'plan-event',
-          event: {
-            name: `Hosted event ${proposer.user.suffix}`,
-            description: 'This event requires its proposed host to remain.',
-            startsAt: startsAt.toISOString(),
-            online: true,
-            hostIds: [host.userId],
-            coverPhoto: false,
-          },
-        },
-      },
+  const { pollId, actionId, proposal } = await createPlanEventProposal({
+    request,
+    page,
+    proposer,
+    serverId: server.id,
+    channelId: server.generalChannelId,
+    proposalBody,
+    event: {
+      name: `Hosted event ${proposer.user.suffix}`,
+      description: 'This event requires its proposed host to remain.',
+      startsAt,
+      hostIds: [host.userId],
     },
-  );
-  await expect(createProposalResponse).toBeOK();
-  const { poll } = (await createProposalResponse.json()) as PollResponse;
-  const action = poll.action;
-  expect(action?.actionType).toBe('plan-event');
-  if (!action) {
-    throw new Error('Plan-event proposal response did not include its action.');
-  }
-
-  const chat = new ChatPage(page);
-  await chat.goto();
-  await chat.expectChannel('general');
-  const proposal = page.getByRole('article', {
-    name: `Majority Vote Proposal: ${proposalBody}`,
   });
-  await expect(proposal).toBeVisible();
-  await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
 
   const removeHostResponse = await request.delete(
     `/api/servers/${server.id}/members`,
@@ -704,7 +674,7 @@ test('event proposal expires when a proposed host leaves the server', async ({
     voteProgressDialog.getByText(closedReason, { exact: true }),
   ).toBeVisible();
   await expect(proposal.getByRole('button', { name: 'Agree' })).toHaveCount(0);
-  expect(getPollVoteSummary(poll.id)).toBe('0:none');
+  expect(getPollVoteSummary(pollId)).toBe('0:none');
 
   const eventsResponse = await request.get(`/api/servers/${server.id}/events`, {
     headers: authorizationHeaders(proposer),
@@ -718,6 +688,6 @@ test('event proposal expires when a proposed host leaves the server', async ({
     events: EventResponse[];
   };
   expect(
-    events.filter((event) => event.sourcePollActionId === action.id),
+    events.filter((event) => event.sourcePollActionId === actionId),
   ).toHaveLength(0);
 });

@@ -162,7 +162,7 @@ test('authenticated user can create a poll with an image attachment', async ({
 
   await dialog
     .getByTestId('image-input')
-    .setInputFiles('view/src/assets/images/app-icon.png');
+    .setInputFiles('e2e/fixtures/valid-image.png');
   await expect(
     dialog.getByText('Attached images', { exact: true }),
   ).toBeVisible();
@@ -227,7 +227,7 @@ test('authenticated user can create a proposal with an image attachment', async 
 
   await dialog
     .getByTestId('image-input')
-    .setInputFiles('view/src/assets/images/app-icon.png');
+    .setInputFiles('e2e/fixtures/valid-image.png');
   await expect(
     dialog.getByText('Attached images', { exact: true }),
   ).toBeVisible();
