@@ -1,5 +1,5 @@
 use axum::{
-    extract::{FromRequest, Multipart, Request},
+    extract::{DefaultBodyLimit, FromRequest, Multipart, Request},
     http::{header, StatusCode},
     Json,
 };
@@ -8,8 +8,46 @@ use serde::de::DeserializeOwned;
 
 use crate::common::{ApiError, AppResult};
 
+const MULTIPART_OVERHEAD_BYTES: usize = 1024 * 1024;
+const MAX_CREATION_MULTIPART_FILES: usize = 6;
+
+const CREATION_MULTIPART_BODY_LIMIT: usize =
+    crate::common::images::MAX_IMAGE_BYTES * MAX_CREATION_MULTIPART_FILES
+        + MULTIPART_OVERHEAD_BYTES;
+
+const SINGLE_IMAGE_MULTIPART_BODY_LIMIT: usize =
+    crate::common::images::MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES;
+
 pub(crate) struct MultipartFile {
     pub(crate) bytes: Vec<u8>,
+}
+
+impl<S> FromRequest<S> for MultipartFile
+where
+    S: Send + Sync,
+{
+    type Rejection = ApiError;
+
+    async fn from_request(
+        mut request: Request,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        DefaultBodyLimit::max(SINGLE_IMAGE_MULTIPART_BODY_LIMIT)
+            .apply(&mut request);
+        let multipart =
+            Multipart::from_request(request, state)
+                .await
+                .map_err(|error| {
+                    ApiError::new(error.status(), error.body_text())
+                })?;
+
+        multipart_file(multipart, "file").await?.ok_or_else(|| {
+            ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "Multipart file is required.",
+            )
+        })
+    }
 }
 
 pub(crate) struct JsonOrMultipartFiles<T> {
@@ -26,7 +64,7 @@ where
     type Rejection = ApiError;
 
     async fn from_request(
-        request: Request,
+        mut request: Request,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
         let is_multipart = request
@@ -36,6 +74,8 @@ where
             .is_some_and(|value| value.starts_with("multipart/form-data"));
 
         if is_multipart {
+            DefaultBodyLimit::max(CREATION_MULTIPART_BODY_LIMIT)
+                .apply(&mut request);
             let multipart =
                 Multipart::from_request(request, state).await.map_err(
                     |error| ApiError::new(error.status(), error.body_text()),
@@ -62,7 +102,7 @@ where
     }
 }
 
-pub(crate) async fn multipart_file(
+async fn multipart_file(
     mut multipart: Multipart,
     field_name: &str,
 ) -> AppResult<Option<MultipartFile>> {

@@ -7,10 +7,10 @@ use std::io::Cursor;
 
 use super::{ApiError, AppResult};
 
-const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION: u32 = 10_000;
 const MAX_IMAGE_PIXELS: u64 = 40_000_000;
 const MAX_DECODE_ALLOCATION: u64 = 160 * 1024 * 1024;
+pub(crate) const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 
 pub(crate) struct ValidatedImage {
     pub(crate) content_type: &'static str,
@@ -27,12 +27,9 @@ pub(crate) fn validate_raster(
         return Err(invalid_image(label, "must be no larger than 8 MB"));
     }
 
-    let format = image::guess_format(bytes)
-        .ok()
-        .filter(|format| supported_content_type(*format).is_some())
-        .ok_or_else(|| {
-            invalid_image(label, "must be a PNG, JPEG, GIF, or WebP image")
-        })?;
+    let format = supported_format(bytes).ok_or_else(|| {
+        invalid_image(label, "must be a PNG, JPEG, GIF, or WebP image")
+    })?;
     let (width, height) = ImageReader::with_format(Cursor::new(bytes), format)
         .into_dimensions()
         .map_err(|_| invalid_image(label, "is not a valid image"))?;
@@ -65,15 +62,15 @@ pub(crate) fn validate_raster(
 }
 
 pub(crate) fn safe_image_response(bytes: Vec<u8>) -> AppResult<Response<Body>> {
-    let validated = validate_raster(&bytes, "Stored image").ok();
-    let content_type = validated
-        .as_ref()
-        .map_or("application/octet-stream", |image| image.content_type);
+    let detected_content_type =
+        supported_format(&bytes).and_then(supported_content_type);
+    let content_type =
+        detected_content_type.unwrap_or("application/octet-stream");
     let mut builder = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, content_type)
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
-    if validated.is_none() {
+    if detected_content_type.is_none() {
         builder = builder.header(header::CONTENT_DISPOSITION, "attachment");
     }
     builder.body(Body::from(bytes)).map_err(|error| {
@@ -83,6 +80,12 @@ pub(crate) fn safe_image_response(bytes: Vec<u8>) -> AppResult<Response<Body>> {
             "Internal server error.",
         )
     })
+}
+
+fn supported_format(bytes: &[u8]) -> Option<ImageFormat> {
+    image::guess_format(bytes)
+        .ok()
+        .filter(|format| supported_content_type(*format).is_some())
 }
 
 fn supported_content_type(format: ImageFormat) -> Option<&'static str> {

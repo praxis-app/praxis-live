@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Multipart, Path, State},
+    extract::{Path, State},
     http::{Response, StatusCode},
     response::Json,
 };
@@ -16,7 +16,7 @@ use super::{
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     common::{
-        request::{multipart_file, parse_uuid},
+        request::{parse_uuid, MultipartFile},
         storage::upload_root,
         AppResult,
     },
@@ -97,14 +97,13 @@ pub(super) async fn update_user_profile(
 pub(super) async fn upload_user_profile_picture(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
-    multipart: Multipart,
+    MultipartFile { bytes }: MultipartFile,
 ) -> AppResult<(StatusCode, Json<UserImagePayload>)> {
-    let file = multipart_file(multipart, "file").await?;
     let image = service::upload_user_profile_picture(
         &state.database,
         &state.upload_root,
         user_id,
-        file.map(|file| file.bytes).unwrap_or_default(),
+        bytes,
     )
     .await?;
 
@@ -114,14 +113,13 @@ pub(super) async fn upload_user_profile_picture(
 pub(super) async fn upload_user_cover_photo(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
-    multipart: Multipart,
+    MultipartFile { bytes }: MultipartFile,
 ) -> AppResult<(StatusCode, Json<UserImagePayload>)> {
-    let file = multipart_file(multipart, "file").await?;
     let image = service::upload_user_cover_photo(
         &state.database,
         &state.upload_root,
         user_id,
-        file.map(|file| file.bytes).unwrap_or_default(),
+        bytes,
     )
     .await?;
 

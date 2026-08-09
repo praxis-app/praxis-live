@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Multipart, Path, State},
+    extract::{Path, State},
     http::{Response, StatusCode},
     response::Json,
 };
@@ -19,7 +19,7 @@ use crate::{
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
-        images::safe_image_response, request::multipart_file,
+        images::safe_image_response, request::MultipartFile,
         storage::upload_root, AppResult,
     },
     pub_sub::PubSubService,
@@ -122,16 +122,14 @@ pub(super) async fn create_call_message(
 pub(super) async fn upload_message_image(
     State(chat_state): State<ChatState>,
     context: MessageImageUploadContext,
-    multipart: Multipart,
+    MultipartFile { bytes }: MultipartFile,
 ) -> AppResult<(StatusCode, Json<ImagePayload>)> {
-    let file = multipart_file(multipart, "file").await?;
-
     let image = service::store_message_image(
         &chat_state.database,
         &chat_state.upload_root,
         &context.message,
         context.image_id,
-        file.map(|file| file.bytes).unwrap_or_default(),
+        bytes,
     )
     .await?;
     if let Err(error) = service::broadcast_image_upload(
@@ -154,15 +152,14 @@ pub(super) async fn upload_message_image(
 pub(super) async fn upload_call_message_image(
     State(chat_state): State<ChatState>,
     context: CallMessageImageUploadContext,
-    multipart: Multipart,
+    MultipartFile { bytes }: MultipartFile,
 ) -> AppResult<(StatusCode, Json<ImagePayload>)> {
-    let file = multipart_file(multipart, "file").await?;
     let image = service::store_message_image(
         &chat_state.database,
         &chat_state.upload_root,
         &context.message,
         context.image_id,
-        file.map(|file| file.bytes).unwrap_or_default(),
+        bytes,
     )
     .await?;
     if let Err(error) = service::broadcast_call_image_upload(
