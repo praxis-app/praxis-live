@@ -171,10 +171,7 @@ pub(super) async fn get_event_cover_photo(
         .map_err(|_| {
             ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
         })?;
-    Ok(StoredEventCoverPhoto {
-        content_type: image.content_type,
-        bytes,
-    })
+    Ok(StoredEventCoverPhoto { bytes })
 }
 
 async fn ensure_server_member(

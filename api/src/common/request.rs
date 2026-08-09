@@ -9,7 +9,6 @@ use serde::de::DeserializeOwned;
 use crate::common::{ApiError, AppResult};
 
 pub(crate) struct MultipartFile {
-    pub(crate) content_type: Option<String>,
     pub(crate) bytes: Vec<u8>,
 }
 
@@ -71,12 +70,8 @@ pub(crate) async fn multipart_file(
         multipart.next_field().await.map_err(internal_error)?
     {
         if field.name() == Some(field_name) {
-            let content_type = field.content_type().map(ToOwned::to_owned);
             let bytes = field.bytes().await.map_err(internal_error)?.to_vec();
-            return Ok(Some(MultipartFile {
-                content_type,
-                bytes,
-            }));
+            return Ok(Some(MultipartFile { bytes }));
         }
     }
 
@@ -104,22 +99,14 @@ async fn multipart_json_files<T: DeserializeOwned>(
                 })?);
             }
             Some("file") => {
-                let content_type = field.content_type().map(ToOwned::to_owned);
                 let bytes =
                     field.bytes().await.map_err(internal_error)?.to_vec();
-                file = Some(MultipartFile {
-                    content_type,
-                    bytes,
-                });
+                file = Some(MultipartFile { bytes });
             }
             Some("files") => {
-                let content_type = field.content_type().map(ToOwned::to_owned);
                 let bytes =
                     field.bytes().await.map_err(internal_error)?.to_vec();
-                files.push(MultipartFile {
-                    content_type,
-                    bytes,
-                });
+                files.push(MultipartFile { bytes });
             }
             _ => {}
         }

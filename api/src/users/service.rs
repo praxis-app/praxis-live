@@ -283,15 +283,10 @@ pub(super) async fn store_user_image(
     upload_root: &Path,
     user_id: Uuid,
     kind: &str,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<UserImageRef> {
-    if bytes.is_empty() {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "No image uploaded",
-        ));
-    }
+    let validated =
+        crate::common::images::validate_raster(&bytes, "User image")?;
 
     let kind = match kind {
         PROFILE_PICTURE_KIND | COVER_PHOTO_KIND => kind,
@@ -334,7 +329,7 @@ pub(super) async fn store_user_image(
 
     let mut active = image.into_active_model();
     active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(content_type);
+    active.content_type = Set(Some(validated.content_type.to_owned()));
     let image = active.update(database).await.map_err(internal_error)?;
 
     Ok(shape_image_reference(&image))
@@ -369,17 +364,13 @@ pub(super) async fn get_user_image(
         .await
         .map_err(internal_error)?;
 
-    Ok(StoredUserImage {
-        content_type: image.content_type,
-        bytes,
-    })
+    Ok(StoredUserImage { bytes })
 }
 
 pub(super) async fn upload_user_profile_picture(
     database: &DatabaseConnection,
     upload_root: &Path,
     user_id: Uuid,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<UserImageRef> {
     store_user_image(
@@ -387,7 +378,6 @@ pub(super) async fn upload_user_profile_picture(
         upload_root,
         user_id,
         PROFILE_PICTURE_KIND,
-        content_type,
         bytes,
     )
     .await
@@ -397,18 +387,10 @@ pub(super) async fn upload_user_cover_photo(
     database: &DatabaseConnection,
     upload_root: &Path,
     user_id: Uuid,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<UserImageRef> {
-    store_user_image(
-        database,
-        upload_root,
-        user_id,
-        COVER_PHOTO_KIND,
-        content_type,
-        bytes,
-    )
-    .await
+    store_user_image(database, upload_root, user_id, COVER_PHOTO_KIND, bytes)
+        .await
 }
 
 pub(super) async fn has_shared_channel(

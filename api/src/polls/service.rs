@@ -46,7 +46,6 @@ use crate::{
 
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
 const MAX_IMAGE_COUNT: usize = 5;
-const MAX_IMAGE_SIZE: usize = 8 * 1024 * 1024;
 const PROPOSAL_SYNC_BATCH_SIZE: usize = 20;
 const PROPOSAL_SYNC_INTERVAL_SECONDS: u64 = 60 * 5;
 
@@ -457,7 +456,9 @@ pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
     poll_id: Uuid,
     bytes: Vec<u8>,
 ) -> AppResult<PathBuf> {
-    let content_type = validate_image(&bytes, "Event cover photo")?;
+    let content_type =
+        crate::common::images::validate_raster(&bytes, "Event cover photo")?
+            .content_type;
     let action = poll_action_entities::Entity::find()
         .filter(poll_action_entities::Column::PollId.eq(poll_id))
         .one(database)
@@ -536,11 +537,13 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
     }
     let validated_images = images
         .iter()
-        .map(|bytes| validate_image(bytes, "Poll image"))
+        .map(|bytes| {
+            crate::common::images::validate_raster(bytes, "Poll image")
+        })
         .collect::<AppResult<Vec<_>>>()?;
 
     let mut paths = vec![];
-    for (bytes, content_type) in
+    for (bytes, validated) in
         images.into_iter().zip(validated_images.into_iter())
     {
         match attach_poll_image(
@@ -548,7 +551,7 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
             upload_root,
             poll_id,
             bytes,
-            content_type,
+            validated.content_type,
         )
         .await
         {
@@ -773,10 +776,7 @@ pub(super) async fn get_poll_action_event_cover_photo(
         .map_err(|_| {
             ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
         })?;
-    Ok(StoredPollImage {
-        content_type: image.content_type,
-        bytes,
-    })
+    Ok(StoredPollImage { bytes })
 }
 
 pub(super) async fn get_poll_image(
@@ -811,44 +811,7 @@ pub(super) async fn get_poll_image(
         .map_err(|_| {
             ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
         })?;
-    Ok(StoredPollImage {
-        content_type: image.content_type,
-        bytes,
-    })
-}
-
-fn validate_image(bytes: &[u8], label: &str) -> AppResult<&'static str> {
-    if bytes.is_empty() || bytes.len() > MAX_IMAGE_SIZE {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            format!("{label} must be no larger than 8 MB."),
-        ));
-    }
-    let format = image::guess_format(bytes).map_err(|_| {
-        ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            format!("{label} must be a PNG, JPEG, GIF, or WebP image."),
-        )
-    })?;
-    let content_type = match format {
-        image::ImageFormat::Png => "image/png",
-        image::ImageFormat::Jpeg => "image/jpeg",
-        image::ImageFormat::Gif => "image/gif",
-        image::ImageFormat::WebP => "image/webp",
-        _ => {
-            return Err(ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                format!("{label} must be a PNG, JPEG, GIF, or WebP image."),
-            ));
-        }
-    };
-    image::load_from_memory_with_format(bytes, format).map_err(|_| {
-        ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            format!("{label} is not a valid image."),
-        )
-    })?;
-    Ok(content_type)
+    Ok(StoredPollImage { bytes })
 }
 
 async fn load_poll_action_event_cover_photo<C: ConnectionTrait>(
@@ -2251,7 +2214,8 @@ mod tests {
     use chrono::{FixedOffset, TimeZone};
     use std::io::Cursor;
 
-    use super::{resolve_poll_closing_at, validate_image};
+    use super::resolve_poll_closing_at;
+    use crate::common::images::validate_raster;
 
     fn timestamp(minute: u32) -> chrono::DateTime<FixedOffset> {
         FixedOffset::east_opt(0)
@@ -2302,8 +2266,9 @@ mod tests {
             .expect("test PNG should encode");
 
         assert_eq!(
-            validate_image(bytes.get_ref(), "Event cover photo")
-                .expect("valid PNG"),
+            validate_raster(bytes.get_ref(), "Event cover photo")
+                .expect("valid PNG")
+                .content_type,
             "image/png"
         );
     }
@@ -2311,13 +2276,13 @@ mod tests {
     #[test]
     fn event_cover_photo_rejects_active_content() {
         assert!(
-            validate_image(
+            validate_raster(
                 br#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#,
                 "Event cover photo",
             )
             .is_err()
         );
-        assert!(validate_image(
+        assert!(validate_raster(
             b"<script>alert(1)</script>",
             "Event cover photo"
         )

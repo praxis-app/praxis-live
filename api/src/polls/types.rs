@@ -168,6 +168,5 @@ pub(super) struct PollUserResponse {
 
 #[derive(Debug, Clone)]
 pub(super) struct StoredPollImage {
-    pub(super) content_type: Option<String>,
     pub(super) bytes: Vec<u8>,
 }

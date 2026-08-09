@@ -87,6 +87,5 @@ pub(super) struct EventPayload {
 }
 
 pub(super) struct StoredEventCoverPhoto {
-    pub(super) content_type: Option<String>,
     pub(super) bytes: Vec<u8>,
 }

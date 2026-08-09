@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use serde_json::json;
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Cursor};
 
 use crate::support::{json_body, MultipartField, TestApp};
 
@@ -54,13 +54,17 @@ async fn create_message_and_upload_image_support_text_and_images() {
     assert_eq!(feed_body["hasMore"], false);
 
     let mut fields = HashMap::new();
+    let mut png = Cursor::new(Vec::new());
+    image::DynamicImage::new_rgba8(1, 1)
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
     fields.insert(
         "file".to_owned(),
         MultipartField {
             name: "file".to_owned(),
             filename: Some("pixel.png".to_owned()),
             content_type: Some("image/png".to_owned()),
-            bytes: vec![137, 80, 78, 71, 13, 10, 26, 10],
+            bytes: png.into_inner(),
         },
     );
 

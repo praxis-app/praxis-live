@@ -1,7 +1,6 @@
 use axum::{
-    body::Body,
     extract::{Path, Query, State},
-    http::{header, Response, StatusCode},
+    http::Response,
     response::Json,
 };
 use sea_orm::DatabaseConnection;
@@ -20,10 +19,7 @@ use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
-    common::{
-        request::JsonOrMultipartFiles, storage::upload_root, ApiError,
-        AppResult,
-    },
+    common::{request::JsonOrMultipartFiles, storage::upload_root, AppResult},
     pub_sub::PubSubService,
     servers::types::ServerPath,
 };
@@ -233,7 +229,7 @@ pub(super) async fn get_poll_action_event_cover_photo(
     State(state): State<PollsState>,
     Path(path): Path<PollActionEventCoverPhotoPath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
-) -> AppResult<Response<Body>> {
+) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_poll_action_event_cover_photo(
         &state.database,
         &state.upload_root,
@@ -245,24 +241,14 @@ pub(super) async fn get_poll_action_event_cover_photo(
     )
     .await?;
 
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            image
-                .content_type
-                .unwrap_or_else(|| "application/octet-stream".to_owned()),
-        )
-        .header("x-content-type-options", "nosniff")
-        .body(Body::from(image.bytes))
-        .map_err(internal_error)
+    crate::common::images::safe_image_response(image.bytes)
 }
 
 pub(super) async fn get_poll_image(
     State(state): State<PollsState>,
     Path(path): Path<PollImagePath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
-) -> AppResult<Response<Body>> {
+) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_poll_image(
         &state.database,
         &state.upload_root,
@@ -274,17 +260,7 @@ pub(super) async fn get_poll_image(
     )
     .await?;
 
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            image
-                .content_type
-                .unwrap_or_else(|| "application/octet-stream".to_owned()),
-        )
-        .header("x-content-type-options", "nosniff")
-        .body(Body::from(image.bytes))
-        .map_err(internal_error)
+    crate::common::images::safe_image_response(image.bytes)
 }
 
 pub(super) async fn delete_poll(
@@ -301,9 +277,4 @@ pub(super) async fn delete_poll(
     Ok(Json(DeletePollResponse {
         affected: result.rows_affected,
     }))
-}
-
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
-    tracing::error!("poll route failed: {error}");
-    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }

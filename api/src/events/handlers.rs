@@ -1,7 +1,6 @@
 use axum::{
-    body::Body,
     extract::{Path, Query, State},
-    http::{header, Response, StatusCode},
+    http::Response,
     response::Json,
 };
 use sea_orm::DatabaseConnection;
@@ -97,7 +96,7 @@ pub(super) async fn get_event_cover_photo(
     State(state): State<EventsState>,
     Path(path): Path<EventCoverPhotoPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
-) -> AppResult<Response<Body>> {
+) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_event_cover_photo(
         &state.database,
         &state.upload_root,
@@ -108,20 +107,5 @@ pub(super) async fn get_event_cover_photo(
     )
     .await?;
 
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            image
-                .content_type
-                .unwrap_or_else(|| "application/octet-stream".to_owned()),
-        )
-        .header("x-content-type-options", "nosniff")
-        .body(Body::from(image.bytes))
-        .map_err(|error| {
-            crate::common::ApiError::new(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                error.to_string(),
-            )
-        })
+    crate::common::images::safe_image_response(image.bytes)
 }

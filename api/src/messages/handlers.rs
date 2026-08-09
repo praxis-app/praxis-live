@@ -1,7 +1,6 @@
 use axum::{
-    body::Body,
     extract::{Multipart, Path, State},
-    http::{header, Response, StatusCode},
+    http::{Response, StatusCode},
     response::Json,
 };
 use sea_orm::DatabaseConnection;
@@ -16,11 +15,12 @@ use super::{
     },
 };
 use crate::{
-    auth::HasJwtSecret,
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
-        request::multipart_file, storage::upload_root, ApiError, AppResult,
+        images::safe_image_response, request::multipart_file,
+        storage::upload_root, AppResult,
     },
     pub_sub::PubSubService,
 };
@@ -131,7 +131,6 @@ pub(super) async fn upload_message_image(
         &chat_state.upload_root,
         &context.message,
         context.image_id,
-        file.as_ref().and_then(|file| file.content_type.clone()),
         file.map(|file| file.bytes).unwrap_or_default(),
     )
     .await?;
@@ -163,7 +162,6 @@ pub(super) async fn upload_call_message_image(
         &chat_state.upload_root,
         &context.message,
         context.image_id,
-        file.as_ref().and_then(|file| file.content_type.clone()),
         file.map(|file| file.bytes).unwrap_or_default(),
     )
     .await?;
@@ -190,7 +188,8 @@ pub(super) async fn upload_call_message_image(
 pub(super) async fn get_message_image(
     State(chat_state): State<ChatState>,
     Path(path): Path<MessageImagePath>,
-) -> AppResult<Response<Body>> {
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_message_image(
         &chat_state.database,
         &chat_state.upload_root,
@@ -198,25 +197,17 @@ pub(super) async fn get_message_image(
         path.channel_id,
         path.message_id,
         path.image_id,
+        user_id,
     )
     .await?;
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            image
-                .content_type
-                .unwrap_or_else(|| "application/octet-stream".to_owned()),
-        )
-        .body(Body::from(image.bytes))
-        .map_err(internal_error)
+    safe_image_response(image.bytes)
 }
 
 pub(super) async fn get_call_message_image(
     State(chat_state): State<ChatState>,
     Path(path): Path<CallMessageImagePath>,
-) -> AppResult<Response<Body>> {
+    AuthenticatedUser(user_id): AuthenticatedUser,
+) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_call_message_image(
         &chat_state.database,
         &chat_state.upload_root,
@@ -225,22 +216,8 @@ pub(super) async fn get_call_message_image(
         path.call_id,
         path.message_id,
         path.image_id,
+        user_id,
     )
     .await?;
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            image
-                .content_type
-                .unwrap_or_else(|| "application/octet-stream".to_owned()),
-        )
-        .body(Body::from(image.bytes))
-        .map_err(internal_error)
-}
-
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
-    tracing::error!("chat route failed: {error}");
-    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+    safe_image_response(image.bytes)
 }

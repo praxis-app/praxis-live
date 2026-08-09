@@ -382,15 +382,10 @@ pub(super) async fn store_message_image(
     upload_root: &Path,
     message: &messages::Model,
     image_id: Uuid,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<ImageResponse> {
-    if bytes.is_empty() {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "No image uploaded",
-        ));
-    }
+    let validated =
+        crate::common::images::validate_raster(&bytes, "Message image")?;
 
     let image = message_images::Entity::find_by_id(image_id)
         .one(database)
@@ -419,7 +414,7 @@ pub(super) async fn store_message_image(
 
     let mut active = image.into_active_model();
     active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(content_type);
+    active.content_type = Set(Some(validated.content_type.to_owned()));
     let image = active.update(database).await.map_err(internal_error)?;
 
     Ok(ImageResponse {
@@ -436,6 +431,7 @@ pub(super) async fn get_message_image(
     channel_id: Uuid,
     message_id: Uuid,
     image_id: Uuid,
+    user_id: Option<Uuid>,
 ) -> AppResult<StoredImage> {
     let message = messages::Entity::find_by_id(message_id)
         .one(database)
@@ -450,7 +446,22 @@ pub(super) async fn get_message_image(
     }
 
     channels::get_channel(database, server_id, channel_id).await?;
+    if let Some(user_id) = user_id {
+        channels::ensure_channel_membership(database, channel_id, user_id)
+            .await?;
+    } else if crate::servers::default_server_id(database).await? != server_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
+    }
 
+    load_message_image(database, upload_root, message_id, image_id).await
+}
+
+async fn load_message_image(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    message_id: Uuid,
+    image_id: Uuid,
+) -> AppResult<StoredImage> {
     let image = message_images::Entity::find_by_id(image_id)
         .one(database)
         .await
@@ -470,10 +481,7 @@ pub(super) async fn get_message_image(
         .await
         .map_err(internal_error)?;
 
-    Ok(StoredImage {
-        content_type: image.content_type,
-        bytes,
-    })
+    Ok(StoredImage { bytes })
 }
 
 pub(super) async fn get_call_message_image(
@@ -484,18 +492,12 @@ pub(super) async fn get_call_message_image(
     call_id: Uuid,
     message_id: Uuid,
     image_id: Uuid,
+    user_id: Uuid,
 ) -> AppResult<StoredImage> {
     load_call_message(database, server_id, channel_id, call_id, message_id)
         .await?;
-    get_message_image(
-        database,
-        upload_root,
-        server_id,
-        channel_id,
-        message_id,
-        image_id,
-    )
-    .await
+    channels::ensure_channel_membership(database, channel_id, user_id).await?;
+    load_message_image(database, upload_root, message_id, image_id).await
 }
 
 pub(super) async fn load_message(

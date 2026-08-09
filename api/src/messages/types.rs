@@ -76,7 +76,6 @@ pub(super) struct ImagePayload {
 
 #[derive(Debug, Clone)]
 pub(super) struct StoredImage {
-    pub(super) content_type: Option<String>,
     pub(super) bytes: Vec<u8>,
 }
 

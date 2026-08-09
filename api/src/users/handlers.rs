@@ -1,7 +1,6 @@
 use axum::{
-    body::Body,
     extract::{Multipart, Path, State},
-    http::{header, Response, StatusCode},
+    http::{Response, StatusCode},
     response::Json,
 };
 use sea_orm::DatabaseConnection;
@@ -19,7 +18,7 @@ use crate::{
     common::{
         request::{multipart_file, parse_uuid},
         storage::upload_root,
-        ApiError, AppResult,
+        AppResult,
     },
     servers::{self, types::ServersPayload},
 };
@@ -105,7 +104,6 @@ pub(super) async fn upload_user_profile_picture(
         &state.database,
         &state.upload_root,
         user_id,
-        file.as_ref().and_then(|file| file.content_type.clone()),
         file.map(|file| file.bytes).unwrap_or_default(),
     )
     .await?;
@@ -123,7 +121,6 @@ pub(super) async fn upload_user_cover_photo(
         &state.database,
         &state.upload_root,
         user_id,
-        file.as_ref().and_then(|file| file.content_type.clone()),
         file.map(|file| file.bytes).unwrap_or_default(),
     )
     .await?;
@@ -135,7 +132,7 @@ pub(super) async fn get_user_image(
     State(state): State<UsersState>,
     Path(path): Path<UserImagePath>,
     AuthenticatedUserOptional(current_user_id): AuthenticatedUserOptional,
-) -> AppResult<Response<Body>> {
+) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_user_image(
         &state.database,
         &state.upload_root,
@@ -145,19 +142,5 @@ pub(super) async fn get_user_image(
     )
     .await?;
 
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            image
-                .content_type
-                .unwrap_or_else(|| "application/octet-stream".to_owned()),
-        )
-        .body(Body::from(image.bytes))
-        .map_err(internal_error)
-}
-
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
-    tracing::error!("user route failed: {error}");
-    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
+    crate::common::images::safe_image_response(image.bytes)
 }
