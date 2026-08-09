@@ -6,6 +6,7 @@ import {
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
+import { expectImageToLoad } from '../lib/images';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
   expirePollDeadline,
@@ -183,16 +184,16 @@ test('authenticated user can create a poll with an image attachment', async ({
   await expect(dialog).toBeHidden();
 
   let createdPoll = page.locator(`[data-decision-id="${poll.id}"]`);
-  await expect(
+  await expectImageToLoad(
     createdPoll.getByRole('img', { name: 'Attached image' }),
-  ).toBeVisible();
+  );
 
   await page.reload();
   createdPoll = page.locator(`[data-decision-id="${poll.id}"]`);
   await expect(createdPoll.getByText(question)).toBeVisible();
-  await expect(
+  await expectImageToLoad(
     createdPoll.getByRole('img', { name: 'Attached image' }),
-  ).toBeVisible();
+  );
 });
 
 test('authenticated user can create a proposal with an image attachment', async ({
@@ -250,16 +251,16 @@ test('authenticated user can create a proposal with an image attachment', async 
 
   let proposal = page.locator(`[data-decision-id="${poll.id}"]`);
   await expect(proposal.getByText(proposalBody)).toBeVisible();
-  await expect(
+  await expectImageToLoad(
     proposal.getByRole('img', { name: 'Attached image' }),
-  ).toBeVisible();
+  );
 
   await page.reload();
   proposal = page.locator(`[data-decision-id="${poll.id}"]`);
   await expect(proposal.getByText(proposalBody)).toBeVisible();
-  await expect(
+  await expectImageToLoad(
     proposal.getByRole('img', { name: 'Attached image' }),
-  ).toBeVisible();
+  );
 });
 
 test('active decisions panel loads the next page when scrolled to the bottom', async ({
