@@ -159,6 +159,105 @@ pub(crate) fn validate_plan_event_request(
     Ok(())
 }
 
+pub(crate) fn validate_action(
+    action: Option<&CreatePollActionRequest>,
+    body: Option<&str>,
+) -> AppResult<()> {
+    let action = action.ok_or_else(|| {
+        ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "Action is required.")
+    })?;
+    if matches!(
+        action.action_type,
+        PollActionType::General | PollActionType::Test
+    ) && body.map(str::trim).map(str::is_empty).unwrap_or(true)
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Polls with this action must include a body.",
+        ));
+    }
+    let payload_matches_action = match action.action_type {
+        PollActionType::ChangeSettings => {
+            action.server_role.is_none()
+                && action.server_config.is_some()
+                && action.event.is_none()
+        }
+        PollActionType::ChangeRole | PollActionType::CreateRole => {
+            action.server_role.is_some()
+                && action.server_config.is_none()
+                && action.event.is_none()
+        }
+        PollActionType::PlanEvent => {
+            action.server_role.is_none()
+                && action.server_config.is_none()
+                && action.event.is_some()
+        }
+        _ => {
+            action.server_role.is_none()
+                && action.server_config.is_none()
+                && action.event.is_none()
+        }
+    };
+    if !payload_matches_action {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Poll action payload does not match its action type.",
+        ));
+    }
+    if action.action_type == PollActionType::ChangeSettings {
+        let config = action.server_config.as_ref().expect("checked above");
+        if config.anonymous_users_enabled.is_none()
+            && config.decision_making_model.is_none()
+            && config.disagreements_limit.is_none()
+            && config.abstains_limit.is_none()
+            && config.agreement_threshold.is_none()
+            && config.quorum_enabled.is_none()
+            && config.quorum_threshold.is_none()
+            && config.voting_time_limit.is_none()
+        {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Polls to change server settings must include at least 1 change.",
+            ));
+        }
+    }
+    if action.action_type == PollActionType::ChangeRole {
+        let role = action.server_role.as_ref().expect("checked above");
+
+        if role.server_role_to_update_id.is_none() {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Polls to change server roles must include a server role to update.",
+            ));
+        }
+
+        let has_change = role.name.is_some()
+            || role.color.is_some()
+            || role
+                .members
+                .as_ref()
+                .map(|members| !members.is_empty())
+                .unwrap_or(false)
+            || role
+                .permissions
+                .as_ref()
+                .map(|permissions| !permissions.is_empty())
+                .unwrap_or(false);
+        if !has_change {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Polls to change server roles must include at least 1 change.",
+            ));
+        }
+    }
+    if action.action_type == PollActionType::PlanEvent {
+        validate_plan_event_request(
+            action.event.as_ref().expect("checked above"),
+        )?;
+    }
+    Ok(())
+}
+
 async fn create_poll_action_event<C: ConnectionTrait>(
     database: &C,
     poll_action_id: Uuid,
@@ -337,6 +436,45 @@ pub(crate) async fn load_event_cover_photo<C: ConnectionTrait>(
     } else {
         Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."))
     }
+}
+
+pub(crate) async fn remove_event_cover_photo_file<C: ConnectionTrait>(
+    database: &C,
+    upload_root: &Path,
+    poll_id: Uuid,
+) -> AppResult<()> {
+    let action = poll_actions::Entity::find()
+        .filter(poll_actions::Column::PollId.eq(poll_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    let Some(action) = action else {
+        return Ok(());
+    };
+    let proposed_event = poll_action_events::Entity::find()
+        .filter(poll_action_events::Column::PollActionId.eq(action.id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    let Some(proposed_event) = proposed_event else {
+        return Ok(());
+    };
+    let cover_photo = poll_action_event_cover_photos::Entity::find()
+        .filter(
+            poll_action_event_cover_photos::Column::PollActionEventId
+                .eq(proposed_event.id),
+        )
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    if let Some(storage_key) =
+        cover_photo.and_then(|cover_photo| cover_photo.storage_key)
+    {
+        tokio::fs::remove_file(upload_root.join(storage_key))
+            .await
+            .map_err(internal_error)?;
+    }
+    Ok(())
 }
 
 pub(crate) async fn plan_event_closed_reason<C: ConnectionTrait>(
