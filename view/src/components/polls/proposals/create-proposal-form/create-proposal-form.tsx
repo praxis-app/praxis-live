@@ -296,7 +296,6 @@ export const CreateProposalForm = ({
                     ? values.eventExternalLink?.trim() || undefined
                     : undefined,
                   hostIds: values.eventHostIds || [],
-                  coverPhoto: !!values.eventCoverPhoto,
                 }
               : undefined,
         },

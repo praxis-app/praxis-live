@@ -65,8 +65,7 @@ export const EventSummary = ({
     ? URL.createObjectURL(coverPhotoFile)
     : undefined;
 
-  const hasCoverPhoto =
-    !!coverPhotoSrc || (!!coverPhoto && !coverPhoto.isPlaceholder);
+  const hasCoverPhoto = !!coverPhotoSrc || !!coverPhoto;
 
   const duration = formatEventDuration(startsAt, endsAt);
   const isNested = layout === 'nested';
@@ -76,7 +75,6 @@ export const EventSummary = ({
       alt={t('images.labels.coverPhoto')}
       src={coverPhotoSrc}
       imageId={coverPhoto?.id}
-      isPlaceholder={coverPhoto?.isPlaceholder}
       channelId={channelId}
       pollId={pollId}
       eventId={eventId}

@@ -312,11 +312,13 @@ async fn create_poll_action_event_cover_photos(
                 )
                 .col(
                     ColumnDef::new(PollActionEventCoverPhotos::StorageKey)
-                        .string(),
+                        .string()
+                        .not_null(),
                 )
                 .col(
                     ColumnDef::new(PollActionEventCoverPhotos::ContentType)
-                        .string(),
+                        .string()
+                        .not_null(),
                 )
                 .col(timestamp(PollActionEventCoverPhotos::CreatedAt))
                 .col(timestamp(PollActionEventCoverPhotos::UpdatedAt))

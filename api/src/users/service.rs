@@ -3,7 +3,7 @@ use entity::{channel_members, server_members, user_images, users};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr,
     EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, Set,
-    SqlErr,
+    SqlErr, TransactionTrait,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -306,35 +306,55 @@ pub(super) async fn store_user_image(
             ApiError::new(StatusCode::NOT_FOUND, "User not found.")
         })?;
 
-    // TODO: Make user image file and metadata persistence rollback safe so a
-    // failed profile or cover upload cannot leave an incomplete image row
-    let image = user_images::ActiveModel {
-        id: Set(NativeUuid::new_v4()),
-        user_id: Set(user_id),
-        kind: Set(kind.to_owned()),
-        ..Default::default()
-    }
-    .insert(database)
-    .await
-    .map_err(internal_error)?;
-
-    let storage_key = format!("user-images/{}", image.id);
+    let image_id = NativeUuid::new_v4();
+    let storage_key = format!("user-images/{image_id}");
     let destination = upload_root.join(&storage_key);
     if let Some(parent) = destination.parent() {
         tokio::fs::create_dir_all(parent)
             .await
             .map_err(internal_error)?;
     }
-    tokio::fs::write(&destination, bytes)
-        .await
-        .map_err(internal_error)?;
+    if let Err(error) = tokio::fs::write(&destination, bytes).await {
+        let _ = tokio::fs::remove_file(&destination).await;
+        return Err(internal_error(error));
+    }
 
-    let mut active = image.into_active_model();
-    active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(Some(validated.content_type.to_owned()));
-    let image = active.update(database).await.map_err(internal_error)?;
+    let transaction = match database.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => {
+            cleanup_user_image(&destination).await;
+            return Err(internal_error(error));
+        }
+    };
+    let image = match (user_images::ActiveModel {
+        id: Set(image_id),
+        user_id: Set(user_id),
+        kind: Set(kind.to_owned()),
+        storage_key: Set(Some(storage_key)),
+        content_type: Set(Some(validated.content_type.to_owned())),
+        ..Default::default()
+    })
+    .insert(&transaction)
+    .await
+    {
+        Ok(image) => image,
+        Err(error) => {
+            cleanup_user_image(&destination).await;
+            return Err(internal_error(error));
+        }
+    };
+    if let Err(error) = transaction.commit().await {
+        cleanup_user_image(&destination).await;
+        return Err(internal_error(error));
+    }
 
     Ok(shape_image_reference(&image))
+}
+
+async fn cleanup_user_image(path: &Path) {
+    if let Err(error) = tokio::fs::remove_file(path).await {
+        tracing::warn!("failed to clean up user image: {error}");
+    }
 }
 
 pub(super) async fn get_user_image(

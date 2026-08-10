@@ -24,7 +24,6 @@ type UserSummary = {
 
 type ImageSummary = {
   id: string;
-  isPlaceholder?: boolean;
   createdAt: string;
 };
 
@@ -201,7 +200,7 @@ test('user can propose and ratify an online event with all details preserved', a
     externalLink,
   });
   expect(proposedEvent.hosts.map((user) => user.id)).toEqual([host.userId]);
-  expect(proposedEvent.coverPhoto).toMatchObject({ isPlaceholder: false });
+  expect(proposedEvent.coverPhoto).toBeTruthy();
 
   await expect(dialog).toBeHidden();
   const proposal = page.getByRole('article', {
@@ -540,7 +539,6 @@ test('past event proposals are rejected and stale proposals expire automatically
       startsAt: startsAt.toISOString(),
       online: true,
       hostIds: [proposer.userId],
-      coverPhoto: false,
     },
   });
 

@@ -49,7 +49,6 @@ export async function createPlanEventProposal({
             ...event,
             startsAt: event.startsAt.toISOString(),
             online: true,
-            coverPhoto: false,
           },
         },
       },

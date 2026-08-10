@@ -20,7 +20,6 @@ export interface CreatePollActionEventReq {
   location?: string;
   externalLink?: string;
   hostIds: string[];
-  coverPhoto?: boolean;
 }
 
 export interface PollActionEventRes {

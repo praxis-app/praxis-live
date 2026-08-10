@@ -317,19 +317,6 @@ async fn create_poll_action_event<C: ConnectionTrait>(
         .map_err(internal_error)?;
     }
 
-    // TODO: Derive cover presence from the atomic multipart file, insert only complete
-    // cover rows, and remove the event cover photo placeholder contract
-    if request.cover_photo {
-        poll_action_event_cover_photos::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            poll_action_event_id: Set(proposed_event.id),
-            ..Default::default()
-        }
-        .insert(database)
-        .await
-        .map_err(internal_error)?;
-    }
-
     Ok(())
 }
 
@@ -364,22 +351,8 @@ pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
                 "An event cover photo requires an event proposal.",
             )
         })?;
-    let image = poll_action_event_cover_photos::Entity::find()
-        .filter(
-            poll_action_event_cover_photos::Column::PollActionEventId
-                .eq(event.id),
-        )
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "The event proposal must request a cover photo.",
-            )
-        })?;
-
-    let storage_key = format!("poll-action-event-cover-photos/{}", image.id);
+    let image_id = NativeUuid::new_v4();
+    let storage_key = format!("poll-action-event-cover-photos/{image_id}");
     let destination = upload_root.join(&storage_key);
     if let Some(parent) = destination.parent() {
         tokio::fs::create_dir_all(parent)
@@ -391,10 +364,16 @@ pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
         return Err(internal_error(error));
     }
 
-    let mut active = image.into_active_model();
-    active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(Some(content_type.to_owned()));
-    if let Err(error) = active.update(database).await {
+    let insert_result = poll_action_event_cover_photos::ActiveModel {
+        id: Set(image_id),
+        poll_action_event_id: Set(event.id),
+        storage_key: Set(Some(storage_key)),
+        content_type: Set(Some(content_type.to_owned())),
+        ..Default::default()
+    }
+    .insert(database)
+    .await;
+    if let Err(error) = insert_result {
         if let Err(cleanup_error) = tokio::fs::remove_file(&destination).await {
             tracing::warn!(
                 "failed to clean up event cover photo after database error: {cleanup_error}"
@@ -1082,12 +1061,17 @@ async fn shape_poll_action_event(
             poll_action_event_cover_photos::Column::PollActionEventId
                 .eq(proposed.id),
         )
+        .filter(
+            poll_action_event_cover_photos::Column::StorageKey.is_not_null(),
+        )
+        .filter(
+            poll_action_event_cover_photos::Column::ContentType.is_not_null(),
+        )
         .one(database)
         .await
         .map_err(internal_error)?
         .map(|image| PollActionEventCoverPhotoResponse {
             id: image.id.to_string(),
-            is_placeholder: image.storage_key.is_none(),
             created_at: crate::messages::types::serialize_timestamp(
                 image.created_at,
             ),

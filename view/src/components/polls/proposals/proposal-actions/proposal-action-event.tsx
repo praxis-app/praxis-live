@@ -31,12 +31,11 @@ export const ProposalActionEvent = ({
           <span className="shrink-0">
             {t('proposals.labels.eventProposal')}:
           </span>
-          {coverPhoto && !coverPhoto.isPlaceholder && (
+          {coverPhoto && (
             <LazyLoadImage
               alt={t('images.labels.coverPhoto')}
               src={coverPhoto.src}
               imageId={coverPhoto.id}
-              isPlaceholder={coverPhoto.isPlaceholder}
               channelId={channelId}
               pollId={pollId}
               eventCoverPhoto

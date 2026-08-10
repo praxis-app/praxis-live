@@ -16,7 +16,7 @@ pub(crate) struct CreatePollActionRequest {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct CreatePollActionEventRequest {
     pub(crate) name: String,
     pub(crate) description: String,
@@ -26,8 +26,6 @@ pub(crate) struct CreatePollActionEventRequest {
     pub(crate) location: Option<String>,
     pub(crate) external_link: Option<String>,
     pub(crate) host_ids: Vec<String>,
-    #[serde(default)]
-    pub(crate) cover_photo: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,7 +93,6 @@ pub(super) struct PollActionEventResponse {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PollActionEventCoverPhotoResponse {
     pub(crate) id: String,
-    pub(crate) is_placeholder: bool,
     pub(crate) created_at: String,
 }
 

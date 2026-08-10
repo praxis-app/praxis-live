@@ -193,9 +193,11 @@ export const ProposalVoteButtons = ({
         });
         toast(
           t(
-            result.closedReason
-              ? 'proposals.outcomes.eventStartElapsed'
-              : 'proposals.prompts.ratifiedSuccess',
+            result.closedReason === 'event-host-ineligible'
+              ? 'proposals.outcomes.eventHostIneligible'
+              : result.closedReason === 'event-start-elapsed'
+                ? 'proposals.outcomes.eventStartElapsed'
+                : 'proposals.prompts.ratifiedSuccess',
           ),
         );
       } else {
