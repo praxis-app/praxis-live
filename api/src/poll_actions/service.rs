@@ -440,18 +440,17 @@ pub(crate) async fn load_event_cover_photo<C: ConnectionTrait>(
     }
 }
 
-pub(crate) async fn remove_event_cover_photo_file<C: ConnectionTrait>(
+pub(crate) async fn event_cover_photo_storage_key<C: ConnectionTrait>(
     database: &C,
-    upload_root: &Path,
     poll_id: Uuid,
-) -> AppResult<()> {
+) -> AppResult<Option<String>> {
     let action = poll_actions::Entity::find()
         .filter(poll_actions::Column::PollId.eq(poll_id))
         .one(database)
         .await
         .map_err(internal_error)?;
     let Some(action) = action else {
-        return Ok(());
+        return Ok(None);
     };
     let proposed_event = poll_action_events::Entity::find()
         .filter(poll_action_events::Column::PollActionId.eq(action.id))
@@ -459,7 +458,7 @@ pub(crate) async fn remove_event_cover_photo_file<C: ConnectionTrait>(
         .await
         .map_err(internal_error)?;
     let Some(proposed_event) = proposed_event else {
-        return Ok(());
+        return Ok(None);
     };
     let cover_photo = poll_action_event_cover_photos::Entity::find()
         .filter(
@@ -469,14 +468,7 @@ pub(crate) async fn remove_event_cover_photo_file<C: ConnectionTrait>(
         .one(database)
         .await
         .map_err(internal_error)?;
-    if let Some(storage_key) =
-        cover_photo.and_then(|cover_photo| cover_photo.storage_key)
-    {
-        tokio::fs::remove_file(upload_root.join(storage_key))
-            .await
-            .map_err(internal_error)?;
-    }
-    Ok(())
+    Ok(cover_photo.and_then(|cover_photo| cover_photo.storage_key))
 }
 
 pub(crate) async fn plan_event_closed_reason<C: ConnectionTrait>(

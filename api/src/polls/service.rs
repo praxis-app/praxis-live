@@ -350,9 +350,10 @@ pub(super) async fn delete_poll(
     upload_root: &Path,
     poll: &polls::Model,
 ) -> AppResult<DeleteResult> {
+    let transaction = database.begin().await.map_err(internal_error)?;
     if forum_posts::Entity::find()
         .filter(forum_posts::Column::PollId.eq(poll.id))
-        .one(database)
+        .one(&transaction)
         .await
         .map_err(internal_error)?
         .is_some()
@@ -364,27 +365,42 @@ pub(super) async fn delete_poll(
     }
     let images = poll_images::Entity::find()
         .filter(poll_images::Column::PollId.eq(poll.id))
-        .all(database)
+        .all(&transaction)
         .await
         .map_err(internal_error)?;
-    for image in images {
-        if let Some(storage_key) = image.storage_key {
-            tokio::fs::remove_file(upload_root.join(storage_key))
-                .await
-                .map_err(internal_error)?;
+    let mut storage_keys = images
+        .into_iter()
+        .filter_map(|image| image.storage_key)
+        .collect::<Vec<_>>();
+    if let Some(storage_key) =
+        poll_actions::service::event_cover_photo_storage_key(
+            &transaction,
+            poll.id,
+        )
+        .await?
+    {
+        storage_keys.push(storage_key);
+    }
+
+    let result = polls::Entity::delete_by_id(poll.id)
+        .exec(&transaction)
+        .await
+        .map_err(internal_error)?;
+    transaction.commit().await.map_err(internal_error)?;
+
+    for storage_key in storage_keys {
+        if let Err(error) =
+            tokio::fs::remove_file(upload_root.join(&storage_key)).await
+        {
+            tracing::warn!(
+                poll_id = %poll.id,
+                storage_key,
+                "failed to clean up deleted poll image: {error}"
+            );
         }
     }
-    poll_actions::service::remove_event_cover_photo_file(
-        database,
-        upload_root,
-        poll.id,
-    )
-    .await?;
 
-    polls::Entity::delete_by_id(poll.id)
-        .exec(database)
-        .await
-        .map_err(internal_error)
+    Ok(result)
 }
 
 pub(crate) async fn is_public_channel_poll(
