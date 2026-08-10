@@ -1,9 +1,9 @@
 use axum::http::StatusCode;
 use entity::{message_images, messages, users};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, Condition,
-    DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
-    QuerySelect, Set,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
+    DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    TransactionTrait,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
@@ -120,25 +120,46 @@ fn cursor_condition(
 
 pub(super) async fn create_message(
     database: &DatabaseConnection,
+    upload_root: &Path,
     channel_id: Uuid,
     user_id: Uuid,
     request: CreateMessageRequest,
+    images: Vec<Vec<u8>>,
 ) -> AppResult<MessageResponse> {
-    create_message_record(database, channel_id, None, user_id, request).await
+    create_message_record(
+        database,
+        upload_root,
+        channel_id,
+        None,
+        user_id,
+        request,
+        images,
+    )
+    .await
 }
 
 pub(super) async fn create_call_message(
     database: &DatabaseConnection,
+    upload_root: &Path,
     server_id: Uuid,
     channel_id: Uuid,
     call_id: Uuid,
     user_id: Uuid,
     request: CreateMessageRequest,
+    images: Vec<Vec<u8>>,
 ) -> AppResult<MessageResponse> {
     crate::calls::service::get_call(database, server_id, channel_id, call_id)
         .await?;
-    create_message_record(database, channel_id, Some(call_id), user_id, request)
-        .await
+    create_message_record(
+        database,
+        upload_root,
+        channel_id,
+        Some(call_id),
+        user_id,
+        request,
+        images,
+    )
+    .await
 }
 
 pub(super) async fn broadcast_message(
@@ -152,33 +173,6 @@ pub(super) async fn broadcast_message(
     let body = serde_json::json!({
         "type": "message",
         "message": message,
-    });
-
-    broadcast_to_channel_members(
-        database,
-        pub_sub_service,
-        server_id,
-        channel_id,
-        sender_id,
-        body,
-    )
-    .await
-}
-
-pub(super) async fn broadcast_image_upload(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    channel_id: Uuid,
-    sender_id: Uuid,
-    message_id: &str,
-    image_id: &str,
-) -> AppResult<()> {
-    let body = serde_json::json!({
-        "type": "image",
-        "isPlaceholder": false,
-        "messageId": message_id,
-        "imageId": image_id,
     });
 
     broadcast_to_channel_members(
@@ -218,43 +212,16 @@ pub(super) async fn broadcast_message_to_call(
     .await
 }
 
-pub(super) async fn broadcast_call_image_upload(
-    database: &DatabaseConnection,
-    pub_sub_service: &PubSubService,
-    server_id: Uuid,
-    channel_id: Uuid,
-    call_id: Uuid,
-    sender_id: Uuid,
-    message_id: &str,
-    image_id: &str,
-) -> AppResult<()> {
-    let body = serde_json::json!({
-        "type": "image",
-        "isPlaceholder": false,
-        "messageId": message_id,
-        "imageId": image_id,
-    });
-
-    broadcast_to_call_members(
-        database,
-        pub_sub_service,
-        server_id,
-        channel_id,
-        call_id,
-        sender_id,
-        body,
-    )
-    .await
-}
-
 async fn create_message_record(
     database: &DatabaseConnection,
+    upload_root: &Path,
     channel_id: Uuid,
     call_id: Option<Uuid>,
     user_id: Uuid,
     request: CreateMessageRequest,
+    images: Vec<Vec<u8>>,
 ) -> AppResult<MessageResponse> {
-    validate_create_message(&request)?;
+    validate_message_content(request.body.as_deref(), images.len())?;
 
     let body = request
         .body
@@ -271,6 +238,7 @@ async fn create_message_record(
         None => None,
     };
 
+    let transaction = database.begin().await.map_err(internal_error)?;
     let message = messages::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         channel_id: Set(channel_id),
@@ -284,55 +252,23 @@ async fn create_message_record(
         tag: Set(encrypted.as_ref().map(|(_, value)| value.tag.clone())),
         ..Default::default()
     }
-    .insert(database)
+    .insert(&transaction)
     .await
     .map_err(internal_error)?;
+    let image_paths = attach_message_creation_images(
+        &transaction,
+        upload_root,
+        message.id,
+        images,
+    )
+    .await?;
+    commit_message_creation(transaction, image_paths).await?;
 
-    // TODO: Create channel and call messages with their image files atomically,
-    // then remove placeholder rows and the separate image-upload routes
-    let mut shaped_images = Vec::with_capacity(request.image_count);
-    for _ in 0..request.image_count {
-        let image = message_images::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            message_id: Set(message.id),
-            ..Default::default()
-        }
-        .insert(database)
-        .await
-        .map_err(internal_error)?;
-
-        shaped_images.push(shape_image(&image, true));
-    }
-
-    let user = users::Entity::find_by_id(user_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
-        })?;
-
-    Ok(MessageResponse {
-        id: message.id.to_string(),
-        body,
-        images: shaped_images,
-        user: Some(MessageUser {
-            id: user.id.to_string(),
-            name: user.name,
-            display_name: user.display_name,
-            profile_picture: users_service::get_user_profile_picture(
-                database, user_id,
-            )
-            .await?,
-        }),
-        user_id: Some(user.id.to_string()),
-        bot_id: None,
-        bot: None,
-        command_status: None,
-        thread_root_id: message.thread_root_id.map(|id| id.to_string()),
-        parent_message_id: message.parent_message_id.map(|id| id.to_string()),
-        created_at: serialize_timestamp(message.created_at),
-    })
+    shape_messages(database, vec![message])
+        .await?
+        .into_iter()
+        .next()
+        .ok_or_else(|| internal_consistency_error("Message not found."))
 }
 
 pub(crate) async fn shape_messages(
@@ -379,51 +315,89 @@ pub(crate) async fn shape_messages(
         .collect())
 }
 
-pub(super) async fn store_message_image(
-    database: &DatabaseConnection,
+pub(crate) async fn attach_message_creation_images<C: ConnectionTrait>(
+    database: &C,
     upload_root: &Path,
-    message: &messages::Model,
-    image_id: Uuid,
-    bytes: Vec<u8>,
-) -> AppResult<ImageResponse> {
-    let validated =
-        crate::common::images::validate_raster(&bytes, "Message image")?;
+    message_id: Uuid,
+    images: Vec<Vec<u8>>,
+) -> AppResult<Vec<PathBuf>> {
+    if images.len() > MAX_IMAGE_COUNT {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            format!("A message can include at most {MAX_IMAGE_COUNT} images."),
+        ));
+    }
+    let validated_images = images
+        .iter()
+        .map(|bytes| {
+            crate::common::images::validate_raster(bytes, "Message image")
+        })
+        .collect::<AppResult<Vec<_>>>()?;
 
-    let image = message_images::Entity::find_by_id(image_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
-        })?;
+    let mut paths = vec![];
+    for (bytes, validated) in
+        images.into_iter().zip(validated_images.into_iter())
+    {
+        let image_id = NativeUuid::new_v4();
+        let storage_key = format!("message-images/{image_id}");
+        let destination = upload_root.join(&storage_key);
 
-    if image.message_id != message.id {
-        return Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."));
+        if let Some(parent) = destination.parent() {
+            if let Err(error) = tokio::fs::create_dir_all(parent).await {
+                cleanup_image_paths(paths).await;
+                return Err(internal_error(error));
+            }
+        }
+
+        if let Err(error) = tokio::fs::write(&destination, bytes).await {
+            let _ = tokio::fs::remove_file(&destination).await;
+            cleanup_image_paths(paths).await;
+            return Err(internal_error(error));
+        }
+
+        let insert_result = message_images::ActiveModel {
+            id: Set(image_id),
+            message_id: Set(message_id),
+            storage_key: Set(Some(storage_key)),
+            content_type: Set(Some(validated.content_type.to_owned())),
+            ..Default::default()
+        }
+        .insert(database)
+        .await;
+        if let Err(error) = insert_result {
+            if let Err(cleanup_error) =
+                tokio::fs::remove_file(&destination).await
+            {
+                tracing::warn!(
+                    "failed to clean up message image after database error: {cleanup_error}"
+                );
+            }
+            cleanup_image_paths(paths).await;
+            return Err(internal_error(error));
+        }
+        paths.push(destination);
     }
 
-    let storage_key = format!("message-images/{image_id}");
-    let destination = upload_root.join(&storage_key);
+    Ok(paths)
+}
 
-    if let Some(parent) = destination.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(internal_error)?;
+pub(crate) async fn commit_message_creation(
+    transaction: sea_orm::DatabaseTransaction,
+    image_paths: Vec<PathBuf>,
+) -> AppResult<()> {
+    if let Err(error) = transaction.commit().await {
+        cleanup_image_paths(image_paths).await;
+        return Err(internal_error(error));
     }
+    Ok(())
+}
 
-    tokio::fs::write(&destination, bytes)
-        .await
-        .map_err(internal_error)?;
-
-    let mut active = image.into_active_model();
-    active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(Some(validated.content_type.to_owned()));
-    let image = active.update(database).await.map_err(internal_error)?;
-
-    Ok(ImageResponse {
-        id: image.id.to_string(),
-        is_placeholder: None,
-        created_at: serialize_timestamp(image.created_at),
-    })
+async fn cleanup_image_paths(paths: Vec<PathBuf>) {
+    for path in paths {
+        if let Err(error) = tokio::fs::remove_file(path).await {
+            tracing::warn!("failed to clean up message image: {error}");
+        }
+    }
 }
 
 pub(super) async fn get_message_image(
@@ -607,10 +581,6 @@ fn decrypt_message_body(
     encryption::decrypt_text(ciphertext, iv, tag, key).ok()
 }
 
-fn validate_create_message(request: &CreateMessageRequest) -> AppResult<()> {
-    validate_message_content(request.body.as_deref(), request.image_count)
-}
-
 pub(crate) fn validate_message_content(
     body: Option<&str>,
     image_count: usize,
@@ -634,6 +604,11 @@ pub(crate) fn validate_message_content(
             "A message must include text or at least one image.",
         ))
     }
+}
+
+fn internal_consistency_error(message: &'static str) -> ApiError {
+    tracing::error!("message data is inconsistent: {message}");
+    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }
 
 async fn broadcast_to_call_members(

@@ -25,7 +25,7 @@ export async function createMessages({
   for (const body of bodies) {
     const response = await request.post(messagePath, {
       headers: authorizationHeaders(user),
-      data: { body, imageCount: 0 },
+      data: { body },
     });
     await expect(response).toBeOK();
   }

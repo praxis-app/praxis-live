@@ -347,9 +347,12 @@ class ApiClient {
     channelId: string,
     postId: string,
     data: CreateForumReplyReq,
+    images: File[] = [],
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/replies`;
-    return this.executeRequest<{ reply: MessageRes }>('post', path, { data });
+    return this.executeRequest<{ reply: MessageRes }>('post', path, {
+      data: getJsonOrFormData(data, { files: images }),
+    });
   };
 
   joinChannelCall = async (serverId: string, channelId: string) => {
@@ -379,11 +382,11 @@ class ApiClient {
     serverId: string,
     channelId: string,
     body: string,
-    imageCount: number,
+    images: File[] = [],
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/messages`;
     return this.executeRequest<{ message: MessageRes }>('post', path, {
-      data: { body, imageCount },
+      data: getJsonOrFormData({ body }, { files: images }),
     });
   };
 
@@ -392,38 +395,11 @@ class ApiClient {
     channelId: string,
     callId: string,
     body: string,
-    imageCount: number,
+    images: File[] = [],
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/messages`;
     return this.executeRequest<{ message: MessageRes }>('post', path, {
-      data: { body, imageCount },
-    });
-  };
-
-  uploadMessageImage = async (
-    serverId: string,
-    channelId: string,
-    messageId: string,
-    imageId: string,
-    formData: FormData,
-  ) => {
-    const path = `/servers/${serverId}/channels/${channelId}/messages/${messageId}/images/${imageId}/upload`;
-    return this.executeRequest<{ image: ImageRes }>('post', path, {
-      data: formData,
-    });
-  };
-
-  uploadCallMessageImage = async (
-    serverId: string,
-    channelId: string,
-    callId: string,
-    messageId: string,
-    imageId: string,
-    formData: FormData,
-  ) => {
-    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/messages/${messageId}/images/${imageId}/upload`;
-    return this.executeRequest<{ image: ImageRes }>('post', path, {
-      data: formData,
+      data: getJsonOrFormData({ body }, { files: images }),
     });
   };
 

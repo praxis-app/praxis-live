@@ -1,17 +1,16 @@
 use axum::{
     extract::{Path, State},
-    http::{Response, StatusCode},
+    http::Response,
     response::Json,
 };
 use sea_orm::DatabaseConnection;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    extractors::{CallMessageImageUploadContext, MessageImageUploadContext},
     service,
     types::{
-        CallMessageImagePath, CreateMessageRequest, ImagePayload,
-        MessageImagePath, MessagePayload,
+        CallMessageImagePath, CreateMessageRequest, MessageImagePath,
+        MessagePayload,
     },
 };
 use crate::{
@@ -19,7 +18,7 @@ use crate::{
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
-        images::safe_image_response, request::MultipartFile,
+        images::safe_image_response, request::JsonOrMultipartFiles,
         storage::upload_root, AppResult,
     },
     pub_sub::PubSubService,
@@ -63,13 +62,24 @@ impl channels::extractors::HasDatabase for ChatState {
 pub(super) async fn create_message(
     State(chat_state): State<ChatState>,
     context: ChannelWriteContext,
-    Json(payload): Json<CreateMessageRequest>,
+    JsonOrMultipartFiles {
+        payload,
+        file,
+        files,
+    }: JsonOrMultipartFiles<CreateMessageRequest>,
 ) -> AppResult<Json<MessagePayload>> {
+    let images = file
+        .into_iter()
+        .chain(files)
+        .map(|file| file.bytes)
+        .collect();
     let message = service::create_message(
         &chat_state.database,
+        &chat_state.upload_root,
         context.channel_id,
         context.user_id,
         payload,
+        images,
     )
     .await?;
     if let Err(error) = service::broadcast_message(
@@ -91,15 +101,26 @@ pub(super) async fn create_message(
 pub(super) async fn create_call_message(
     State(chat_state): State<ChatState>,
     context: CallWriteContext,
-    Json(payload): Json<CreateMessageRequest>,
+    JsonOrMultipartFiles {
+        payload,
+        file,
+        files,
+    }: JsonOrMultipartFiles<CreateMessageRequest>,
 ) -> AppResult<Json<MessagePayload>> {
+    let images = file
+        .into_iter()
+        .chain(files)
+        .map(|file| file.bytes)
+        .collect();
     let message = service::create_call_message(
         &chat_state.database,
+        &chat_state.upload_root,
         context.server_id,
         context.channel_id,
         context.call_id,
         context.user_id,
         payload,
+        images,
     )
     .await?;
     if let Err(error) = service::broadcast_message_to_call(
@@ -117,69 +138,6 @@ pub(super) async fn create_call_message(
     }
 
     Ok(Json(MessagePayload { message }))
-}
-
-pub(super) async fn upload_message_image(
-    State(chat_state): State<ChatState>,
-    context: MessageImageUploadContext,
-    MultipartFile { bytes }: MultipartFile,
-) -> AppResult<(StatusCode, Json<ImagePayload>)> {
-    let image = service::store_message_image(
-        &chat_state.database,
-        &chat_state.upload_root,
-        &context.message,
-        context.image_id,
-        bytes,
-    )
-    .await?;
-    if let Err(error) = service::broadcast_image_upload(
-        &chat_state.database,
-        &chat_state.pub_sub_service,
-        context.server_id,
-        context.channel_id,
-        context.user_id,
-        &context.message.id.to_string(),
-        &context.image_id.to_string(),
-    )
-    .await
-    {
-        tracing::warn!("failed to broadcast uploaded message image: {error}");
-    }
-
-    Ok((StatusCode::CREATED, Json(ImagePayload { image })))
-}
-
-pub(super) async fn upload_call_message_image(
-    State(chat_state): State<ChatState>,
-    context: CallMessageImageUploadContext,
-    MultipartFile { bytes }: MultipartFile,
-) -> AppResult<(StatusCode, Json<ImagePayload>)> {
-    let image = service::store_message_image(
-        &chat_state.database,
-        &chat_state.upload_root,
-        &context.message,
-        context.image_id,
-        bytes,
-    )
-    .await?;
-    if let Err(error) = service::broadcast_call_image_upload(
-        &chat_state.database,
-        &chat_state.pub_sub_service,
-        context.server_id,
-        context.channel_id,
-        context.call_id,
-        context.user_id,
-        &context.message.id.to_string(),
-        &context.image_id.to_string(),
-    )
-    .await
-    {
-        tracing::warn!(
-            "failed to broadcast uploaded call message image: {error}"
-        );
-    }
-
-    Ok((StatusCode::CREATED, Json(ImagePayload { image })))
 }
 
 pub(super) async fn get_message_image(

@@ -280,14 +280,25 @@ pub(super) async fn reopen_forum_post(
 pub(super) async fn create_forum_reply(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-    Json(payload): Json<CreateForumReplyRequest>,
+    JsonOrMultipartFiles {
+        payload,
+        file,
+        files,
+    }: JsonOrMultipartFiles<CreateForumReplyRequest>,
 ) -> AppResult<Json<ForumReplyPayload>> {
+    let images = file
+        .into_iter()
+        .chain(files)
+        .map(|file| file.bytes)
+        .collect();
     let (reply, post) = service::create_forum_reply(
         &state.database,
+        &state.upload_root,
         context.channel_id,
         context.post_id,
         context.user_id,
         payload,
+        images,
     )
     .await?;
     events::broadcast_forum_reply(

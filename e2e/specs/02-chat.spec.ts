@@ -270,17 +270,16 @@ test('authenticated user can send a chat message with an image', async ({
   await chat.expectChannel('general');
   await navigation.expectSignedInUser(authenticatedUser.user);
 
-  const uploadResponse = page.waitForResponse(
+  const messageResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
-      response.url().includes('/images/') &&
-      response.url().endsWith('/upload') &&
-      response.status() === 201,
+      response.url().endsWith('/messages') &&
+      response.status() === 200,
   );
 
   await chat.attachImage();
   await chat.sendMessage(message);
-  await uploadResponse;
+  await messageResponse;
 
   await chat.expectMessage(message, authenticatedUser.user.name);
   await chat.expectAttachedImage();
@@ -353,20 +352,10 @@ test('authenticated user can send an in-call chat message with an image', async 
         response.url().includes('/messages') &&
         response.status() === 200,
     );
-    const uploadResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === 'POST' &&
-        response.url().includes('/calls/') &&
-        response.url().includes('/images/') &&
-        response.url().endsWith('/upload') &&
-        response.status() === 201,
-    );
-
     await chat.attachImageIn(callChatPanel);
     await callChatPanel.getByPlaceholder('Send a message...').fill(message);
     await callChatPanel.getByPlaceholder('Send a message...').press('Enter');
     await messageResponse;
-    await uploadResponse;
 
     await expect(callChatPanel.getByText(message)).toBeVisible();
     await expect(
@@ -674,13 +663,6 @@ test('anonymous user can send messages with an image attached', async ({
   await chat.gotoExplore();
   await chat.expectChannel('general');
 
-  const uploadResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes('/images/') &&
-      response.url().endsWith('/upload') &&
-      response.status() === 201,
-  );
   const anonSessionResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
@@ -699,7 +681,6 @@ test('anonymous user can send messages with an image attached', async ({
   await chat.attachImage();
   await chat.sendMessage(message);
   await page.getByRole('button', { name: 'Send anonymously' }).click();
-  await uploadResponse;
   await anonSessionResponse;
   await messageResponse;
   await expect(page.getByText(message)).toBeVisible();

@@ -43,7 +43,6 @@ export interface UpdateForumPostReq {
 
 export interface CreateForumReplyReq {
   body: string;
-  imageCount: number;
   parentMessageId?: string;
 }
 

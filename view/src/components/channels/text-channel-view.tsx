@@ -55,13 +55,6 @@ interface NewCallPayload {
   call: CallArtifactRes;
 }
 
-interface ImageMessagePayload {
-  type: PubSubMessageType.IMAGE;
-  isPlaceholder: boolean;
-  messageId: string;
-  imageId: string;
-}
-
 interface Props {
   channel?: ChannelRes;
   isDecisionsPanelOpen: boolean;
@@ -201,8 +194,9 @@ export const TextChannelView = ({
     channelPubSubTopic('new-message', serverId, channel?.id, me?.id),
     {
       onMessage: (event) => {
-        const { body }: PubSubMessage<NewMessagePayload | ImageMessagePayload> =
-          JSON.parse(event.data);
+        const { body }: PubSubMessage<NewMessagePayload> = JSON.parse(
+          event.data,
+        );
         if (!body) {
           return;
         }
@@ -262,35 +256,6 @@ export const TextChannelView = ({
               }
               return page;
             });
-            return { pages, pageParams: oldData.pageParams };
-          });
-        }
-
-        // Update cache with image status once uploaded
-        if (body.type === PubSubMessageType.IMAGE) {
-          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
-            if (!oldData) {
-              return { pages: [], pageParams: [] };
-            }
-
-            const pages = oldData.pages.map((page): FeedQueryPage => {
-              const feed = page.feed.map((item) => {
-                if (item.type !== 'message') {
-                  return item;
-                }
-                if (item.id !== body.messageId || !item.images) {
-                  return item;
-                }
-                const images = item.images.map((image) =>
-                  image.id === body.imageId
-                    ? { ...image, isPlaceholder: false }
-                    : image,
-                );
-                return { ...item, images } as FeedItemRes;
-              });
-              return { ...page, feed };
-            });
-
             return { pages, pageParams: oldData.pageParams };
           });
         }

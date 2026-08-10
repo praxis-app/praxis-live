@@ -5,7 +5,7 @@ use std::{collections::HashMap, io::Cursor};
 use crate::support::{json_body, MultipartField, TestApp};
 
 #[tokio::test]
-async fn create_message_and_upload_image_support_text_and_images() {
+async fn create_message_atomically_supports_text_and_images() {
     let app = TestApp::new().await;
     let token = signup_and_get_token(&app).await;
     let default_server_id = default_server_id(&app).await;
@@ -18,14 +18,36 @@ async fn create_message_and_upload_image_support_text_and_images() {
         .unwrap()
         .to_owned();
 
+    let mut fields = HashMap::new();
+    let mut png = Cursor::new(Vec::new());
+    image::DynamicImage::new_rgba8(1, 1)
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    fields.insert(
+        "files".to_owned(),
+        MultipartField {
+            name: "files".to_owned(),
+            filename: Some("pixel.png".to_owned()),
+            content_type: Some("image/png".to_owned()),
+            bytes: png.into_inner(),
+        },
+    );
+    fields.insert(
+        "payload".to_owned(),
+        MultipartField {
+            name: "payload".to_owned(),
+            filename: None,
+            content_type: Some("application/json".to_owned()),
+            bytes: serde_json::to_vec(&json!({ "body": "hello world" }))
+                .unwrap(),
+        },
+    );
+
     let create_response = app
-        .post_json_with_bearer(
+        .post_multipart_with_bearer(
             &format!("/api/servers/{default_server_id}/channels/{channel_id}/messages"),
-            &json!({
-                "body": "hello world",
-                "imageCount": 1
-            }),
             &token,
+            fields,
         )
         .await;
     assert_eq!(create_response.status(), StatusCode::OK);
@@ -36,7 +58,7 @@ async fn create_message_and_upload_image_support_text_and_images() {
     let image_id = message["images"][0]["id"].as_str().unwrap().to_owned();
 
     assert_eq!(message["body"], "hello world");
-    assert_eq!(message["images"][0]["isPlaceholder"], true);
+    assert!(message["images"][0]["isPlaceholder"].is_null());
     assert_eq!(message["user"]["name"], "Person Example");
 
     let feed_response = app
@@ -52,36 +74,6 @@ async fn create_message_and_upload_image_support_text_and_images() {
     assert!(feed_body["startCursor"].is_string());
     assert!(feed_body["nextCursor"].is_string());
     assert_eq!(feed_body["hasMore"], false);
-
-    let mut fields = HashMap::new();
-    let mut png = Cursor::new(Vec::new());
-    image::DynamicImage::new_rgba8(1, 1)
-        .write_to(&mut png, image::ImageFormat::Png)
-        .unwrap();
-    fields.insert(
-        "file".to_owned(),
-        MultipartField {
-            name: "file".to_owned(),
-            filename: Some("pixel.png".to_owned()),
-            content_type: Some("image/png".to_owned()),
-            bytes: png.into_inner(),
-        },
-    );
-
-    let upload_response = app
-        .post_multipart_with_bearer(
-            &format!(
-                "/api/servers/{default_server_id}/channels/{channel_id}/messages/{message_id}/images/{image_id}/upload"
-            ),
-            &token,
-            fields,
-        )
-        .await;
-    assert_eq!(upload_response.status(), StatusCode::CREATED);
-
-    let upload_body = json_body(upload_response).await;
-    assert_eq!(upload_body["image"]["id"], image_id);
-    assert!(upload_body["image"]["isPlaceholder"].is_null());
 
     let image_response = app
         .get(&format!(

@@ -9,7 +9,6 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useFeedQuery } from '@/hooks/use-feed-query';
 import { useSubscription } from '@/hooks/use-subscription';
 import {
-  type FeedItemRes,
   type FeedQuery,
   type FeedQueryPage,
 } from '@/types/channel.types';
@@ -23,13 +22,6 @@ import { useTranslation } from 'react-i18next';
 interface NewMessagePayload {
   type: PubSubMessageType.MESSAGE;
   message: MessageRes;
-}
-
-interface ImageMessagePayload {
-  type: PubSubMessageType.IMAGE;
-  isPlaceholder: boolean;
-  messageId: string;
-  imageId: string;
 }
 
 interface Props {
@@ -129,8 +121,9 @@ export const CallChatPanel = ({
     callPubSubTopic('new-message', serverId, channel.id, callId, me?.id),
     {
       onMessage: (event) => {
-        const { body }: PubSubMessage<NewMessagePayload | ImageMessagePayload> =
-          JSON.parse(event.data);
+        const { body }: PubSubMessage<NewMessagePayload> = JSON.parse(
+          event.data,
+        );
         if (!body) {
           return;
         }
@@ -181,31 +174,6 @@ export const CallChatPanel = ({
               }
               return page;
             });
-            return { pages, pageParams: oldData.pageParams };
-          });
-        }
-
-        if (body.type === PubSubMessageType.IMAGE) {
-          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
-            if (!oldData) {
-              return { pages: [], pageParams: [] };
-            }
-            const pages = oldData.pages.map(
-              (page): FeedQueryPage => ({
-                ...page,
-                feed: page.feed.map((item) => {
-                  if (item.type !== 'message' || item.id !== body.messageId) {
-                    return item;
-                  }
-                  const images = item.images?.map((image) =>
-                    image.id === body.imageId
-                      ? { ...image, isPlaceholder: false }
-                      : image,
-                  );
-                  return { ...item, images } as FeedItemRes;
-                }),
-              }),
-            );
             return { pages, pageParams: oldData.pageParams };
           });
         }

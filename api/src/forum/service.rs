@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
     enums::{ForumPostStatus, PollStage},
-    forum_posts, message_images, messages, polls, votes as vote_entities,
+    forum_posts, messages, polls, votes as vote_entities,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait, Condition,
@@ -399,14 +399,16 @@ async fn set_forum_post_status(
 
 pub(super) async fn create_forum_reply(
     database: &DatabaseConnection,
+    upload_root: &std::path::Path,
     channel_id: Uuid,
     post_id: Uuid,
     user_id: Uuid,
     request: CreateForumReplyRequest,
+    images: Vec<Vec<u8>>,
 ) -> AppResult<(MessageResponse, ForumPostSummaryResponse)> {
     messages_service::validate_message_content(
         Some(&request.body),
-        request.image_count,
+        images.len(),
     )?;
     let body = sanitize_text(&request.body);
     let body = (!body.is_empty()).then_some(body);
@@ -460,24 +462,18 @@ pub(super) async fn create_forum_reply(
     .await
     .map_err(internal_error)?;
 
-    // TODO: Create forum replies with their image files atomically instead of
-    // inserting placeholders for the message image upload flow
-    for _ in 0..request.image_count {
-        message_images::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            message_id: Set(reply.id),
-            ..Default::default()
-        }
-        .insert(&transaction)
-        .await
-        .map_err(internal_error)?;
-    }
-
     let latest_activity_at = post.latest_activity_at.max(now);
     let mut active = post.into_active_model();
     active.latest_activity_at = Set(latest_activity_at);
     active.update(&transaction).await.map_err(internal_error)?;
-    transaction.commit().await.map_err(internal_error)?;
+    let image_paths = messages_service::attach_message_creation_images(
+        &transaction,
+        upload_root,
+        reply.id,
+        images,
+    )
+    .await?;
+    messages_service::commit_message_creation(transaction, image_paths).await?;
 
     let reply = messages_service::shape_messages(database, vec![reply])
         .await?

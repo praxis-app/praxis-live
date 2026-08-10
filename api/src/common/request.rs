@@ -9,7 +9,7 @@ use serde::de::DeserializeOwned;
 use crate::common::{ApiError, AppResult};
 
 const MULTIPART_OVERHEAD_BYTES: usize = 1024 * 1024;
-const MAX_CREATION_MULTIPART_FILES: usize = 6;
+const MAX_CREATION_MULTIPART_FILES: usize = 8;
 
 const CREATION_MULTIPART_BODY_LIMIT: usize =
     crate::common::images::MAX_IMAGE_BYTES * MAX_CREATION_MULTIPART_FILES

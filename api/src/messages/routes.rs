@@ -6,8 +6,7 @@ use sea_orm::DatabaseConnection;
 
 use super::handlers::{
     create_call_message, create_message, get_call_message_image,
-    get_message_image, upload_call_message_image, upload_message_image,
-    ChatState,
+    get_message_image, ChatState,
 };
 use crate::pub_sub::PubSubService;
 
@@ -19,10 +18,6 @@ pub(crate) fn router(
     Router::new()
         .route("/", post(create_message))
         .route("/{messageId}/images/{imageId}", get(get_message_image))
-        .route(
-            "/{messageId}/images/{imageId}/upload",
-            post(upload_message_image),
-        )
         .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
 }
 
@@ -34,9 +29,5 @@ pub(crate) fn call_messages_router(
     Router::new()
         .route("/", post(create_call_message))
         .route("/{messageId}/images/{imageId}", get(get_call_message_image))
-        .route(
-            "/{messageId}/images/{imageId}/upload",
-            post(upload_call_message_image),
-        )
         .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
 }
