@@ -1,3 +1,6 @@
+//! Loads path-scoped polls from requests and enforces poll access
+//! prerequisites before handlers execute.
+
 use axum::{
     extract::{FromRequestParts, Path},
     http::{request::Parts, StatusCode},

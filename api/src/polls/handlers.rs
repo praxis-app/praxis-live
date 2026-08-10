@@ -1,3 +1,6 @@
+//! Translates poll HTTP requests into service calls, shapes HTTP responses, and
+//! coordinates request-lifecycle concerns such as broadcasts.
+
 use axum::{
     extract::{Path, Query, State},
     http::Response,
