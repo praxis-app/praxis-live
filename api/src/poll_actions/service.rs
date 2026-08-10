@@ -87,7 +87,7 @@ pub(crate) async fn create_poll_action<C: ConnectionTrait>(
     Ok(action)
 }
 
-pub(crate) fn validate_plan_event_request(
+fn validate_plan_event_request(
     request: &CreatePollActionEventRequest,
 ) -> AppResult<()> {
     let name = sanitize_text(&request.name);
@@ -950,7 +950,7 @@ async fn implement_plan_event(
     Ok(())
 }
 
-pub(crate) async fn sync_event_cover_photo<C: ConnectionTrait>(
+async fn sync_event_cover_photo<C: ConnectionTrait>(
     database: &C,
     poll_action_event_id: Uuid,
 ) -> AppResult<()> {

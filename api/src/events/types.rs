@@ -32,11 +32,11 @@ pub(super) struct UpsertEventRsvpRequest {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct EventUserResponse {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) display_name: Option<String>,
-    pub(crate) profile_picture: Option<crate::users::UserImageRef>,
+pub(super) struct EventUserResponse {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) display_name: Option<String>,
+    pub(super) profile_picture: Option<crate::users::UserImageRef>,
 }
 
 #[derive(Debug, Serialize)]

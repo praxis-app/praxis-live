@@ -10,7 +10,7 @@ use super::{ApiError, AppResult};
 const MAX_IMAGE_DIMENSION: u32 = 10_000;
 const MAX_IMAGE_PIXELS: u64 = 40_000_000;
 const MAX_DECODE_ALLOCATION: u64 = 160 * 1024 * 1024;
-pub(crate) const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
+pub(super) const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 
 pub(crate) struct ValidatedImage {
     pub(crate) content_type: &'static str,
