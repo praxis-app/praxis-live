@@ -1,11 +1,13 @@
 use axum::http::StatusCode;
 use entity::{
-    channel_members, channels, instance_configs, server_members, servers, users,
+    channel_members, channels, event_attendees, events, instance_configs,
+    server_members, servers, users,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
-    PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
+    prelude::Uuid, sea_query::Query, ActiveModelTrait, ColumnTrait,
+    ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
+    TransactionTrait,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -400,17 +402,22 @@ pub(super) async fn remove_server_members(
     user_ids: &[Uuid],
 ) -> AppResult<()> {
     get_server(database, server_id).await?;
+    if user_ids.is_empty() {
+        return Ok(());
+    }
+
+    let transaction = database.begin().await.map_err(internal_error)?;
 
     server_members::Entity::delete_many()
         .filter(server_members::Column::ServerId.eq(server_id))
         .filter(server_members::Column::UserId.is_in(user_ids.to_vec()))
-        .exec(database)
+        .exec(&transaction)
         .await
         .map_err(internal_error)?;
 
     let server_channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
-        .all(database)
+        .all(&transaction)
         .await
         .map_err(internal_error)?;
     let channel_ids: Vec<Uuid> =
@@ -420,11 +427,26 @@ pub(super) async fn remove_server_members(
         channel_members::Entity::delete_many()
             .filter(channel_members::Column::ChannelId.is_in(channel_ids))
             .filter(channel_members::Column::UserId.is_in(user_ids.to_vec()))
-            .exec(database)
+            .exec(&transaction)
             .await
             .map_err(internal_error)?;
     }
 
+    // Attendance is membership owned: departed hosts are removed too, while
+    // the ratified event itself remains available to the server.
+    let server_event_ids = Query::select()
+        .column(events::Column::Id)
+        .from(events::Entity)
+        .and_where(events::Column::ServerId.eq(server_id))
+        .to_owned();
+    event_attendees::Entity::delete_many()
+        .filter(event_attendees::Column::EventId.in_subquery(server_event_ids))
+        .filter(event_attendees::Column::UserId.is_in(user_ids.to_vec()))
+        .exec(&transaction)
+        .await
+        .map_err(internal_error)?;
+
+    transaction.commit().await.map_err(internal_error)?;
     Ok(())
 }
 
