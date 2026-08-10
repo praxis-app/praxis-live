@@ -306,6 +306,8 @@ pub(super) async fn store_user_image(
             ApiError::new(StatusCode::NOT_FOUND, "User not found.")
         })?;
 
+    // TODO: Make user image file and metadata persistence rollback safe so a
+    // failed profile or cover upload cannot leave an incomplete image row
     let image = user_images::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         user_id: Set(user_id),

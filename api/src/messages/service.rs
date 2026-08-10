@@ -288,6 +288,8 @@ async fn create_message_record(
     .await
     .map_err(internal_error)?;
 
+    // TODO: Create channel and call messages with their image files atomically,
+    // then remove placeholder rows and the separate image-upload routes
     let mut shaped_images = Vec::with_capacity(request.image_count);
     for _ in 0..request.image_count {
         let image = message_images::ActiveModel {

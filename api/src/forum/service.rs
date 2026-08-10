@@ -459,6 +459,9 @@ pub(super) async fn create_forum_reply(
     .insert(&transaction)
     .await
     .map_err(internal_error)?;
+
+    // TODO: Create forum replies with their image files atomically instead of
+    // inserting placeholders for the message image upload flow
     for _ in 0..request.image_count {
         message_images::ActiveModel {
             id: Set(NativeUuid::new_v4()),
@@ -469,6 +472,7 @@ pub(super) async fn create_forum_reply(
         .await
         .map_err(internal_error)?;
     }
+
     let latest_activity_at = post.latest_activity_at.max(now);
     let mut active = post.into_active_model();
     active.latest_activity_at = Set(latest_activity_at);

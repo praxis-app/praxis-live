@@ -317,6 +317,8 @@ async fn create_poll_action_event<C: ConnectionTrait>(
         .map_err(internal_error)?;
     }
 
+    // TODO: Derive cover presence from the atomic multipart file, insert only complete
+    // cover rows, and remove the event cover photo placeholder contract
     if request.cover_photo {
         poll_action_event_cover_photos::ActiveModel {
             id: Set(NativeUuid::new_v4()),
