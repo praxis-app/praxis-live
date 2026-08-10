@@ -4,16 +4,16 @@
 use axum::http::StatusCode;
 use chrono::{DateTime, FixedOffset, Utc};
 use entity::{
+    channel_members,
     enums::{PollClosedReason, PollDecisionMakingModel, PollStage, VoteType},
     poll_configs, polls, votes,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait,
-    IntoActiveModel, QueryFilter, Set,
+    IntoActiveModel, PaginatorTrait, QueryFilter, Set,
 };
 
 use crate::{
-    channels,
     common::{ApiError, AppResult},
     poll_actions,
 };
@@ -52,19 +52,37 @@ where
                 "Poll config not found.",
             )
         })?;
+
+    is_poll_ratifiable_with_context(database, &poll, &config).await
+}
+
+pub(super) async fn is_poll_ratifiable_with_context<C>(
+    database: &C,
+    poll: &polls::Model,
+    config: &poll_configs::Model,
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
+    if poll.stage != PollStage::Voting {
+        return Ok(false);
+    }
     let votes = votes::Entity::find()
-        .filter(votes::Column::PollId.eq(poll_id))
+        .filter(votes::Column::PollId.eq(poll.id))
         .all(database)
         .await
         .map_err(internal_error)?;
-    let member_count = get_poll_member_count(database, poll_id).await?;
 
     match config.decision_making_model {
         Some(PollDecisionMakingModel::Consensus) => {
+            let member_count =
+                get_channel_member_count(database, poll.channel_id).await?;
             has_consensus(&votes, &config, member_count)
         }
         Some(PollDecisionMakingModel::Consent) => has_consent(&votes, &config),
         Some(PollDecisionMakingModel::MajorityVote) => {
+            let member_count =
+                get_channel_member_count(database, poll.channel_id).await?;
             has_majority_vote(&votes, &config, member_count)
         }
         None => Ok(false),
@@ -128,9 +146,22 @@ where
         .ok_or_else(|| {
             ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
         })?;
-    channels::get_channel_member_user_ids(database, poll.channel_id)
+    get_channel_member_count(database, poll.channel_id).await
+}
+
+async fn get_channel_member_count<C>(
+    database: &C,
+    channel_id: Uuid,
+) -> AppResult<usize>
+where
+    C: ConnectionTrait,
+{
+    channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .count(database)
         .await
-        .map(|members| members.len())
+        .map(|count| count as usize)
+        .map_err(internal_error)
 }
 
 fn has_consensus(

@@ -4,23 +4,23 @@
 use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
+    channels,
     enums::{PollActionType, PollStage, PollType},
-    poll_action_events, poll_actions as poll_action_entities, poll_configs,
-    polls,
+    poll_action_event_hosts, poll_action_events,
+    poll_actions as poll_action_entities, poll_configs, polls, server_members,
 };
 use sea_orm::{
     prelude::Uuid,
-    sea_query::{JoinType, LockType},
+    sea_query::{Condition, Expr, JoinType, LockType, Query},
     ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
     QuerySelect, RelationTrait, TransactionTrait,
 };
-use std::collections::HashMap;
 use tokio::time::{self, MissedTickBehavior};
 
 use super::{
     outcome::{
         close_poll, close_poll_with_reason, finalize_ratifiable_proposal,
-        is_poll_ratifiable, ProposalFinalization,
+        is_poll_ratifiable_with_context, ProposalFinalization,
     },
     service::broadcast_stored_poll_update,
 };
@@ -133,47 +133,44 @@ async fn synchronize_proposals(
     let mut summary = ProposalSyncSummary::default();
     expire_stale_event_proposals(database, pub_sub_service, &mut summary)
         .await?;
-    let configs = poll_configs::Entity::find()
-        .filter(poll_configs::Column::ClosingAt.is_not_null())
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    if configs.is_empty() {
-        return Ok(summary);
-    }
+    let now = Utc::now().fixed_offset();
+    let mut cursor = None;
 
-    let configs_by_poll_id = configs
-        .into_iter()
-        .map(|config| (config.poll_id, config))
-        .collect::<HashMap<_, _>>();
-    let poll_ids = configs_by_poll_id.keys().copied().collect::<Vec<_>>();
-    let proposals = polls::Entity::find()
-        .filter(polls::Column::Id.is_in(poll_ids))
-        .filter(polls::Column::PollType.eq(PollType::Proposal))
-        .filter(polls::Column::Stage.eq(PollStage::Voting))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    if proposals.is_empty() {
-        return Ok(summary);
-    }
+    loop {
+        let mut query = polls::Entity::find()
+            .filter(polls::Column::PollType.eq(PollType::Proposal))
+            .filter(polls::Column::Stage.eq(PollStage::Voting))
+            .find_also_related(poll_configs::Entity)
+            .filter(poll_configs::Column::ClosingAt.lte(now));
+        if let Some(cursor) = cursor {
+            query = query.filter(polls::Column::Id.gt(cursor));
+        }
+        let proposals = query
+            .order_by_asc(polls::Column::Id)
+            .limit(PROPOSAL_SYNC_BATCH_SIZE as u64)
+            .all(database)
+            .await
+            .map_err(internal_error)?;
+        let Some((last_poll, _)) = proposals.last() else {
+            break;
+        };
+        cursor = Some(last_poll.id);
 
-    for batch in proposals.chunks(PROPOSAL_SYNC_BATCH_SIZE) {
-        for poll in batch {
+        for (poll, config) in proposals {
             summary.processed += 1;
 
-            let Some(config) = configs_by_poll_id.get(&poll.id) else {
+            let Some(config) = config else {
                 summary.failed += 1;
                 tracing::warn!(poll_id = %poll.id, "Poll config missing.");
                 continue;
             };
 
-            match synchronize_proposal(database, poll, config).await {
+            match synchronize_proposal(database, &poll, &config).await {
                 Ok(ProposalSyncAction::Ratify) => {
                     broadcast_stored_poll_update(
                         database,
                         pub_sub_service,
-                        poll,
+                        &poll,
                         None,
                     )
                     .await?;
@@ -183,7 +180,7 @@ async fn synchronize_proposals(
                     broadcast_stored_poll_update(
                         database,
                         pub_sub_service,
-                        poll,
+                        &poll,
                         None,
                     )
                     .await?;
@@ -210,43 +207,95 @@ async fn expire_stale_event_proposals(
     summary: &mut ProposalSyncSummary,
 ) -> AppResult<()> {
     let now = Utc::now().fixed_offset();
-    let proposals = polls::Entity::find()
-        .join(JoinType::InnerJoin, polls::Relation::Action.def())
-        .join(
-            JoinType::InnerJoin,
-            poll_action_entities::Relation::ProposedEvent.def(),
+    let eligible_host = Query::select()
+        .column(server_members::Column::Id)
+        .from(server_members::Entity)
+        .and_where(
+            Expr::col((
+                server_members::Entity,
+                server_members::Column::ServerId,
+            ))
+            .equals((channels::Entity, channels::Column::ServerId)),
         )
-        .filter(polls::Column::PollType.eq(PollType::Proposal))
-        .filter(polls::Column::Stage.eq(PollStage::Voting))
-        .filter(
-            poll_action_entities::Column::ActionType
-                .eq(PollActionType::PlanEvent),
+        .and_where(
+            Expr::col((server_members::Entity, server_members::Column::UserId))
+                .equals((
+                    poll_action_event_hosts::Entity,
+                    poll_action_event_hosts::Column::UserId,
+                )),
         )
-        .order_by_asc(poll_action_events::Column::StartsAt)
-        .all(database)
-        .await
-        .map_err(internal_error)?;
+        .to_owned();
+    let ineligible_host = Query::select()
+        .column(poll_action_event_hosts::Column::Id)
+        .from(poll_action_event_hosts::Entity)
+        .and_where(
+            Expr::col((
+                poll_action_event_hosts::Entity,
+                poll_action_event_hosts::Column::PollActionEventId,
+            ))
+            .equals((
+                poll_action_events::Entity,
+                poll_action_events::Column::Id,
+            )),
+        )
+        .cond_where(Condition::all().not().add(Expr::exists(eligible_host)))
+        .to_owned();
+    let mut cursor = None;
 
-    for poll in proposals {
-        summary.processed += 1;
-        match expire_stale_event_proposal(database, poll.id, now).await {
-            Ok(true) => {
-                broadcast_stored_poll_update(
-                    database,
-                    pub_sub_service,
-                    &poll,
-                    None,
-                )
-                .await?;
-                summary.closed += 1;
-            }
-            Ok(false) => {}
-            Err(error) => {
-                summary.failed += 1;
-                tracing::warn!(
-                    poll_id = %poll.id,
-                    "Failed to expire stale event proposal: {error}"
-                );
+    loop {
+        let mut query = polls::Entity::find()
+            .join(JoinType::InnerJoin, polls::Relation::Action.def())
+            .join(
+                JoinType::InnerJoin,
+                poll_action_entities::Relation::ProposedEvent.def(),
+            )
+            .join(JoinType::InnerJoin, polls::Relation::Channel.def())
+            .filter(polls::Column::PollType.eq(PollType::Proposal))
+            .filter(polls::Column::Stage.eq(PollStage::Voting))
+            .filter(
+                poll_action_entities::Column::ActionType
+                    .eq(PollActionType::PlanEvent),
+            )
+            .filter(
+                Condition::any()
+                    .add(poll_action_events::Column::StartsAt.lte(now))
+                    .add(Expr::exists(ineligible_host.clone())),
+            );
+        if let Some(cursor) = cursor {
+            query = query.filter(polls::Column::Id.gt(cursor));
+        }
+        let proposals = query
+            .order_by_asc(polls::Column::Id)
+            .limit(PROPOSAL_SYNC_BATCH_SIZE as u64)
+            .all(database)
+            .await
+            .map_err(internal_error)?;
+        let Some(last_poll) = proposals.last() else {
+            break;
+        };
+        cursor = Some(last_poll.id);
+
+        for poll in proposals {
+            summary.processed += 1;
+            match expire_stale_event_proposal(database, poll.id, now).await {
+                Ok(true) => {
+                    broadcast_stored_poll_update(
+                        database,
+                        pub_sub_service,
+                        &poll,
+                        None,
+                    )
+                    .await?;
+                    summary.closed += 1;
+                }
+                Ok(false) => {}
+                Err(error) => {
+                    summary.failed += 1;
+                    tracing::warn!(
+                        poll_id = %poll.id,
+                        "Failed to expire stale event proposal: {error}"
+                    );
+                }
             }
         }
     }
@@ -289,43 +338,31 @@ async fn close_expired_polls(
     database: &DatabaseConnection,
     pub_sub_service: &PubSubService,
 ) -> AppResult<ExpiredPollClosureSummary> {
-    let configs = poll_configs::Entity::find()
-        .filter(poll_configs::Column::ClosingAt.is_not_null())
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    if configs.is_empty() {
-        return Ok(ExpiredPollClosureSummary::default());
-    }
-
     let now = Utc::now().fixed_offset();
-    let poll_ids = configs
-        .into_iter()
-        .filter_map(|config| {
-            config
-                .closing_at
-                .filter(|closing_at| *closing_at <= now)
-                .map(|_| config.poll_id)
-        })
-        .collect::<Vec<_>>();
-    if poll_ids.is_empty() {
-        return Ok(ExpiredPollClosureSummary::default());
-    }
-
-    let expired_polls = polls::Entity::find()
-        .filter(polls::Column::Id.is_in(poll_ids))
-        .filter(polls::Column::PollType.eq(PollType::Poll))
-        .filter(polls::Column::Stage.eq(PollStage::Voting))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    if expired_polls.is_empty() {
-        return Ok(ExpiredPollClosureSummary::default());
-    }
-
     let mut summary = ExpiredPollClosureSummary::default();
-    for batch in expired_polls.chunks(POLL_CLOSURE_BATCH_SIZE) {
-        for poll in batch {
+    let mut cursor = None;
+
+    loop {
+        let mut query = polls::Entity::find()
+            .join(JoinType::InnerJoin, polls::Relation::Config.def())
+            .filter(polls::Column::PollType.eq(PollType::Poll))
+            .filter(polls::Column::Stage.eq(PollStage::Voting))
+            .filter(poll_configs::Column::ClosingAt.lte(now));
+        if let Some(cursor) = cursor {
+            query = query.filter(polls::Column::Id.gt(cursor));
+        }
+        let expired_polls = query
+            .order_by_asc(polls::Column::Id)
+            .limit(POLL_CLOSURE_BATCH_SIZE as u64)
+            .all(database)
+            .await
+            .map_err(internal_error)?;
+        let Some(last_poll) = expired_polls.last() else {
+            break;
+        };
+        cursor = Some(last_poll.id);
+
+        for poll in expired_polls {
             summary.processed += 1;
 
             match close_poll(database, poll.id).await {
@@ -333,7 +370,7 @@ async fn close_expired_polls(
                     broadcast_stored_poll_update(
                         database,
                         pub_sub_service,
-                        poll,
+                        &poll,
                         None,
                     )
                     .await?;
@@ -375,7 +412,8 @@ async fn synchronize_proposal(
 
     let action = proposal_sync_action(
         config.closing_at,
-        is_poll_ratifiable(&transaction, poll.id).await?,
+        is_poll_ratifiable_with_context(&transaction, &locked_poll, config)
+            .await?,
         Utc::now().fixed_offset(),
     );
 

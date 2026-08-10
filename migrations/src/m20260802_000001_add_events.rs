@@ -11,6 +11,7 @@ impl MigrationTrait for Migration {
         create_poll_closed_reason_enum(manager).await?;
         add_poll_closed_reason(manager).await?;
         create_poll_action_events(manager).await?;
+        create_poll_synchronization_indexes(manager).await?;
         create_poll_action_event_hosts(manager).await?;
         create_poll_action_event_cover_photos(manager).await?;
         create_events(manager).await?;
@@ -19,6 +20,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        drop_poll_synchronization_indexes(manager).await?;
         manager
             .drop_table(Table::drop().table(EventCoverPhotos::Table).to_owned())
             .await?;
@@ -47,6 +49,49 @@ impl MigrationTrait for Migration {
         drop_poll_closed_reason_enum(manager).await?;
         drop_event_attendee_status_enum(manager).await
     }
+}
+
+async fn create_poll_synchronization_indexes(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    manager
+        .create_index(
+            Index::create()
+                .name("polls-type-stage-id-idx")
+                .table(Polls::Table)
+                .col(Polls::PollType)
+                .col(Polls::Stage)
+                .col(Polls::Id)
+                .to_owned(),
+        )
+        .await?;
+
+    manager
+        .create_index(
+            Index::create()
+                .name("poll-configs-closing-at-poll-id-idx")
+                .table(PollConfigs::Table)
+                .col(PollConfigs::ClosingAt)
+                .col(PollConfigs::PollId)
+                .to_owned(),
+        )
+        .await
+}
+
+async fn drop_poll_synchronization_indexes(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    manager
+        .drop_index(
+            Index::drop()
+                .name("poll-configs-closing-at-poll-id-idx")
+                .to_owned(),
+        )
+        .await?;
+
+    manager
+        .drop_index(Index::drop().name("polls-type-stage-id-idx").to_owned())
+        .await
 }
 
 async fn create_event_attendee_status_enum(
@@ -224,6 +269,17 @@ async fn create_poll_action_events(
                 .check(Expr::cust(
                     "online OR (location IS NOT NULL AND btrim(location) <> '')",
                 ))
+                .to_owned(),
+        )
+        .await?;
+
+    manager
+        .create_index(
+            Index::create()
+                .name("poll-action-events-starts-at-action-id-idx")
+                .table(PollActionEvents::Table)
+                .col(PollActionEvents::StartsAt)
+                .col(PollActionEvents::PollActionId)
                 .to_owned(),
         )
         .await
@@ -659,7 +715,17 @@ enum PollActions {
 #[derive(DeriveIden)]
 enum Polls {
     Table,
+    Id,
+    Stage,
+    PollType,
     ClosedReason,
+}
+
+#[derive(DeriveIden)]
+enum PollConfigs {
+    Table,
+    PollId,
+    ClosingAt,
 }
 
 #[derive(DeriveIden)]
