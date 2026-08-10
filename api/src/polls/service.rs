@@ -6,18 +6,17 @@ use entity::{
         PollActionType, PollClosedReason, PollDecisionMakingModel, PollStage,
         PollType, VoteType,
     },
-    forum_posts, poll_action_event_cover_photos, poll_action_event_hosts,
-    poll_action_events, poll_actions as poll_action_entities, poll_configs,
-    poll_images, poll_option_selections, poll_options, polls,
-    server_configs as server_config_entities, server_members, users, votes,
+    forum_posts, poll_action_event_cover_photos, poll_action_events,
+    poll_actions as poll_action_entities, poll_configs, poll_images,
+    poll_option_selections, poll_options, polls,
+    server_configs as server_config_entities, users, votes,
 };
 use sea_orm::{
     prelude::Uuid,
     sea_query::{JoinType, LockType, NullOrdering, Order},
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
     DatabaseConnection, DeleteResult, EntityTrait, IntoActiveModel,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set,
-    TransactionTrait,
+    QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -450,78 +449,6 @@ pub(crate) async fn insert_prepared_poll<C: ConnectionTrait>(
     Ok(poll)
 }
 
-pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
-    database: &C,
-    upload_root: &Path,
-    poll_id: Uuid,
-    bytes: Vec<u8>,
-) -> AppResult<PathBuf> {
-    let content_type =
-        crate::common::images::validate_raster(&bytes, "Event cover photo")?
-            .content_type;
-    let action = poll_action_entities::Entity::find()
-        .filter(poll_action_entities::Column::PollId.eq(poll_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "An event cover photo requires an event proposal.",
-            )
-        })?;
-    let event = poll_action_events::Entity::find()
-        .filter(poll_action_events::Column::PollActionId.eq(action.id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "An event cover photo requires an event proposal.",
-            )
-        })?;
-    let image = poll_action_event_cover_photos::Entity::find()
-        .filter(
-            poll_action_event_cover_photos::Column::PollActionEventId
-                .eq(event.id),
-        )
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "The event proposal must request a cover photo.",
-            )
-        })?;
-
-    let storage_key = format!("poll-action-event-cover-photos/{}", image.id);
-    let destination = upload_root.join(&storage_key);
-    if let Some(parent) = destination.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(internal_error)?;
-    }
-    if let Err(error) = tokio::fs::write(&destination, bytes).await {
-        let _ = tokio::fs::remove_file(&destination).await;
-        return Err(internal_error(error));
-    }
-
-    let mut active = image.into_active_model();
-    active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(Some(content_type.to_owned()));
-    if let Err(error) = active.update(database).await {
-        if let Err(cleanup_error) = tokio::fs::remove_file(&destination).await {
-            tracing::warn!(
-                "failed to clean up event cover photo after database error: {cleanup_error}"
-            );
-        }
-        return Err(internal_error(error));
-    }
-    Ok(destination)
-}
-
 pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
     database: &C,
     upload_root: &Path,
@@ -564,8 +491,13 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
     }
 
     if let Some(bytes) = cover_photo {
-        match attach_event_cover_photo(database, upload_root, poll_id, bytes)
-            .await
+        match poll_actions::service::attach_event_cover_photo(
+            database,
+            upload_root,
+            poll_id,
+            bytes,
+        )
+        .await
         {
             Ok(path) => paths.push(path),
             Err(error) => {
@@ -766,8 +698,10 @@ pub(super) async fn get_poll_action_event_cover_photo(
     } else if servers::default_server_id(database).await? != server_id {
         return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
     }
-    let image =
-        load_poll_action_event_cover_photo(database, poll_id, image_id).await?;
+    let image = poll_actions::service::load_event_cover_photo(
+        database, poll_id, image_id,
+    )
+    .await?;
     let storage_key = image.storage_key.ok_or_else(|| {
         ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
     })?;
@@ -812,41 +746,6 @@ pub(super) async fn get_poll_image(
             ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
         })?;
     Ok(StoredPollImage { bytes })
-}
-
-async fn load_poll_action_event_cover_photo<C: ConnectionTrait>(
-    database: &C,
-    poll_id: Uuid,
-    image_id: Uuid,
-) -> AppResult<poll_action_event_cover_photos::Model> {
-    let image = poll_action_event_cover_photos::Entity::find_by_id(image_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
-        })?;
-    let proposed_event =
-        poll_action_events::Entity::find_by_id(image.poll_action_event_id)
-            .one(database)
-            .await
-            .map_err(internal_error)?;
-    let belongs_to_poll = match proposed_event {
-        Some(proposed_event) => poll_action_entities::Entity::find_by_id(
-            proposed_event.poll_action_id,
-        )
-        .filter(poll_action_entities::Column::PollId.eq(poll_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .is_some(),
-        None => false,
-    };
-    if belongs_to_poll {
-        Ok(image)
-    } else {
-        Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."))
-    }
 }
 
 pub(super) async fn delete_poll(
@@ -985,8 +884,12 @@ pub(crate) async fn finalize_ratifiable_proposal(
     poll_id: Uuid,
     now: DateTime<FixedOffset>,
 ) -> AppResult<ProposalFinalization> {
-    if let Some(reason) =
-        plan_event_closed_reason(transaction, poll_id, now).await?
+    if let Some(reason) = poll_actions::service::plan_event_closed_reason(
+        transaction,
+        poll_id,
+        now,
+    )
+    .await?
     {
         close_poll_with_reason(transaction, poll_id, Some(reason)).await?;
         return Ok(ProposalFinalization::Closed(reason));
@@ -1144,7 +1047,12 @@ async fn expire_stale_event_proposal(
             ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
         })?;
 
-    let reason = plan_event_closed_reason(&transaction, poll_id, now).await?;
+    let reason = poll_actions::service::plan_event_closed_reason(
+        &transaction,
+        poll_id,
+        now,
+    )
+    .await?;
     if poll.stage != PollStage::Voting || reason.is_none() {
         transaction.commit().await.map_err(internal_error)?;
         return Ok(false);
@@ -1153,81 +1061,6 @@ async fn expire_stale_event_proposal(
     close_poll_with_reason(&transaction, poll_id, reason).await?;
     transaction.commit().await.map_err(internal_error)?;
     Ok(true)
-}
-
-async fn plan_event_closed_reason<C>(
-    database: &C,
-    poll_id: Uuid,
-    now: DateTime<FixedOffset>,
-) -> AppResult<Option<PollClosedReason>>
-where
-    C: ConnectionTrait,
-{
-    let action = poll_action_entities::Entity::find()
-        .filter(poll_action_entities::Column::PollId.eq(poll_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?;
-
-    let Some(action) = action else {
-        return Ok(None);
-    };
-    if action.action_type != PollActionType::PlanEvent {
-        return Ok(None);
-    }
-
-    let proposed_event = poll_action_events::Entity::find()
-        .filter(poll_action_events::Column::PollActionId.eq(action.id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Proposed event is required.",
-            )
-        })?;
-    if proposed_event.starts_at <= now {
-        return Ok(Some(PollClosedReason::EventStartElapsed));
-    }
-
-    let poll = polls::Entity::find_by_id(poll_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
-        })?;
-
-    let channel = channel_entities::Entity::find_by_id(poll.channel_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
-        })?;
-
-    let host_ids = poll_action_event_hosts::Entity::find()
-        .filter(
-            poll_action_event_hosts::Column::PollActionEventId
-                .eq(proposed_event.id),
-        )
-        .all(database)
-        .await
-        .map_err(internal_error)?
-        .into_iter()
-        .map(|host| host.user_id)
-        .collect::<Vec<_>>();
-
-    let member_count = server_members::Entity::find()
-        .filter(server_members::Column::ServerId.eq(channel.server_id))
-        .filter(server_members::Column::UserId.is_in(host_ids.iter().copied()))
-        .count(database)
-        .await
-        .map_err(internal_error)?;
-
-    Ok((member_count < host_ids.len() as u64)
-        .then_some(PollClosedReason::EventHostIneligible))
 }
 
 async fn close_expired_polls(
