@@ -1,12 +1,12 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Query, State},
     response::Json,
 };
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 use super::{
-    extractors::ChannelFeedAccessContext,
+    extractors::{CallFeedAccessContext, ChannelFeedAccessContext},
     pagination::{feed_response, parse_cursor},
     service,
     types::{FeedQuery, FeedResponse},
@@ -68,16 +68,16 @@ pub(super) async fn get_channel_feed(
 
 pub(super) async fn get_call_feed(
     State(feeds_state): State<FeedsState>,
-    Path(path): Path<crate::calls::types::CallPath>,
+    context: CallFeedAccessContext,
     Query(query): Query<FeedQuery>,
 ) -> AppResult<Json<FeedResponse>> {
     let limit = query.limit.unwrap_or(50).min(100);
     let (cursor, direction) = parse_cursor(&query)?;
     let feed = service::get_call_feed(
         &feeds_state.database,
-        path.server_id,
-        path.channel_id,
-        path.call_id,
+        context.server_id,
+        context.channel_id,
+        context.call_id,
         cursor,
         direction,
         limit,

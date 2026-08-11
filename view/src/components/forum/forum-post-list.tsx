@@ -39,7 +39,7 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const { serverId, serverPath } = useServerData();
-  const { isLoggedIn } = useAuthData();
+  const { inviteToken, isLoggedIn } = useAuthData();
 
   const { t } = useTranslation();
 
@@ -54,6 +54,7 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
         'posts',
         sort,
         status,
+        inviteToken,
       ],
       queryFn: ({ pageParam }) => {
         if (!serverId) throw new Error('Server ID is required');

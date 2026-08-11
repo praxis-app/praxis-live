@@ -23,6 +23,7 @@ use crate::{
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{request::JsonOrMultipartFiles, storage::upload_root, AppResult},
+    invites::InviteAccessToken,
     pub_sub::PubSubService,
     servers::types::ServerPath,
 };
@@ -222,6 +223,7 @@ pub(super) async fn get_poll_action_event_cover_photo(
     State(state): State<PollsState>,
     Path(path): Path<PollActionEventCoverPhotoPath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_poll_action_event_cover_photo(
         &state.database,
@@ -231,6 +233,7 @@ pub(super) async fn get_poll_action_event_cover_photo(
         path.poll_id,
         path.image_id,
         user_id,
+        invite_token.as_deref(),
     )
     .await?;
 
@@ -241,6 +244,7 @@ pub(super) async fn get_poll_image(
     State(state): State<PollsState>,
     Path(path): Path<PollImagePath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_poll_image(
         &state.database,
@@ -250,6 +254,7 @@ pub(super) async fn get_poll_image(
         path.poll_id,
         path.image_id,
         user_id,
+        invite_token.as_deref(),
     )
     .await?;
 

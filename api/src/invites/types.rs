@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 pub(super) use crate::servers::types::ServerPath;
 use crate::users::UserImageRef;
 
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InviteAccessQuery {
+    pub(crate) invite_token: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct InvitePath {

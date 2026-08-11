@@ -94,8 +94,15 @@ export const TextChannelView = ({
   } = useChannelCall(serverId, channel?.id);
 
   const feedQueryKey = useMemo(
-    () => ['servers', serverId, 'channels', channel?.id, 'feed'],
-    [channel?.id, serverId],
+    () => [
+      'servers',
+      serverId,
+      'channels',
+      channel?.id,
+      'feed',
+      ...(inviteToken ? ['invite', inviteToken] : []),
+    ],
+    [channel?.id, inviteToken, serverId],
   );
 
   const {
@@ -115,7 +122,6 @@ export const TextChannelView = ({
         channel.id,
         cursor,
         limit,
-        inviteToken,
       );
       const existingFeed = queryClient
         .getQueryData<FeedQuery>(feedQueryKey)

@@ -52,7 +52,7 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
       if (!serverId) {
         throw new Error('Current server not found');
       }
-      return api.getChannels(serverId, inviteToken);
+      return api.getChannels(serverId);
     },
     enabled: !!serverId && (isAuthError || (isMeSuccess && !isRegistered)),
   });

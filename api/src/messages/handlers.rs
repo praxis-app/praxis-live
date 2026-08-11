@@ -14,13 +14,14 @@ use super::{
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
+    auth::{AuthenticatedUserOptional, HasJwtSecret},
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
     common::{
         images::safe_image_response, request::JsonOrMultipartFiles,
         storage::upload_root, AppResult,
     },
+    invites::InviteAccessToken,
     pub_sub::PubSubService,
 };
 
@@ -128,6 +129,7 @@ pub(super) async fn get_message_image(
     State(chat_state): State<ChatState>,
     Path(path): Path<MessageImagePath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_message_image(
         &chat_state.database,
@@ -137,6 +139,7 @@ pub(super) async fn get_message_image(
         path.message_id,
         path.image_id,
         user_id,
+        invite_token.as_deref(),
     )
     .await?;
     safe_image_response(image.bytes)
@@ -145,7 +148,8 @@ pub(super) async fn get_message_image(
 pub(super) async fn get_call_message_image(
     State(chat_state): State<ChatState>,
     Path(path): Path<CallMessageImagePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_call_message_image(
         &chat_state.database,
@@ -156,6 +160,7 @@ pub(super) async fn get_call_message_image(
         path.message_id,
         path.image_id,
         user_id,
+        invite_token.as_deref(),
     )
     .await?;
     safe_image_response(image.bytes)

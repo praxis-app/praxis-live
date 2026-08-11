@@ -43,7 +43,7 @@ export const CallChatPanel = ({
   const shouldScrollAfterSendRef = useRef(false);
 
   const queryClient = useQueryClient();
-  const { me } = useAuthData();
+  const { inviteToken, me } = useAuthData();
   const { t } = useTranslation();
 
   const feedQueryKey = useMemo(
@@ -55,8 +55,9 @@ export const CallChatPanel = ({
       'calls',
       callId,
       'feed',
+      ...(inviteToken ? ['invite', inviteToken] : []),
     ],
-    [callId, channel.id, serverId],
+    [callId, channel.id, inviteToken, serverId],
   );
 
   const {

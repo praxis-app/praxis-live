@@ -287,14 +287,17 @@ pub(super) async fn get_poll_action_event_cover_photo(
     poll_id: Uuid,
     image_id: Uuid,
     user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<StoredPollImage> {
     load_poll(database, server_id, channel_id, poll_id).await?;
-    if let Some(user_id) = user_id {
-        channels::ensure_channel_membership(database, channel_id, user_id)
-            .await?;
-    } else if servers::default_server_id(database).await? != server_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
+    channels::ensure_channel_read_access(
+        database,
+        server_id,
+        channel_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
     let image = poll_actions::service::load_event_cover_photo(
         database, poll_id, image_id,
     )
@@ -318,14 +321,17 @@ pub(super) async fn get_poll_image(
     poll_id: Uuid,
     image_id: Uuid,
     user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<StoredPollImage> {
     load_poll(database, server_id, channel_id, poll_id).await?;
-    if let Some(user_id) = user_id {
-        channels::ensure_channel_membership(database, channel_id, user_id)
-            .await?;
-    } else if servers::default_server_id(database).await? != server_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
+    channels::ensure_channel_read_access(
+        database,
+        server_id,
+        channel_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
     let image = poll_images::Entity::find_by_id(image_id)
         .filter(poll_images::Column::PollId.eq(poll_id))
         .one(database)

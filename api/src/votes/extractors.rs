@@ -1,27 +1,21 @@
 use axum::{
-    extract::{FromRequestParts, Path, Query},
+    extract::{FromRequestParts, Path},
     http::{request::Parts, StatusCode},
 };
 use entity::polls;
 use sea_orm::prelude::Uuid;
-use serde::Deserialize;
 
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional},
     channels,
     common::ApiError,
+    invites::InviteAccessToken,
     polls::{service as polls_service, types::PollPath, PollsState},
     votes::{
         service,
         types::{PollOptionPath, VotePath},
     },
 };
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PollOptionQuery {
-    invite_token: Option<String>,
-}
 
 pub(crate) struct VoteRouteContext {
     pub(crate) server_id: Uuid,
@@ -107,15 +101,8 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
                     )
                 })?;
 
-        let Query(query) =
-            Query::<PollOptionQuery>::from_request_parts(parts, state)
-                .await
-                .map_err(|_| {
-                    ApiError::new(
-                        StatusCode::BAD_REQUEST,
-                        "Invalid query string.",
-                    )
-                })?;
+        let InviteAccessToken(invite_token) =
+            InviteAccessToken::from_request_parts(parts, state).await?;
 
         let AuthenticatedUserOptional(current_user_id) =
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
@@ -139,7 +126,7 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
             path.channel_id,
             path.poll_id,
             current_user_id,
-            query.invite_token.as_deref(),
+            invite_token.as_deref(),
         )
         .await?;
 
