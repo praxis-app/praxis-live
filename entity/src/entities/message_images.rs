@@ -7,7 +7,6 @@ pub struct Model {
     pub id: Uuid,
     pub message_id: Uuid,
     pub storage_key: Option<String>,
-    pub content_type: Option<String>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

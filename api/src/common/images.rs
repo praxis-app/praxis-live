@@ -12,14 +12,7 @@ const MAX_IMAGE_PIXELS: u64 = 40_000_000;
 const MAX_DECODE_ALLOCATION: u64 = 160 * 1024 * 1024;
 pub(super) const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 
-pub(crate) struct ValidatedImage {
-    pub(crate) content_type: &'static str,
-}
-
-pub(crate) fn validate_raster(
-    bytes: &[u8],
-    label: &str,
-) -> AppResult<ValidatedImage> {
+pub(crate) fn validate_raster(bytes: &[u8], label: &str) -> AppResult<()> {
     if bytes.is_empty() {
         return Err(invalid_image(label, "is required"));
     }
@@ -56,9 +49,7 @@ pub(crate) fn validate_raster(
         .decode()
         .map_err(|_| invalid_image(label, "is not a valid image"))?;
 
-    Ok(ValidatedImage {
-        content_type: supported_content_type(format).expect("format checked"),
-    })
+    Ok(())
 }
 
 pub(crate) fn safe_image_response(bytes: Vec<u8>) -> AppResult<Response<Body>> {

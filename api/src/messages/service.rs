@@ -327,7 +327,7 @@ pub(crate) async fn attach_message_creation_images<C: ConnectionTrait>(
             format!("A message can include at most {MAX_IMAGE_COUNT} images."),
         ));
     }
-    let validated_images = images
+    images
         .iter()
         .map(|bytes| {
             crate::common::images::validate_raster(bytes, "Message image")
@@ -335,9 +335,7 @@ pub(crate) async fn attach_message_creation_images<C: ConnectionTrait>(
         .collect::<AppResult<Vec<_>>>()?;
 
     let mut paths = vec![];
-    for (bytes, validated) in
-        images.into_iter().zip(validated_images.into_iter())
-    {
+    for bytes in images {
         let image_id = NativeUuid::new_v4();
         let storage_key = format!("message-images/{image_id}");
         let destination = upload_root.join(&storage_key);
@@ -359,7 +357,6 @@ pub(crate) async fn attach_message_creation_images<C: ConnectionTrait>(
             id: Set(image_id),
             message_id: Set(message_id),
             storage_key: Set(Some(storage_key)),
-            content_type: Set(Some(validated.content_type.to_owned())),
             ..Default::default()
         }
         .insert(database)

@@ -326,9 +326,7 @@ pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
     poll_id: Uuid,
     bytes: Vec<u8>,
 ) -> AppResult<PathBuf> {
-    let content_type =
-        crate::common::images::validate_raster(&bytes, "Event cover photo")?
-            .content_type;
+    crate::common::images::validate_raster(&bytes, "Event cover photo")?;
     let action = poll_actions::Entity::find()
         .filter(poll_actions::Column::PollId.eq(poll_id))
         .one(database)
@@ -368,7 +366,6 @@ pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
         id: Set(image_id),
         poll_action_event_id: Set(event.id),
         storage_key: Set(Some(storage_key)),
-        content_type: Set(Some(content_type.to_owned())),
         ..Default::default()
     }
     .insert(database)
@@ -1005,7 +1002,6 @@ async fn sync_event_cover_photo<C: ConnectionTrait>(
                     id: Set(cover_photo_id),
                     event_id: Set(event.id),
                     storage_key: Set(storage_key),
-                    content_type: Set(proposed_cover.content_type),
                     ..Default::default()
                 }
                 .insert(database)
@@ -1063,9 +1059,6 @@ async fn shape_poll_action_event(
         )
         .filter(
             poll_action_event_cover_photos::Column::StorageKey.is_not_null(),
-        )
-        .filter(
-            poll_action_event_cover_photos::Column::ContentType.is_not_null(),
         )
         .one(database)
         .await

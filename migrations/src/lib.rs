@@ -13,6 +13,7 @@ mod m20260629_000001_add_poll_action_execution;
 mod m20260703_000001_add_poll_action_server_configs;
 mod m20260715_000001_add_forum_channel_schema;
 mod m20260802_000001_add_events;
+mod m20260811_000001_drop_unused_image_content_types;
 
 pub struct Migrator;
 
@@ -35,6 +36,9 @@ impl MigratorTrait for Migrator {
             ),
             Box::new(m20260715_000001_add_forum_channel_schema::Migration),
             Box::new(m20260802_000001_add_events::Migration),
+            Box::new(
+                m20260811_000001_drop_unused_image_content_types::Migration,
+            ),
         ]
     }
 }

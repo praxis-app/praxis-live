@@ -874,24 +874,7 @@ fn internal_error(error: impl std::fmt::Display) -> ApiError {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use crate::common::images::validate_raster;
-
-    #[test]
-    fn event_cover_photo_type_comes_from_decoded_bytes() {
-        let mut bytes = Cursor::new(Vec::new());
-        image::DynamicImage::new_rgba8(1, 1)
-            .write_to(&mut bytes, image::ImageFormat::Png)
-            .expect("test PNG should encode");
-
-        assert_eq!(
-            validate_raster(bytes.get_ref(), "Event cover photo")
-                .expect("valid PNG")
-                .content_type,
-            "image/png"
-        );
-    }
 
     #[test]
     fn event_cover_photo_rejects_active_content() {

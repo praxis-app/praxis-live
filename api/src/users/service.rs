@@ -285,8 +285,7 @@ pub(super) async fn store_user_image(
     kind: &str,
     bytes: Vec<u8>,
 ) -> AppResult<UserImageRef> {
-    let validated =
-        crate::common::images::validate_raster(&bytes, "User image")?;
+    crate::common::images::validate_raster(&bytes, "User image")?;
 
     let kind = match kind {
         PROFILE_PICTURE_KIND | COVER_PHOTO_KIND => kind,
@@ -331,7 +330,6 @@ pub(super) async fn store_user_image(
         user_id: Set(user_id),
         kind: Set(kind.to_owned()),
         storage_key: Set(Some(storage_key)),
-        content_type: Set(Some(validated.content_type.to_owned())),
         ..Default::default()
     })
     .insert(&transaction)

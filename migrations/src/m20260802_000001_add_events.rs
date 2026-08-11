@@ -371,11 +371,6 @@ async fn create_poll_action_event_cover_photos(
                         .string()
                         .not_null(),
                 )
-                .col(
-                    ColumnDef::new(PollActionEventCoverPhotos::ContentType)
-                        .string()
-                        .not_null(),
-                )
                 .col(timestamp(PollActionEventCoverPhotos::CreatedAt))
                 .col(timestamp(PollActionEventCoverPhotos::UpdatedAt))
                 .foreign_key(
@@ -593,7 +588,6 @@ async fn create_event_cover_photos(
                         .string()
                         .not_null(),
                 )
-                .col(ColumnDef::new(EventCoverPhotos::ContentType).string())
                 .col(timestamp(EventCoverPhotos::CreatedAt))
                 .col(timestamp(EventCoverPhotos::UpdatedAt))
                 .foreign_key(
@@ -662,7 +656,6 @@ enum PollActionEventCoverPhotos {
     Id,
     PollActionEventId,
     StorageKey,
-    ContentType,
     CreatedAt,
     UpdatedAt,
 }
@@ -701,7 +694,6 @@ enum EventCoverPhotos {
     Id,
     EventId,
     StorageKey,
-    ContentType,
     CreatedAt,
     UpdatedAt,
 }

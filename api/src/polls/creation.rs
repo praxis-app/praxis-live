@@ -222,7 +222,7 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
             format!("A poll can include up to {MAX_IMAGE_COUNT} images."),
         ));
     }
-    let validated_images = images
+    images
         .iter()
         .map(|bytes| {
             crate::common::images::validate_raster(bytes, "Poll image")
@@ -230,18 +230,8 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
         .collect::<AppResult<Vec<_>>>()?;
 
     let mut paths = vec![];
-    for (bytes, validated) in
-        images.into_iter().zip(validated_images.into_iter())
-    {
-        match attach_poll_image(
-            database,
-            upload_root,
-            poll_id,
-            bytes,
-            validated.content_type,
-        )
-        .await
-        {
+    for bytes in images {
+        match attach_poll_image(database, upload_root, poll_id, bytes).await {
             Ok(path) => paths.push(path),
             Err(error) => {
                 cleanup_image_paths(paths).await;
@@ -275,7 +265,6 @@ async fn attach_poll_image<C: ConnectionTrait>(
     upload_root: &Path,
     poll_id: Uuid,
     bytes: Vec<u8>,
-    content_type: &str,
 ) -> AppResult<PathBuf> {
     let image_id = NativeUuid::new_v4();
     let storage_key = format!("poll-images/{image_id}");
@@ -294,7 +283,6 @@ async fn attach_poll_image<C: ConnectionTrait>(
         id: Set(image_id),
         poll_id: Set(poll_id),
         storage_key: Set(Some(storage_key)),
-        content_type: Set(Some(content_type.to_owned())),
         ..Default::default()
     }
     .insert(database)
