@@ -34,6 +34,47 @@ pub(crate) async fn default_server_id(
     Ok(config.default_server_id)
 }
 
+pub(crate) async fn ensure_server_read_access(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
+) -> AppResult<()> {
+    ensure_server(database, server_id).await?;
+
+    if let Some(user_id) = user_id {
+        let membership = server_members::Entity::find()
+            .filter(server_members::Column::ServerId.eq(server_id))
+            .filter(server_members::Column::UserId.eq(user_id))
+            .one(database)
+            .await
+            .map_err(internal_error)?;
+        return if membership.is_some() {
+            Ok(())
+        } else {
+            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+        };
+    }
+
+    if default_server_id(database).await? == server_id {
+        return Ok(());
+    }
+
+    if let Some(invite_token) = invite_token {
+        if crate::invites::service::is_valid_invite_for_server(
+            database,
+            invite_token,
+            server_id,
+        )
+        .await?
+        {
+            return Ok(());
+        }
+    }
+
+    Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+}
+
 pub(super) async fn get_servers(
     database: &DatabaseConnection,
 ) -> AppResult<Vec<ServerResponse>> {

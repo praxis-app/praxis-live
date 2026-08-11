@@ -7,6 +7,7 @@ import {
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { expectImageToLoad } from '../lib/images';
+import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
   expirePollDeadline,
@@ -392,6 +393,78 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
   }
 
   await expect(panel.getByText(finalDecision)).toBeVisible();
+});
+
+test('invite holder can read active decisions in a non-default server', async ({
+  context,
+  page,
+  request,
+}) => {
+  const admin = await signUpViaApi(
+    request,
+    createTestUser('invite-decisions-admin'),
+  );
+  const serverSlug = `invite-decisions-${admin.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(admin),
+    data: {
+      name: `Invite decisions ${admin.user.suffix}`,
+      slug: serverSlug,
+      description: 'Non-default server for invite decision access.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+
+  const getServerResponse = await request.get(
+    `/api/servers/slug/${serverSlug}`,
+    { headers: authorizationHeaders(admin) },
+  );
+  await expect(getServerResponse).toBeOK();
+  const { server } = (await getServerResponse.json()) as {
+    server: {
+      id: string;
+      slug: string;
+      generalChannelId: string;
+    };
+  };
+
+  const decisionBody = `Invited decision ${admin.user.suffix}`;
+  const createPollResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+    {
+      headers: authorizationHeaders(admin),
+      data: {
+        body: decisionBody,
+        pollType: 'poll',
+        options: ['Yes', 'No'],
+        multipleChoice: false,
+        closingAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      },
+    },
+  );
+  await expect(createPollResponse).toBeOK();
+
+  const inviteToken = await createInvite(request, admin, server.id);
+  await context.addInitScript((token) => {
+    window.localStorage.removeItem('access_token');
+    window.localStorage.setItem('invite-token', token);
+  }, inviteToken);
+
+  await page.setViewportSize({ width: 1180, height: 720 });
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+
+  const decisionsResponsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === `/api/servers/${server.id}/decisions`;
+  });
+  await page.getByRole('button', { name: 'Toggle active decisions' }).click();
+
+  expect((await decisionsResponsePromise).status()).toBe(200);
+  const panel = page.getByRole('complementary', {
+    name: 'Active decisions',
+  });
+  await expect(panel.getByText(decisionBody)).toBeVisible();
 });
 
 test('active decision opens fully in view across channels and feed pages', async ({

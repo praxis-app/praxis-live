@@ -204,6 +204,7 @@ pub(super) async fn get_active_decisions(
     State(state): State<PollsState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
     Query(query): Query<ListActiveDecisionsQuery>,
 ) -> AppResult<Json<ActiveDecisionsResponse>> {
     let limit = query.limit.unwrap_or(50).min(100);
@@ -211,6 +212,7 @@ pub(super) async fn get_active_decisions(
         &state.database,
         path.server_id,
         user_id,
+        invite_token.as_deref(),
         query.before.as_deref(),
         limit,
     )

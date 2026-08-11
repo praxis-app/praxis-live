@@ -452,10 +452,17 @@ pub(super) async fn get_active_decisions(
     database: &DatabaseConnection,
     server_id: Uuid,
     current_user_id: Option<Uuid>,
+    invite_token: Option<&str>,
     before: Option<&str>,
     limit: u64,
 ) -> AppResult<ActiveDecisionsResponse> {
-    servers::ensure_server(database, server_id).await?;
+    servers::ensure_server_read_access(
+        database,
+        server_id,
+        current_user_id,
+        invite_token,
+    )
+    .await?;
     let cursor = before.map(ActiveDecisionCursor::parse).transpose()?;
 
     let current_user = if let Some(user_id) = current_user_id {
@@ -467,11 +474,9 @@ pub(super) async fn get_active_decisions(
         None
     };
     let response_user_id = current_user.as_ref().map(|user| user.id);
-    let registered_user_id = current_user
-        .filter(|user| !user.anonymous)
-        .map(|user| user.id);
+    let member_user_id = current_user.map(|user| user.id);
 
-    let channels = if let Some(user_id) = registered_user_id {
+    let channels = if let Some(user_id) = member_user_id {
         let channel_ids = channel_members::Entity::find()
             .filter(channel_members::Column::UserId.eq(user_id))
             .all(database)
@@ -492,10 +497,6 @@ pub(super) async fn get_active_decisions(
                 .map_err(internal_error)?
         }
     } else {
-        if servers::default_server_id(database).await? != server_id {
-            return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-        }
-
         channel_entities::Entity::find()
             .filter(channel_entities::Column::ServerId.eq(server_id))
             .all(database)
