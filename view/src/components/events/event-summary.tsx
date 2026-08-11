@@ -1,6 +1,6 @@
+import { EventUserAvatars } from '@/components/events/event-user-avatars';
 import { LazyLoadImage } from '@/components/images/lazy-load-image';
 import { FormattedText } from '@/components/shared/formatted-text';
-import { UserAvatar } from '@/components/users/user-avatar';
 import { formatEventDateTime, formatEventDuration } from '@/lib/event.utils';
 import { cn } from '@/lib/shared.utils';
 import { type ImageRes } from '@/types/image.types';
@@ -27,6 +27,8 @@ interface Props {
   hosts: UserRes[];
   goingCount?: number;
   interestedCount?: number;
+  going?: UserRes[];
+  interested?: UserRes[];
   coverPhoto?: ImageRes | null;
   coverPhotoFile?: File;
   channelId?: string;
@@ -47,6 +49,8 @@ export const EventSummary = ({
   hosts,
   goingCount,
   interestedCount,
+  going,
+  interested,
   coverPhoto,
   coverPhotoFile,
   channelId,
@@ -67,6 +71,7 @@ export const EventSummary = ({
 
   const hasCoverPhoto = !!coverPhotoSrc || !!coverPhoto;
 
+  const attendees = [...(interested || []), ...(going || [])];
   const duration = formatEventDuration(startsAt, endsAt);
   const isNested = layout === 'nested';
 
@@ -110,40 +115,29 @@ export const EventSummary = ({
           {goingCount !== undefined && interestedCount !== undefined && (
             <div className="flex min-h-6 min-w-0 items-center gap-2.5">
               <MdGroups className="text-muted-foreground size-4 shrink-0" />
-              <span>
-                {interestedCount > 0 && (
-                  <>
-                    {interestedCount} {t('events.labels.interested')}
-                  </>
-                )}
-                {interestedCount > 0 && goingCount > 0 && ' · '}
-                {goingCount > 0 && (
-                  <>
-                    {goingCount} {t('events.labels.going')}
-                  </>
-                )}
-              </span>
+              <div className="flex min-w-0 items-center gap-2">
+                <EventUserAvatars users={attendees} />
+                <span>
+                  {interestedCount > 0 && (
+                    <>
+                      {interestedCount} {t('events.labels.interested')}
+                    </>
+                  )}
+                  {interestedCount > 0 && goingCount > 0 && ' · '}
+                  {goingCount > 0 && (
+                    <>
+                      {goingCount} {t('events.labels.going')}
+                    </>
+                  )}
+                </span>
+              </div>
             </div>
           )}
 
           <div className="flex min-h-6 min-w-0 items-center gap-2.5">
             <MdPeople className="text-muted-foreground size-4 shrink-0" />
             <div className="flex min-w-0 items-center gap-2">
-              <div className="flex shrink-0 -space-x-2">
-                {hosts.slice(0, 3).map((host) => {
-                  const hostName = host.displayName || host.name;
-                  return (
-                    <UserAvatar
-                      key={host.id}
-                      userId={host.id}
-                      name={hostName}
-                      imageId={host.profilePicture?.id}
-                      className="border-card size-6 border-2"
-                      fallbackClassName="text-xs"
-                    />
-                  );
-                })}
-              </div>
+              <EventUserAvatars users={hosts} />
               <span className="min-w-0 truncate">
                 {t('events.labels.hostedBy', {
                   names: hosts
