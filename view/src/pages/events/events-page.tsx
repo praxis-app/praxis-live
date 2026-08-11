@@ -257,7 +257,12 @@ export const EventsPage = () => {
               <p className="text-destructive">{t('events.errors.load')}</p>
             )}
             {showEventsEmptyMessage && (
-              <div className="rounded-xl border border-dashed p-12 text-center">
+              <div
+                className={cn(
+                  'rounded-xl border border-dashed p-12 text-center',
+                  view === 'list' && 'mx-auto w-full max-w-3xl',
+                )}
+              >
                 <h2 className="font-semibold">{t('events.empty.title')}</h2>
                 <p className="text-muted-foreground mt-1 text-sm">
                   {t('events.empty.description')}
