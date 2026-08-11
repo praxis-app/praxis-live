@@ -64,8 +64,6 @@ pub(super) struct UpdateForumPostRequest {
 #[serde(rename_all = "camelCase")]
 pub(super) struct CreateForumReplyRequest {
     pub(super) body: String,
-    #[serde(default)]
-    pub(super) image_count: usize,
     pub(super) parent_message_id: Option<Uuid>,
 }
 

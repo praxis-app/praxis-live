@@ -1,6 +1,10 @@
 @import './fonts.css';
+@import 'fullcalendar/skeleton.css';
+@import 'fullcalendar/themes/classic/theme.css';
+@import 'fullcalendar/themes/classic/palette.css';
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './events.css';
 
 @custom-variant dark (&:is(.dark *));
 

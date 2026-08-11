@@ -9,7 +9,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { ProposalRuleRow } from '@/components/polls/proposals/inline-proposal/proposal-rule-row';
 import { getProgressPercentage, getProposalRuleStatus } from '@/lib/poll.utils';
-import { type PollConfigRes } from '@/types/poll.types';
+import { type PollClosedReason, type PollConfigRes } from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,7 @@ interface Props {
   votes: VoteRes[];
   config: PollConfigRes;
   memberCount: number;
+  closedReason?: PollClosedReason;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -27,6 +28,7 @@ export const VoteProgressDialog = ({
   votes,
   config,
   memberCount,
+  closedReason,
   isOpen,
   onOpenChange,
 }: Props) => {
@@ -66,7 +68,20 @@ export const VoteProgressDialog = ({
             </DialogDescription>
           </VisuallyHidden>
         </DialogHeader>
+
         <div className="space-y-6 pt-2">
+          {closedReason === 'event-start-elapsed' && (
+            <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+              {t('proposals.outcomes.eventStartElapsed')}
+            </p>
+          )}
+
+          {closedReason === 'event-host-ineligible' && (
+            <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+              {t('proposals.outcomes.eventHostIneligible')}
+            </p>
+          )}
+
           {showAgreement && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">

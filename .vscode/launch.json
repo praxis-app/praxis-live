@@ -31,10 +31,13 @@
     },
     {
       "name": "LiveKit Server",
-      "type": "node-terminal",
+      "type": "node",
       "request": "launch",
-      "command": "livekit-server --dev --bind 0.0.0.0",
-      "cwd": "${workspaceFolder}"
+      "program": "${workspaceFolder}/dev/livekit-server.cjs",
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "outputCapture": "std",
+      "skipFiles": ["<node_internals>/**"]
     }
   ],
   "compounds": [

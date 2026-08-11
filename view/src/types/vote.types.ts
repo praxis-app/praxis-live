@@ -1,4 +1,5 @@
 import { VOTE_TYPES } from '@/constants/vote.constants';
+import { type PollClosedReason } from '@/types/poll.types';
 
 export type VoteType = (typeof VOTE_TYPES)[number];
 
@@ -15,10 +16,12 @@ export interface CreateVoteRes {
   voteType?: VoteType;
   pollOptionIds?: string[];
   isRatifyingVote: boolean;
+  closedReason?: PollClosedReason;
 }
 
 export type UpdateVoteRes = {
   isRatifyingVote: boolean;
+  closedReason?: PollClosedReason;
 };
 
 export interface PollOptionVoterRes {

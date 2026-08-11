@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
     enums::{ForumPostStatus, PollStage},
-    forum_posts, message_images, messages, polls, votes as vote_entities,
+    forum_posts, messages, polls, votes as vote_entities,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait, Condition,
@@ -106,10 +106,13 @@ fn forum_post_cursor_condition(
 
 pub(super) async fn create_forum_post(
     database: &DatabaseConnection,
+    upload_root: &std::path::Path,
     server_id: Uuid,
     channel_id: Uuid,
     user_id: Uuid,
     request: CreateForumPostRequest,
+    images: Vec<Vec<u8>>,
+    cover_photo: Option<Vec<u8>>,
 ) -> AppResult<ForumPostResponse> {
     let title = validate_title(&request.title)?;
     let body = validate_body(&request.body, "A forum post body is required.")?;
@@ -179,7 +182,20 @@ pub(super) async fn create_forum_post(
     .insert(&transaction)
     .await
     .map_err(internal_error)?;
-    transaction.commit().await.map_err(internal_error)?;
+    let image_paths = match proposal.as_ref() {
+        Some(proposal) => {
+            polls_service::attach_poll_creation_images(
+                &transaction,
+                upload_root,
+                proposal.id,
+                images,
+                cover_photo,
+            )
+            .await?
+        }
+        None => vec![],
+    };
+    polls_service::commit_creation(transaction, image_paths).await?;
 
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
@@ -273,11 +289,14 @@ pub(super) async fn update_forum_post(
 
 pub(super) async fn create_forum_post_proposal(
     database: &DatabaseConnection,
+    upload_root: &std::path::Path,
     server_id: Uuid,
     channel_id: Uuid,
     post_id: Uuid,
     user_id: Uuid,
     request: crate::polls::types::CreatePollRequest,
+    images: Vec<Vec<u8>>,
+    cover_photo: Option<Vec<u8>>,
 ) -> AppResult<ForumPostResponse> {
     let post = load_post(database, channel_id, post_id).await?;
     ensure_post_accepts_proposal(&post, user_id)?;
@@ -299,7 +318,15 @@ pub(super) async fn create_forum_post_proposal(
     active.poll_id = Set(Some(proposal.id));
     active.updated_at = Set(Utc::now().fixed_offset());
     active.update(&transaction).await.map_err(internal_error)?;
-    transaction.commit().await.map_err(internal_error)?;
+    let image_paths = polls_service::attach_poll_creation_images(
+        &transaction,
+        upload_root,
+        proposal.id,
+        images,
+        cover_photo,
+    )
+    .await?;
+    polls_service::commit_creation(transaction, image_paths).await?;
 
     get_forum_post(database, channel_id, post_id, Some(user_id)).await
 }
@@ -364,14 +391,16 @@ async fn set_forum_post_status(
 
 pub(super) async fn create_forum_reply(
     database: &DatabaseConnection,
+    upload_root: &std::path::Path,
     channel_id: Uuid,
     post_id: Uuid,
     user_id: Uuid,
     request: CreateForumReplyRequest,
+    images: Vec<Vec<u8>>,
 ) -> AppResult<(MessageResponse, ForumPostSummaryResponse)> {
     messages_service::validate_message_content(
         Some(&request.body),
-        request.image_count,
+        images.len(),
     )?;
     let body = sanitize_text(&request.body);
     let body = (!body.is_empty()).then_some(body);
@@ -424,21 +453,19 @@ pub(super) async fn create_forum_reply(
     .insert(&transaction)
     .await
     .map_err(internal_error)?;
-    for _ in 0..request.image_count {
-        message_images::ActiveModel {
-            id: Set(NativeUuid::new_v4()),
-            message_id: Set(reply.id),
-            ..Default::default()
-        }
-        .insert(&transaction)
-        .await
-        .map_err(internal_error)?;
-    }
+
     let latest_activity_at = post.latest_activity_at.max(now);
     let mut active = post.into_active_model();
     active.latest_activity_at = Set(latest_activity_at);
     active.update(&transaction).await.map_err(internal_error)?;
-    transaction.commit().await.map_err(internal_error)?;
+    let image_paths = messages_service::attach_message_creation_images(
+        &transaction,
+        upload_root,
+        reply.id,
+        images,
+    )
+    .await?;
+    messages_service::commit_message_creation(transaction, image_paths).await?;
 
     let reply = messages_service::shape_messages(database, vec![reply])
         .await?

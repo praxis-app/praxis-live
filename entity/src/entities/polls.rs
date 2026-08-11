@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::enums::{PollStage, PollType};
+use crate::enums::{PollClosedReason, PollStage, PollType};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "polls")]
@@ -12,6 +12,7 @@ pub struct Model {
     pub tag: Option<Vec<u8>>,
     pub key_id: Option<Uuid>,
     pub stage: PollStage,
+    pub closed_reason: Option<PollClosedReason>,
     pub poll_type: PollType,
     pub user_id: Uuid,
     pub channel_id: Uuid,

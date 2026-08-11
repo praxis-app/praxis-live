@@ -8,8 +8,9 @@ use entity::{
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
-    ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    PaginatorTrait, QueryFilter, QuerySelect, Set, TransactionTrait,
+    ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
+    IntoActiveModel, PaginatorTrait, QueryFilter, QuerySelect, Set,
+    TransactionTrait,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -20,7 +21,7 @@ use super::types::{
 use crate::{
     channels,
     common::{request::parse_uuid, ApiError, AppResult},
-    forum, invites, poll_actions,
+    forum, invites,
     polls::service as polls_service,
     users as users_service,
 };
@@ -67,7 +68,7 @@ pub(super) async fn create_vote(
 
     save_poll_option_selections(&transaction, vote.id, &poll_option_ids)
         .await?;
-    let is_ratifying_vote =
+    let finalization =
         synchronize_ratification_after_vote(&transaction, &poll).await?;
     forum::service::touch_forum_post_activity_for_poll(
         &transaction,
@@ -77,9 +78,16 @@ pub(super) async fn create_vote(
     .await?;
 
     transaction.commit().await.map_err(internal_error)?;
-    if is_ratifying_vote {
-        poll_actions::service::implement_poll_action(database, poll.id).await?;
-    }
+    let is_ratifying_vote = matches!(
+        finalization,
+        Some(polls_service::ProposalFinalization::Ratified)
+    );
+    let closed_reason = match finalization {
+        Some(polls_service::ProposalFinalization::Closed(reason)) => {
+            Some(reason.to_string())
+        }
+        _ => None,
+    };
 
     Ok(CreateVoteResponse {
         id: vote.id.to_string(),
@@ -89,6 +97,7 @@ pub(super) async fn create_vote(
         poll_option_ids: (!poll_option_ids.is_empty())
             .then(|| poll_option_ids.iter().map(ToString::to_string).collect()),
         is_ratifying_vote,
+        closed_reason,
     })
 }
 
@@ -100,8 +109,10 @@ pub(super) async fn update_vote(
     request: VoteRequest,
 ) -> AppResult<UpdateVoteResponse> {
     let transaction = database.begin().await.map_err(internal_error)?;
+
     let poll = lock_poll_for_vote_mutation(&transaction, poll.id).await?;
     validate_vote_request(&poll, &request)?;
+
     let vote = vote_entities::Entity::find_by_id(vote_id)
         .filter(vote_entities::Column::PollId.eq(poll.id))
         .one(&transaction)
@@ -130,7 +141,7 @@ pub(super) async fn update_vote(
     save_poll_option_selections(&transaction, vote_id, &poll_option_ids)
         .await?;
 
-    let is_ratifying_vote =
+    let finalization =
         synchronize_ratification_after_vote(&transaction, &poll).await?;
     forum::service::touch_forum_post_activity_for_poll(
         &transaction,
@@ -139,10 +150,22 @@ pub(super) async fn update_vote(
     )
     .await?;
     transaction.commit().await.map_err(internal_error)?;
-    if is_ratifying_vote {
-        poll_actions::service::implement_poll_action(database, poll.id).await?;
-    }
-    Ok(UpdateVoteResponse { is_ratifying_vote })
+
+    let is_ratifying_vote = matches!(
+        finalization,
+        Some(polls_service::ProposalFinalization::Ratified)
+    );
+    let closed_reason = match finalization {
+        Some(polls_service::ProposalFinalization::Closed(reason)) => {
+            Some(reason.to_string())
+        }
+        _ => None,
+    };
+
+    Ok(UpdateVoteResponse {
+        is_ratifying_vote,
+        closed_reason,
+    })
 }
 
 pub(super) async fn delete_vote(
@@ -466,20 +489,22 @@ where
     Ok(())
 }
 
-async fn synchronize_ratification_after_vote<C>(
-    database: &C,
+async fn synchronize_ratification_after_vote(
+    database: &DatabaseTransaction,
     poll: &polls::Model,
-) -> AppResult<bool>
-where
-    C: ConnectionTrait,
-{
+) -> AppResult<Option<polls_service::ProposalFinalization>> {
     if poll.poll_type != "proposal"
         || !polls_service::is_poll_ratifiable(database, poll.id).await?
     {
-        return Ok(false);
+        return Ok(None);
     }
-    polls_service::ratify_poll(database, poll.id).await?;
-    Ok(true)
+    polls_service::finalize_ratifiable_proposal(
+        database,
+        poll.id,
+        Utc::now().fixed_offset(),
+    )
+    .await
+    .map(Some)
 }
 
 fn validate_vote_type(vote_type: Option<&str>) -> AppResult<()> {

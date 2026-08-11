@@ -1,12 +1,19 @@
 import { NavSheet } from '@/components/nav/nav-sheet';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
+import { cn } from '@/lib/shared.utils';
 import { useNavStore } from '@/store/nav.store';
 import { type ReactNode, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuArrowLeft } from 'react-icons/lu';
+import { LuArrowLeft, LuListTodo } from 'react-icons/lu';
 import { MdSearch } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -18,6 +25,9 @@ interface Props {
   backBtnIcon?: ReactNode;
   goBackOnEscape?: boolean;
   showSearch?: boolean;
+  hideBackButtonOnDesktop?: boolean;
+  isDecisionsPanelOpen?: boolean;
+  onToggleDecisionsPanel?: () => void;
 }
 
 export const TopNav = ({
@@ -27,6 +37,9 @@ export const TopNav = ({
   backBtnIcon,
   goBackOnEscape = false,
   showSearch = true,
+  hideBackButtonOnDesktop = false,
+  isDecisionsPanelOpen = false,
+  onToggleDecisionsPanel,
 }: Props) => {
   const { isNavSheetOpen, setIsNavSheetOpen } = useNavStore();
 
@@ -72,6 +85,8 @@ export const TopNav = ({
   }, [handleBackClick, isNavSheetOpen, setIsNavSheetOpen, goBackOnEscape]);
 
   const renderBackBtn = () => {
+    if (isDesktop && hideBackButtonOnDesktop) return null;
+
     const renderBtn = () => (
       <Button variant="ghost" size="icon" onClick={() => handleBackClick()}>
         {backBtnIcon || <LuArrowLeft className="size-6" />}
@@ -86,7 +101,12 @@ export const TopNav = ({
   };
 
   return (
-    <header className="flex h-13.75 items-center justify-between border-b border-[--color-border] px-2">
+    <header
+      className={cn(
+        'flex h-13.75 items-center justify-between border-b border-[--color-border]',
+        isDesktop && hideBackButtonOnDesktop ? 'px-6' : 'px-2',
+      )}
+    >
       <div className="mr-1 flex min-w-0 flex-1 items-center gap-2.5">
         {renderBackBtn()}
 
@@ -100,15 +120,44 @@ export const TopNav = ({
         </div>
       </div>
 
-      {showSearch && (
-        <Button
-          onClick={() => toast(t('prompts.inDev'))}
-          variant="ghost"
-          size="icon"
-        >
-          <MdSearch className="size-6" />
-        </Button>
-      )}
+      <TooltipProvider>
+        <div className="flex items-center gap-1">
+          {isDesktop && onToggleDecisionsPanel && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  aria-label={t('decisions.actions.togglePanel')}
+                  aria-controls="active-decisions-panel"
+                  aria-expanded={isDecisionsPanelOpen}
+                  onClick={onToggleDecisionsPanel}
+                  variant="ghost"
+                  size="icon"
+                >
+                  <LuListTodo className="size-5.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('decisions.actions.panel')}</TooltipContent>
+            </Tooltip>
+          )}
+
+          {showSearch && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label={t('actions.search')}
+                  onClick={() => toast(t('prompts.inDev'))}
+                  variant="ghost"
+                  size="icon"
+                >
+                  <MdSearch className="size-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('actions.search')}</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </TooltipProvider>
     </header>
   );
 };

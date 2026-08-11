@@ -75,7 +75,7 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
       }: PubSubMessage<{
         type: PubSubMessageType;
       }> = JSON.parse(event.data);
-      if (!body || body.type === PubSubMessageType.IMAGE) {
+      if (!body) {
         return;
       }
       void queryClient.invalidateQueries({

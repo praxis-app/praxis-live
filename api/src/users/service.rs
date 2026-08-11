@@ -3,7 +3,7 @@ use entity::{channel_members, server_members, user_images, users};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr,
     EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, Set,
-    SqlErr,
+    SqlErr, TransactionTrait,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -283,15 +283,9 @@ pub(super) async fn store_user_image(
     upload_root: &Path,
     user_id: Uuid,
     kind: &str,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<UserImageRef> {
-    if bytes.is_empty() {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "No image uploaded",
-        ));
-    }
+    crate::common::images::validate_raster(&bytes, "User image")?;
 
     let kind = match kind {
         PROFILE_PICTURE_KIND | COVER_PHOTO_KIND => kind,
@@ -311,33 +305,54 @@ pub(super) async fn store_user_image(
             ApiError::new(StatusCode::NOT_FOUND, "User not found.")
         })?;
 
-    let image = user_images::ActiveModel {
-        id: Set(NativeUuid::new_v4()),
-        user_id: Set(user_id),
-        kind: Set(kind.to_owned()),
-        ..Default::default()
-    }
-    .insert(database)
-    .await
-    .map_err(internal_error)?;
-
-    let storage_key = format!("user-images/{}", image.id);
+    let image_id = NativeUuid::new_v4();
+    let storage_key = format!("user-images/{image_id}");
     let destination = upload_root.join(&storage_key);
     if let Some(parent) = destination.parent() {
         tokio::fs::create_dir_all(parent)
             .await
             .map_err(internal_error)?;
     }
-    tokio::fs::write(&destination, bytes)
-        .await
-        .map_err(internal_error)?;
+    if let Err(error) = tokio::fs::write(&destination, bytes).await {
+        let _ = tokio::fs::remove_file(&destination).await;
+        return Err(internal_error(error));
+    }
 
-    let mut active = image.into_active_model();
-    active.storage_key = Set(Some(storage_key));
-    active.content_type = Set(content_type);
-    let image = active.update(database).await.map_err(internal_error)?;
+    let transaction = match database.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => {
+            cleanup_user_image(&destination).await;
+            return Err(internal_error(error));
+        }
+    };
+    let image = match (user_images::ActiveModel {
+        id: Set(image_id),
+        user_id: Set(user_id),
+        kind: Set(kind.to_owned()),
+        storage_key: Set(Some(storage_key)),
+        ..Default::default()
+    })
+    .insert(&transaction)
+    .await
+    {
+        Ok(image) => image,
+        Err(error) => {
+            cleanup_user_image(&destination).await;
+            return Err(internal_error(error));
+        }
+    };
+    if let Err(error) = transaction.commit().await {
+        cleanup_user_image(&destination).await;
+        return Err(internal_error(error));
+    }
 
     Ok(shape_image_reference(&image))
+}
+
+async fn cleanup_user_image(path: &Path) {
+    if let Err(error) = tokio::fs::remove_file(path).await {
+        tracing::warn!("failed to clean up user image: {error}");
+    }
 }
 
 pub(super) async fn get_user_image(
@@ -369,17 +384,13 @@ pub(super) async fn get_user_image(
         .await
         .map_err(internal_error)?;
 
-    Ok(StoredUserImage {
-        content_type: image.content_type,
-        bytes,
-    })
+    Ok(StoredUserImage { bytes })
 }
 
 pub(super) async fn upload_user_profile_picture(
     database: &DatabaseConnection,
     upload_root: &Path,
     user_id: Uuid,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<UserImageRef> {
     store_user_image(
@@ -387,7 +398,6 @@ pub(super) async fn upload_user_profile_picture(
         upload_root,
         user_id,
         PROFILE_PICTURE_KIND,
-        content_type,
         bytes,
     )
     .await
@@ -397,18 +407,10 @@ pub(super) async fn upload_user_cover_photo(
     database: &DatabaseConnection,
     upload_root: &Path,
     user_id: Uuid,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 ) -> AppResult<UserImageRef> {
-    store_user_image(
-        database,
-        upload_root,
-        user_id,
-        COVER_PHOTO_KIND,
-        content_type,
-        bytes,
-    )
-    .await
+    store_user_image(database, upload_root, user_id, COVER_PHOTO_KIND, bytes)
+        .await
 }
 
 pub(super) async fn has_shared_channel(

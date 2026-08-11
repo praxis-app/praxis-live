@@ -1,5 +1,6 @@
 // API client for server endpoints
 
+import { getJsonOrFormData } from '@/client/form-data.utils';
 import { LocalStorageKeys } from '@/constants/shared.constants';
 import {
   type AuthRes,
@@ -14,6 +15,12 @@ import {
   type UpdateChannelReq,
 } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
+import {
+  type EventDetailRes,
+  type EventRes,
+  type EventRsvpReq,
+  type EventsQuery,
+} from '@/types/event.types';
 import {
   type CreateForumPostReq,
   type CreateForumReplyReq,
@@ -262,9 +269,13 @@ class ApiClient {
     serverId: string,
     channelId: string,
     data: CreateForumPostReq,
+    images: File[] = [],
+    eventCoverPhoto?: File,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts`;
-    return this.executeRequest<{ post: ForumPostRes }>('post', path, { data });
+    return this.executeRequest<{ post: ForumPostRes }>('post', path, {
+      data: getJsonOrFormData(data, { files: images, file: eventCoverPhoto }),
+    });
   };
 
   getForumPost = async (
@@ -291,9 +302,13 @@ class ApiClient {
     channelId: string,
     postId: string,
     data: CreatePollReq,
+    images: File[] = [],
+    eventCoverPhoto?: File,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/proposal`;
-    return this.executeRequest<{ post: ForumPostRes }>('post', path, { data });
+    return this.executeRequest<{ post: ForumPostRes }>('post', path, {
+      data: getJsonOrFormData(data, { files: images, file: eventCoverPhoto }),
+    });
   };
 
   closeForumPost = async (
@@ -332,9 +347,12 @@ class ApiClient {
     channelId: string,
     postId: string,
     data: CreateForumReplyReq,
+    images: File[] = [],
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/forum/posts/${postId}/replies`;
-    return this.executeRequest<{ reply: MessageRes }>('post', path, { data });
+    return this.executeRequest<{ reply: MessageRes }>('post', path, {
+      data: getJsonOrFormData(data, { files: images }),
+    });
   };
 
   joinChannelCall = async (serverId: string, channelId: string) => {
@@ -364,11 +382,11 @@ class ApiClient {
     serverId: string,
     channelId: string,
     body: string,
-    imageCount: number,
+    images: File[] = [],
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/messages`;
     return this.executeRequest<{ message: MessageRes }>('post', path, {
-      data: { body, imageCount },
+      data: getJsonOrFormData({ body }, { files: images }),
     });
   };
 
@@ -377,38 +395,11 @@ class ApiClient {
     channelId: string,
     callId: string,
     body: string,
-    imageCount: number,
+    images: File[] = [],
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/messages`;
     return this.executeRequest<{ message: MessageRes }>('post', path, {
-      data: { body, imageCount },
-    });
-  };
-
-  uploadMessageImage = async (
-    serverId: string,
-    channelId: string,
-    messageId: string,
-    imageId: string,
-    formData: FormData,
-  ) => {
-    const path = `/servers/${serverId}/channels/${channelId}/messages/${messageId}/images/${imageId}/upload`;
-    return this.executeRequest<{ image: ImageRes }>('post', path, {
-      data: formData,
-    });
-  };
-
-  uploadCallMessageImage = async (
-    serverId: string,
-    channelId: string,
-    callId: string,
-    messageId: string,
-    imageId: string,
-    formData: FormData,
-  ) => {
-    const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/messages/${messageId}/images/${imageId}/upload`;
-    return this.executeRequest<{ image: ImageRes }>('post', path, {
-      data: formData,
+      data: getJsonOrFormData({ body }, { files: images }),
     });
   };
 
@@ -441,18 +432,24 @@ class ApiClient {
     });
   };
 
+  getPollActionEventCoverPhoto = (
+    serverId: string,
+    channelId: string,
+    pollId: string,
+    imageId: string,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/event-cover-photos/${imageId}`;
+    return this.executeRequest<Blob>('get', path, { responseType: 'blob' });
+  };
+
   getPollImage = (
     serverId: string,
     channelId: string,
     pollId: string,
     imageId: string,
-    inviteToken?: string | null,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/images/${imageId}`;
-    return this.executeRequest<Blob>('get', path, {
-      responseType: 'blob',
-      params: { inviteToken },
-    });
+    return this.executeRequest<Blob>('get', path, { responseType: 'blob' });
   };
 
   getVotersByPollOption = async (
@@ -469,10 +466,12 @@ class ApiClient {
     serverId: string,
     channelId: string,
     data: CreatePollReq,
+    images: File[] = [],
+    eventCoverPhoto?: File,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/polls`;
     return this.executeRequest<{ poll: PollRes }>('post', path, {
-      data,
+      data: getJsonOrFormData(data, { files: images, file: eventCoverPhoto }),
     });
   };
 
@@ -481,10 +480,12 @@ class ApiClient {
     channelId: string,
     callId: string,
     data: CreatePollReq,
+    images: File[] = [],
+    eventCoverPhoto?: File,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/calls/${callId}/polls`;
     return this.executeRequest<{ poll: PollRes }>('post', path, {
-      data,
+      data: getJsonOrFormData(data, { files: images, file: eventCoverPhoto }),
     });
   };
 
@@ -579,6 +580,43 @@ class ApiClient {
   deleteServer = async (serverId: string) => {
     const path = `/servers/${serverId}`;
     return this.executeRequest<void>('delete', path);
+  };
+
+  // -------------------------------------------------------------------------
+  // Events
+  // -------------------------------------------------------------------------
+
+  getEvents = async (serverId: string, query: EventsQuery) => {
+    const path = `/servers/${serverId}/events`;
+    return this.executeRequest<{ events: EventRes[] }>('get', path, {
+      params: { ...query },
+    });
+  };
+
+  getEvent = async (serverId: string, eventId: string) => {
+    const path = `/servers/${serverId}/events/${eventId}`;
+    return this.executeRequest<{ event: EventDetailRes }>('get', path);
+  };
+
+  getEventCoverPhoto = (serverId: string, eventId: string, imageId: string) => {
+    const path = `/servers/${serverId}/events/${eventId}/cover-photos/${imageId}`;
+    return this.executeRequest<Blob>('get', path, { responseType: 'blob' });
+  };
+
+  updateEventRsvp = async (
+    serverId: string,
+    eventId: string,
+    data: EventRsvpReq,
+  ) => {
+    const path = `/servers/${serverId}/events/${eventId}/rsvp`;
+    return this.executeRequest<{ event: EventDetailRes }>('put', path, {
+      data,
+    });
+  };
+
+  clearEventRsvp = async (serverId: string, eventId: string) => {
+    const path = `/servers/${serverId}/events/${eventId}/rsvp`;
+    return this.executeRequest<{ event: EventDetailRes }>('delete', path);
   };
 
   addServerMembers = async (serverId: string, userIds: string[]) => {

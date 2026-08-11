@@ -91,7 +91,9 @@ export const MessageFormMenu = ({
           ref={proposalFormDialogContentRef}
         >
           <DialogHeader>
-            <DialogTitle>{t('proposals.headers.create')}</DialogTitle>
+            <DialogTitle className="text-2xl leading-tight font-medium">
+              {t('proposals.headers.create')}
+            </DialogTitle>
           </DialogHeader>
           <DialogDescription className="text-center md:text-left">
             {t('proposals.descriptions.create')}

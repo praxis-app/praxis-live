@@ -22,6 +22,10 @@ pub enum Relation {
     UserImages,
     #[sea_orm(has_many = "super::forum_posts::Entity")]
     ForumPosts,
+    #[sea_orm(has_many = "super::poll_action_event_hosts::Entity")]
+    PollActionEventHosts,
+    #[sea_orm(has_many = "super::event_attendees::Entity")]
+    EventAttendances,
 }
 
 impl Related<super::user_images::Entity> for Entity {
@@ -33,6 +37,18 @@ impl Related<super::user_images::Entity> for Entity {
 impl Related<super::forum_posts::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ForumPosts.def()
+    }
+}
+
+impl Related<super::poll_action_event_hosts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PollActionEventHosts.def()
+    }
+}
+
+impl Related<super::event_attendees::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::EventAttendances.def()
     }
 }
 

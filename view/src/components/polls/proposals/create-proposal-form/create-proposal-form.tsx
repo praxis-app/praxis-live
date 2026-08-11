@@ -3,6 +3,8 @@ import { getActiveDecisionsQueryKey } from '@/components/decisions/decisions-pan
 import { type WizardStepData } from '@/components/shared/wizard/wizard.types';
 import { useServerData } from '@/hooks/use-server-data';
 import { getServerPermissionValuesMap } from '@/lib/role.utils';
+import { getNextHourDateTimeValue } from '@/lib/event.utils';
+import { handleError } from '@/lib/error.utils';
 import { type CallDecisionRes } from '@/types/call.types';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import {
@@ -13,14 +15,13 @@ import { type CreatePollReq, type PollRes } from '@/types/poll.types';
 import { type ServerPermissionKeys } from '@/types/role.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AxiosError } from 'axios';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { validateImageInput } from '@/lib/image.utilts';
 import { Wizard } from '../../../shared/wizard/wizard';
 import { ProposalDetailsStep } from './create-proposal-form-steps/proposal-details-step';
 import { ProposalReviewStep } from './create-proposal-form-steps/proposal-review-step';
+import { PlanEventStep } from './create-proposal-form-steps/plan-event-step';
 import { ServerRoleAttributesStep } from './create-proposal-form-steps/server-role-attributes-step';
 import { ServerRoleMembersStep } from './create-proposal-form-steps/server-role-members-step';
 import { ServerRolePermissionsStep } from './create-proposal-form-steps/server-role-permissions-step';
@@ -37,7 +38,11 @@ interface Props {
   callId?: string;
   onSuccess: (poll: PollRes) => void;
   onNavigate: () => void;
-  createProposal?: (request: CreatePollReq) => Promise<{ poll: PollRes }>;
+  createProposal?: (
+    request: CreatePollReq,
+    images: File[],
+    eventCoverPhoto?: File,
+  ) => Promise<{ poll: PollRes }>;
 }
 
 export const CreateProposalForm = ({
@@ -49,7 +54,6 @@ export const CreateProposalForm = ({
 }: Props) => {
   const [currentStep, setCurrentStep] = useState(0);
 
-  const { t } = useTranslation();
   const { serverId } = useServerData();
   const queryClient = useQueryClient();
 
@@ -63,6 +67,16 @@ export const CreateProposalForm = ({
       permissions: {},
       serverRoleMembers: [],
       selectedServerRoleId: '',
+      eventName: '',
+      eventDescription: '',
+      eventStartsAt: getNextHourDateTimeValue(),
+      eventEndsAt: '',
+      eventOnline: false,
+      eventLocation: '',
+      eventExternalLink: '',
+      eventHostIds: [],
+      eventCoverPhoto: undefined,
+      images: [],
     },
   });
 
@@ -94,6 +108,16 @@ export const CreateProposalForm = ({
     enabled:
       isRolePoll && !!serverId && !!selectedServerRoleId && currentStep > 1,
   });
+
+  const { data: serverMembersData, isLoading: isServerMembersLoading } =
+    useQuery({
+      queryKey: ['servers', serverId, 'members'],
+      queryFn: () => {
+        if (!serverId) throw new Error('Server ID is required');
+        return api.getServerMembers(serverId);
+      },
+      enabled: actionType === 'plan-event' && !!serverId,
+    });
 
   // Get eligible users for the selected role
   const { data: eligibleUsersData, isLoading: isEligibleUsersLoading } =
@@ -129,6 +153,9 @@ export const CreateProposalForm = ({
       }
       if (!values.action) {
         throw new Error('Action is required');
+      }
+      if (values.eventCoverPhoto) {
+        validateImageInput(values.eventCoverPhoto);
       }
 
       const nameChange =
@@ -252,15 +279,60 @@ export const CreateProposalForm = ({
                   values.serverConfig || {},
                 )
               : undefined,
+          event:
+            values.action === 'plan-event'
+              ? {
+                  name: values.eventName!.trim(),
+                  description: values.eventDescription!.trim(),
+                  startsAt: new Date(values.eventStartsAt!).toISOString(),
+                  endsAt: values.eventEndsAt
+                    ? new Date(values.eventEndsAt).toISOString()
+                    : undefined,
+                  online: !!values.eventOnline,
+                  location: values.eventOnline
+                    ? undefined
+                    : values.eventLocation?.trim(),
+                  externalLink: values.eventOnline
+                    ? values.eventExternalLink?.trim() || undefined
+                    : undefined,
+                  hostIds: values.eventHostIds || [],
+                }
+              : undefined,
         },
       };
 
-      if (createProposal) {
-        return createProposal(request);
+      validateImageInput(values.images);
+
+      const result = createProposal
+        ? await createProposal(request, values.images, values.eventCoverPhoto)
+        : callId
+          ? await api.createCallPoll(
+              serverId,
+              channelId,
+              callId,
+              request,
+              values.images,
+              values.eventCoverPhoto,
+            )
+          : await api.createPoll(
+              serverId,
+              channelId,
+              request,
+              values.images,
+              values.eventCoverPhoto,
+            );
+
+      if (values.eventCoverPhoto) {
+        const coverPhoto = result.poll.action?.event?.coverPhoto;
+        if (coverPhoto) {
+          coverPhoto.src = URL.createObjectURL(values.eventCoverPhoto);
+        }
       }
-      return callId
-        ? api.createCallPoll(serverId, channelId, callId, request)
-        : api.createPoll(serverId, channelId, request);
+      result.poll.images.forEach((image, index) => {
+        image.src = URL.createObjectURL(values.images[index]);
+      });
+
+      return result;
     },
     onSuccess: ({ poll }) => {
       if (!channelId || !serverId) {
@@ -324,15 +396,7 @@ export const CreateProposalForm = ({
 
       onSuccess(poll);
     },
-    onError(error: Error) {
-      if (error instanceof AxiosError && error.response?.data) {
-        toast(error.response?.data);
-        return;
-      }
-      toast(t('proposals.errors.errorCreatingProposal'), {
-        description: error.message,
-      });
-    },
+    onError: handleError,
   });
 
   // Determine which steps to show based on action type
@@ -379,6 +443,15 @@ export const CreateProposalForm = ({
           },
         ]
       : []),
+    ...(actionType === 'plan-event'
+      ? [
+          {
+            id: 'plan-event',
+            component: PlanEventStep,
+            props: { isLoading: isServerMembersLoading },
+          },
+        ]
+      : []),
     {
       id: 'proposal-review',
       component: ProposalReviewStep,
@@ -388,7 +461,24 @@ export const CreateProposalForm = ({
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
-      const isValid = await form.trigger();
+      const stepId = steps[currentStep]?.id;
+      const isValid = await form.trigger(
+        stepId === 'proposal-details'
+          ? ['body', 'action']
+          : stepId === 'plan-event'
+            ? [
+                'eventName',
+                'eventDescription',
+                'eventStartsAt',
+                'eventEndsAt',
+                'eventOnline',
+                'eventLocation',
+                'eventExternalLink',
+                'eventHostIds',
+                'eventCoverPhoto',
+              ]
+            : undefined,
+      );
       if (!isValid) {
         return;
       }
@@ -418,6 +508,7 @@ export const CreateProposalForm = ({
         usersEligibleForServerRole: eligibleUsersData?.users,
         serverConfig: serverConfigData?.serverConfig,
         proposedServerConfig,
+        serverMembers: serverMembersData?.users,
       }}
       onNext={handleNext}
       onPrevious={handlePrevious}

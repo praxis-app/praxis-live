@@ -37,12 +37,13 @@ import { useTranslation } from 'react-i18next';
 import {
   MdAddCircle,
   MdExpandMore,
+  MdEvent,
   MdOutlineSettings,
   MdRocketLaunch,
   MdSettings,
 } from 'react-icons/md';
 import { TbSwitchHorizontal } from 'react-icons/tb';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface Props {
@@ -57,6 +58,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const [showServerSwitchDialog, setShowServerSwitchDialog] = useState(false);
 
   const { t } = useTranslation();
+  const location = useLocation();
   const { server, serverPath, myServerCount } = useServerData();
   const { signUpPath } = useAuthData();
 
@@ -75,6 +77,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
     hasMultipleServers;
 
   const serverName = server?.name || INITIAL_SERVER_NAME;
+  const eventsActive = location.pathname.startsWith(`${serverPath}/events`);
 
   return (
     <div className="dark:bg-card bg-secondary flex h-full w-60 flex-col border-r border-[--color-border]">
@@ -166,6 +169,20 @@ export const LeftNavDesktop = ({ me }: Props) => {
           />
         </DialogContent>
       </Dialog>
+
+      <div className="border-b border-[--color-border] p-2">
+        <Link
+          to={`${serverPath}${NavigationPaths.Events}`}
+          className={cn(
+            'text-muted-foreground hover:bg-foreground/10 active:bg-foreground/15 dark:hover:bg-accent dark:active:bg-accent/80 flex items-center gap-2 rounded-lg px-2 py-[0.225rem] text-[0.925rem]',
+            eventsActive && 'bg-foreground/10 text-foreground dark:bg-accent',
+          )}
+          aria-current={eventsActive ? 'page' : undefined}
+        >
+          <MdEvent className="size-6" />
+          {t('navigation.labels.events')}
+        </Link>
+      </div>
 
       <ChannelListDesktop />
 

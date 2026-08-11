@@ -77,6 +77,7 @@ export const ServerRoleMembersStep = ({ isLoading }: WizardStepProps) => {
               placeholder={t('proposals.placeholders.searchMembersPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              autoComplete="off"
               className="mb-5"
             />
 

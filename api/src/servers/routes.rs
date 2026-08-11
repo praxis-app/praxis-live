@@ -13,7 +13,8 @@ use super::handlers::{
 };
 use super::server_roles;
 use crate::{
-    calls::LiveKitConfig, channels, invites, polls, pub_sub::PubSubService,
+    calls::LiveKitConfig, channels, events, invites, polls,
+    pub_sub::PubSubService,
 };
 
 pub(crate) fn router(
@@ -70,6 +71,10 @@ pub(crate) fn router(
                 pub_sub_service.clone(),
                 livekit,
             ),
+        )
+        .nest(
+            "/servers/{serverId}/events",
+            events::router(database.clone(), jwt_secret.clone()),
         )
         .nest(
             "/servers/{serverId}/decisions",

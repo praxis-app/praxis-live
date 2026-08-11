@@ -1,28 +1,28 @@
+//! Translates poll HTTP requests into service calls, shapes HTTP responses, and
+//! coordinates request-lifecycle concerns such as broadcasts.
+
 use axum::{
-    body::Body,
-    extract::{Multipart, Path, Query, State},
-    http::{header, Response, StatusCode},
+    extract::{Path, Query, State},
+    http::Response,
     response::Json,
 };
 use sea_orm::DatabaseConnection;
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    extractors::{PollDeleteContext, PollImageUploadContext},
+    extractors::PollDeleteContext,
     service,
     types::{
         ActiveDecisionsResponse, CallDecisionResponse, CreatePollRequest,
-        DeletePollResponse, ListActiveDecisionsQuery, PollImagePath,
-        PollImagePayload, PollPath, PollPayload,
+        DeletePollResponse, ListActiveDecisionsQuery,
+        PollActionEventCoverPhotoPath, PollImagePath, PollPath, PollPayload,
     },
 };
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     calls::extractors::CallWriteContext,
     channels::{self, extractors::ChannelWriteContext},
-    common::{
-        request::multipart_file, storage::upload_root, ApiError, AppResult,
-    },
+    common::{request::JsonOrMultipartFiles, storage::upload_root, AppResult},
     pub_sub::PubSubService,
     servers::types::ServerPath,
 };
@@ -65,14 +65,18 @@ impl channels::extractors::HasDatabase for PollsState {
 pub(super) async fn create_poll(
     State(state): State<PollsState>,
     context: ChannelWriteContext,
-    Json(payload): Json<CreatePollRequest>,
+    multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
+    let (payload, cover_photo, images) = multipart.into_parts();
     let poll = service::create_poll(
         &state.database,
+        &state.upload_root,
         context.server_id,
         context.channel_id,
         context.user_id,
         payload,
+        images,
+        cover_photo,
     )
     .await?;
 
@@ -147,15 +151,19 @@ pub(super) async fn move_proposal_to_forum(
 pub(super) async fn create_call_poll(
     State(state): State<PollsState>,
     context: CallWriteContext,
-    Json(payload): Json<CreatePollRequest>,
+    multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
+    let (payload, cover_photo, images) = multipart.into_parts();
     let poll = service::create_call_poll(
         &state.database,
+        &state.upload_root,
         context.server_id,
         context.channel_id,
         context.call_id,
         context.user_id,
         payload,
+        images,
+        cover_photo,
     )
     .await?;
 
@@ -210,44 +218,30 @@ pub(super) async fn get_active_decisions(
     Ok(Json(decisions))
 }
 
-pub(super) async fn upload_poll_image(
+pub(super) async fn get_poll_action_event_cover_photo(
     State(state): State<PollsState>,
-    context: PollImageUploadContext,
-    multipart: Multipart,
-) -> AppResult<(StatusCode, Json<PollImagePayload>)> {
-    let file = multipart_file(multipart, "file").await?;
-
-    let image = service::store_poll_image(
+    Path(path): Path<PollActionEventCoverPhotoPath>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+) -> AppResult<Response<axum::body::Body>> {
+    let image = service::get_poll_action_event_cover_photo(
         &state.database,
         &state.upload_root,
-        &context.poll,
-        context.image_id,
-        file.as_ref().and_then(|file| file.content_type.clone()),
-        file.map(|file| file.bytes).unwrap_or_default(),
+        path.server_id,
+        path.channel_id,
+        path.poll_id,
+        path.image_id,
+        user_id,
     )
     .await?;
 
-    if let Err(error) = service::broadcast_poll_image_upload(
-        &state.database,
-        &state.pub_sub_service,
-        context.server_id,
-        context.channel_id,
-        context.user_id,
-        &context.poll.id.to_string(),
-        &context.image_id.to_string(),
-    )
-    .await
-    {
-        tracing::warn!("failed to broadcast uploaded poll image: {error}");
-    }
-
-    Ok((StatusCode::CREATED, Json(PollImagePayload { image })))
+    crate::common::images::safe_image_response(image.bytes)
 }
 
 pub(super) async fn get_poll_image(
     State(state): State<PollsState>,
     Path(path): Path<PollImagePath>,
-) -> AppResult<Response<Body>> {
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_poll_image(
         &state.database,
         &state.upload_root,
@@ -255,19 +249,11 @@ pub(super) async fn get_poll_image(
         path.channel_id,
         path.poll_id,
         path.image_id,
+        user_id,
     )
     .await?;
 
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(
-            header::CONTENT_TYPE,
-            image
-                .content_type
-                .unwrap_or_else(|| "application/octet-stream".to_owned()),
-        )
-        .body(Body::from(image.bytes))
-        .map_err(internal_error)
+    crate::common::images::safe_image_response(image.bytes)
 }
 
 pub(super) async fn delete_poll(
@@ -284,9 +270,4 @@ pub(super) async fn delete_poll(
     Ok(Json(DeletePollResponse {
         affected: result.rows_affected,
     }))
-}
-
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
-    tracing::error!("poll route failed: {error}");
-    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }

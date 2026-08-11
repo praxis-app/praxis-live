@@ -1,9 +1,13 @@
 import { type WizardStepProps } from '@/components/shared/wizard/wizard.types';
+import { AttachedImagePreview } from '@/components/images/attached-image-preview';
+import { ImageInput } from '@/components/images/image-input';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { POLL_ACTION_TYPE } from '@/constants/poll-action.constants';
 import { type PollActionType } from '@/types/poll-action.types';
 import { type ControllerRenderProps, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { MdImage } from 'react-icons/md';
+import { validateImageInput } from '@/lib/image.utilts';
 import { useWizardContext } from '../../../../shared/wizard/wizard-hooks';
 import { Button } from '../../../../ui/button';
 import {
@@ -118,24 +122,72 @@ export const ProposalDetailsStep = ({ isLoading }: WizardStepProps) => {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="body"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('proposals.labels.body')}</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  placeholder={t('proposals.placeholders.body')}
-                  className="w-full resize-none md:min-w-md"
-                  rows={4}
+        <div className="space-y-0.5">
+          <FormField
+            control={form.control}
+            name="body"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('proposals.labels.body')}</FormLabel>
+                <FormControl>
+                  <Textarea
+                    {...field}
+                    placeholder={t('proposals.placeholders.body')}
+                    className="w-full resize-none md:min-w-md"
+                    autoComplete="off"
+                    rows={4}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="images"
+            render={({ field }) => (
+              <FormItem>
+                {field.value.length > 0 && (
+                  <FormLabel className="mt-3.5">
+                    {t('images.labels.attachedImages')}
+                  </FormLabel>
+                )}
+                <AttachedImagePreview
+                  selectedImages={field.value}
+                  handleRemove={(name) =>
+                    field.onChange(
+                      field.value.filter((image) => image.name !== name),
+                    )
+                  }
                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <ImageInput
+                  multiple
+                  onChange={(images) => {
+                    try {
+                      validateImageInput(images);
+                      field.onChange(images);
+                      form.clearErrors('images');
+                    } catch (error) {
+                      form.setError('images', {
+                        message:
+                          error instanceof Error
+                            ? error.message
+                            : 'Invalid image.',
+                      });
+                    }
+                  }}
+                >
+                  <Button type="button" variant="ghost" size="sm">
+                    <MdImage className="size-5" />
+                    {t('images.labels.attachImages')}
+                  </Button>
+                </ImageInput>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
       </div>
 
       <div className="flex justify-end">

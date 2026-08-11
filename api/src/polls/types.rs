@@ -24,6 +24,15 @@ pub(super) struct PollImagePath {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(super) struct PollActionEventCoverPhotoPath {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) poll_id: Uuid,
+    pub(super) image_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CreatePollRequest {
     pub(super) body: Option<String>,
     #[serde(default = "default_poll_type")]
@@ -32,8 +41,6 @@ pub(crate) struct CreatePollRequest {
     pub(super) options: Option<Vec<String>>,
     pub(super) multiple_choice: Option<bool>,
     pub(super) closing_at: Option<DateTimeWithTimeZone>,
-    #[serde(default)]
-    pub(super) image_count: usize,
 }
 
 fn default_poll_type() -> PollType {
@@ -55,12 +62,14 @@ pub(crate) struct PollResponse {
     pub(super) poll_type: PollType,
     pub(super) stage: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) closed_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) action: Option<PollActionResponse>,
     pub(super) config: PollConfigResponse,
     pub(super) options: Vec<PollOptionResponse>,
-    pub(super) images: Vec<PollImageResponse>,
     pub(super) user: PollUserResponse,
     pub(super) votes: Vec<VoteResponse>,
+    pub(super) images: Vec<PollImageResponse>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) my_vote: Option<VoteResponse>,
     pub(super) agreement_vote_count: usize,
@@ -141,13 +150,6 @@ pub(super) struct PollOptionResponse {
 #[serde(rename_all = "camelCase")]
 pub(super) struct PollImageResponse {
     pub(super) id: String,
-    pub(super) is_placeholder: bool,
-    pub(super) created_at: String,
-}
-
-#[derive(Debug, Serialize)]
-pub(super) struct PollImagePayload {
-    pub(super) image: PollImageResponse,
 }
 
 #[derive(Debug, Serialize)]
@@ -166,6 +168,5 @@ pub(super) struct PollUserResponse {
 
 #[derive(Debug, Clone)]
 pub(super) struct StoredPollImage {
-    pub(super) content_type: Option<String>,
     pub(super) bytes: Vec<u8>,
 }

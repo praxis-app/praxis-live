@@ -20,6 +20,8 @@ pub enum Relation {
     Members,
     #[sea_orm(has_one = "super::server_configs::Entity")]
     Config,
+    #[sea_orm(has_many = "super::events::Entity")]
+    Events,
 }
 
 impl Related<super::channels::Entity> for Entity {
@@ -37,6 +39,12 @@ impl Related<super::server_members::Entity> for Entity {
 impl Related<super::server_configs::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Config.def()
+    }
+}
+
+impl Related<super::events::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Events.def()
     }
 }
 

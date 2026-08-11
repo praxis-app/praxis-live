@@ -28,6 +28,10 @@ pub enum Relation {
     ServerRole,
     #[sea_orm(has_one = "super::poll_action_server_configs::Entity")]
     ServerConfig,
+    #[sea_orm(has_one = "super::poll_action_events::Entity")]
+    ProposedEvent,
+    #[sea_orm(has_one = "super::events::Entity")]
+    CreatedEvent,
 }
 
 impl Related<super::polls::Entity> for Entity {
@@ -45,6 +49,18 @@ impl Related<super::poll_action_roles::Entity> for Entity {
 impl Related<super::poll_action_server_configs::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ServerConfig.def()
+    }
+}
+
+impl Related<super::poll_action_events::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ProposedEvent.def()
+    }
+}
+
+impl Related<super::events::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CreatedEvent.def()
     }
 }
 

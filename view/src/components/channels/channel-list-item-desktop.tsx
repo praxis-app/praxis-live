@@ -66,8 +66,8 @@ export const ChannelListItemDesktop = ({
         <ContextMenuTrigger disabled={!canManageChannels}>
           <div
             className={cn(
-              'text-muted-foreground hover:bg-accent mx-2 flex items-center justify-between rounded-lg pr-2.5',
-              isActive && 'bg-accent text-foreground',
+              'text-muted-foreground hover:bg-foreground/10 active:bg-foreground/15 dark:hover:bg-accent dark:active:bg-accent/80 mx-2 flex items-center justify-between rounded-lg pr-2.5',
+              isActive && 'bg-foreground/10 text-foreground dark:bg-accent',
             )}
             key={channel.id}
             onMouseEnter={() => setIsHovering(true)}
@@ -76,6 +76,7 @@ export const ChannelListItemDesktop = ({
             <Link
               to={channelPath}
               className="mr-1.5 flex flex-1 items-center gap-2 py-[0.225rem] pl-2"
+              aria-current={isActive ? 'page' : undefined}
             >
               <ChannelIcon className="size-6" />
               <div className="text-[0.925rem]">{truncatedChannelName}</div>

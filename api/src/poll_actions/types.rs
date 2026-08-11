@@ -2,6 +2,7 @@ use entity::enums::{
     PollActionPermissionChangeType, PollActionRoleMemberChangeType,
     PollActionType,
 };
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -11,6 +12,20 @@ pub(crate) struct CreatePollActionRequest {
     pub(crate) server_role: Option<CreatePollActionServerRoleRequest>,
     pub(crate) server_config:
         Option<crate::servers::types::ServerConfigRequest>,
+    pub(crate) event: Option<CreatePollActionEventRequest>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct CreatePollActionEventRequest {
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) starts_at: DateTimeWithTimeZone,
+    pub(crate) ends_at: Option<DateTimeWithTimeZone>,
+    pub(crate) online: bool,
+    pub(crate) location: Option<String>,
+    pub(crate) external_link: Option<String>,
+    pub(crate) host_ids: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,6 +68,32 @@ pub(crate) struct PollActionResponse {
     pub(super) server_role: Option<PollActionServerRoleResponse>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) server_config: Option<PollActionServerConfigResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) event: Option<PollActionEventResponse>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct PollActionEventResponse {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) description: String,
+    pub(super) starts_at: String,
+    pub(super) ends_at: Option<String>,
+    pub(super) online: bool,
+    pub(super) location: Option<String>,
+    pub(super) external_link: Option<String>,
+    pub(super) hosts: Vec<PollActionUserResponse>,
+    pub(super) cover_photo: Option<PollActionEventCoverPhotoResponse>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) created_event_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PollActionEventCoverPhotoResponse {
+    pub(crate) id: String,
+    pub(crate) created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

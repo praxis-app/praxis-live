@@ -32,6 +32,7 @@
     "color-hash": "^2.0.2",
     "copy-to-clipboard": "^3.3.3",
     "dayjs": "^1.11.20",
+    "fullcalendar": "^7.0.2",
     "i18next": "^21.10.0",
     "livekit-client": "^2.18.8",
     "lucide-react": "^0.575.0",

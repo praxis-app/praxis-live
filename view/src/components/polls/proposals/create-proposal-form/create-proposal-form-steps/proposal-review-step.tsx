@@ -23,10 +23,17 @@ import {
 } from '../create-proposal-form.types';
 import { ServerConfigChanges } from '../../server-config-changes';
 import { getServerConfigChanges } from '../../server-config-changes.utils';
+import { EventSummary } from '@/components/events/event-summary';
+import { AttachedImagePreview } from '@/components/images/attached-image-preview';
 
 export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
   const {
-    context: { selectedServerRole, usersEligibleForServerRole, serverConfig },
+    context: {
+      selectedServerRole,
+      usersEligibleForServerRole,
+      serverConfig,
+      serverMembers,
+    },
     onSubmit,
     onPrevious,
     isSubmitting,
@@ -145,9 +152,9 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">
+    <div className="space-y-5">
+      <div className="space-y-1.5">
+        <h2 className="text-xl leading-tight font-medium tracking-tight">
           {t('proposals.headers.review')}
         </h2>
         <p className="text-muted-foreground text-sm">
@@ -157,26 +164,46 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
 
       <div className="space-y-4">
         {body && (
-          <Card className="gap-3 py-5">
-            <CardHeader>
-              <CardTitle className="text-base">
+          <Card className="gap-2 py-4">
+            <CardHeader className="px-4 sm:px-5">
+              <CardTitle className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                 {t('proposals.labels.body')}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm whitespace-pre-wrap">{body}</p>
+            <CardContent className="px-4 sm:px-5">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                {body}
+              </p>
             </CardContent>
           </Card>
         )}
 
-        <Card className="gap-3 py-5">
-          <CardHeader>
-            <CardTitle className="text-base">
+        {formValues.images.length > 0 && (
+          <Card className="gap-2 py-4">
+            <CardHeader className="px-4 sm:px-5">
+              <CardTitle className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                {t('images.labels.attachedImages')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 sm:px-5">
+              <AttachedImagePreview
+                selectedImages={formValues.images}
+                imageClassName="rounded-lg"
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="gap-2 py-4">
+          <CardHeader className="px-4 sm:px-5">
+            <CardTitle className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               {t('proposals.labels.actionType')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm">{getProposalActionLabel(action)}</p>
+          <CardContent className="px-4 sm:px-5">
+            <p className="text-sm leading-relaxed">
+              {getProposalActionLabel(action)}
+            </p>
           </CardContent>
         </Card>
 
@@ -281,6 +308,28 @@ export const ProposalReviewStep = ({ isLoading }: WizardStepProps) => {
               />
             </CardContent>
           </Card>
+        )}
+        {action === 'plan-event' && formValues.eventStartsAt && (
+          <div>
+            <EventSummary
+              name={formValues.eventName || ''}
+              description={formValues.eventDescription || ''}
+              startsAt={new Date(formValues.eventStartsAt).toISOString()}
+              endsAt={
+                formValues.eventEndsAt
+                  ? new Date(formValues.eventEndsAt).toISOString()
+                  : undefined
+              }
+              online={!!formValues.eventOnline}
+              location={formValues.eventLocation}
+              externalLink={formValues.eventExternalLink}
+              hosts={(serverMembers || []).filter((user) =>
+                formValues.eventHostIds?.includes(user.id),
+              )}
+              coverPhotoFile={formValues.eventCoverPhoto}
+              layout="nested"
+            />
+          </div>
         )}
       </div>
 

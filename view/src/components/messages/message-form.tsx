@@ -111,7 +111,8 @@ export const MessageForm = ({
           serverId,
           channelId,
           forumPostId,
-          { body, imageCount: currentImages.length },
+          { body },
+          currentImages,
         );
         message = response.reply;
       } else if (callId) {
@@ -120,7 +121,7 @@ export const MessageForm = ({
           channelId,
           callId,
           body,
-          currentImages.length,
+          currentImages,
         );
         message = response.message;
       } else {
@@ -128,42 +129,11 @@ export const MessageForm = ({
           serverId,
           channelId,
           body,
-          currentImages.length,
+          currentImages,
         );
         message = response.message;
       }
-      const messageImages: ImageRes[] = [];
-
-      if (currentImages.length && message.images) {
-        for (let i = 0; i < currentImages.length; i++) {
-          const formData = new FormData();
-          formData.set('file', currentImages[i]);
-
-          const placeholder = message.images[i];
-          const { image } = callId
-            ? await api.uploadCallMessageImage(
-                serverId,
-                channelId,
-                callId,
-                message.id,
-                placeholder.id,
-                formData,
-              )
-            : await api.uploadMessageImage(
-                serverId,
-                channelId,
-                message.id,
-                placeholder.id,
-                formData,
-              );
-          messageImages.push(image);
-        }
-      }
-
-      return {
-        ...message,
-        images: messageImages,
-      };
+      return message;
     },
     onMutate: async ({ body }) => {
       if (!serverId || !channelId) {

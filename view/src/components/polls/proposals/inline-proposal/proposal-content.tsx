@@ -1,4 +1,5 @@
 import { ProposalMetadata } from '@/components/polls/proposals/inline-proposal/proposal-metadata';
+import { AttachedImageList } from '@/components/images/attached-image-list';
 import { ProposalOutcome } from '@/components/polls/proposals/inline-proposal/proposal-outcome';
 import { ProposalStatusBadge } from '@/components/polls/proposals/inline-proposal/proposal-status-badge';
 import { VoteProgressDialog } from '@/components/polls/proposals/inline-proposal/vote-progress-dialog';
@@ -100,7 +101,18 @@ export const ProposalContent = ({
 
       {body && <FormattedText text={body} className="pt-1 pb-2" />}
 
-      {action && <ProposalAction action={action} />}
+      {poll.images.length > 0 && (
+        <AttachedImageList
+          images={poll.images}
+          channelId={channel.id}
+          pollId={poll.id}
+          imageClassName="max-h-128 rounded-lg object-contain"
+        />
+      )}
+
+      {action && (
+        <ProposalAction action={action} channelId={channel.id} pollId={id} />
+      )}
 
       <CardAction className="flex w-full flex-wrap gap-2">
         <ProposalVoteButtons
@@ -132,6 +144,7 @@ export const ProposalContent = ({
             votes={votes ?? []}
             config={config}
             memberCount={memberCount}
+            closedReason={poll.closedReason}
             isOpen={isVoteProgressDialogOpen}
             onOpenChange={setIsVoteProgressDialogOpen}
           />

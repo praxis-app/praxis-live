@@ -24,7 +24,6 @@ pub(super) struct CallMessageImagePath {
 #[serde(rename_all = "camelCase")]
 pub(super) struct CreateMessageRequest {
     pub(crate) body: Option<String>,
-    pub(super) image_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,14 +68,8 @@ pub(super) struct MessagePayload {
     pub(super) message: MessageResponse,
 }
 
-#[derive(Debug, Serialize)]
-pub(super) struct ImagePayload {
-    pub(super) image: ImageResponse,
-}
-
 #[derive(Debug, Clone)]
 pub(super) struct StoredImage {
-    pub(super) content_type: Option<String>,
     pub(super) bytes: Vec<u8>,
 }
 

@@ -69,13 +69,21 @@ export const ForumPostForm = ({ channel, onSuccess }: Props) => {
     }
   };
 
-  const createPostWithProposal = async (proposal: CreatePollReq) => {
+  const createPostWithProposal = async (
+    proposal: CreatePollReq,
+    images: File[],
+    eventCoverPhoto?: File,
+  ) => {
     if (!serverId) throw new Error('Server ID is required');
     const values = form.getValues();
-    const { post } = await api.createForumPost(serverId, channel.id, {
-      ...values,
-      proposal,
-    });
+    const request = { ...values, proposal };
+    const { post } = await api.createForumPost(
+      serverId,
+      channel.id,
+      request,
+      images,
+      eventCoverPhoto,
+    );
     if (!post.proposal) {
       throw new Error('Created forum proposal is missing');
     }

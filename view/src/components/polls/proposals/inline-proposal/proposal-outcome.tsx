@@ -25,6 +25,10 @@ export const ProposalOutcome = ({ poll }: Props) => {
   }
 
   if (poll.stage === 'closed') {
+    if (poll.closedReason) {
+      return null;
+    }
+
     const failedRules = [
       !status.agreementMet && poll.config.decisionMakingModel !== 'consent'
         ? t('proposals.labels.approval')

@@ -22,7 +22,7 @@ const stageStyles: Record<PollStage, string> = {
     'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   revision:
     'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  closed: 'border-destructive/30 bg-destructive/10 text-destructive',
+  closed: 'border-muted-foreground/25 bg-muted text-muted-foreground',
 };
 
 const stageIcons: Record<PollStage, typeof LuVote> = {

@@ -3,7 +3,7 @@ use axum::{
     response::Json,
 };
 use sea_orm::DatabaseConnection;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use super::{
     events,
@@ -21,7 +21,10 @@ use super::{
 use crate::{
     auth::HasJwtSecret,
     channels::extractors::HasDatabase,
-    common::{response::EmptyResponse, AppResult},
+    common::{
+        request::JsonOrMultipartFiles, response::EmptyResponse,
+        storage::upload_root, AppResult,
+    },
     polls::{self, types::CreatePollRequest},
     pub_sub::PubSubService,
 };
@@ -31,6 +34,7 @@ pub(super) struct ForumState {
     database: DatabaseConnection,
     jwt_secret: Arc<str>,
     pub_sub_service: PubSubService,
+    upload_root: Arc<PathBuf>,
 }
 
 impl ForumState {
@@ -43,6 +47,7 @@ impl ForumState {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
             pub_sub_service,
+            upload_root: Arc::new(upload_root()),
         }
     }
 }
@@ -80,14 +85,18 @@ pub(super) async fn list_forum_posts(
 pub(super) async fn create_forum_post(
     State(state): State<ForumState>,
     context: ForumAccessContext,
-    Json(payload): Json<CreateForumPostRequest>,
+    multipart: JsonOrMultipartFiles<CreateForumPostRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
+    let (payload, cover_photo, images) = multipart.into_parts();
     let post = service::create_forum_post(
         &state.database,
+        &state.upload_root,
         context.server_id,
         context.channel_id,
         context.user_id,
         payload,
+        images,
+        cover_photo,
     )
     .await?;
     let proposal_id = post
@@ -124,15 +133,19 @@ pub(super) async fn create_forum_post(
 pub(super) async fn create_forum_post_proposal(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-    Json(payload): Json<CreatePollRequest>,
+    multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
+    let (payload, cover_photo, images) = multipart.into_parts();
     let post = service::create_forum_post_proposal(
         &state.database,
+        &state.upload_root,
         context.server_id,
         context.channel_id,
         context.post_id,
         context.user_id,
         payload,
+        images,
+        cover_photo,
     )
     .await?;
     events::broadcast_forum_post(
@@ -257,14 +270,17 @@ pub(super) async fn reopen_forum_post(
 pub(super) async fn create_forum_reply(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-    Json(payload): Json<CreateForumReplyRequest>,
+    multipart: JsonOrMultipartFiles<CreateForumReplyRequest>,
 ) -> AppResult<Json<ForumReplyPayload>> {
+    let (payload, images) = multipart.into_payload_and_files();
     let (reply, post) = service::create_forum_reply(
         &state.database,
+        &state.upload_root,
         context.channel_id,
         context.post_id,
         context.user_id,
         payload,
+        images,
     )
     .await?;
     events::broadcast_forum_reply(
