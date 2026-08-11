@@ -64,7 +64,7 @@ pub(super) async fn create_message(
     context: ChannelWriteContext,
     multipart: JsonOrMultipartFiles<CreateMessageRequest>,
 ) -> AppResult<Json<MessagePayload>> {
-    let (payload, images) = multipart.into_combined_files();
+    let (payload, images) = multipart.into_payload_and_files();
     let message = service::create_message(
         &chat_state.database,
         &chat_state.upload_root,
@@ -95,7 +95,7 @@ pub(super) async fn create_call_message(
     context: CallWriteContext,
     multipart: JsonOrMultipartFiles<CreateMessageRequest>,
 ) -> AppResult<Json<MessagePayload>> {
-    let (payload, images) = multipart.into_combined_files();
+    let (payload, images) = multipart.into_payload_and_files();
     let message = service::create_call_message(
         &chat_state.database,
         &chat_state.upload_root,

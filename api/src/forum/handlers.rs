@@ -87,7 +87,7 @@ pub(super) async fn create_forum_post(
     context: ForumAccessContext,
     multipart: JsonOrMultipartFiles<CreateForumPostRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
-    let (payload, cover_photo, images) = multipart.into_separate_files();
+    let (payload, cover_photo, images) = multipart.into_parts();
     let post = service::create_forum_post(
         &state.database,
         &state.upload_root,
@@ -135,7 +135,7 @@ pub(super) async fn create_forum_post_proposal(
     context: ForumPostAccessContext,
     multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
-    let (payload, cover_photo, images) = multipart.into_separate_files();
+    let (payload, cover_photo, images) = multipart.into_parts();
     let post = service::create_forum_post_proposal(
         &state.database,
         &state.upload_root,
@@ -272,7 +272,7 @@ pub(super) async fn create_forum_reply(
     context: ForumPostAccessContext,
     multipart: JsonOrMultipartFiles<CreateForumReplyRequest>,
 ) -> AppResult<Json<ForumReplyPayload>> {
-    let (payload, images) = multipart.into_combined_files();
+    let (payload, images) = multipart.into_payload_and_files();
     let (reply, post) = service::create_forum_reply(
         &state.database,
         &state.upload_root,

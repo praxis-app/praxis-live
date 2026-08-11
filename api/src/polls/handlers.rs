@@ -67,7 +67,7 @@ pub(super) async fn create_poll(
     context: ChannelWriteContext,
     multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
-    let (payload, cover_photo, images) = multipart.into_separate_files();
+    let (payload, cover_photo, images) = multipart.into_parts();
     let poll = service::create_poll(
         &state.database,
         &state.upload_root,
@@ -153,7 +153,7 @@ pub(super) async fn create_call_poll(
     context: CallWriteContext,
     multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
-    let (payload, cover_photo, images) = multipart.into_separate_files();
+    let (payload, cover_photo, images) = multipart.into_parts();
     let poll = service::create_call_poll(
         &state.database,
         &state.upload_root,

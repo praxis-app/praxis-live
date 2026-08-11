@@ -58,9 +58,7 @@ pub(crate) struct JsonOrMultipartFiles<T> {
 
 impl<T> JsonOrMultipartFiles<T> {
     /// Preserves the singular `file` separately from the repeated `files`.
-    pub(crate) fn into_separate_files(
-        self,
-    ) -> (T, Option<Vec<u8>>, Vec<Vec<u8>>) {
+    pub(crate) fn into_parts(self) -> (T, Option<Vec<u8>>, Vec<Vec<u8>>) {
         (
             self.payload,
             self.file.map(|file| file.bytes),
@@ -69,8 +67,8 @@ impl<T> JsonOrMultipartFiles<T> {
     }
 
     /// Combines the singular `file` followed by the repeated `files`.
-    pub(crate) fn into_combined_files(self) -> (T, Vec<Vec<u8>>) {
-        let (payload, file, files) = self.into_separate_files();
+    pub(crate) fn into_payload_and_files(self) -> (T, Vec<Vec<u8>>) {
+        let (payload, file, files) = self.into_parts();
         let files = file.into_iter().chain(files).collect();
         (payload, files)
     }
