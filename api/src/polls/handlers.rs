@@ -65,14 +65,9 @@ impl channels::extractors::HasDatabase for PollsState {
 pub(super) async fn create_poll(
     State(state): State<PollsState>,
     context: ChannelWriteContext,
-    JsonOrMultipartFiles {
-        payload,
-        file,
-        files,
-    }: JsonOrMultipartFiles<CreatePollRequest>,
+    multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
-    let cover_photo = file.map(|file| file.bytes);
-    let images = files.into_iter().map(|file| file.bytes).collect();
+    let (payload, cover_photo, images) = multipart.into_separate_files();
     let poll = service::create_poll(
         &state.database,
         &state.upload_root,
@@ -156,14 +151,9 @@ pub(super) async fn move_proposal_to_forum(
 pub(super) async fn create_call_poll(
     State(state): State<PollsState>,
     context: CallWriteContext,
-    JsonOrMultipartFiles {
-        payload,
-        file,
-        files,
-    }: JsonOrMultipartFiles<CreatePollRequest>,
+    multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<PollPayload>> {
-    let cover_photo = file.map(|file| file.bytes);
-    let images = files.into_iter().map(|file| file.bytes).collect();
+    let (payload, cover_photo, images) = multipart.into_separate_files();
     let poll = service::create_call_poll(
         &state.database,
         &state.upload_root,

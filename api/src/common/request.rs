@@ -51,9 +51,29 @@ where
 }
 
 pub(crate) struct JsonOrMultipartFiles<T> {
-    pub(crate) payload: T,
-    pub(crate) file: Option<MultipartFile>,
-    pub(crate) files: Vec<MultipartFile>,
+    payload: T,
+    file: Option<MultipartFile>,
+    files: Vec<MultipartFile>,
+}
+
+impl<T> JsonOrMultipartFiles<T> {
+    /// Preserves the singular `file` separately from the repeated `files`.
+    pub(crate) fn into_separate_files(
+        self,
+    ) -> (T, Option<Vec<u8>>, Vec<Vec<u8>>) {
+        (
+            self.payload,
+            self.file.map(|file| file.bytes),
+            self.files.into_iter().map(|file| file.bytes).collect(),
+        )
+    }
+
+    /// Combines the singular `file` followed by the repeated `files`.
+    pub(crate) fn into_combined_files(self) -> (T, Vec<Vec<u8>>) {
+        let (payload, file, files) = self.into_separate_files();
+        let files = file.into_iter().chain(files).collect();
+        (payload, files)
+    }
 }
 
 impl<T, S> FromRequest<S> for JsonOrMultipartFiles<T>

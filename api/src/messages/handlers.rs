@@ -62,17 +62,9 @@ impl channels::extractors::HasDatabase for ChatState {
 pub(super) async fn create_message(
     State(chat_state): State<ChatState>,
     context: ChannelWriteContext,
-    JsonOrMultipartFiles {
-        payload,
-        file,
-        files,
-    }: JsonOrMultipartFiles<CreateMessageRequest>,
+    multipart: JsonOrMultipartFiles<CreateMessageRequest>,
 ) -> AppResult<Json<MessagePayload>> {
-    let images = file
-        .into_iter()
-        .chain(files)
-        .map(|file| file.bytes)
-        .collect();
+    let (payload, images) = multipart.into_combined_files();
     let message = service::create_message(
         &chat_state.database,
         &chat_state.upload_root,
@@ -101,17 +93,9 @@ pub(super) async fn create_message(
 pub(super) async fn create_call_message(
     State(chat_state): State<ChatState>,
     context: CallWriteContext,
-    JsonOrMultipartFiles {
-        payload,
-        file,
-        files,
-    }: JsonOrMultipartFiles<CreateMessageRequest>,
+    multipart: JsonOrMultipartFiles<CreateMessageRequest>,
 ) -> AppResult<Json<MessagePayload>> {
-    let images = file
-        .into_iter()
-        .chain(files)
-        .map(|file| file.bytes)
-        .collect();
+    let (payload, images) = multipart.into_combined_files();
     let message = service::create_call_message(
         &chat_state.database,
         &chat_state.upload_root,

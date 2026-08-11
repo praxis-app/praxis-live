@@ -85,14 +85,9 @@ pub(super) async fn list_forum_posts(
 pub(super) async fn create_forum_post(
     State(state): State<ForumState>,
     context: ForumAccessContext,
-    JsonOrMultipartFiles {
-        payload,
-        file,
-        files,
-    }: JsonOrMultipartFiles<CreateForumPostRequest>,
+    multipart: JsonOrMultipartFiles<CreateForumPostRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
-    let cover_photo = file.map(|file| file.bytes);
-    let images = files.into_iter().map(|file| file.bytes).collect();
+    let (payload, cover_photo, images) = multipart.into_separate_files();
     let post = service::create_forum_post(
         &state.database,
         &state.upload_root,
@@ -138,14 +133,9 @@ pub(super) async fn create_forum_post(
 pub(super) async fn create_forum_post_proposal(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-    JsonOrMultipartFiles {
-        payload,
-        file,
-        files,
-    }: JsonOrMultipartFiles<CreatePollRequest>,
+    multipart: JsonOrMultipartFiles<CreatePollRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
-    let cover_photo = file.map(|file| file.bytes);
-    let images = files.into_iter().map(|file| file.bytes).collect();
+    let (payload, cover_photo, images) = multipart.into_separate_files();
     let post = service::create_forum_post_proposal(
         &state.database,
         &state.upload_root,
@@ -280,17 +270,9 @@ pub(super) async fn reopen_forum_post(
 pub(super) async fn create_forum_reply(
     State(state): State<ForumState>,
     context: ForumPostAccessContext,
-    JsonOrMultipartFiles {
-        payload,
-        file,
-        files,
-    }: JsonOrMultipartFiles<CreateForumReplyRequest>,
+    multipart: JsonOrMultipartFiles<CreateForumReplyRequest>,
 ) -> AppResult<Json<ForumReplyPayload>> {
-    let images = file
-        .into_iter()
-        .chain(files)
-        .map(|file| file.bytes)
-        .collect();
+    let (payload, images) = multipart.into_combined_files();
     let (reply, post) = service::create_forum_reply(
         &state.database,
         &state.upload_root,
