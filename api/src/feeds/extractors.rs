@@ -45,6 +45,7 @@ where
         )
         .await?;
 
+        // TODO: Allow logged-out invite holders to read feeds and their server-scoped images.
         if let Some(user_id) = user_id {
             channels::ensure_channel_membership(
                 state.database(),
