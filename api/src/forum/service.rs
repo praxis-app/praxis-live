@@ -114,14 +114,6 @@ pub(super) async fn create_forum_post(
     images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<ForumPostResponse> {
-    if request.proposal.is_none()
-        && (!images.is_empty() || cover_photo.is_some())
-    {
-        return Err(ApiError::new(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Poll images require a forum proposal.",
-        ));
-    }
     let title = validate_title(&request.title)?;
     let body = validate_body(&request.body, "A forum post body is required.")?;
     let prepared_proposal = match request.proposal {
