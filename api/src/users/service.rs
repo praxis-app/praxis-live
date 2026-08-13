@@ -473,7 +473,7 @@ async fn authorize_user_image_access(
     invite_token: Option<&str>,
 ) -> AppResult<()> {
     let invited_server_member = if current_user_id.is_none() {
-        is_invited_server_member(database, invite_token, user_id).await?
+        is_member_of_invited_server(database, invite_token, user_id).await?
     } else {
         false
     };
@@ -514,7 +514,7 @@ async fn authorize_user_image_access(
     Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."))
 }
 
-async fn is_invited_server_member(
+async fn is_member_of_invited_server(
     database: &DatabaseConnection,
     invite_token: Option<&str>,
     user_id: Uuid,
