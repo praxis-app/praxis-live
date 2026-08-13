@@ -156,7 +156,7 @@ export const InlinePoll = ({
         pollOptionIds: selectedOptions,
       });
       queryClient.invalidateQueries({
-        queryKey: ['pollOptionVoters', serverId, channel.id, id],
+        queryKey: ['poll-option-voters', serverId, channel.id, id],
       });
       updateActiveDecisionCache(queryClient, serverId, id, (decision) => ({
         ...decision,
@@ -181,7 +181,7 @@ export const InlinePoll = ({
       form.setValue('selectedOptions', []);
       updateFeedCache(undefined);
       queryClient.invalidateQueries({
-        queryKey: ['pollOptionVoters', serverId, channel.id, id],
+        queryKey: ['poll-option-voters', serverId, channel.id, id],
       });
       updateActiveDecisionCache(queryClient, serverId, id, (decision) => ({
         ...decision,

@@ -49,7 +49,7 @@ export const PollVoteBreakdown = ({
 
   const { data: votersData } = useQuery({
     queryKey: [
-      'pollOptionVoters',
+      'poll-option-voters',
       serverId,
       channelId,
       poll.id,
@@ -60,12 +60,7 @@ export const PollVoteBreakdown = ({
       if (!serverId) {
         throw new Error('Server ID is required');
       }
-      return api.getVotersByPollOption(
-        serverId,
-        channelId,
-        poll.id,
-        activeTab,
-      );
+      return api.getVotersByPollOption(serverId, channelId, poll.id, activeTab);
     },
     enabled: open && !!activeTab && !!serverId,
   });
