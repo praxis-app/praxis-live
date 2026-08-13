@@ -15,10 +15,11 @@ use super::{
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     common::{response::EmptyResponse, ApiError, AppResult},
-    servers::types::ServerPath,
+    invites::InviteAccessToken,
     servers::types::UsersPayload,
+    servers::{self, types::ServerPath},
 };
 
 #[derive(Clone, Debug)]
@@ -63,8 +64,16 @@ pub(super) struct ServerRoleMemberPath {
 pub(super) async fn get_server_role(
     State(state): State<ServerRolesState>,
     Path(path): Path<ServerRolePath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Json<ServerRolePayload>> {
+    servers::ensure_server_read_access(
+        &state.database,
+        path.server_id,
+        user_id,
+        invite_token.as_deref(),
+    )
+    .await?;
     let server_role = service::get_server_role(
         &state.database,
         path.server_id,
