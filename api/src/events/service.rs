@@ -29,10 +29,17 @@ const MAX_EVENT_RANGE_DAYS: i64 = 366;
 pub(super) async fn list_events(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
     query: ListEventsQuery,
 ) -> AppResult<EventsResponse> {
-    ensure_server_member(database, server_id, user_id).await?;
+    servers::ensure_server_read_access(
+        database,
+        server_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
     validate_date_range(query.from, query.to)?;
 
     let event_query = events::Entity::find()
@@ -64,9 +71,16 @@ pub(super) async fn get_event(
     database: &DatabaseConnection,
     server_id: Uuid,
     event_id: Uuid,
-    user_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<EventDetailResponse> {
-    ensure_server_member(database, server_id, user_id).await?;
+    servers::ensure_server_read_access(
+        database,
+        server_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
     let event = load_event(database, server_id, event_id).await?;
     shape_event_detail(database, event, user_id).await
 }
@@ -116,7 +130,7 @@ pub(super) async fn upsert_rsvp(
     }
 
     transaction.commit().await.map_err(internal_error)?;
-    shape_event_detail(database, event, user_id).await
+    shape_event_detail(database, event, Some(user_id)).await
 }
 
 pub(super) async fn clear_rsvp(
@@ -145,7 +159,7 @@ pub(super) async fn clear_rsvp(
     }
 
     transaction.commit().await.map_err(internal_error)?;
-    shape_event_detail(database, event, user_id).await
+    shape_event_detail(database, event, Some(user_id)).await
 }
 
 pub(super) async fn get_event_cover_photo(
@@ -154,9 +168,16 @@ pub(super) async fn get_event_cover_photo(
     server_id: Uuid,
     event_id: Uuid,
     image_id: Uuid,
-    user_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<StoredEventCoverPhoto> {
-    ensure_server_member(database, server_id, user_id).await?;
+    servers::ensure_server_read_access(
+        database,
+        server_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
     load_event(database, server_id, event_id).await?;
     let image = event_cover_photos::Entity::find_by_id(image_id)
         .filter(event_cover_photos::Column::EventId.eq(event_id))
@@ -254,7 +275,7 @@ fn ensure_not_host(attendee: &event_attendees::Model) -> AppResult<()> {
 async fn shape_event_detail(
     database: &DatabaseConnection,
     event: events::Model,
-    user_id: Uuid,
+    user_id: Option<Uuid>,
 ) -> AppResult<EventDetailResponse> {
     let context =
         load_attendee_context(database, std::slice::from_ref(&event)).await?;
@@ -360,7 +381,7 @@ async fn load_attendee_context(
 
 fn shape_event(
     event: events::Model,
-    current_user_id: Uuid,
+    current_user_id: Option<Uuid>,
     context: &AttendeeContext,
 ) -> EventResponse {
     let attendees = context
@@ -384,7 +405,7 @@ fn shape_event(
         .count();
     let current_user_status = attendees
         .iter()
-        .find(|attendee| attendee.user_id == current_user_id)
+        .find(|attendee| Some(attendee.user_id) == current_user_id)
         .map(|attendee| attendee.status);
 
     EventResponse {

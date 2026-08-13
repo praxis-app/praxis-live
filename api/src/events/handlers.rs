@@ -14,8 +14,9 @@ use super::{
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     common::AppResult,
+    invites::InviteAccessToken,
 };
 
 #[derive(Clone, Debug)]
@@ -47,22 +48,36 @@ impl HasJwtSecret for EventsState {
 pub(super) async fn list_events(
     State(state): State<EventsState>,
     Path(path): Path<crate::servers::types::ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
     Query(query): Query<ListEventsQuery>,
 ) -> AppResult<Json<EventsResponse>> {
-    service::list_events(&state.database, path.server_id, user_id, query)
-        .await
-        .map(Json)
+    service::list_events(
+        &state.database,
+        path.server_id,
+        user_id,
+        invite_token.as_deref(),
+        query,
+    )
+    .await
+    .map(Json)
 }
 
 pub(super) async fn get_event(
     State(state): State<EventsState>,
     Path(path): Path<EventPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Json<EventPayload>> {
-    service::get_event(&state.database, path.server_id, path.event_id, user_id)
-        .await
-        .map(|event| Json(EventPayload { event }))
+    service::get_event(
+        &state.database,
+        path.server_id,
+        path.event_id,
+        user_id,
+        invite_token.as_deref(),
+    )
+    .await
+    .map(|event| Json(EventPayload { event }))
 }
 
 pub(super) async fn upsert_rsvp(
@@ -95,7 +110,8 @@ pub(super) async fn clear_rsvp(
 pub(super) async fn get_event_cover_photo(
     State(state): State<EventsState>,
     Path(path): Path<EventCoverPhotoPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_event_cover_photo(
         &state.database,
@@ -104,6 +120,7 @@ pub(super) async fn get_event_cover_photo(
         path.event_id,
         path.image_id,
         user_id,
+        invite_token.as_deref(),
     )
     .await?;
 
