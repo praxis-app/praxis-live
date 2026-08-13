@@ -13,6 +13,7 @@ import { useServerData } from '@/hooks/use-server-data';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const LARGE_DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
 
@@ -31,17 +32,26 @@ export const EventDetailPage = () => {
   const [isDecisionsPanelOpen, setIsDecisionsPanelOpen] = useState(
     getDefaultDecisionsPanelOpen,
   );
+
+  const { isLoggedIn, me } = useAuthData();
+  const { serverId, serverPath } = useServerData();
+
   const { eventId } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
-  const { me } = useAuthData();
-  const { serverId, serverPath } = useServerData();
+
   const query = useEventQuery(serverId, eventId);
   const rsvp = useEventRsvp(serverId, eventId);
   const event = query.data?.event;
-  const setRsvp = (status: 'interested' | 'going') =>
+
+  const setRsvp = (status: 'interested' | 'going') => {
+    if (!isLoggedIn) {
+      toast(t('events.prompts.signInToAttend'));
+      return;
+    }
     rsvp.mutate(event?.currentUserStatus === status ? null : status);
+  };
 
   useEffect(() => {
     setIsDecisionsPanelOpen(getDefaultDecisionsPanelOpen());

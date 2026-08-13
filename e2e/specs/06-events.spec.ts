@@ -584,6 +584,26 @@ test('invite holder can view events and event details in a non-default server', 
   await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
   await expect(page.getByText(eventName, { exact: true }).first()).toBeVisible();
   await expect(page.getByText(eventDescription, { exact: true })).toBeVisible();
+
+  let rsvpRequestCount = 0;
+  page.on('request', (pageRequest) => {
+    const url = new URL(pageRequest.url());
+    if (
+      ['PUT', 'DELETE'].includes(pageRequest.method()) &&
+      url.pathname === `${detailPath}/rsvp`
+    ) {
+      rsvpRequestCount += 1;
+    }
+  });
+
+  const signInPrompt = page.getByText(
+    'You need to sign in or sign up to attend events.',
+    { exact: true },
+  );
+  await page.getByRole('button', { name: 'Interested', exact: true }).click();
+  await expect(signInPrompt).toBeVisible();
+  await page.getByRole('button', { name: 'Going', exact: true }).click();
+  expect(rsvpRequestCount).toBe(0);
 });
 
 test('invalid cover photo rolls back event proposal creation', async ({
