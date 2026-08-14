@@ -837,7 +837,7 @@
     },
     "descriptions": {
       "addMembers": "Add members to this server.",
-      "currentServer": "Information about the server you're currently viewing.",
+      "currentServer": "About the server you're viewing.",
       "noDescription": "No description provided."
     },
     "tabs": {

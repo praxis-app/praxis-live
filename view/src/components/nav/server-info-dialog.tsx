@@ -42,7 +42,7 @@ export const ServerInfoDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="md:w-xl">
-        <DialogHeader>
+        <DialogHeader className="pr-10 text-left">
           <DialogTitle>{t('servers.headers.details')}</DialogTitle>
           <DialogDescription>
             {t('servers.descriptions.currentServer')}
