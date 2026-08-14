@@ -552,18 +552,23 @@ class ApiClient {
     return this.executeRequest<{ server: ServerRes }>('get', path);
   };
 
-  createServer = async (data: ServerReq) => {
+  createServer = async (data: ServerReq, image?: File) => {
     const path = '/servers';
     return this.executeRequest<{ server: ServerRes }>('post', path, {
-      data,
+      data: getJsonOrFormData(data, { file: image }),
     });
   };
 
-  updateServer = async (serverId: string, data: ServerReq) => {
+  updateServer = async (serverId: string, data: ServerReq, image?: File) => {
     const path = `/servers/${serverId}`;
     return this.executeRequest<{ server: ServerRes }>('put', path, {
-      data,
+      data: getJsonOrFormData(data, { file: image }),
     });
+  };
+
+  getServerImage = async (serverId: string, imageId: string) => {
+    const path = `/servers/${serverId}/images/${imageId}`;
+    return this.executeRequest<Blob>('get', path, { responseType: 'blob' });
   };
 
   deleteServer = async (serverId: string) => {

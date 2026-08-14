@@ -24,7 +24,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer';
 import { Separator } from '@/components/ui/separator';
-import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
+import { PRAXIS_NAME } from '@/constants/app.constants';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { useMeQuery } from '@/hooks/use-me-query';
@@ -53,19 +53,30 @@ export const NavDrawer = ({ trigger }: Props) => {
   const { serverAbility, instanceAbility } = useAbility();
   const { server, serverPath } = useServerData();
   const { data: meData } = useMeQuery();
-  const serverName = server?.name || INITIAL_SERVER_NAME;
+
   const canManageChannels = serverAbility.can('manage', 'Channel');
   const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
+  const canManageServers = instanceAbility.can('manage', 'Server');
   const canManageInstanceSettings = instanceAbility.can(
     'manage',
     'InstanceConfig',
   );
+
+  const serverName = server?.name || PRAXIS_NAME;
   const hasMultipleServers = !!meData && meData.user.serversCount > 1;
+
   const hasServerMenuActions =
     canManageChannels ||
     canManageServerSettings ||
+    canManageServers ||
     canManageInstanceSettings ||
     hasMultipleServers;
+
+  const manageServerPath = canManageServerSettings
+    ? `${serverPath}${NavigationPaths.GeneralSettings}`
+    : canManageServers && server
+      ? `${NavigationPaths.ManageServers}/${server.id}/edit`
+      : undefined;
 
   return (
     <>
@@ -86,6 +97,11 @@ export const NavDrawer = ({ trigger }: Props) => {
             <ServerInfoDialog
               server={server}
               canSwitchServers={hasMultipleServers}
+              manageServerPath={manageServerPath}
+              onManageServer={() => {
+                setShowNavDrawer(false);
+                setIsNavSheetOpen(false);
+              }}
               onServerSelect={() => {
                 setShowNavDrawer(false);
                 setIsNavSheetOpen(false);
@@ -95,7 +111,10 @@ export const NavDrawer = ({ trigger }: Props) => {
                   variant="ghost"
                   className="text-md h-auto w-full justify-start py-2.5"
                 >
-                  <CurrentServerMenuLabel serverName={serverName} />
+                  <CurrentServerMenuLabel
+                    serverName={serverName}
+                    server={server}
+                  />
                 </Button>
               }
             />

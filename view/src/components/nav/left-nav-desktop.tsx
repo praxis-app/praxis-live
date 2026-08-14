@@ -33,7 +33,7 @@ import { cn } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
 import { useAuthStore } from '@/store/auth.store';
 import { type CurrentUserRes } from '@/types/user.types';
-import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
+import { PRAXIS_NAME } from '@/constants/app.constants';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -68,18 +68,28 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const { serverAbility, instanceAbility } = useAbility();
   const canManageChannels = serverAbility.can('manage', 'Channel');
   const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
+  const canManageServers = instanceAbility.can('manage', 'Server');
+
   const canManageInstanceSettings = instanceAbility.can(
     'manage',
     'InstanceConfig',
   );
+
   const hasMultipleServers = !!myServerCount && myServerCount > 1;
   const hasServerMenuActions =
     canManageServerSettings ||
+    canManageServers ||
     canManageChannels ||
     canManageInstanceSettings ||
     hasMultipleServers;
 
-  const serverName = server?.name || INITIAL_SERVER_NAME;
+  const manageServerPath = canManageServerSettings
+    ? `${serverPath}${NavigationPaths.GeneralSettings}`
+    : canManageServers && server
+      ? `${NavigationPaths.ManageServers}/${server.id}/edit`
+      : undefined;
+
+  const serverName = server?.name || PRAXIS_NAME;
   const eventsActive = location.pathname.startsWith(`${serverPath}/events`);
 
   return (
@@ -94,11 +104,11 @@ export const LeftNavDesktop = ({ me }: Props) => {
             <div className="flex min-w-0 items-center gap-2">
               <img
                 src={appIconImg}
-                alt={INITIAL_SERVER_NAME}
+                alt={PRAXIS_NAME}
                 className="size-[1.55rem] self-center"
               />
               <div className="self-center truncate text-base/tight font-medium tracking-[0.02em]">
-                {INITIAL_SERVER_NAME}
+                {PRAXIS_NAME}
               </div>
             </div>
 
@@ -109,7 +119,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
               className="text-md items-start py-2.5"
               onSelect={() => setShowServerInfoDialog(true)}
             >
-              <CurrentServerMenuLabel serverName={serverName} />
+              <CurrentServerMenuLabel serverName={serverName} server={server} />
             </DropdownMenuItem>
             <DropdownMenuSeparator />
 
@@ -186,6 +196,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
         open={showServerInfoDialog}
         onOpenChange={setShowServerInfoDialog}
         canSwitchServers={hasMultipleServers}
+        manageServerPath={manageServerPath}
       />
 
       <div className="border-b border-[--color-border] p-2">

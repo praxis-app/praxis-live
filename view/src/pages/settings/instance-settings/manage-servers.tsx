@@ -33,8 +33,8 @@ export const ManageServers = () => {
 
   const { mutateAsync: createServer, isPending: isCreatePending } = useMutation(
     {
-      mutationFn: async (values: ServerReq) => {
-        const { server } = await api.createServer(values);
+      mutationFn: async ({ values, image }: { values: ServerReq; image?: File }) => {
+        const { server } = await api.createServer(values, image);
 
         queryClient.setQueryData<{ servers: ServerRes[] }>(
           ['servers'],
@@ -105,7 +105,7 @@ export const ManageServers = () => {
 
             <ServerForm
               isSubmitting={isCreatePending}
-              onSubmit={(fv) => createServer(fv)}
+              onSubmit={(values, image) => createServer({ values, image })}
             />
           </CardContent>
         </Card>

@@ -4,14 +4,14 @@ import {
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
-import { createTestUser } from '../lib/data';
+import { createTestUser, INSTANCE_ADMIN_USER } from '../lib/data';
 import { createInvite } from '../lib/invites';
 import { AuthPage } from '../pages/auth.page';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
 
 test('user can sign up from the landing page', async ({ page }) => {
-  const user = createTestUser('signup');
+  const user = INSTANCE_ADMIN_USER;
   const auth = new AuthPage(page);
   const chat = new ChatPage(page);
   const navigation = new NavigationPage(page);

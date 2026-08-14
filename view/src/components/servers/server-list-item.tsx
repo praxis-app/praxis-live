@@ -1,12 +1,10 @@
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ServerAvatar } from '@/components/servers/server-avatar';
 import { Badge } from '@/components/ui/badge';
 import {
   MIDDOT_WITH_SPACES,
   NavigationPaths,
 } from '@/constants/shared.constants';
 import { type ServerRes } from '@/types/server.types';
-import chroma from 'chroma-js';
-import ColorHash from 'color-hash';
 import { useTranslation } from 'react-i18next';
 import { MdArrowForwardIos } from 'react-icons/md';
 import { Link } from 'react-router-dom';
@@ -20,33 +18,11 @@ export const ServerListItem = ({ server }: Props) => {
 
   const editPath = `${NavigationPaths.ManageServers}/${server.id}/edit`;
 
-  const getInitial = (value: string) => {
-    return (value?.trim()?.[0] || '?').toUpperCase();
-  };
-
-  const getStringAvatarProps = () => {
-    const colorHash = new ColorHash();
-    const baseColor = colorHash.hex(server.id || server.name);
-    const color = chroma(baseColor).brighten(1.5).hex();
-    const backgroundColor = chroma(baseColor).darken(1.35).hex();
-
-    return {
-      style: { color, backgroundColor },
-    };
-  };
-
   return (
     <Link to={editPath}>
       <div className="hover:bg-ring/10 flex cursor-pointer items-center justify-between gap-3 rounded-lg p-2 transition-colors">
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar className="size-10">
-            <AvatarFallback
-              className="text-lg font-light uppercase"
-              {...getStringAvatarProps()}
-            >
-              {getInitial(server.name)}
-            </AvatarFallback>
-          </Avatar>
+          <ServerAvatar server={server} className="size-10" />
 
           <div className="flex min-w-0 flex-col gap-0.5 text-left">
             <div className="flex items-center gap-2 truncate leading-tight font-semibold">

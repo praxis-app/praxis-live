@@ -9,6 +9,13 @@ pub(crate) struct ServerPath {
     pub(crate) server_id: Uuid,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ServerImagePath {
+    pub(super) server_id: Uuid,
+    pub(super) image_id: Uuid,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct ServerRequest {
@@ -37,6 +44,7 @@ pub(crate) struct ServerResponse {
     pub(super) name: String,
     pub(super) slug: String,
     pub(super) description: Option<String>,
+    pub(super) image: Option<ServerImageRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) is_default_server: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,6 +53,17 @@ pub(crate) struct ServerResponse {
     pub(super) member_count: Option<u64>,
     pub(super) created_at: String,
     pub(super) updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ServerImageRef {
+    pub(crate) id: String,
+    pub(crate) created_at: String,
+}
+
+pub(super) struct StoredServerImage {
+    pub(super) bytes: Vec<u8>,
 }
 
 #[derive(Debug, Serialize)]

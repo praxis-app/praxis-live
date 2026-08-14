@@ -819,10 +819,15 @@
     "headers": {
       "create": "Create Server",
       "edit": "Edit Server",
-      "details": "Server details"
+      "details": "Server details",
+      "profile": "Server profile",
+      "access": "Access"
     },
     "actions": {
-      "addMembers": "Add members"
+      "addMembers": "Add members",
+      "manage": "Manage server",
+      "selectImage": "Select server image",
+      "changeImage": "Change server image"
     },
     "labels": {
       "current": "Current server",
@@ -832,13 +837,16 @@
       "name": "Name",
       "slug": "Slug",
       "description": "Description",
+      "image": "Server image",
       "defaultServer": "Default server",
       "defaultServerDescription": "New visitors and users without an invite start here."
     },
     "descriptions": {
       "addMembers": "Add members to this server.",
       "currentServer": "About the server you're viewing.",
-      "noDescription": "No description provided."
+      "noDescription": "No description provided.",
+      "profile": "Choose how this server is named and represented throughout Praxis.",
+      "access": "Control who can enter and participate in this server."
     },
     "tabs": {
       "properties": "Properties",

@@ -18,7 +18,7 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useAuthStore } from '@/store/auth.store';
 import { useNavStore } from '@/store/nav.store';
-import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
+import { PRAXIS_NAME } from '@/constants/app.constants';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
@@ -96,10 +96,10 @@ export const NavSheet = ({ trigger }: Props) => {
                 >
                   <img
                     src={appIconImg}
-                    alt={INITIAL_SERVER_NAME}
+                    alt={PRAXIS_NAME}
                     className="size-9 self-center"
                   />
-                  <div className="truncate">{INITIAL_SERVER_NAME}</div>
+                  <div className="truncate">{PRAXIS_NAME}</div>
                   <LuChevronRight className="mt-0.5 size-4 shrink-0" />
                 </button>
               }

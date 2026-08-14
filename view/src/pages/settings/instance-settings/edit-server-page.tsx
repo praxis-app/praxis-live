@@ -99,13 +99,13 @@ export const EditServerPage = () => {
 
   const { mutateAsync: updateServer, isPending: isUpdatePending } = useMutation(
     {
-      mutationFn: async (values: ServerReq) => {
+      mutationFn: async ({ values, image }: { values: ServerReq; image?: File }) => {
         if (!serverId || !serverData?.server) {
           throw new Error('Server ID and server data are required');
         }
 
         const wasDefaultServer = serverData.server.isDefaultServer;
-        const updateResponse = await api.updateServer(serverId, values);
+        const updateResponse = await api.updateServer(serverId, values, image);
         const { server: updatedServer } = updateResponse;
 
         queryClient.setQueryData<{ server: ServerRes }>(['servers', serverId], {
@@ -143,6 +143,9 @@ export const EditServerPage = () => {
         } else if (wasDefaultServer) {
           queryClient.invalidateQueries({ queryKey: ['servers', 'default'] });
         }
+
+        queryClient.invalidateQueries({ queryKey: ['me', 'servers'] });
+        queryClient.invalidateQueries({ queryKey: ['servers', 'slug'] });
 
         return updatedServer;
       },
@@ -292,7 +295,7 @@ export const EditServerPage = () => {
                   className="pb-6"
                   editServer={serverData.server}
                   isSubmitting={isUpdatePending}
-                  onSubmit={(fv) => updateServer(fv)}
+                  onSubmit={(values, image) => updateServer({ values, image })}
                 />
               </CardContent>
             </Card>
