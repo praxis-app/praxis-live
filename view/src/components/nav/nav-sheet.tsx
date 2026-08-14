@@ -2,6 +2,7 @@ import appIconImg from '@/assets/images/app-icon.png';
 import { api } from '@/client/api-client';
 import { NavDrawer } from '@/components/nav/nav-drawer';
 import { NavDropdown } from '@/components/nav/nav-dropdown';
+import { ServerInfoDialog } from '@/components/nav/server-info-dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -113,16 +114,16 @@ export const NavSheet = ({ trigger }: Props) => {
                       alt=""
                       className="size-9 self-center"
                     />
-                    <div className="truncate">{serverName}</div>
+                    <div className="truncate">{INITIAL_SERVER_NAME}</div>
                   </button>
                 ) : (
                   <div className="flex cursor-pointer items-center gap-2 self-center px-6 font-medium tracking-[0.02em]">
                     <img
                       src={appIconImg}
-                      alt={serverName}
+                      alt={INITIAL_SERVER_NAME}
                       className="size-9 self-center"
                     />
-                    <div className="truncate">{serverName}</div>
+                    <div className="truncate">{INITIAL_SERVER_NAME}</div>
                     {canViewNavDrawer && (
                       <LuChevronRight className="mt-0.5 size-4 shrink-0" />
                     )}
@@ -154,6 +155,18 @@ export const NavSheet = ({ trigger }: Props) => {
 
         <div className="bg-background dark:bg-card flex h-full w-full flex-col gap-6 overflow-y-auto rounded-t-2xl px-4 pt-7 pb-12">
           {/* TODO: Add visual indicator for current channel */}
+
+          <ServerInfoDialog
+            server={server}
+            trigger={
+              <Button
+                variant="ghost"
+                className="h-auto w-fit justify-start px-0 text-lg font-medium tracking-[0.01em] has-[>svg]:px-0"
+              >
+                {serverName}
+              </Button>
+            }
+          />
 
           <Link
             to={`${serverPath}${NavigationPaths.Events}`}

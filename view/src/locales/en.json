@@ -818,12 +818,14 @@
   "servers": {
     "headers": {
       "create": "Create Server",
-      "edit": "Edit Server"
+      "edit": "Edit Server",
+      "details": "Server details"
     },
     "actions": {
       "addMembers": "Add members"
     },
     "labels": {
+      "current": "Current server",
       "default": "Default"
     },
     "form": {
@@ -834,7 +836,9 @@
       "defaultServerDescription": "New visitors and users without an invite start here."
     },
     "descriptions": {
-      "addMembers": "Add members to this server."
+      "addMembers": "Add members to this server.",
+      "currentServer": "Information about the server you're currently viewing.",
+      "noDescription": "No description provided."
     },
     "tabs": {
       "properties": "Properties",

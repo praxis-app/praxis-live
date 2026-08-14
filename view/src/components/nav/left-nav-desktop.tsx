@@ -5,6 +5,7 @@ import {
   CreateChannelFormSubmitButton,
 } from '@/components/channels/create-channel-form';
 import { LeftNavUserMenu } from '@/components/nav/left-nav-user-menu';
+import { ServerInfoDialog } from '@/components/nav/server-info-dialog';
 import { SwitchServerDialog } from '@/components/nav/switch-server-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,6 +56,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const { isAppLoading } = useAppStore();
 
   const [showRoomFormDialog, setShowRoomFormDialog] = useState(false);
+  const [showServerInfoDialog, setShowServerInfoDialog] = useState(false);
   const [showServerSwitchDialog, setShowServerSwitchDialog] = useState(false);
 
   const { t } = useTranslation();
@@ -91,17 +93,25 @@ export const LeftNavDesktop = ({ me }: Props) => {
             <div className="flex min-w-0 items-center gap-2">
               <img
                 src={appIconImg}
-                alt={serverName}
+                alt={INITIAL_SERVER_NAME}
                 className="size-[1.55rem] self-center"
               />
               <div className="self-center truncate text-base/tight font-medium tracking-[0.02em]">
-                {serverName}
+                {INITIAL_SERVER_NAME}
               </div>
             </div>
 
             <MdExpandMore className="size-[1.4rem] shrink-0 self-center" />
           </DropdownMenuTrigger>
           <DropdownMenuContent sideOffset={10} className="w-52">
+            <DropdownMenuItem
+              className="text-md font-medium"
+              onSelect={() => setShowServerInfoDialog(true)}
+            >
+              {serverName}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+
             {canManageChannels && (
               <DialogTrigger asChild>
                 <DropdownMenuItem className="text-md">
@@ -169,6 +179,12 @@ export const LeftNavDesktop = ({ me }: Props) => {
           />
         </DialogContent>
       </Dialog>
+
+      <ServerInfoDialog
+        server={server}
+        open={showServerInfoDialog}
+        onOpenChange={setShowServerInfoDialog}
+      />
 
       <div className="border-b border-[--color-border] p-2">
         <Link
