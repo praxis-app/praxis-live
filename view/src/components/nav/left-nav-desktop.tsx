@@ -4,6 +4,7 @@ import {
   CreateChannelForm,
   CreateChannelFormSubmitButton,
 } from '@/components/channels/create-channel-form';
+import { CurrentServerMenuLabel } from '@/components/nav/current-server-menu-label';
 import { LeftNavUserMenu } from '@/components/nav/left-nav-user-menu';
 import { ServerInfoDialog } from '@/components/nav/server-info-dialog';
 import { SwitchServerDialog } from '@/components/nav/switch-server-dialog';
@@ -105,10 +106,10 @@ export const LeftNavDesktop = ({ me }: Props) => {
           </DropdownMenuTrigger>
           <DropdownMenuContent sideOffset={10} className="w-52">
             <DropdownMenuItem
-              className="text-md font-medium"
+              className="text-md items-start py-2.5"
               onSelect={() => setShowServerInfoDialog(true)}
             >
-              {serverName}
+              <CurrentServerMenuLabel serverName={serverName} />
             </DropdownMenuItem>
             <DropdownMenuSeparator />
 
@@ -184,6 +185,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
         server={server}
         open={showServerInfoDialog}
         onOpenChange={setShowServerInfoDialog}
+        canSwitchServers={hasMultipleServers}
       />
 
       <div className="border-b border-[--color-border] p-2">

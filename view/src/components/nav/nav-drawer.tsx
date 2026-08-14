@@ -2,6 +2,7 @@ import {
   CreateChannelForm,
   CreateChannelFormSubmitButton,
 } from '@/components/channels/create-channel-form';
+import { CurrentServerMenuLabel } from '@/components/nav/current-server-menu-label';
 import { ServerInfoDialog } from '@/components/nav/server-info-dialog';
 import { SwitchServerDialog } from '@/components/nav/switch-server-dialog';
 import { Button } from '@/components/ui/button';
@@ -84,12 +85,17 @@ export const NavDrawer = ({ trigger }: Props) => {
           <div className="flex w-full flex-col items-start gap-4 p-5">
             <ServerInfoDialog
               server={server}
+              canSwitchServers={hasMultipleServers}
+              onServerSelect={() => {
+                setShowNavDrawer(false);
+                setIsNavSheetOpen(false);
+              }}
               trigger={
                 <Button
                   variant="ghost"
-                  className="text-md w-full justify-start font-medium"
+                  className="text-md h-auto w-full justify-start py-2.5"
                 >
-                  {serverName}
+                  <CurrentServerMenuLabel serverName={serverName} />
                 </Button>
               }
             />
