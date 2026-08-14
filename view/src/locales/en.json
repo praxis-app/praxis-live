@@ -1037,7 +1037,7 @@
       "events": "Events"
     },
     "descriptions": {
-      "navDrawer": "Create a new room, join a room, or view your settings.",
+      "navDrawer": "View server details and available server actions.",
       "navSheet": "Navigate to your rooms, profile, and more."
     }
   },

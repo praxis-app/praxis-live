@@ -2,6 +2,7 @@ import {
   CreateChannelForm,
   CreateChannelFormSubmitButton,
 } from '@/components/channels/create-channel-form';
+import { ServerInfoDialog } from '@/components/nav/server-info-dialog';
 import { SwitchServerDialog } from '@/components/nav/switch-server-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +22,8 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
+import { Separator } from '@/components/ui/separator';
+import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { useMeQuery } from '@/hooks/use-me-query';
@@ -35,10 +38,9 @@ import { useNavigate } from 'react-router-dom';
 
 interface Props {
   trigger: ReactNode;
-  disabled: boolean;
 }
 
-export const NavDrawer = ({ trigger, disabled }: Props) => {
+export const NavDrawer = ({ trigger }: Props) => {
   const { setIsNavSheetOpen } = useNavStore();
   const [showNavDrawer, setShowNavDrawer] = useState(false);
   const [showRoomFormDialog, setShowRoomFormDialog] = useState(false);
@@ -48,13 +50,26 @@ export const NavDrawer = ({ trigger, disabled }: Props) => {
   const navigate = useNavigate();
 
   const { serverAbility, instanceAbility } = useAbility();
-  const { serverPath } = useServerData();
+  const { server, serverPath } = useServerData();
   const { data: meData } = useMeQuery();
+  const serverName = server?.name || INITIAL_SERVER_NAME;
+  const canManageChannels = serverAbility.can('manage', 'Channel');
+  const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
+  const canManageInstanceSettings = instanceAbility.can(
+    'manage',
+    'InstanceConfig',
+  );
+  const hasMultipleServers = !!meData && meData.user.serversCount > 1;
+  const hasServerMenuActions =
+    canManageChannels ||
+    canManageServerSettings ||
+    canManageInstanceSettings ||
+    hasMultipleServers;
 
   return (
     <>
       <Drawer open={showNavDrawer} onOpenChange={setShowNavDrawer}>
-        {disabled ? trigger : <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
+        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
 
         <DrawerContent className="flex min-h-[calc(100%-68px)] flex-col items-start rounded-t-2xl border-0">
           <VisuallyHidden>
@@ -66,8 +81,22 @@ export const NavDrawer = ({ trigger, disabled }: Props) => {
             </DrawerHeader>
           </VisuallyHidden>
 
-          <div className="flex flex-col items-start gap-4 p-5">
-            {serverAbility.can('manage', 'Channel') && (
+          <div className="flex w-full flex-col items-start gap-4 p-5">
+            <ServerInfoDialog
+              server={server}
+              trigger={
+                <Button
+                  variant="ghost"
+                  className="text-md w-full justify-start font-medium"
+                >
+                  {serverName}
+                </Button>
+              }
+            />
+
+            {hasServerMenuActions && <Separator />}
+
+            {canManageChannels && (
               <Dialog
                 open={showRoomFormDialog}
                 onOpenChange={setShowRoomFormDialog}
@@ -107,7 +136,7 @@ export const NavDrawer = ({ trigger, disabled }: Props) => {
               </Dialog>
             )}
 
-            {instanceAbility.can('manage', 'InstanceConfig') && (
+            {canManageInstanceSettings && (
               <Button
                 variant="ghost"
                 className="text-md flex items-center gap-6 font-normal"
@@ -121,7 +150,7 @@ export const NavDrawer = ({ trigger, disabled }: Props) => {
               </Button>
             )}
 
-            {serverAbility.can('manage', 'ServerConfig') && (
+            {canManageServerSettings && (
               <Button
                 variant="ghost"
                 className="text-md flex items-center gap-6 font-normal"
@@ -135,7 +164,7 @@ export const NavDrawer = ({ trigger, disabled }: Props) => {
               </Button>
             )}
 
-            {meData && meData.user.serversCount > 1 && (
+            {hasMultipleServers && (
               <Button
                 variant="ghost"
                 className="text-md flex items-center gap-6 font-normal"
