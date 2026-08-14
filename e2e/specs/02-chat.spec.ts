@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import {
   expect,
   test,
@@ -8,10 +9,13 @@ import {
 import {
   authorizationHeaders,
   createAuthenticatedUser,
+  signUpViaApi,
   setupAnonymousInvite,
 } from '../lib/auth';
 import { startCallFromTopNav } from '../lib/calls';
 import { createTestMessage, createTestUser } from '../lib/data';
+import { expectImageToLoad } from '../lib/images';
+import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import { createMessages } from '../lib/messages';
 import { getDefaultServer } from '../lib/servers';
@@ -283,6 +287,86 @@ test('authenticated user can send a chat message with an image', async ({
 
   await chat.expectMessage(message, authenticatedUser.user.name);
   await chat.expectAttachedImage();
+});
+
+test('invite holder can read a non-default server feed with images', async ({
+  context,
+  page,
+  request,
+}) => {
+  const admin = await signUpViaApi(
+    request,
+    createTestUser('invite-feed-admin'),
+  );
+  const serverSlug = `invite-feed-${admin.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(admin),
+    data: {
+      name: `Invite feed ${admin.user.suffix}`,
+      slug: serverSlug,
+      description: 'Non-default server for invite feed access.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+
+  const getServerResponse = await request.get(
+    `/api/servers/slug/${serverSlug}`,
+    { headers: authorizationHeaders(admin) },
+  );
+  await expect(getServerResponse).toBeOK();
+  const { server } = (await getServerResponse.json()) as {
+    server: {
+      id: string;
+      slug: string;
+      generalChannelId: string;
+    };
+  };
+
+  const messageBody = createTestMessage('invite-feed', admin.user.suffix);
+  const createMessageResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/messages`,
+    {
+      headers: authorizationHeaders(admin),
+      multipart: {
+        payload: JSON.stringify({ body: messageBody }),
+        files: {
+          name: 'valid-image.png',
+          mimeType: 'image/png',
+          buffer: await readFile('e2e/fixtures/valid-image.png'),
+        },
+      },
+    },
+  );
+  await expect(createMessageResponse).toBeOK();
+  const { message } = (await createMessageResponse.json()) as {
+    message: { id: string };
+  };
+
+  const feedPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/feed`;
+  const feedWithoutInviteResponse = await request.get(feedPath);
+  expect(feedWithoutInviteResponse.status()).toBe(403);
+
+  const inviteToken = await createInvite(request, admin, server.id);
+  await context.addInitScript((token) => {
+    window.localStorage.removeItem('access_token');
+    window.localStorage.setItem('invite-token', token);
+  }, inviteToken);
+
+  const feedResponsePromise = page.waitForResponse((response) =>
+    response.url().includes(feedPath),
+  );
+  const imageResponsePromise = page.waitForResponse((response) =>
+    response.url().includes(`/messages/${message.id}/images/`),
+  );
+  await page.goto(`/s/${server.slug}`);
+
+  expect((await feedResponsePromise).status()).toBe(200);
+  await expect(page.getByText(messageBody)).toBeVisible();
+  expect((await imageResponsePromise).status()).toBe(200);
+  await expectImageToLoad(
+    page.getByRole('img', { name: 'Attached image' }).first(),
+  );
 });
 
 test('authenticated user can send an in-call chat message with an image', async ({

@@ -28,7 +28,7 @@ interface Props {
 export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const [isProposalSettingsOpen, setIsProposalSettingsOpen] = useState(false);
   const { t } = useTranslation();
-  const { me } = useAuthData();
+  const { inviteToken, me } = useAuthData();
   const { serverId, serverPath } = useServerData();
 
   const postQueryKey = [
@@ -39,6 +39,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
     'forum',
     'posts',
     postId,
+    inviteToken,
   ];
 
   const { data } = useQuery({

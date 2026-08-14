@@ -287,14 +287,17 @@ pub(super) async fn get_poll_action_event_cover_photo(
     poll_id: Uuid,
     image_id: Uuid,
     user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<StoredPollImage> {
     load_poll(database, server_id, channel_id, poll_id).await?;
-    if let Some(user_id) = user_id {
-        channels::ensure_channel_membership(database, channel_id, user_id)
-            .await?;
-    } else if servers::default_server_id(database).await? != server_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
+    channels::ensure_channel_read_access(
+        database,
+        server_id,
+        channel_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
     let image = poll_actions::service::load_event_cover_photo(
         database, poll_id, image_id,
     )
@@ -318,14 +321,17 @@ pub(super) async fn get_poll_image(
     poll_id: Uuid,
     image_id: Uuid,
     user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<StoredPollImage> {
     load_poll(database, server_id, channel_id, poll_id).await?;
-    if let Some(user_id) = user_id {
-        channels::ensure_channel_membership(database, channel_id, user_id)
-            .await?;
-    } else if servers::default_server_id(database).await? != server_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
+    channels::ensure_channel_read_access(
+        database,
+        server_id,
+        channel_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
     let image = poll_images::Entity::find_by_id(image_id)
         .filter(poll_images::Column::PollId.eq(poll_id))
         .one(database)
@@ -446,10 +452,17 @@ pub(super) async fn get_active_decisions(
     database: &DatabaseConnection,
     server_id: Uuid,
     current_user_id: Option<Uuid>,
+    invite_token: Option<&str>,
     before: Option<&str>,
     limit: u64,
 ) -> AppResult<ActiveDecisionsResponse> {
-    servers::ensure_server(database, server_id).await?;
+    servers::ensure_server_read_access(
+        database,
+        server_id,
+        current_user_id,
+        invite_token,
+    )
+    .await?;
     let cursor = before.map(ActiveDecisionCursor::parse).transpose()?;
 
     let current_user = if let Some(user_id) = current_user_id {
@@ -461,11 +474,9 @@ pub(super) async fn get_active_decisions(
         None
     };
     let response_user_id = current_user.as_ref().map(|user| user.id);
-    let registered_user_id = current_user
-        .filter(|user| !user.anonymous)
-        .map(|user| user.id);
+    let member_user_id = current_user.map(|user| user.id);
 
-    let channels = if let Some(user_id) = registered_user_id {
+    let channels = if let Some(user_id) = member_user_id {
         let channel_ids = channel_members::Entity::find()
             .filter(channel_members::Column::UserId.eq(user_id))
             .all(database)
@@ -486,10 +497,6 @@ pub(super) async fn get_active_decisions(
                 .map_err(internal_error)?
         }
     } else {
-        if servers::default_server_id(database).await? != server_id {
-            return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-        }
-
         channel_entities::Entity::find()
             .filter(channel_entities::Column::ServerId.eq(server_id))
             .all(database)

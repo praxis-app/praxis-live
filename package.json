@@ -4,17 +4,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b tsconfig.app.json tsconfig.node.json && vite build",
     "build:rust": "./scripts/build-linux-artifact.sh",
     "types": "tsc -b",
-    "types:e2e": "tsc -b tsconfig.e2e.json",
     "lint": "eslint .",
-    "check": "npm run types && npm run types:e2e && npm run lint && npm audit",
+    "check": "npm run types && npm run lint && npm audit",
     "cli": "node ./cli/praxis-cli.mjs",
     "preview": "vite preview",
     "test:api:integration": "cargo test -p api --test http_routes --",
-    "test:e2e": "npm run types:e2e && tsx ./e2e/run-e2e.ts",
-    "test:e2e:headed": "npm run types:e2e && PLAYWRIGHT_SLOW_MO=1000 tsx ./e2e/run-e2e.ts --headed",
+    "test:e2e": "npm run types && tsx ./e2e/run-e2e.ts",
+    "test:e2e:headed": "npm run types && PLAYWRIGHT_SLOW_MO=1000 tsx ./e2e/run-e2e.ts --headed",
     "test:e2e:install": "npx playwright install chromium"
   },
   "dependencies": {

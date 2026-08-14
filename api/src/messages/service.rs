@@ -405,6 +405,7 @@ pub(super) async fn get_message_image(
     message_id: Uuid,
     image_id: Uuid,
     user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<StoredImage> {
     let message = messages::Entity::find_by_id(message_id)
         .one(database)
@@ -418,13 +419,14 @@ pub(super) async fn get_message_image(
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Message not found."));
     }
 
-    channels::get_channel(database, server_id, channel_id).await?;
-    if let Some(user_id) = user_id {
-        channels::ensure_channel_membership(database, channel_id, user_id)
-            .await?;
-    } else if crate::servers::default_server_id(database).await? != server_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-    }
+    channels::ensure_channel_read_access(
+        database,
+        server_id,
+        channel_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
 
     load_message_image(database, upload_root, message_id, image_id).await
 }
@@ -465,11 +467,19 @@ pub(super) async fn get_call_message_image(
     call_id: Uuid,
     message_id: Uuid,
     image_id: Uuid,
-    user_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<StoredImage> {
     load_call_message(database, server_id, channel_id, call_id, message_id)
         .await?;
-    channels::ensure_channel_membership(database, channel_id, user_id).await?;
+    channels::ensure_channel_read_access(
+        database,
+        server_id,
+        channel_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
     load_message_image(database, upload_root, message_id, image_id).await
 }
 

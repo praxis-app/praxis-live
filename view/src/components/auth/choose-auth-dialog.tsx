@@ -29,9 +29,8 @@ interface Props {
 }
 
 export const ChooseAuthDialog = ({ isOpen, setIsOpen, sendMessage }: Props) => {
-  const { inviteToken, setIsLoggedIn, setAccessToken } = useAuthStore(
-    (state) => state,
-  );
+  const { inviteToken, setIsLoggedIn, setAccessToken, setInviteToken } =
+    useAuthStore((state) => state);
 
   const { serverId } = useServerData();
   const { signUpPath } = useAuthData();
@@ -54,6 +53,7 @@ export const ChooseAuthDialog = ({ isOpen, setIsOpen, sendMessage }: Props) => {
       localStorage.setItem(LocalStorageKeys.AccessToken, access_token);
       localStorage.removeItem(LocalStorageKeys.InviteToken);
       setAccessToken(access_token);
+      setInviteToken(null);
       setIsLoggedIn(true);
       sendMessage();
     },

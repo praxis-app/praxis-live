@@ -170,22 +170,14 @@ class ApiClient {
   // Channels & Messages
   // -------------------------------------------------------------------------
 
-  getChannel = async (
-    serverId: string,
-    channelId: string,
-    inviteToken?: string | null,
-  ) => {
+  getChannel = async (serverId: string, channelId: string) => {
     const path = `/servers/${serverId}/channels/${channelId}`;
-    return this.executeRequest<{ channel: ChannelRes }>('get', path, {
-      params: { inviteToken },
-    });
+    return this.executeRequest<{ channel: ChannelRes }>('get', path);
   };
 
-  getChannels = async (serverId: string, inviteToken?: string | null) => {
+  getChannels = async (serverId: string) => {
     const path = `/servers/${serverId}/channels`;
-    return this.executeRequest<{ channels: ChannelRes[] }>('get', path, {
-      params: { inviteToken },
-    });
+    return this.executeRequest<{ channels: ChannelRes[] }>('get', path);
   };
 
   getJoinedChannels = async (serverId: string) => {
@@ -198,11 +190,10 @@ class ApiClient {
     channelId: string,
     cursor: { before?: string; after?: string },
     limit: number,
-    inviteToken?: string | null,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/feed`;
     return this.executeRequest<FeedPageRes>('get', path, {
-      params: { ...cursor, limit, inviteToken },
+      params: { ...cursor, limit },
     });
   };
 
@@ -408,12 +399,10 @@ class ApiClient {
     channelId: string,
     messageId: string,
     imageId: string,
-    inviteToken?: string | null,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/messages/${messageId}/images/${imageId}`;
     return this.executeRequest<Blob>('get', path, {
       responseType: 'blob',
-      params: { inviteToken },
     });
   };
 
@@ -868,7 +857,11 @@ class ApiClient {
   ): Promise<T> {
     try {
       const token = localStorage.getItem(LocalStorageKeys.AccessToken);
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const inviteToken = localStorage.getItem(LocalStorageKeys.InviteToken);
+      const headers = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(inviteToken ? { 'X-Invite-Token': inviteToken } : {}),
+      };
 
       const response: AxiosResponse<T> = await this.axiosInstance.request<T>({
         method,

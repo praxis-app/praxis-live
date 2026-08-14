@@ -6,15 +6,22 @@ use sea_orm::prelude::Uuid;
 
 use crate::{
     auth::{AuthenticatedUserOptional, HasJwtSecret},
+    calls::types::CallPath,
     channels::{self, extractors::HasDatabase},
     common::ApiError,
-    servers,
+    invites::InviteAccessToken,
 };
 
 pub(super) struct ChannelFeedAccessContext {
     pub(super) server_id: Uuid,
     pub(super) channel_id: Uuid,
     pub(super) user_id: Option<Uuid>,
+}
+
+pub(super) struct CallFeedAccessContext {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) call_id: Uuid,
 }
 
 impl<S> FromRequestParts<S> for ChannelFeedAccessContext
@@ -37,32 +44,59 @@ where
             })?;
         let AuthenticatedUserOptional(user_id) =
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
+        let InviteAccessToken(invite_token) =
+            InviteAccessToken::from_request_parts(parts, state).await?;
 
-        channels::get_channel(
+        channels::ensure_channel_read_access(
             state.database(),
             path.server_id,
             path.channel_id,
+            user_id,
+            invite_token.as_deref(),
         )
         .await?;
-
-        // TODO: Allow logged-out invite holders to read feeds and their server-scoped images.
-        if let Some(user_id) = user_id {
-            channels::ensure_channel_membership(
-                state.database(),
-                path.channel_id,
-                user_id,
-            )
-            .await?;
-        } else if servers::default_server_id(state.database()).await?
-            != path.server_id
-        {
-            return Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."));
-        }
 
         Ok(Self {
             server_id: path.server_id,
             channel_id: path.channel_id,
             user_id,
+        })
+    }
+}
+
+impl<S> FromRequestParts<S> for CallFeedAccessContext
+where
+    S: HasDatabase + HasJwtSecret + Send + Sync,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) = Path::<CallPath>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| {
+                ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
+            })?;
+        let AuthenticatedUserOptional(user_id) =
+            AuthenticatedUserOptional::from_request_parts(parts, state).await?;
+        let InviteAccessToken(invite_token) =
+            InviteAccessToken::from_request_parts(parts, state).await?;
+
+        channels::ensure_channel_read_access(
+            state.database(),
+            path.server_id,
+            path.channel_id,
+            user_id,
+            invite_token.as_deref(),
+        )
+        .await?;
+
+        Ok(Self {
+            server_id: path.server_id,
+            channel_id: path.channel_id,
+            call_id: path.call_id,
         })
     }
 }

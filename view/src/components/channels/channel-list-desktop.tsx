@@ -38,7 +38,7 @@ export const ChannelListDesktop = () => {
         if (!serverId) {
           throw new Error('Current server not found');
         }
-        return api.getChannels(serverId, inviteToken);
+        return api.getChannels(serverId);
       },
       enabled: !!serverId && isAuthError,
     });

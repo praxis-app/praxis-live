@@ -361,9 +361,16 @@ pub(super) async fn get_user_image(
     current_user_id: Option<Uuid>,
     user_id: Uuid,
     image_id: Uuid,
+    invite_token: Option<&str>,
 ) -> AppResult<StoredUserImage> {
-    authorize_user_image_access(database, current_user_id, user_id, image_id)
-        .await?;
+    authorize_user_image_access(
+        database,
+        current_user_id,
+        user_id,
+        image_id,
+        invite_token,
+    )
+    .await?;
 
     let image = user_images::Entity::find_by_id(image_id)
         .one(database)
@@ -463,14 +470,21 @@ async fn authorize_user_image_access(
     current_user_id: Option<Uuid>,
     user_id: Uuid,
     image_id: Uuid,
+    invite_token: Option<&str>,
 ) -> AppResult<()> {
+    let invited_server_member = if current_user_id.is_none() {
+        is_member_of_invited_server(database, invite_token, user_id).await?
+    } else {
+        false
+    };
     let profile_picture = get_user_profile_picture(database, user_id).await?;
     if profile_picture
         .as_ref()
         .is_some_and(|image| image.id == image_id.to_string())
     {
         let allowed = current_user_id == Some(user_id)
-            || is_default_server_member(database, user_id).await?;
+            || is_default_server_member(database, user_id).await?
+            || invited_server_member;
         return if allowed {
             Ok(())
         } else {
@@ -488,7 +502,7 @@ async fn authorize_user_image_access(
         } else if let Some(current_user_id) = current_user_id {
             has_shared_channel(database, current_user_id, user_id).await?
         } else {
-            false
+            invited_server_member
         };
         return if allowed {
             Ok(())
@@ -498,6 +512,30 @@ async fn authorize_user_image_access(
     }
 
     Err(ApiError::new(StatusCode::NOT_FOUND, "Image not found."))
+}
+
+async fn is_member_of_invited_server(
+    database: &DatabaseConnection,
+    invite_token: Option<&str>,
+    user_id: Uuid,
+) -> AppResult<bool> {
+    let Some(invite_token) = invite_token else {
+        return Ok(false);
+    };
+    let Some(server_id) =
+        crate::invites::service::valid_invite_server_id(database, invite_token)
+            .await?
+    else {
+        return Ok(false);
+    };
+
+    server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .filter(server_members::Column::UserId.eq(user_id))
+        .one(database)
+        .await
+        .map_err(internal_error)
+        .map(|membership| membership.is_some())
 }
 
 fn shape_image_reference(image: &user_images::Model) -> UserImageRef {

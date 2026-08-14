@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import {
   authorizationHeaders,
   createAuthenticatedUser,
@@ -7,6 +8,8 @@ import {
 import { createTestUser } from '../lib/data';
 import { assertUuid, runDatabaseCommand } from '../lib/db';
 import { createPlanEventProposal } from '../lib/events';
+import { expectImageToLoad } from '../lib/images';
+import { createInvite } from '../lib/invites';
 import {
   getPollVoteSummary,
   makeProposalsRatifyWithOneAgreeVote,
@@ -428,6 +431,179 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     page.getByRole('button', { name: 'Going', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('invite holder can view events and event details in a non-default server', async ({
+  context,
+  page,
+  request,
+}) => {
+  const admin = await signUpViaApi(
+    request,
+    createTestUser('invite-events-admin'),
+  );
+  const serverSlug = `invite-events-${admin.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(admin),
+    data: {
+      name: `Invite events ${admin.user.suffix}`,
+      slug: serverSlug,
+      description: 'Non-default server for invited event access.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+
+  const getServerResponse = await request.get(
+    `/api/servers/slug/${serverSlug}`,
+    { headers: authorizationHeaders(admin) },
+  );
+  await expect(getServerResponse).toBeOK();
+  const { server } = (await getServerResponse.json()) as {
+    server: {
+      id: string;
+      slug: string;
+      generalChannelId: string;
+    };
+  };
+
+  await makeProposalsRatifyWithOneAgreeVote(request, admin, server.id);
+  const eventName = `Invited event ${admin.user.suffix}`;
+  const eventDescription = 'Event visible to a logged-out invite holder.';
+  const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60_000);
+  startsAt.setHours(12, 0, 0, 0);
+  const createProposalResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+    {
+      headers: authorizationHeaders(admin),
+      multipart: {
+        payload: JSON.stringify({
+          body: `Plan ${eventName}`,
+          pollType: 'proposal',
+          action: {
+            actionType: 'plan-event',
+            event: {
+              name: eventName,
+              description: eventDescription,
+              startsAt: startsAt.toISOString(),
+              online: true,
+              hostIds: [admin.userId],
+            },
+          },
+        }),
+        file: {
+          name: 'valid-image.png',
+          mimeType: 'image/png',
+          buffer: await readFile('e2e/fixtures/valid-image.png'),
+        },
+      },
+    },
+  );
+  await expect(createProposalResponse).toBeOK();
+  const { poll } = (await createProposalResponse.json()) as PollResponse;
+  expect(poll.action?.actionType).toBe('plan-event');
+  if (!poll.action) {
+    throw new Error('Plan-event proposal response did not include its action.');
+  }
+
+  const createVoteResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls/${poll.id}/votes`,
+    {
+      headers: authorizationHeaders(admin),
+      data: { voteType: 'agree' },
+    },
+  );
+  await expect(createVoteResponse).toBeOK();
+
+  const authenticatedEventsResponse = await request.get(
+    `/api/servers/${server.id}/events`,
+    {
+      headers: authorizationHeaders(admin),
+      params: {
+        from: new Date(startsAt.getTime() - 24 * 60 * 60_000).toISOString(),
+        to: new Date(startsAt.getTime() + 24 * 60 * 60_000).toISOString(),
+      },
+    },
+  );
+  await expect(authenticatedEventsResponse).toBeOK();
+  const createdEvent = (
+    (await authenticatedEventsResponse.json()) as {
+      events: EventResponse[];
+    }
+  ).events.find((event) => event.sourcePollActionId === poll.action?.id);
+  expect(createdEvent).toBeTruthy();
+  if (!createdEvent) {
+    throw new Error('Ratified proposal did not create an event.');
+  }
+  expect(createdEvent.coverPhoto).toBeTruthy();
+  if (!createdEvent.coverPhoto) {
+    throw new Error('Ratified event did not preserve its cover photo.');
+  }
+
+  const inviteToken = await createInvite(request, admin, server.id);
+  await context.addInitScript((token) => {
+    window.localStorage.removeItem('access_token');
+    window.localStorage.setItem('invite-token', token);
+  }, inviteToken);
+
+  const eventsPath = `/api/servers/${server.id}/events`;
+  const listResponsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'GET' && url.pathname === eventsPath;
+  });
+  const coverPath = `${eventsPath}/${createdEvent.id}/cover-photos/${createdEvent.coverPhoto.id}`;
+  const coverResponsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'GET' && url.pathname === coverPath;
+  });
+  await page.goto(
+    `/s/${server.slug}/events?view=list&date=${startsAt.toISOString().slice(0, 10)}`,
+  );
+  const listResponse = await listResponsePromise;
+  const coverResponse = await coverResponsePromise;
+
+  const detailPath = `${eventsPath}/${createdEvent.id}`;
+  const detailResponsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'GET' && url.pathname === detailPath;
+  });
+  await page.goto(`/s/${server.slug}/events/${createdEvent.id}`);
+  const detailResponse = await detailResponsePromise;
+
+  expect(listResponse.status()).toBe(200);
+  expect(detailResponse.status()).toBe(200);
+  expect(coverResponse.status()).toBe(200);
+
+  await page.goto(
+    `/s/${server.slug}/events?view=list&date=${startsAt.toISOString().slice(0, 10)}`,
+  );
+  const eventLink = page.getByRole('link', { name: new RegExp(eventName) });
+  await expect(eventLink).toBeVisible();
+  await expectImageToLoad(eventLink.getByRole('img', { name: 'Cover photo' }));
+  await eventLink.click();
+  await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
+  await expect(page.getByText(eventName, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(eventDescription, { exact: true })).toBeVisible();
+
+  let rsvpRequestCount = 0;
+  page.on('request', (pageRequest) => {
+    const url = new URL(pageRequest.url());
+    if (
+      ['PUT', 'DELETE'].includes(pageRequest.method()) &&
+      url.pathname === `${detailPath}/rsvp`
+    ) {
+      rsvpRequestCount += 1;
+    }
+  });
+
+  const signInPrompt = page.getByText(
+    'You need to sign in or sign up to attend events.',
+    { exact: true },
+  );
+  await page.getByRole('button', { name: 'Interested', exact: true }).click();
+  await expect(signInPrompt).toBeVisible();
+  await page.getByRole('button', { name: 'Going', exact: true }).click();
+  expect(rsvpRequestCount).toBe(0);
 });
 
 test('invalid cover photo rolls back event proposal creation', async ({

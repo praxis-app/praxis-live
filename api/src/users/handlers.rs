@@ -20,6 +20,7 @@ use crate::{
         storage::upload_root,
         AppResult,
     },
+    invites::InviteAccessToken,
     servers::{self, types::ServersPayload},
 };
 
@@ -130,6 +131,7 @@ pub(super) async fn get_user_image(
     State(state): State<UsersState>,
     Path(path): Path<UserImagePath>,
     AuthenticatedUserOptional(current_user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Response<axum::body::Body>> {
     let image = service::get_user_image(
         &state.database,
@@ -137,6 +139,7 @@ pub(super) async fn get_user_image(
         current_user_id,
         path.user_id,
         path.image_id,
+        invite_token.as_deref(),
     )
     .await?;
 

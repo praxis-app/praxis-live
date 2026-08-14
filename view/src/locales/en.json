@@ -361,6 +361,9 @@
       "description": "Try another month or filter.",
       "attendees": "No one yet."
     },
+    "prompts": {
+      "signInToAttend": "You need to sign in or sign up to attend events."
+    },
     "errors": {
       "load": "Events could not be loaded.",
       "loadDetail": "This event could not be loaded.",

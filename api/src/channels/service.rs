@@ -182,6 +182,38 @@ pub(crate) async fn ensure_channel_membership(
     }
 }
 
+pub(crate) async fn ensure_channel_read_access(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    channel_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
+) -> AppResult<()> {
+    get_channel(database, server_id, channel_id).await?;
+
+    if let Some(user_id) = user_id {
+        return ensure_channel_membership(database, channel_id, user_id).await;
+    }
+
+    if servers_service::default_server_id(database).await? == server_id {
+        return Ok(());
+    }
+
+    if let Some(invite_token) = invite_token {
+        if crate::invites::service::is_valid_invite_for_server(
+            database,
+            invite_token,
+            server_id,
+        )
+        .await?
+        {
+            return Ok(());
+        }
+    }
+
+    Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+}
+
 pub(crate) async fn get_channel_member_user_ids<C>(
     database: &C,
     channel_id: Uuid,

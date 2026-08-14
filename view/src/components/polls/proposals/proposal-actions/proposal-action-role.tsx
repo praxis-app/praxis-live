@@ -1,6 +1,7 @@
 import { api } from '@/client/api-client';
 import { SERVER_PERMISSION_KEYS } from '@/constants/role.constants';
 import { useServerData } from '@/hooks/use-server-data';
+import { useAuthStore } from '@/store/auth.store';
 import { type PollActionRes } from '@/types/poll-action.types';
 import { type ServerPermissionKeys } from '@/types/role.types';
 import { useQuery } from '@tanstack/react-query';
@@ -17,10 +18,17 @@ export const ACCORDION_ITEM_VALUE = 'role-change-proposal';
 
 export const ProposalActionRole = ({ action }: { action: PollActionRes }) => {
   const { serverId } = useServerData();
+  const { inviteToken } = useAuthStore();
   const { t } = useTranslation();
 
   const { data: serverRoleData } = useQuery({
-    queryKey: ['servers', serverId, 'roles', action.serverRole?.serverRoleId],
+    queryKey: [
+      'servers',
+      serverId,
+      'roles',
+      action.serverRole?.serverRoleId,
+      ...(inviteToken ? ['invite', inviteToken] : []),
+    ],
     queryFn: () => {
       if (!action.serverRole?.serverRoleId || !serverId) {
         throw new Error('Server role ID is required');

@@ -7,7 +7,6 @@ import {
 } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
-import { useAuthStore } from '@/store/auth.store';
 import {
   type RightPanel,
   type StandaloneRightPanel,
@@ -34,7 +33,6 @@ export const ChannelPage = () => {
   const [standaloneRightPanel, setStandaloneRightPanel] =
     useState<StandaloneRightPanel | null>(getDefaultStandaloneRightPanel);
 
-  const { inviteToken } = useAuthStore();
   const { isRegistered } = useAuthData();
   const { serverId } = useServerData();
 
@@ -88,7 +86,7 @@ export const ChannelPage = () => {
         if (!serverId || !channelId) {
           throw new Error('Missing server or channel id');
         }
-        const result = await api.getChannel(serverId, channelId, inviteToken);
+        const result = await api.getChannel(serverId, channelId);
         return result;
       } catch (error) {
         await navigate(

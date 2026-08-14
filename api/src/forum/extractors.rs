@@ -10,7 +10,7 @@ use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     channels::{self, extractors::HasDatabase},
     common::ApiError,
-    servers,
+    invites::InviteAccessToken,
 };
 
 pub(super) struct ForumReadContext {
@@ -42,11 +42,14 @@ where
         let Path(path) = forum_channel_path(parts, state).await?;
         let AuthenticatedUserOptional(user_id) =
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
+        let InviteAccessToken(invite_token) =
+            InviteAccessToken::from_request_parts(parts, state).await?;
         ensure_forum_read_access(
             state,
             path.server_id,
             path.channel_id,
             user_id,
+            invite_token.as_deref(),
         )
         .await?;
 
@@ -69,11 +72,14 @@ where
         let Path(path) = forum_post_path(parts, state).await?;
         let AuthenticatedUserOptional(user_id) =
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
+        let InviteAccessToken(invite_token) =
+            InviteAccessToken::from_request_parts(parts, state).await?;
         ensure_forum_read_access(
             state,
             path.server_id,
             path.channel_id,
             user_id,
+            invite_token.as_deref(),
         )
         .await?;
 
@@ -178,23 +184,20 @@ async fn ensure_forum_read_access<S>(
     server_id: Uuid,
     channel_id: Uuid,
     user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> Result<(), ApiError>
 where
     S: HasDatabase + Send + Sync,
 {
     ensure_forum_channel(state, server_id, channel_id).await?;
-    if let Some(user_id) = user_id {
-        channels::ensure_channel_membership(
-            state.database(),
-            channel_id,
-            user_id,
-        )
-        .await
-    } else if servers::default_server_id(state.database()).await? == server_id {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
+    channels::ensure_channel_read_access(
+        state.database(),
+        server_id,
+        channel_id,
+        user_id,
+        invite_token,
+    )
+    .await
 }
 
 impl<S> FromRequestParts<S> for ForumReplyAccessContext

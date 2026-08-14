@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
+import { useAuthStore } from '@/store/auth.store';
 import { type PollRes } from '@/types/poll.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useQuery } from '@tanstack/react-query';
@@ -38,6 +39,7 @@ export const PollVoteBreakdown = ({
   const { t } = useTranslation();
   const isDesktop = useIsDesktop();
   const { serverId } = useServerData();
+  const { inviteToken } = useAuthStore();
 
   const { body, options, votes } = poll;
   const totalVotes = votes?.length ?? 0;
@@ -46,7 +48,14 @@ export const PollVoteBreakdown = ({
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   const { data: votersData } = useQuery({
-    queryKey: ['pollOptionVoters', serverId, channelId, poll.id, activeTab],
+    queryKey: [
+      'poll-option-voters',
+      serverId,
+      channelId,
+      poll.id,
+      activeTab,
+      inviteToken,
+    ],
     queryFn: () => {
       if (!serverId) {
         throw new Error('Server ID is required');

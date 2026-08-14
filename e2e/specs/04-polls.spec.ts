@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, type Response } from '@playwright/test';
 import {
   authorizationHeaders,
@@ -7,6 +8,7 @@ import {
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { expectImageToLoad } from '../lib/images';
+import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
   expirePollDeadline,
@@ -392,6 +394,271 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
   }
 
   await expect(panel.getByText(finalDecision)).toBeVisible();
+});
+
+test('invite holder can read active decisions in a non-default server', async ({
+  context,
+  page,
+  request,
+}) => {
+  const admin = await signUpViaApi(
+    request,
+    createTestUser('invite-decisions-admin'),
+  );
+  const serverSlug = `invite-decisions-${admin.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(admin),
+    data: {
+      name: `Invite decisions ${admin.user.suffix}`,
+      slug: serverSlug,
+      description: 'Non-default server for invite decision access.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+
+  const getServerResponse = await request.get(
+    `/api/servers/slug/${serverSlug}`,
+    { headers: authorizationHeaders(admin) },
+  );
+  await expect(getServerResponse).toBeOK();
+  const { server } = (await getServerResponse.json()) as {
+    server: {
+      id: string;
+      slug: string;
+      generalChannelId: string;
+    };
+  };
+
+  const decisionBody = `Invited decision ${admin.user.suffix}`;
+  const createPollResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+    {
+      headers: authorizationHeaders(admin),
+      data: {
+        body: decisionBody,
+        pollType: 'poll',
+        options: ['Yes', 'No'],
+        multipleChoice: false,
+        closingAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      },
+    },
+  );
+  await expect(createPollResponse).toBeOK();
+
+  const inviteToken = await createInvite(request, admin, server.id);
+  await context.addInitScript((token) => {
+    window.localStorage.removeItem('access_token');
+    window.localStorage.setItem('invite-token', token);
+  }, inviteToken);
+
+  await page.setViewportSize({ width: 1180, height: 720 });
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+
+  const decisionsResponsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === `/api/servers/${server.id}/decisions`;
+  });
+  await page.getByRole('button', { name: 'Toggle active decisions' }).click();
+
+  expect((await decisionsResponsePromise).status()).toBe(200);
+  const panel = page.getByRole('complementary', {
+    name: 'Active decisions',
+  });
+  await expect(panel.getByText(decisionBody)).toBeVisible();
+});
+
+test('invite holder can read proposals for all action types', async ({
+  context,
+  page,
+  request,
+}) => {
+  const admin = await signUpViaApi(
+    request,
+    createTestUser('invite-proposal-actions-admin'),
+  );
+  const serverSlug = `invite-actions-${admin.user.suffix}`;
+  const createServerResponse = await request.post('/api/servers', {
+    headers: authorizationHeaders(admin),
+    data: {
+      name: `Invite actions ${admin.user.suffix}`,
+      slug: serverSlug,
+      description: 'Non-default server for invited proposal action access.',
+      isDefaultServer: false,
+    },
+  });
+  await expect(createServerResponse).toBeOK();
+
+  const getServerResponse = await request.get(
+    `/api/servers/slug/${serverSlug}`,
+    { headers: authorizationHeaders(admin) },
+  );
+  await expect(getServerResponse).toBeOK();
+  const { server } = (await getServerResponse.json()) as {
+    server: {
+      id: string;
+      slug: string;
+      generalChannelId: string;
+    };
+  };
+  const adminRole = await getAdminRole(request, admin, server.id);
+  const proposalPath =
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
+  const bodies = {
+    general: `Invited general proposal ${admin.user.suffix}`,
+    changeSettings: `Invited settings proposal ${admin.user.suffix}`,
+    changeRole: `Invited role change proposal ${admin.user.suffix}`,
+    createRole: `Invited role creation proposal ${admin.user.suffix}`,
+    planEvent: `Invited event proposal ${admin.user.suffix}`,
+    test: `Invited test proposal ${admin.user.suffix}`,
+  };
+  const createdRoleName = `invite-reader-${admin.user.suffix}`;
+  const eventName = `Invite event ${admin.user.suffix}`;
+  const eventDescription = 'Event details visible to an invite holder.';
+  const eventStartsAt = new Date(Date.now() + 7 * 24 * 60 * 60_000);
+
+  const createProposal = async (
+    body: string,
+    action: Record<string, unknown>,
+  ) => {
+    const response = await request.post(proposalPath, {
+      headers: authorizationHeaders(admin),
+      data: { body, pollType: 'proposal', action },
+    });
+    await expect(response).toBeOK();
+  };
+
+  await createProposal(bodies.general, { actionType: 'general' });
+  await createProposal(bodies.changeSettings, {
+    actionType: 'change-settings',
+    serverConfig: { anonymousUsersEnabled: true },
+  });
+  await createProposal(bodies.changeRole, {
+    actionType: 'change-role',
+    serverRole: {
+      serverRoleToUpdateId: adminRole.id,
+      permissions: [
+        {
+          subject: 'ServerConfig',
+          actions: [{ action: 'manage', changeType: 'remove' }],
+        },
+      ],
+    },
+  });
+  await createProposal(bodies.createRole, {
+    actionType: 'create-role',
+    serverRole: {
+      name: createdRoleName,
+      color: changedRoleColor,
+      permissions: [
+        {
+          subject: 'Channel',
+          actions: [{ action: 'manage', changeType: 'add' }],
+        },
+      ],
+    },
+  });
+  await createProposal(bodies.test, { actionType: 'test' });
+
+  const planEventPayload = {
+    body: bodies.planEvent,
+    pollType: 'proposal',
+    action: {
+      actionType: 'plan-event',
+      event: {
+        name: eventName,
+        description: eventDescription,
+        startsAt: eventStartsAt.toISOString(),
+        online: true,
+        hostIds: [admin.userId],
+      },
+    },
+  };
+  const createPlanEventResponse = await request.post(proposalPath, {
+    headers: authorizationHeaders(admin),
+    multipart: {
+      payload: JSON.stringify(planEventPayload),
+      file: {
+        name: 'valid-image.png',
+        mimeType: 'image/png',
+        buffer: await readFile('e2e/fixtures/valid-image.png'),
+      },
+    },
+  });
+  await expect(createPlanEventResponse).toBeOK();
+
+  const inviteToken = await createInvite(request, admin, server.id);
+  await context.addInitScript((token) => {
+    window.localStorage.removeItem('access_token');
+    window.localStorage.setItem('invite-token', token);
+  }, inviteToken);
+
+  const roleResponsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === `/api/servers/${server.id}/roles/${adminRole.id}` &&
+      response.request().method() === 'GET'
+    );
+  });
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+
+  expect((await roleResponsePromise).status()).toBe(200);
+
+  const generalProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${bodies.general}`,
+  });
+  await expect(generalProposal.getByText('General decision')).toBeVisible();
+
+  const settingsProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${bodies.changeSettings}`,
+  });
+  await expect(settingsProposal.getByText('Change settings')).toBeVisible();
+  await settingsProposal
+    .getByRole('button', { name: 'Settings change proposal: 1 setting change' })
+    .click();
+  await expect(settingsProposal.getByText('Anonymous users')).toBeVisible();
+  await expect(settingsProposal.getByText('Enabled')).toBeVisible();
+
+  const roleChangeProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${bodies.changeRole}`,
+  });
+  await expect(roleChangeProposal.getByText('Change role')).toBeVisible();
+  await roleChangeProposal
+    .getByRole('button', { name: 'Role change proposal: admin' })
+    .click();
+  await expect(roleChangeProposal.getByText('Manage settings')).toBeVisible();
+
+  const roleCreationProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${bodies.createRole}`,
+  });
+  await expect(roleCreationProposal.getByText('Create role')).toBeVisible();
+  await roleCreationProposal
+    .getByRole('button', { name: `Role proposal: ${createdRoleName}` })
+    .click();
+  await expect(roleCreationProposal.getByText('Manage channels')).toBeVisible();
+
+  const eventProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${bodies.planEvent}`,
+  });
+  await expect(eventProposal.getByText('Plan event')).toBeVisible();
+  const eventTrigger = eventProposal.getByRole('button', {
+    name: `Planned event: ${eventName}`,
+  });
+  const coverResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/event-cover-photos/'),
+  );
+  await eventTrigger.scrollIntoViewIfNeeded();
+  await expectImageToLoad(
+    eventTrigger.getByRole('img', { name: 'Cover photo' }),
+  );
+  expect((await coverResponsePromise).status()).toBe(200);
+  await eventTrigger.click();
+  await expect(eventProposal.getByText(eventDescription)).toBeVisible();
+
+  const testProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${bodies.test}`,
+  });
+  await expect(testProposal.getByText('Test', { exact: true })).toBeVisible();
 });
 
 test('active decision opens fully in view across channels and feed pages', async ({

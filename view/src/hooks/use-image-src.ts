@@ -52,7 +52,6 @@ export const useImageSrc = ({
           channelId,
           messageId,
           imageId,
-          inviteToken,
         );
       } else if (eventCoverPhoto && pollId && channelId) {
         if (!serverId) {
@@ -105,6 +104,7 @@ export const useImageSrc = ({
       eventId,
       eventCoverPhoto,
       userId,
+      inviteToken,
     ],
     queryFn: getImageSrc,
     enabled: !!imageId && viewed && enabled,
