@@ -1,28 +1,34 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{Response, StatusCode},
     response::Json,
 };
 use sea_orm::{prelude::Uuid, DatabaseConnection};
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use super::{
+    extractors::ServerEditContext,
     service,
     types::{
         AnonymousUsersEnabledResponse, JoinServerRequest, ServerConfigPayload,
-        ServerConfigRequest, ServerMembersRequest, ServerPath, ServerPayload,
-        ServerRequest, ServersPayload, UsersPayload,
+        ServerConfigRequest, ServerImagePath, ServerMembersRequest, ServerPath,
+        ServerPayload, ServerRequest, ServersPayload, UsersPayload,
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
-    common::{response::EmptyResponse, ApiError, AppResult},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
+    common::{
+        request::JsonOrMultipartFiles, response::EmptyResponse,
+        storage::upload_root, ApiError, AppResult,
+    },
+    invites::InviteAccessToken,
 };
 
 #[derive(Clone, Debug)]
 pub(super) struct ServersState {
-    database: DatabaseConnection,
+    pub(super) database: DatabaseConnection,
     jwt_secret: Arc<str>,
+    upload_root: Arc<PathBuf>,
 }
 
 impl ServersState {
@@ -33,6 +39,7 @@ impl ServersState {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
+            upload_root: Arc::new(upload_root()),
         }
     }
 }
@@ -92,23 +99,56 @@ pub(super) async fn get_default_server(
 pub(super) async fn create_server(
     State(state): State<ServersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
-    Json(payload): Json<ServerRequest>,
+    multipart: JsonOrMultipartFiles<ServerRequest>,
 ) -> AppResult<Json<ServerPayload>> {
-    let server =
-        service::create_server(&state.database, payload, user_id).await?;
+    let (payload, images) = multipart.into_payload_and_files();
+    let image = images.into_iter().next();
+    let server = service::create_server(
+        &state.database,
+        &state.upload_root,
+        payload,
+        user_id,
+        image,
+    )
+    .await?;
     Ok(Json(ServerPayload { server }))
 }
 
 pub(super) async fn update_server(
     State(state): State<ServersState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
-    Json(payload): Json<ServerRequest>,
+    context: ServerEditContext,
+    multipart: JsonOrMultipartFiles<ServerRequest>,
 ) -> AppResult<Json<ServerPayload>> {
-    let server =
-        service::update_server(&state.database, path.server_id, payload)
-            .await?;
+    let (payload, images) = multipart.into_payload_and_files();
+    let image = images.into_iter().next();
+    let server = service::update_server(
+        &state.database,
+        &state.upload_root,
+        context.path.server_id,
+        payload,
+        image,
+    )
+    .await?;
     Ok(Json(ServerPayload { server }))
+}
+
+pub(super) async fn get_server_image(
+    State(state): State<ServersState>,
+    Path(path): Path<ServerImagePath>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
+) -> AppResult<Response<axum::body::Body>> {
+    let image = service::get_server_image(
+        &state.database,
+        &state.upload_root,
+        path.server_id,
+        path.image_id,
+        user_id,
+        invite_token.as_deref(),
+    )
+    .await?;
+
+    crate::common::images::safe_image_response(image.bytes)
 }
 
 pub(super) async fn delete_server(
@@ -116,7 +156,8 @@ pub(super) async fn delete_server(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::delete_server(&state.database, path.server_id).await?;
+    service::delete_server(&state.database, &state.upload_root, path.server_id)
+        .await?;
     Ok(Json(EmptyResponse {}))
 }
 

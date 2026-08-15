@@ -1,4 +1,5 @@
 import { cn } from '@/lib/shared.utils';
+import { validateImageInput } from '@/lib/image.utilts';
 import { type ServerReq, type ServerRes } from '@/types/server.types';
 import { ServerErrorKeys } from '@/constants/server.constants';
 import { serverFormSchema } from '@/types/server.types';
@@ -18,12 +19,16 @@ import {
 import { Input } from '../ui/input';
 import { Switch } from '../ui/switch';
 import { Textarea } from '../ui/textarea';
+import { ImageInput } from '../images/image-input';
+import { ServerAvatar } from './server-avatar';
+import { useEffect, useMemo, useState } from 'react';
 
 interface Props {
   editServer?: ServerRes;
   isSubmitting: boolean;
-  onSubmit: (data: ServerReq) => Promise<ServerRes>;
+  onSubmit: (data: ServerReq, image?: File) => Promise<ServerRes>;
   className?: string;
+  showInstanceFields?: boolean;
 }
 
 export const ServerForm = ({
@@ -31,8 +36,23 @@ export const ServerForm = ({
   isSubmitting,
   onSubmit,
   className,
+  showInstanceFields = true,
 }: Props) => {
   const { t } = useTranslation();
+  const [selectedImage, setSelectedImage] = useState<File>();
+  const previewUrl = useMemo(
+    () => (selectedImage ? URL.createObjectURL(selectedImage) : undefined),
+    [selectedImage],
+  );
+
+  useEffect(
+    () => () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    },
+    [previewUrl],
+  );
 
   const form = useForm<ServerReq>({
     resolver: zodResolver(serverFormSchema),
@@ -53,7 +73,11 @@ export const ServerForm = ({
       .replace(/-+/g, '-');
 
   const handleSubmitForm = async (data: ServerReq) => {
-    const result = await onSubmit(data);
+    if (selectedImage) {
+      validateImageInput(selectedImage);
+    }
+    const result = await onSubmit(data, selectedImage);
+    setSelectedImage(undefined);
 
     if (editServer) {
       const nextValues = {
@@ -79,7 +103,7 @@ export const ServerForm = ({
       return true;
     }
     if (editServer) {
-      return !form.formState.isDirty;
+      return !form.formState.isDirty && !selectedImage;
     }
     return false;
   };
@@ -90,6 +114,39 @@ export const ServerForm = ({
         onSubmit={form.handleSubmit((fv) => handleSubmitForm(fv))}
         className={cn('space-y-4', className)}
       >
+        <div className="flex flex-col gap-2">
+          <FormLabel>{t('servers.form.image')}</FormLabel>
+          <div className="relative self-center">
+            <ServerAvatar
+              server={
+                editServer ?? {
+                  id: 'new-server',
+                  name: form.watch('name'),
+                }
+              }
+              imageSrc={previewUrl}
+              className="size-28"
+              fallbackClassName="text-2xl"
+              fallback="icon"
+            />
+            <ImageInput
+              onChange={(files) => setSelectedImage(files[0])}
+              disabled={isSubmitting}
+            >
+              <button
+                type="button"
+                aria-label={t('servers.actions.selectImage')}
+                disabled={isSubmitting}
+                className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/50 text-sm text-white opacity-0 transition-opacity hover:bg-black/60 hover:opacity-100 focus-visible:opacity-100 disabled:opacity-50"
+              >
+                {editServer?.image || selectedImage
+                  ? t('servers.actions.changeImage')
+                  : t('servers.actions.selectImage')}
+              </button>
+            </ImageInput>
+          </div>
+        </div>
+
         <FormField
           control={form.control}
           name="name"
@@ -103,7 +160,10 @@ export const ServerForm = ({
                   onChange={(e) => {
                     const value = e.target.value;
                     field.onChange(value);
-                    if (!form.getFieldState('slug').isDirty) {
+                    if (
+                      showInstanceFields &&
+                      !form.getFieldState('slug').isDirty
+                    ) {
                       form.setValue('slug', slugify(value));
                     }
                   }}
@@ -118,33 +178,37 @@ export const ServerForm = ({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="slug"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('servers.form.slug')}</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  autoComplete="off"
-                  onChange={(e) => {
-                    const value = slugify(e.target.value);
-                    field.onChange(value);
+        {showInstanceFields && (
+          <FormField
+            control={form.control}
+            name="slug"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('servers.form.slug')}</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const value = slugify(e.target.value);
+                      field.onChange(value);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage
+                  errorOverrides={{
+                    [ServerErrorKeys.SlugLength]: t(
+                      'servers.errors.slugLength',
+                    ),
+                    [ServerErrorKeys.SlugInvalid]: t(
+                      'servers.errors.invalidSlug',
+                    ),
                   }}
                 />
-              </FormControl>
-              <FormMessage
-                errorOverrides={{
-                  [ServerErrorKeys.SlugLength]: t('servers.errors.slugLength'),
-                  [ServerErrorKeys.SlugInvalid]: t(
-                    'servers.errors.invalidSlug',
-                  ),
-                }}
-              />
-            </FormItem>
-          )}
-        />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}
@@ -166,28 +230,30 @@ export const ServerForm = ({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="isDefaultServer"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-              <div className="space-y-0.5">
-                <FormLabel>{t('servers.form.defaultServer')}</FormLabel>
-                <FormDescription>
-                  {t('servers.form.defaultServerDescription')}
-                </FormDescription>
-              </div>
-              <FormControl>
-                <Switch
-                  checked={!!field.value}
-                  onCheckedChange={(checked) => field.onChange(checked)}
-                  aria-label={t('servers.form.defaultServer')}
-                  disabled={editServer?.isDefaultServer}
-                />
-              </FormControl>
-            </FormItem>
-          )}
-        />
+        {showInstanceFields && (
+          <FormField
+            control={form.control}
+            name="isDefaultServer"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <FormLabel>{t('servers.form.defaultServer')}</FormLabel>
+                  <FormDescription>
+                    {t('servers.form.defaultServerDescription')}
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={!!field.value}
+                    onCheckedChange={(checked) => field.onChange(checked)}
+                    aria-label={t('servers.form.defaultServer')}
+                    disabled={editServer?.isDefaultServer}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="flex justify-end">
           <Button type="submit" disabled={isSubmitDisabled()} className="w-22">

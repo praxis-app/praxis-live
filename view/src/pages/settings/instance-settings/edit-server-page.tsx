@@ -21,7 +21,7 @@ import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { handleError } from '@/lib/error.utils';
 import { type ServerReq, type ServerRes } from '@/types/server.types';
-import { type UserRes } from '@/types/user.types';
+import { type CurrentUserRes, type UserRes } from '@/types/user.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -99,13 +99,14 @@ export const EditServerPage = () => {
 
   const { mutateAsync: updateServer, isPending: isUpdatePending } = useMutation(
     {
-      mutationFn: async (values: ServerReq) => {
+      mutationFn: async ({ values, image }: { values: ServerReq; image?: File }) => {
         if (!serverId || !serverData?.server) {
           throw new Error('Server ID and server data are required');
         }
 
         const wasDefaultServer = serverData.server.isDefaultServer;
-        const updateResponse = await api.updateServer(serverId, values);
+        const previousSlug = serverData.server.slug;
+        const updateResponse = await api.updateServer(serverId, values, image);
         const { server: updatedServer } = updateResponse;
 
         queryClient.setQueryData<{ server: ServerRes }>(['servers', serverId], {
@@ -143,6 +144,39 @@ export const EditServerPage = () => {
         } else if (wasDefaultServer) {
           queryClient.invalidateQueries({ queryKey: ['servers', 'default'] });
         }
+
+        if (previousSlug !== updatedServer.slug) {
+          queryClient.removeQueries({
+            queryKey: ['servers', previousSlug],
+            exact: true,
+          });
+        }
+        queryClient.setQueryData<{ server: ServerRes }>(
+          ['servers', updatedServer.slug],
+          { server: updatedServer },
+        );
+        queryClient.setQueryData<{ servers: ServerRes[] }>(
+          ['me', 'servers'],
+          (oldData) =>
+            oldData && {
+              servers: oldData.servers.map((server) =>
+                server.id === updatedServer.id ? updatedServer : server,
+              ),
+            },
+        );
+        queryClient.setQueryData<{ user: CurrentUserRes }>(
+          ['me'],
+          (oldData) =>
+            oldData && {
+              user: {
+                ...oldData.user,
+                currentServer:
+                  oldData.user.currentServer?.id === updatedServer.id
+                    ? updatedServer
+                    : oldData.user.currentServer,
+              },
+            },
+        );
 
         return updatedServer;
       },
@@ -292,7 +326,7 @@ export const EditServerPage = () => {
                   className="pb-6"
                   editServer={serverData.server}
                   isSubmitting={isUpdatePending}
-                  onSubmit={(fv) => updateServer(fv)}
+                  onSubmit={(values, image) => updateServer({ values, image })}
                 />
               </CardContent>
             </Card>

@@ -1,17 +1,25 @@
 import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   authorizationHeaders,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
-import { createTestUser } from '../lib/data';
+import { createTestUser, INSTANCE_ADMIN_USER } from '../lib/data';
 import { createInvite } from '../lib/invites';
 import { AuthPage } from '../pages/auth.page';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
 
+const fixturePath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../fixtures/valid-image.png',
+);
+
 test('user can sign up from the landing page', async ({ page }) => {
-  const user = createTestUser('signup');
+  const user = INSTANCE_ADMIN_USER;
   const auth = new AuthPage(page);
   const chat = new ChatPage(page);
   const navigation = new NavigationPage(page);
@@ -64,16 +72,23 @@ test('invited user can log in and join the invited server', async ({
   const serverSlug = `invite-${admin.user.suffix}`;
   const createServerResponse = await request.post('/api/servers', {
     headers: authorizationHeaders(admin),
-    data: {
-      name: serverName,
-      slug: serverSlug,
-      description: 'Server for the invite login flow.',
-      isDefaultServer: false,
+    multipart: {
+      payload: JSON.stringify({
+        name: serverName,
+        slug: serverSlug,
+        description: 'Server for the invite login flow.',
+        isDefaultServer: false,
+      }),
+      file: {
+        name: 'server-image.png',
+        mimeType: 'image/png',
+        buffer: readFileSync(fixturePath),
+      },
     },
   });
   await expect(createServerResponse).toBeOK();
   const { server } = (await createServerResponse.json()) as {
-    server: { id: string; slug: string };
+    server: { id: string; slug: string; image: { id: string } };
   };
   const inviteToken = await createInvite(request, admin, server.id);
   const invitedUser = createTestUser('invite-member');
@@ -88,15 +103,23 @@ test('invited user can log in and join the invited server', async ({
     page.getByRole('link', { name: 'Accept invite', exact: true }).first(),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Log in', exact: true }).click();
+
+  const serverImageResponse = page.waitForResponse((response) =>
+    response.url().endsWith(
+      `/api/servers/${server.id}/images/${server.image.id}`,
+    ),
+  );
   await auth.logIn(invitedUser);
 
   await expect(page).toHaveURL(`/i/${inviteToken}/join`);
+  expect((await serverImageResponse).status()).toBe(200);
   await expect(
     page.getByRole('heading', { name: "You've been invited" }),
   ).toBeVisible();
   await expect(
     page.getByRole('heading', { name: serverName, exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole('img', { name: serverName })).toBeVisible();
 
   const joinResponse = page.waitForResponse(
     (response) =>

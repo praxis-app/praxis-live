@@ -1,5 +1,5 @@
 import { api } from '@/client/api-client';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ServerAvatar } from '@/components/servers/server-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,8 +14,6 @@ import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { cn } from '@/lib/shared.utils';
 import { useAuthStore } from '@/store/auth.store';
 import { useQuery } from '@tanstack/react-query';
-import chroma from 'chroma-js';
-import ColorHash from 'color-hash';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -52,21 +50,6 @@ export const SwitchServerDialog = ({ open, onOpenChange, onSelect }: Props) => {
     return 0;
   });
 
-  const getInitial = (value: string) => {
-    return (value?.trim()?.[0] || '?').toUpperCase();
-  };
-
-  const getStringAvatarProps = (serverId: string, serverName: string) => {
-    const colorHash = new ColorHash();
-    const baseColor = colorHash.hex(serverId || serverName);
-    const color = chroma(baseColor).brighten(1.5).hex();
-    const backgroundColor = chroma(baseColor).darken(1.35).hex();
-
-    return {
-      style: { color, backgroundColor },
-    };
-  };
-
   const handleSelect = (slug: string) => {
     onOpenChange(false);
     navigate(`/s/${slug}`);
@@ -102,14 +85,10 @@ export const SwitchServerDialog = ({ open, onOpenChange, onSelect }: Props) => {
                 )}
                 onClick={() => handleSelect(server.slug)}
               >
-                <Avatar className="size-10 shrink-0">
-                  <AvatarFallback
-                    className="text-lg font-light uppercase"
-                    {...getStringAvatarProps(server.id, server.name)}
-                  >
-                    {getInitial(server.name)}
-                  </AvatarFallback>
-                </Avatar>
+                <ServerAvatar
+                  server={server}
+                  className="size-10 shrink-0"
+                />
                 <div className="flex w-[70vw] min-w-0 flex-col gap-0.5 text-left">
                   <div className="flex items-center gap-2 truncate leading-tight font-semibold">
                     <div className="truncate">{server.name}</div>

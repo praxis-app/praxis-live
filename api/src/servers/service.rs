@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use entity::{
     channel_members, channels, event_attendees, events, instance_configs,
-    server_members, servers, users,
+    server_images, server_members, servers, users,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::Query, ActiveModelTrait, ColumnTrait,
@@ -9,13 +9,15 @@ use sea_orm::{
     ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
     TransactionTrait,
 };
+use std::path::Path;
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    serialize_timestamp, ServerRequest, ServerResponse, UserResponse,
+    serialize_timestamp, ServerImageRef, ServerRequest, ServerResponse,
+    StoredServerImage, UserResponse,
 };
 use crate::channels as channels_service;
-use crate::common::{ApiError, AppResult};
+use crate::common::{roles::PermissionRule, ApiError, AppResult};
 use crate::instance;
 use crate::users as users_service;
 
@@ -25,7 +27,53 @@ pub(crate) use super::server_configs::{
 };
 
 const INITIAL_SERVER_NAME: &str = "praxis";
-const INITIAL_SERVER_SLUG: &str = "praxis";
+
+pub(super) async fn ensure_can_update_server(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    server_id: Uuid,
+) -> AppResult<()> {
+    let instance_permissions =
+        crate::instance::instance_roles::service::get_permissions_by_user(
+            database, user_id,
+        )
+        .await?;
+    if has_manage_permission(&instance_permissions, "Server") {
+        return Ok(());
+    }
+
+    ensure_can_manage_server_settings(database, user_id, server_id).await
+}
+
+pub(super) async fn ensure_can_manage_server_settings(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    server_id: Uuid,
+) -> AppResult<()> {
+    let permissions = super::server_roles::service::get_permissions_by_user(
+        database, user_id,
+    )
+    .await?;
+    let can_manage = permissions
+        .get(&server_id.to_string())
+        .is_some_and(|rules| has_manage_permission(rules, "ServerConfig"));
+
+    if can_manage {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
+}
+
+fn has_manage_permission(
+    permissions: &[PermissionRule],
+    subject: &str,
+) -> bool {
+    permissions.iter().any(|permission| {
+        (permission.subject == subject || permission.subject == "all")
+            && permission.action.iter().any(|action| action == "manage")
+    })
+}
 
 pub(crate) async fn default_server_id(
     database: &DatabaseConnection,
@@ -49,11 +97,9 @@ pub(crate) async fn ensure_server_read_access(
             .one(database)
             .await
             .map_err(internal_error)?;
-        return if membership.is_some() {
-            Ok(())
-        } else {
-            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-        };
+        if membership.is_some() {
+            return Ok(());
+        }
     }
 
     if default_server_id(database).await? == server_id {
@@ -221,9 +267,14 @@ pub(super) async fn get_server_by_invite_token(
 
 pub(super) async fn create_server(
     database: &DatabaseConnection,
+    upload_root: &Path,
     request: ServerRequest,
     current_user_id: Uuid,
+    image: Option<Vec<u8>>,
 ) -> AppResult<ServerResponse> {
+    if let Some(image) = image.as_deref() {
+        crate::common::images::validate_raster(image, "Server image")?;
+    }
     let (name, slug, description) = validate_server_request(&request)?;
     let server_id = NativeUuid::new_v4();
 
@@ -252,15 +303,24 @@ pub(super) async fn create_server(
         set_default_server(database, server.id).await?;
     }
 
+    if let Some(image) = image {
+        store_server_image(database, upload_root, server.id, image).await?;
+    }
+
     let default_server_id = default_server_id(database).await?;
     shape_server(database, server, default_server_id, false, false).await
 }
 
 pub(super) async fn update_server(
     database: &DatabaseConnection,
+    upload_root: &Path,
     server_id: Uuid,
     request: ServerRequest,
+    image: Option<Vec<u8>>,
 ) -> AppResult<ServerResponse> {
+    if let Some(image) = image.as_deref() {
+        crate::common::images::validate_raster(image, "Server image")?;
+    }
     let (name, slug, description) = validate_server_request(&request)?;
     let server = get_server(database, server_id).await?;
     let mut active = server.into_active_model();
@@ -273,12 +333,17 @@ pub(super) async fn update_server(
         set_default_server(database, server.id).await?;
     }
 
+    if let Some(image) = image {
+        store_server_image(database, upload_root, server.id, image).await?;
+    }
+
     let default_server_id = default_server_id(database).await?;
     shape_server(database, server, default_server_id, false, false).await
 }
 
 pub(super) async fn delete_server(
     database: &DatabaseConnection,
+    upload_root: &Path,
     server_id: Uuid,
 ) -> AppResult<()> {
     let server = get_server(database, server_id).await?;
@@ -300,7 +365,13 @@ pub(super) async fn delete_server(
         ));
     }
 
+    let images = server_images::Entity::find()
+        .filter(server_images::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
     server.delete(database).await.map_err(internal_error)?;
+    cleanup_server_image_files(upload_root, &images).await;
     Ok(())
 }
 
@@ -544,12 +615,155 @@ async fn shape_server(
         name: server.name,
         slug: server.slug,
         description: server.description,
+        image: get_latest_server_image(database, server.id).await?,
         is_default_server: Some(server.id == default_server_id),
         general_channel_id,
         member_count,
         created_at: serialize_timestamp(server.created_at),
         updated_at: serialize_timestamp(server.updated_at),
     })
+}
+
+async fn get_latest_server_image(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<Option<ServerImageRef>> {
+    server_images::Entity::find()
+        .filter(server_images::Column::ServerId.eq(server_id))
+        .order_by_desc(server_images::Column::CreatedAt)
+        .one(database)
+        .await
+        .map_err(internal_error)
+        .map(|image| image.map(|image| shape_server_image(&image)))
+}
+
+async fn store_server_image(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    server_id: Uuid,
+    bytes: Vec<u8>,
+) -> AppResult<ServerImageRef> {
+    crate::common::images::validate_raster(&bytes, "Server image")?;
+    get_server(database, server_id).await?;
+    let previous_images = server_images::Entity::find()
+        .filter(server_images::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    let image_id = NativeUuid::new_v4();
+    let storage_key = format!("server-images/{image_id}");
+    let destination = upload_root.join(&storage_key);
+    if let Some(parent) = destination.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(internal_error)?;
+    }
+    if let Err(error) = tokio::fs::write(&destination, bytes).await {
+        let _ = tokio::fs::remove_file(&destination).await;
+        return Err(internal_error(error));
+    }
+
+    let transaction = match database.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => {
+            cleanup_server_image_path(&destination).await;
+            return Err(internal_error(error));
+        }
+    };
+    let image = match (server_images::ActiveModel {
+        id: Set(image_id),
+        server_id: Set(server_id),
+        storage_key: Set(storage_key),
+        ..Default::default()
+    })
+    .insert(&transaction)
+    .await
+    {
+        Ok(image) => image,
+        Err(error) => {
+            cleanup_server_image_path(&destination).await;
+            return Err(internal_error(error));
+        }
+    };
+
+    if !previous_images.is_empty() {
+        let previous_image_ids = previous_images
+            .iter()
+            .map(|image| image.id)
+            .collect::<Vec<_>>();
+        if let Err(error) = server_images::Entity::delete_many()
+            .filter(server_images::Column::Id.is_in(previous_image_ids))
+            .exec(&transaction)
+            .await
+        {
+            cleanup_server_image_path(&destination).await;
+            return Err(internal_error(error));
+        }
+    }
+
+    if let Err(error) = transaction.commit().await {
+        cleanup_server_image_path(&destination).await;
+        return Err(internal_error(error));
+    }
+
+    cleanup_server_image_files(upload_root, &previous_images).await;
+
+    Ok(shape_server_image(&image))
+}
+
+async fn cleanup_server_image_files(
+    upload_root: &Path,
+    images: &[server_images::Model],
+) {
+    for image in images {
+        cleanup_server_image_path(&upload_root.join(&image.storage_key)).await;
+    }
+}
+
+async fn cleanup_server_image_path(path: &Path) {
+    if let Err(error) = tokio::fs::remove_file(path).await {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!(
+                path = %path.display(),
+                "failed to clean up server image: {error}"
+            );
+        }
+    }
+}
+
+pub(super) async fn get_server_image(
+    database: &DatabaseConnection,
+    upload_root: &Path,
+    server_id: Uuid,
+    image_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
+) -> AppResult<StoredServerImage> {
+    ensure_server_read_access(database, server_id, user_id, invite_token)
+        .await?;
+    let image = server_images::Entity::find_by_id(image_id)
+        .filter(server_images::Column::ServerId.eq(server_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image not found.")
+        })?;
+    let bytes = tokio::fs::read(upload_root.join(image.storage_key))
+        .await
+        .map_err(|_| {
+            ApiError::new(StatusCode::NOT_FOUND, "Image file not found.")
+        })?;
+
+    Ok(StoredServerImage { bytes })
+}
+
+fn shape_server_image(image: &server_images::Model) -> ServerImageRef {
+    ServerImageRef {
+        id: image.id.to_string(),
+        created_at: serialize_timestamp(image.created_at),
+    }
 }
 
 fn shape_user(
@@ -621,7 +835,7 @@ pub(crate) async fn create_initial_server(
     database: &DatabaseConnection,
 ) -> AppResult<servers::Model> {
     if let Some(server) = servers::Entity::find()
-        .filter(servers::Column::Slug.eq(INITIAL_SERVER_SLUG))
+        .filter(servers::Column::Slug.eq(INITIAL_SERVER_NAME))
         .one(database)
         .await
         .map_err(internal_error)?
@@ -634,7 +848,7 @@ pub(crate) async fn create_initial_server(
     let server = servers::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         name: Set(INITIAL_SERVER_NAME.to_owned()),
-        slug: Set(INITIAL_SERVER_SLUG.to_owned()),
+        slug: Set(INITIAL_SERVER_NAME.to_owned()),
         ..Default::default()
     }
     .insert(database)

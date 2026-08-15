@@ -28,6 +28,7 @@ pub mod poll_option_selections;
 pub mod poll_options;
 pub mod polls;
 pub mod server_configs;
+pub mod server_images;
 pub mod server_members;
 pub mod server_role_members;
 pub mod server_role_permissions;

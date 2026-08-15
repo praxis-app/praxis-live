@@ -3,7 +3,12 @@ import {
   type APIRequestContext,
   type BrowserContext,
 } from '@playwright/test';
-import { ACCESS_TOKEN_KEY, createTestUser, type TestUser } from './data';
+import {
+  ACCESS_TOKEN_KEY,
+  createTestUser,
+  INSTANCE_ADMIN_USER,
+  type TestUser,
+} from './data';
 import { createInvite } from './invites';
 import { enableAnonymousUsers, getDefaultServer } from './servers';
 
@@ -83,6 +88,32 @@ export async function logInViaApi(
     userId: body.user?.id ?? '',
     user,
   };
+}
+
+export async function getOrCreateInstanceAdmin(
+  request: APIRequestContext,
+): Promise<AuthenticatedUser> {
+  const response = await request.post('/api/auth/login', {
+    data: {
+      email: INSTANCE_ADMIN_USER.email,
+      password: INSTANCE_ADMIN_USER.password,
+    },
+  });
+
+  if (response.ok()) {
+    const body = (await response.json()) as SignupResponse;
+    expect(body.access_token).toBeTruthy();
+    expect(body.user?.id).toBeTruthy();
+
+    return {
+      accessToken: body.access_token ?? '',
+      userId: body.user?.id ?? '',
+      user: INSTANCE_ADMIN_USER,
+    };
+  }
+
+  expect(response.status()).toBe(401);
+  return signUpViaApi(request, INSTANCE_ADMIN_USER);
 }
 
 export async function seedAuthenticatedSession(

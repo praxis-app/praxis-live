@@ -3,7 +3,7 @@ import { ChannelSkeleton } from '@/components/channels/channel-skeleton';
 import { TopNav } from '@/components/nav/top-nav';
 import { Button } from '@/components/ui/button';
 import { Container } from '@/components/ui/container';
-import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
+import { PRAXIS_NAME } from '@/constants/app.constants';
 import { useLogOut } from '@/hooks/use-log-out';
 import { useServerData } from '@/hooks/use-server-data';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +23,7 @@ export const ServerHomePage = () => {
           backBtnIcon={
             <img
               src={appIconImg}
-              alt={INITIAL_SERVER_NAME}
+              alt={PRAXIS_NAME}
               className="size-7 self-center"
             />
           }

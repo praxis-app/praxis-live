@@ -4,5 +4,3 @@ export enum ServerErrorKeys {
   SlugInvalid = 'server-slug-invalid',
   DescriptionLength = 'server-description-length',
 }
-
-export const INITIAL_SERVER_NAME = 'praxis';

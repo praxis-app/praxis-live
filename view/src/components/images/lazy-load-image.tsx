@@ -20,6 +20,7 @@ interface Props extends ComponentProps<'img'> {
   eventId?: string;
   eventCoverPhoto?: boolean;
   userId?: string;
+  serverImageServerId?: string;
   src?: string;
   className?: string;
   imageClassName?: string;
@@ -51,6 +52,7 @@ export const LazyLoadImage = forwardRef<HTMLDivElement, Props>(
       eventId,
       eventCoverPhoto,
       userId,
+      serverImageServerId,
       onLoad,
       src,
       className,
@@ -85,6 +87,7 @@ export const LazyLoadImage = forwardRef<HTMLDivElement, Props>(
       eventId,
       eventCoverPhoto,
       userId,
+      serverImageServerId,
     });
 
     const [loaded, setLoaded] = useState(!!srcFromImageId);

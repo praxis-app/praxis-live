@@ -14,6 +14,7 @@ interface UseImageSrcProps {
   eventId?: string;
   eventCoverPhoto?: boolean;
   userId?: string;
+  serverImageServerId?: string;
   onError?: () => void;
   ref: RefObject<HTMLElement | null>;
 }
@@ -27,6 +28,7 @@ export const useImageSrc = ({
   eventId,
   eventCoverPhoto = false,
   userId,
+  serverImageServerId,
   onError,
   ref,
 }: UseImageSrcProps) => {
@@ -43,7 +45,9 @@ export const useImageSrc = ({
       let result: Blob;
 
       // Determine which API method to call based on parent context
-      if (messageId && channelId) {
+      if (serverImageServerId) {
+        result = await api.getServerImage(serverImageServerId, imageId);
+      } else if (messageId && channelId) {
         if (!serverId) {
           throw new Error('Server ID is required for message images');
         }
@@ -104,6 +108,7 @@ export const useImageSrc = ({
       eventId,
       eventCoverPhoto,
       userId,
+      serverImageServerId,
       inviteToken,
     ],
     queryFn: getImageSrc,

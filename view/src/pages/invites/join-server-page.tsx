@@ -1,7 +1,7 @@
 import { api } from '@/client/api-client';
 import { ChannelSkeleton } from '@/components/channels/channel-skeleton';
 import { TopNav } from '@/components/nav/top-nav';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ServerAvatar } from '@/components/servers/server-avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Container } from '@/components/ui/container';
@@ -13,8 +13,6 @@ import {
 import { useAuthData } from '@/hooks/use-auth-data';
 import { handleError } from '@/lib/error.utils';
 import { useAuthStore } from '@/store/auth.store';
-import chroma from 'chroma-js';
-import ColorHash from 'color-hash';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -147,21 +145,6 @@ export const JoinServerPage = () => {
     return <ChannelSkeleton />;
   }
 
-  const getStringAvatarProps = () => {
-    const colorHash = new ColorHash();
-    const baseColor = colorHash.hex(serverData.server.name);
-    const color = chroma(baseColor).brighten(1.5).hex();
-    const backgroundColor = chroma(baseColor).darken(1.35).hex();
-
-    return {
-      style: { color, backgroundColor },
-    };
-  };
-
-  const getInitial = (value: string) => {
-    return (value?.trim()?.[0] || '?').toUpperCase();
-  };
-
   return (
     <>
       <TopNav
@@ -186,14 +169,10 @@ export const JoinServerPage = () => {
 
             <div className="space-y-3 pt-1">
               <div className="flex items-start gap-3">
-                <Avatar className="size-10 shrink-0">
-                  <AvatarFallback
-                    className="text-lg font-light uppercase"
-                    {...getStringAvatarProps()}
-                  >
-                    {getInitial(serverData.server.name)}
-                  </AvatarFallback>
-                </Avatar>
+                <ServerAvatar
+                  server={serverData.server}
+                  className="size-10 shrink-0"
+                />
 
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <h2 className="text-xl font-semibold">

@@ -14,12 +14,11 @@ import {
 } from '@/components/ui/sheet';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { NavigationPaths } from '@/constants/shared.constants';
-import { useAbility } from '@/hooks/use-ability';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useAuthStore } from '@/store/auth.store';
 import { useNavStore } from '@/store/nav.store';
-import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
+import { PRAXIS_NAME } from '@/constants/app.constants';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
@@ -48,8 +47,7 @@ export const NavSheet = ({ trigger }: Props) => {
 
   const { me, isLoggedIn, signUpPath, showSignUp, isMeSuccess } = useAuthData();
 
-  const { server, serverId, serverPath } = useServerData();
-  const { serverAbility } = useAbility();
+  const { serverId, serverPath } = useServerData();
 
   const { data: joinedChannelsData } = useQuery({
     queryKey: ['servers', serverId, 'channels', 'joined'],
@@ -79,15 +77,6 @@ export const NavSheet = ({ trigger }: Props) => {
   const channelsPath = `${serverPath}/c`;
   const name = me?.displayName || me?.name;
 
-  const canManageChannels = serverAbility.can('manage', 'Channel');
-  const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
-  const hasMultipleServers = !!me && me.serversCount > 1;
-
-  const canViewNavDrawer =
-    canManageServerSettings || canManageChannels || hasMultipleServers;
-
-  const serverName = server?.name || INITIAL_SERVER_NAME;
-
   return (
     <Sheet open={isNavSheetOpen} onOpenChange={setIsNavSheetOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
@@ -101,35 +90,19 @@ export const NavSheet = ({ trigger }: Props) => {
           <SheetTitle className="flex items-center justify-between pr-6">
             <NavDrawer
               trigger={
-                !isLoggedIn ? (
-                  <button
-                    type="button"
-                    aria-label={t('navigation.actions.closeNavSheet')}
-                    className="focus-visible:ring-ring flex cursor-pointer items-center gap-2 self-center rounded-md px-6 font-medium tracking-[0.02em] focus-visible:ring-2 focus-visible:outline-none"
-                    onClick={() => setIsNavSheetOpen(false)}
-                  >
-                    <img
-                      src={appIconImg}
-                      alt=""
-                      className="size-9 self-center"
-                    />
-                    <div className="truncate">{serverName}</div>
-                  </button>
-                ) : (
-                  <div className="flex cursor-pointer items-center gap-2 self-center px-6 font-medium tracking-[0.02em]">
-                    <img
-                      src={appIconImg}
-                      alt={serverName}
-                      className="size-9 self-center"
-                    />
-                    <div className="truncate">{serverName}</div>
-                    {canViewNavDrawer && (
-                      <LuChevronRight className="mt-0.5 size-4 shrink-0" />
-                    )}
-                  </div>
-                )
+                <button
+                  type="button"
+                  className="focus-visible:ring-ring flex cursor-pointer items-center gap-2 self-center rounded-md px-6 font-medium tracking-[0.02em] focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  <img
+                    src={appIconImg}
+                    alt={PRAXIS_NAME}
+                    className="size-9 self-center"
+                  />
+                  <div className="truncate">{PRAXIS_NAME}</div>
+                  <LuChevronRight className="mt-0.5 size-4 shrink-0" />
+                </button>
               }
-              disabled={!canViewNavDrawer}
             />
             {me && (
               <NavDropdown

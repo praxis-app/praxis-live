@@ -35,6 +35,10 @@ export interface ServerRes {
   name: string;
   slug: string;
   description: string | null;
+  image?: {
+    id: string;
+    createdAt: string;
+  } | null;
   isDefaultServer?: boolean;
   generalChannelId?: string;
   memberCount?: number;

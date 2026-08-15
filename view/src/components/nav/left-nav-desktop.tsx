@@ -4,7 +4,9 @@ import {
   CreateChannelForm,
   CreateChannelFormSubmitButton,
 } from '@/components/channels/create-channel-form';
+import { CurrentServerMenuLabel } from '@/components/nav/current-server-menu-label';
 import { LeftNavUserMenu } from '@/components/nav/left-nav-user-menu';
+import { ServerInfoDialog } from '@/components/nav/server-info-dialog';
 import { SwitchServerDialog } from '@/components/nav/switch-server-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +33,7 @@ import { cn } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
 import { useAuthStore } from '@/store/auth.store';
 import { type CurrentUserRes } from '@/types/user.types';
-import { INITIAL_SERVER_NAME } from '@/constants/server.constants';
+import { PRAXIS_NAME } from '@/constants/app.constants';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -55,6 +57,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const { isAppLoading } = useAppStore();
 
   const [showRoomFormDialog, setShowRoomFormDialog] = useState(false);
+  const [showServerInfoDialog, setShowServerInfoDialog] = useState(false);
   const [showServerSwitchDialog, setShowServerSwitchDialog] = useState(false);
 
   const { t } = useTranslation();
@@ -65,18 +68,28 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const { serverAbility, instanceAbility } = useAbility();
   const canManageChannels = serverAbility.can('manage', 'Channel');
   const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
+  const canManageServers = instanceAbility.can('manage', 'Server');
+
   const canManageInstanceSettings = instanceAbility.can(
     'manage',
     'InstanceConfig',
   );
+
   const hasMultipleServers = !!myServerCount && myServerCount > 1;
   const hasServerMenuActions =
     canManageServerSettings ||
+    canManageServers ||
     canManageChannels ||
     canManageInstanceSettings ||
     hasMultipleServers;
 
-  const serverName = server?.name || INITIAL_SERVER_NAME;
+  const manageServerPath = canManageServerSettings
+    ? `${serverPath}${NavigationPaths.GeneralSettings}`
+    : canManageServers && server
+      ? `${NavigationPaths.ManageServers}/${server.id}/edit`
+      : undefined;
+
+  const serverName = server?.name || PRAXIS_NAME;
   const eventsActive = location.pathname.startsWith(`${serverPath}/events`);
 
   return (
@@ -91,17 +104,25 @@ export const LeftNavDesktop = ({ me }: Props) => {
             <div className="flex min-w-0 items-center gap-2">
               <img
                 src={appIconImg}
-                alt={serverName}
+                alt={PRAXIS_NAME}
                 className="size-[1.55rem] self-center"
               />
               <div className="self-center truncate text-base/tight font-medium tracking-[0.02em]">
-                {serverName}
+                {PRAXIS_NAME}
               </div>
             </div>
 
             <MdExpandMore className="size-[1.4rem] shrink-0 self-center" />
           </DropdownMenuTrigger>
           <DropdownMenuContent sideOffset={10} className="w-52">
+            <DropdownMenuItem
+              className="text-md items-start py-2.5"
+              onSelect={() => setShowServerInfoDialog(true)}
+            >
+              <CurrentServerMenuLabel serverName={serverName} server={server} />
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+
             {canManageChannels && (
               <DialogTrigger asChild>
                 <DropdownMenuItem className="text-md">
@@ -169,6 +190,14 @@ export const LeftNavDesktop = ({ me }: Props) => {
           />
         </DialogContent>
       </Dialog>
+
+      <ServerInfoDialog
+        server={server}
+        open={showServerInfoDialog}
+        onOpenChange={setShowServerInfoDialog}
+        canSwitchServers={hasMultipleServers}
+        manageServerPath={manageServerPath}
+      />
 
       <div className="border-b border-[--color-border] p-2">
         <Link

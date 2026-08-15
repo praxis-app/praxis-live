@@ -1,0 +1,37 @@
+use axum::{
+    extract::{FromRequestParts, Path},
+    http::{request::Parts, StatusCode},
+};
+
+use super::{handlers::ServersState, service, types::ServerPath};
+use crate::{auth::AuthenticatedUser, common::ApiError};
+
+pub(super) struct ServerEditContext {
+    pub(super) path: ServerPath,
+}
+
+impl FromRequestParts<ServersState> for ServerEditContext {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServersState,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) = Path::<ServerPath>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| {
+                ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
+            })?;
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        service::ensure_can_update_server(
+            &state.database,
+            user_id,
+            path.server_id,
+        )
+        .await?;
+
+        Ok(Self { path })
+    }
+}

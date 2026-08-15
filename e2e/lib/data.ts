@@ -11,6 +11,13 @@ export type TestUser = {
   suffix: string;
 };
 
+export const INSTANCE_ADMIN_USER: TestUser = {
+  name: 'e2e_admin',
+  email: 'e2e_instance_admin@example.com',
+  password: TEST_PASSWORD,
+  suffix: 'instance-admin',
+};
+
 export function createTestUser(label = 'user'): TestUser {
   const suffix = randomUUID().slice(0, 8);
 
