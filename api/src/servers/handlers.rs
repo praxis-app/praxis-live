@@ -156,7 +156,8 @@ pub(super) async fn delete_server(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::delete_server(&state.database, path.server_id).await?;
+    service::delete_server(&state.database, &state.upload_root, path.server_id)
+        .await?;
     Ok(Json(EmptyResponse {}))
 }
 

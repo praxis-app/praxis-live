@@ -21,7 +21,7 @@ import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { handleError } from '@/lib/error.utils';
 import { type ServerReq, type ServerRes } from '@/types/server.types';
-import { type UserRes } from '@/types/user.types';
+import { type CurrentUserRes, type UserRes } from '@/types/user.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -105,6 +105,7 @@ export const EditServerPage = () => {
         }
 
         const wasDefaultServer = serverData.server.isDefaultServer;
+        const previousSlug = serverData.server.slug;
         const updateResponse = await api.updateServer(serverId, values, image);
         const { server: updatedServer } = updateResponse;
 
@@ -144,8 +145,38 @@ export const EditServerPage = () => {
           queryClient.invalidateQueries({ queryKey: ['servers', 'default'] });
         }
 
-        queryClient.invalidateQueries({ queryKey: ['me', 'servers'] });
-        queryClient.invalidateQueries({ queryKey: ['servers', 'slug'] });
+        if (previousSlug !== updatedServer.slug) {
+          queryClient.removeQueries({
+            queryKey: ['servers', previousSlug],
+            exact: true,
+          });
+        }
+        queryClient.setQueryData<{ server: ServerRes }>(
+          ['servers', updatedServer.slug],
+          { server: updatedServer },
+        );
+        queryClient.setQueryData<{ servers: ServerRes[] }>(
+          ['me', 'servers'],
+          (oldData) =>
+            oldData && {
+              servers: oldData.servers.map((server) =>
+                server.id === updatedServer.id ? updatedServer : server,
+              ),
+            },
+        );
+        queryClient.setQueryData<{ user: CurrentUserRes }>(
+          ['me'],
+          (oldData) =>
+            oldData && {
+              user: {
+                ...oldData.user,
+                currentServer:
+                  oldData.user.currentServer?.id === updatedServer.id
+                    ? updatedServer
+                    : oldData.user.currentServer,
+              },
+            },
+        );
 
         return updatedServer;
       },

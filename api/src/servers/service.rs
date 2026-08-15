@@ -97,11 +97,9 @@ pub(crate) async fn ensure_server_read_access(
             .one(database)
             .await
             .map_err(internal_error)?;
-        return if membership.is_some() {
-            Ok(())
-        } else {
-            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-        };
+        if membership.is_some() {
+            return Ok(());
+        }
     }
 
     if default_server_id(database).await? == server_id {
@@ -345,6 +343,7 @@ pub(super) async fn update_server(
 
 pub(super) async fn delete_server(
     database: &DatabaseConnection,
+    upload_root: &Path,
     server_id: Uuid,
 ) -> AppResult<()> {
     let server = get_server(database, server_id).await?;
@@ -366,7 +365,13 @@ pub(super) async fn delete_server(
         ));
     }
 
+    let images = server_images::Entity::find()
+        .filter(server_images::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
     server.delete(database).await.map_err(internal_error)?;
+    cleanup_server_image_files(upload_root, &images).await;
     Ok(())
 }
 
@@ -640,6 +645,11 @@ async fn store_server_image(
 ) -> AppResult<ServerImageRef> {
     crate::common::images::validate_raster(&bytes, "Server image")?;
     get_server(database, server_id).await?;
+    let previous_images = server_images::Entity::find()
+        .filter(server_images::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
 
     let image_id = NativeUuid::new_v4();
     let storage_key = format!("server-images/{image_id}");
@@ -654,23 +664,72 @@ async fn store_server_image(
         return Err(internal_error(error));
     }
 
+    let transaction = match database.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => {
+            cleanup_server_image_path(&destination).await;
+            return Err(internal_error(error));
+        }
+    };
     let image = match (server_images::ActiveModel {
         id: Set(image_id),
         server_id: Set(server_id),
         storage_key: Set(storage_key),
         ..Default::default()
     })
-    .insert(database)
+    .insert(&transaction)
     .await
     {
         Ok(image) => image,
         Err(error) => {
-            let _ = tokio::fs::remove_file(&destination).await;
+            cleanup_server_image_path(&destination).await;
             return Err(internal_error(error));
         }
     };
 
+    if !previous_images.is_empty() {
+        let previous_image_ids = previous_images
+            .iter()
+            .map(|image| image.id)
+            .collect::<Vec<_>>();
+        if let Err(error) = server_images::Entity::delete_many()
+            .filter(server_images::Column::Id.is_in(previous_image_ids))
+            .exec(&transaction)
+            .await
+        {
+            cleanup_server_image_path(&destination).await;
+            return Err(internal_error(error));
+        }
+    }
+
+    if let Err(error) = transaction.commit().await {
+        cleanup_server_image_path(&destination).await;
+        return Err(internal_error(error));
+    }
+
+    cleanup_server_image_files(upload_root, &previous_images).await;
+
     Ok(shape_server_image(&image))
+}
+
+async fn cleanup_server_image_files(
+    upload_root: &Path,
+    images: &[server_images::Model],
+) {
+    for image in images {
+        cleanup_server_image_path(&upload_root.join(&image.storage_key)).await;
+    }
+}
+
+async fn cleanup_server_image_path(path: &Path) {
+    if let Err(error) = tokio::fs::remove_file(path).await {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!(
+                path = %path.display(),
+                "failed to clean up server image: {error}"
+            );
+        }
+    }
 }
 
 pub(super) async fn get_server_image(

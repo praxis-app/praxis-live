@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -12,6 +13,23 @@ const fixturePath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/valid-image.png',
 );
+
+const serverImageExists = (imageId: string) =>
+  spawnSync(
+    'docker',
+    [
+      'compose',
+      '-f',
+      'e2e/docker-compose.e2e.yml',
+      'exec',
+      '-T',
+      'web',
+      'test',
+      '-f',
+      `/tmp/praxis-live-e2e-uploads/server-images/${imageId}`,
+    ],
+    { stdio: 'pipe' },
+  ).status === 0;
 
 test('instance admin can set a server image when creating and replace it in settings', async ({
   context,
@@ -45,9 +63,10 @@ test('instance admin can set a server image when creating and replace it in sett
   await page.getByRole('button', { name: 'Create', exact: true }).click();
   const createResponse = await createResponsePromise;
   const { server: createdServer } = (await createResponse.json()) as {
-    server: { id: string; image: { id: string } };
+    server: { id: string; slug: string; image: { id: string } };
   };
   expect(createdServer.image.id).toBeTruthy();
+  expect(serverImageExists(createdServer.image.id)).toBe(true);
 
   const createdServerLink = page.getByRole('link').filter({
     has: page.getByText(serverName, { exact: true }),
@@ -63,8 +82,16 @@ test('instance admin can set a server image when creating and replace it in sett
   await expect(createdImageResponse).toBeOK();
   expect(createdImageResponse.headers()['content-type']).toBe('image/png');
 
-  await createdServerLink.click();
+  const serverBySlugResponse = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/servers/slug/${createdServer.slug}`),
+  );
+  await page.goto(`/s/${createdServer.slug}/events`);
+  expect((await serverBySlugResponse).status()).toBe(200);
+
+  await page.goto(`/settings/servers/${createdServer.id}/edit`);
   await expect(page.getByText('Properties', { exact: true })).toBeVisible();
+  const updatedDescription = 'Updated server identity cache coverage.';
+  await page.getByLabel('Description').fill(updatedDescription);
   await page.getByTestId('image-input').setInputFiles(fixturePath);
 
   const updateResponsePromise = page.waitForResponse(
@@ -87,4 +114,23 @@ test('instance admin can set a server image when creating and replace it in sett
   );
   await expect(updatedImageResponse).toBeOK();
   expect(updatedImageResponse.headers()['content-type']).toBe('image/png');
+  const replacedImageResponse = await request.get(
+    `/api/servers/${createdServer.id}/images/${createdServer.image.id}`,
+    { headers: { Authorization: `Bearer ${admin.accessToken}` } },
+  );
+  expect(replacedImageResponse.status()).toBe(404);
+
+  await page.goto(`/s/${createdServer.slug}/events`);
+  await page.getByRole('button', { name: /praxis/i }).first().click();
+  await page.getByText(serverName, { exact: true }).click();
+  await expect(page.getByText(updatedDescription, { exact: true })).toBeVisible();
+  expect(serverImageExists(createdServer.image.id)).toBe(false);
+  expect(serverImageExists(updatedServer.image.id)).toBe(true);
+
+  const deleteResponse = await request.delete(
+    `/api/servers/${createdServer.id}`,
+    { headers: { Authorization: `Bearer ${admin.accessToken}` } },
+  );
+  await expect(deleteResponse).toBeOK();
+  expect(serverImageExists(updatedServer.image.id)).toBe(false);
 });
