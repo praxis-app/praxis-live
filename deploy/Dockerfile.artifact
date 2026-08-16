@@ -9,7 +9,11 @@ COPY entity ./entity
 COPY migrations ./migrations
 COPY src ./src
 
-RUN cargo build --release -p praxis-live
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/app/target \
+    cargo build --release -p praxis-live \
+    && cp /app/target/release/praxis-live /praxis-live
 
 FROM scratch
-COPY --from=builder /app/target/release/praxis-live /praxis-live
+COPY --from=builder /praxis-live /praxis-live
