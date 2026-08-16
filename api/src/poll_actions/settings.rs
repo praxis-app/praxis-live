@@ -1,5 +1,5 @@
-//! Owns change-settings action validation, persistence, implementation, and
-//! response shaping.
+//! Owns change-settings action validation, persistence,
+//! implementation, and response shaping.
 
 use axum::http::StatusCode;
 use entity::{channels, poll_action_server_configs, polls, server_configs};
