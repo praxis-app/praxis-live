@@ -1,8 +1,10 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::macros::impl_enum_string_conversions;
-use super::roles::{ServerAbilitySubject, ServerRoleAbilityAction};
+use super::{
+    macros::impl_enum_string_conversions,
+    roles::{ServerAbilitySubject, ServerRoleAbilityAction},
+};
 
 #[derive(
     Clone,

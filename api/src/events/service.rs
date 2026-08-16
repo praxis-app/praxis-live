@@ -10,8 +10,10 @@ use sea_orm::{
     IntoActiveModel, ModelTrait, QueryFilter, QueryOrder, QuerySelect, Set,
     TransactionTrait,
 };
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{

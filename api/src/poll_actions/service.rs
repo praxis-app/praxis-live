@@ -23,8 +23,10 @@ use sea_orm::{
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
     IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
 };
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 use uuid::Uuid as NativeUuid;
 
 use crate::{

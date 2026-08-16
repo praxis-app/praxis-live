@@ -6,9 +6,11 @@ use sea_orm::{
 };
 use uuid::Uuid as NativeUuid;
 
-use crate::common::{ApiError, AppResult};
-use crate::servers::types::{
-    serialize_timestamp, ServerConfigRequest, ServerConfigResponse,
+use crate::{
+    common::{ApiError, AppResult},
+    servers::types::{
+        serialize_timestamp, ServerConfigRequest, ServerConfigResponse,
+    },
 };
 
 pub(crate) async fn get_server_config(

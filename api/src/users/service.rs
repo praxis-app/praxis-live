@@ -5,8 +5,7 @@ use sea_orm::{
     EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, Set,
     SqlErr, TransactionTrait,
 };
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 use uuid::Uuid as NativeUuid;
 
 use super::{

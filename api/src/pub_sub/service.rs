@@ -7,8 +7,7 @@ use axum::{
 };
 use dashmap::DashMap;
 use redis::AsyncCommands;
-use sea_orm::prelude::Uuid;
-use sea_orm::DatabaseConnection;
+use sea_orm::{prelude::Uuid, DatabaseConnection};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, env, fmt, sync::Arc};
 use tokio::sync::mpsc;
