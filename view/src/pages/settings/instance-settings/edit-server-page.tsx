@@ -29,6 +29,14 @@ import { useTranslation } from 'react-i18next';
 import { LuChevronRight, LuPlus } from 'react-icons/lu';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+const mergeServerResponse = (
+  cachedServer: ServerRes,
+  updatedServer: ServerRes,
+): ServerRes => ({
+  ...cachedServer,
+  ...updatedServer,
+});
+
 enum EditServerTabName {
   Properties = 'properties',
   Members = 'members',
@@ -109,9 +117,13 @@ export const EditServerPage = () => {
         const updateResponse = await api.updateServer(serverId, values, image);
         const { server: updatedServer } = updateResponse;
 
-        queryClient.setQueryData<{ server: ServerRes }>(['servers', serverId], {
-          server: updatedServer,
-        });
+        queryClient.setQueryData<{ server: ServerRes }>(
+          ['servers', serverId],
+          (oldData) =>
+            oldData && {
+              server: mergeServerResponse(oldData.server, updatedServer),
+            },
+        );
 
         queryClient.setQueryData<{ servers: ServerRes[] }>(
           ['servers'],
@@ -123,7 +135,7 @@ export const EditServerPage = () => {
             return {
               servers: oldData.servers.map((server) => {
                 if (server.id === updatedServer.id) {
-                  return updatedServer;
+                  return mergeServerResponse(server, updatedServer);
                 }
 
                 if (updatedServer.isDefaultServer) {
@@ -139,7 +151,15 @@ export const EditServerPage = () => {
         if (updatedServer.isDefaultServer) {
           queryClient.setQueryData<{ server: ServerRes }>(
             ['servers', 'default'],
-            { server: updatedServer },
+            (oldData) =>
+              oldData
+                ? {
+                    server: mergeServerResponse(
+                      oldData.server,
+                      updatedServer,
+                    ),
+                  }
+                : { server: updatedServer },
           );
         } else if (wasDefaultServer) {
           queryClient.invalidateQueries({ queryKey: ['servers', 'default'] });
@@ -153,14 +173,19 @@ export const EditServerPage = () => {
         }
         queryClient.setQueryData<{ server: ServerRes }>(
           ['servers', updatedServer.slug],
-          { server: updatedServer },
+          (oldData) =>
+            oldData && {
+              server: mergeServerResponse(oldData.server, updatedServer),
+            },
         );
         queryClient.setQueryData<{ servers: ServerRes[] }>(
           ['me', 'servers'],
           (oldData) =>
             oldData && {
               servers: oldData.servers.map((server) =>
-                server.id === updatedServer.id ? updatedServer : server,
+                server.id === updatedServer.id
+                  ? mergeServerResponse(server, updatedServer)
+                  : server,
               ),
             },
         );
@@ -172,7 +197,10 @@ export const EditServerPage = () => {
                 ...oldData.user,
                 currentServer:
                   oldData.user.currentServer?.id === updatedServer.id
-                    ? updatedServer
+                    ? mergeServerResponse(
+                        oldData.user.currentServer,
+                        updatedServer,
+                      )
                     : oldData.user.currentServer,
               },
             },
