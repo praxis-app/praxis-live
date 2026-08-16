@@ -7,8 +7,7 @@ use axum::{
 };
 use dashmap::DashMap;
 use redis::AsyncCommands;
-use sea_orm::prelude::Uuid;
-use sea_orm::DatabaseConnection;
+use sea_orm::{prelude::Uuid, DatabaseConnection};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, env, fmt, sync::Arc};
 use tokio::sync::mpsc;
@@ -60,28 +59,28 @@ struct PubSubRegistry {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum PubSubTopicKind {
-    NewMessage,
-    NewPoll,
-    NewCall,
-    NewForumPost,
+    Message,
+    Poll,
+    Call,
+    ForumPost,
 }
 
 impl PubSubTopicKind {
     fn as_str(self) -> &'static str {
         match self {
-            Self::NewMessage => "new-message",
-            Self::NewPoll => "new-poll",
-            Self::NewCall => "new-call",
-            Self::NewForumPost => "new-forum-post",
+            Self::Message => "new-message",
+            Self::Poll => "new-poll",
+            Self::Call => "new-call",
+            Self::ForumPost => "new-forum-post",
         }
     }
 
     fn parse(value: &str) -> Option<Self> {
         match value {
-            "new-message" => Some(Self::NewMessage),
-            "new-poll" => Some(Self::NewPoll),
-            "new-call" => Some(Self::NewCall),
-            "new-forum-post" => Some(Self::NewForumPost),
+            "new-message" => Some(Self::Message),
+            "new-poll" => Some(Self::Poll),
+            "new-call" => Some(Self::Call),
+            "new-forum-post" => Some(Self::ForumPost),
             _ => None,
         }
     }
@@ -105,7 +104,7 @@ impl PubSubTopic {
         user_id: Uuid,
     ) -> Self {
         Self {
-            kind: PubSubTopicKind::NewMessage,
+            kind: PubSubTopicKind::Message,
             server_id,
             channel_id,
             call_id: None,
@@ -120,7 +119,7 @@ impl PubSubTopic {
         user_id: Uuid,
     ) -> Self {
         Self {
-            kind: PubSubTopicKind::NewMessage,
+            kind: PubSubTopicKind::Message,
             server_id,
             channel_id,
             call_id: Some(call_id),
@@ -134,7 +133,7 @@ impl PubSubTopic {
         user_id: Uuid,
     ) -> Self {
         Self {
-            kind: PubSubTopicKind::NewPoll,
+            kind: PubSubTopicKind::Poll,
             server_id,
             channel_id,
             call_id: None,
@@ -148,7 +147,7 @@ impl PubSubTopic {
         user_id: Uuid,
     ) -> Self {
         Self {
-            kind: PubSubTopicKind::NewCall,
+            kind: PubSubTopicKind::Call,
             server_id,
             channel_id,
             call_id: None,
@@ -162,7 +161,7 @@ impl PubSubTopic {
         user_id: Uuid,
     ) -> Self {
         Self {
-            kind: PubSubTopicKind::NewForumPost,
+            kind: PubSubTopicKind::ForumPost,
             server_id,
             channel_id,
             call_id: None,

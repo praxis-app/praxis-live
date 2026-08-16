@@ -2,8 +2,10 @@ use entity::enums::{ChannelType, PollType};
 use sea_orm::prelude::{DateTimeWithTimeZone, Uuid};
 use serde::{Deserialize, Serialize};
 
-use crate::poll_actions::types::{CreatePollActionRequest, PollActionResponse};
-use crate::votes::types::VoteResponse;
+use crate::{
+    poll_actions::types::{CreatePollActionRequest, PollActionResponse},
+    votes::types::VoteResponse,
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

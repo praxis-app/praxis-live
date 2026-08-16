@@ -1,8 +1,10 @@
 use sea_orm::prelude::Uuid;
 use serde::{Deserialize, Serialize};
 
-use crate::messages::types::{MessageResponse, MessageUser};
-use crate::polls::types::{CreatePollRequest, PollResponse};
+use crate::{
+    messages::types::{MessageResponse, MessageUser},
+    polls::types::{CreatePollRequest, PollResponse},
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

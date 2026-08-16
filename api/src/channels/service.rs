@@ -12,8 +12,10 @@ use std::collections::HashMap;
 use uuid::Uuid as NativeUuid;
 
 use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
-use crate::common::{encryption, text::sanitize_text, ApiError, AppResult};
-use crate::servers as servers_service;
+use crate::{
+    common::{encryption, text::sanitize_text, ApiError, AppResult},
+    servers as servers_service,
+};
 
 pub(super) async fn get_channels(
     database: &DatabaseConnection,

@@ -113,7 +113,7 @@ fn append_polls(
     polls: Vec<polls::types::PollResponse>,
 ) {
     for poll in polls {
-        feed.push(FeedItem::Poll(FeedPollResponse::new(poll)));
+        feed.push(FeedItem::Poll(Box::new(FeedPollResponse::new(poll))));
     }
 }
 

@@ -15,13 +15,26 @@ use sea_orm::{
     ColumnTrait, Condition, DatabaseConnection, DeleteResult, EntityTrait,
     QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
 };
-use std::collections::HashMap;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
-use super::types::{
-    ActiveDecisionResponse, ActiveDecisionsResponse, CallDecisionResponse,
-    CreatePollRequest, PollConfigResponse, PollImageResponse,
-    PollOptionResponse, PollResponse, PollUserResponse, StoredPollImage,
+use super::{
+    creation::prepare_poll_creation,
+    outcome::get_poll_member_count,
+    types::{
+        ActiveDecisionResponse, ActiveDecisionsResponse, CallDecisionResponse,
+        CreatePollRequest, PollConfigResponse, PollImageResponse,
+        PollOptionResponse, PollResponse, PollUserResponse, StoredPollImage,
+    },
+};
+pub(crate) use super::{
+    creation::{
+        attach_poll_creation_images, commit_creation, insert_prepared_poll,
+        prepare_forum_proposal,
+    },
+    outcome::{
+        finalize_ratifiable_proposal, is_poll_ratifiable, ProposalFinalization,
+    },
+    sync::{spawn_expired_poll_closer, spawn_proposal_synchronizer},
 };
 use crate::{
     channels,
@@ -34,18 +47,6 @@ use crate::{
     poll_actions,
     pub_sub::{PubSubService, PubSubTopic},
     servers, users as users_service, votes as vote_service,
-};
-
-use super::{creation::prepare_poll_creation, outcome::get_poll_member_count};
-pub(crate) use super::{
-    creation::{
-        attach_poll_creation_images, commit_creation, insert_prepared_poll,
-        prepare_forum_proposal,
-    },
-    outcome::{
-        finalize_ratifiable_proposal, is_poll_ratifiable, ProposalFinalization,
-    },
-    sync::{spawn_expired_poll_closer, spawn_proposal_synchronizer},
 };
 
 pub(super) async fn create_poll(

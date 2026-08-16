@@ -22,7 +22,7 @@ pub(super) struct FeedResponse {
 #[serde(untagged)]
 pub(super) enum FeedItem {
     Message(FeedMessageResponse),
-    Poll(FeedPollResponse),
+    Poll(Box<FeedPollResponse>),
     ProposalForumReference(FeedProposalForumReferenceResponse),
     Call(calls::types::CallArtifactResponse),
 }

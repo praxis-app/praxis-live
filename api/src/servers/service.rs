@@ -16,10 +16,11 @@ use super::types::{
     serialize_timestamp, ServerImageRef, ServerRequest, ServerResponse,
     StoredServerImage, UserResponse,
 };
-use crate::channels as channels_service;
-use crate::common::{roles::PermissionRule, ApiError, AppResult};
-use crate::instance;
-use crate::users as users_service;
+use crate::{
+    channels as channels_service,
+    common::{roles::PermissionRule, ApiError, AppResult},
+    instance, users as users_service,
+};
 
 pub(crate) use super::server_configs::{
     ensure_server_config, get_server_config, is_anonymous_users_enabled,
