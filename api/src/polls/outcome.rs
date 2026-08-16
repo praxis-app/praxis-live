@@ -77,13 +77,13 @@ where
         Some(PollDecisionMakingModel::Consensus) => {
             let member_count =
                 get_channel_member_count(database, poll.channel_id).await?;
-            has_consensus(&votes, &config, member_count)
+            has_consensus(&votes, config, member_count)
         }
-        Some(PollDecisionMakingModel::Consent) => has_consent(&votes, &config),
+        Some(PollDecisionMakingModel::Consent) => has_consent(&votes, config),
         Some(PollDecisionMakingModel::MajorityVote) => {
             let member_count =
                 get_channel_member_count(database, poll.channel_id).await?;
-            has_majority_vote(&votes, &config, member_count)
+            has_majority_vote(&votes, config, member_count)
         }
         None => Ok(false),
     }

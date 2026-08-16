@@ -623,7 +623,7 @@ pub(crate) fn validate_server_config_change(
         || request
             .decision_making_model
             .as_deref()
-            .map(|value| value != current.decision_making_model.to_string())
+            .map(|value| value != current.decision_making_model)
             .unwrap_or(false)
         || request
             .disagreements_limit

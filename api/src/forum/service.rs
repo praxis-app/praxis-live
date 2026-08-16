@@ -532,7 +532,7 @@ where
     forum_posts::Entity::update_many()
         .col_expr(
             forum_posts::Column::LatestActivityAt,
-            Expr::value(activity_at.clone()),
+            Expr::value(activity_at),
         )
         .filter(forum_posts::Column::PollId.eq(poll_id))
         .filter(forum_posts::Column::LatestActivityAt.lt(activity_at))
