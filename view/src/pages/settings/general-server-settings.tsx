@@ -25,6 +25,14 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import * as zod from 'zod';
 
+const mergeServerResponse = (
+  cachedServer: ServerRes,
+  updatedServer: ServerRes,
+): ServerRes => ({
+  ...cachedServer,
+  ...updatedServer,
+});
+
 export const GeneralServerSettings = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -116,18 +124,26 @@ export const GeneralServerSettings = () => {
     onSuccess: (updatedServer) => {
       queryClient.setQueryData<{ server: ServerRes }>(
         ['servers', serverSlug],
-        { server: updatedServer },
+        (oldData) =>
+          oldData && {
+            server: mergeServerResponse(oldData.server, updatedServer),
+          },
       );
       queryClient.setQueryData<{ server: ServerRes }>(
         ['servers', serverId],
-        { server: updatedServer },
+        (oldData) =>
+          oldData && {
+            server: mergeServerResponse(oldData.server, updatedServer),
+          },
       );
       queryClient.setQueryData<{ servers: ServerRes[] }>(
         ['me', 'servers'],
         (oldData) =>
           oldData && {
             servers: oldData.servers.map((item) =>
-              item.id === updatedServer.id ? updatedServer : item,
+              item.id === updatedServer.id
+                ? mergeServerResponse(item, updatedServer)
+                : item,
             ),
           },
       );
@@ -139,7 +155,10 @@ export const GeneralServerSettings = () => {
               ...oldData.user,
               currentServer:
                 oldData.user.currentServer?.id === updatedServer.id
-                  ? updatedServer
+                  ? mergeServerResponse(
+                      oldData.user.currentServer,
+                      updatedServer,
+                    )
                   : oldData.user.currentServer,
             },
           },
