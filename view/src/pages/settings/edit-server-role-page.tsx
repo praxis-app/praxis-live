@@ -191,7 +191,8 @@ export const EditServerRolePage = () => {
           header: t('roles.headers.serverRoles'),
           subheader: t('navigation.subheaders.serverSettings'),
           subheaderAboveHeader: true,
-          onBackClick: () => navigate(NavigationPaths.Settings),
+          onBackClick: () =>
+            navigate(`${serverPath}${NavigationPaths.Settings}`),
         }}
       />
     );

@@ -38,7 +38,7 @@ export const GeneralServerSettings = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { server, serverId, serverSlug } = useServerData();
+  const { server, serverId, serverPath, serverSlug } = useServerData();
   const { serverAbility, isLoading: isAbilityLoading } = useAbility();
   const canManageServerSettings = serverAbility.can(
     'manage',
@@ -180,7 +180,8 @@ export const GeneralServerSettings = () => {
           header: t('navigation.labels.general'),
           subheader: t('navigation.subheaders.serverSettings'),
           subheaderAboveHeader: true,
-          onBackClick: () => navigate(NavigationPaths.Settings),
+          onBackClick: () =>
+            navigate(`${serverPath}${NavigationPaths.Settings}`),
         }}
       />
     );
@@ -200,7 +201,9 @@ export const GeneralServerSettings = () => {
         header={t('navigation.labels.general')}
         subheader={t('navigation.subheaders.serverSettings')}
         subheaderAboveHeader
-        onBackClick={() => navigate(NavigationPaths.Settings)}
+        onBackClick={() =>
+          navigate(`${serverPath}${NavigationPaths.Settings}`)
+        }
       />
 
       <Container className="space-y-4">

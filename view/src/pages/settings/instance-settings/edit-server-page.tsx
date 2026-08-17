@@ -109,7 +109,13 @@ export const EditServerPage = () => {
 
   const { mutateAsync: updateServer, isPending: isUpdatePending } = useMutation(
     {
-      mutationFn: async ({ values, image }: { values: ServerReq; image?: File }) => {
+      mutationFn: async ({
+        values,
+        image,
+      }: {
+        values: ServerReq;
+        image?: File;
+      }) => {
         if (!serverId || !serverData?.server) {
           throw new Error('Server ID and server data are required');
         }
@@ -156,10 +162,7 @@ export const EditServerPage = () => {
             (oldData) =>
               oldData
                 ? {
-                    server: mergeServerResponse(
-                      oldData.server,
-                      updatedServer,
-                    ),
+                    server: mergeServerResponse(oldData.server, updatedServer),
                   }
                 : { server: updatedServer },
           );
@@ -308,22 +311,31 @@ export const EditServerPage = () => {
     deleteServer();
   };
 
-  const handleSwitchToServer = () => {
+  const handleSwitchToServer = async () => {
     if (!serverData?.server) {
       return;
     }
 
-    queryClient.setQueryData<{ user: CurrentUserRes }>(
-      ['me'],
-      (oldData) =>
-        oldData && {
-          user: {
-            ...oldData.user,
-            currentServer: serverData.server,
+    try {
+      // TODO: Check if this should be pulled from useServer hook instead
+      const { server } = await queryClient.fetchQuery({
+        queryKey: ['servers', serverData.server.slug],
+        queryFn: () => api.getServerBySlug(serverData.server.slug),
+      });
+      queryClient.setQueryData<{ user: CurrentUserRes }>(
+        ['me'],
+        (oldData) =>
+          oldData && {
+            user: {
+              ...oldData.user,
+              currentServer: server,
+            },
           },
-        },
-    );
-    navigate(`/s/${serverData.server.slug}`);
+      );
+      navigate(`/s/${server.slug}`);
+    } catch (error) {
+      handleError(error as Error);
+    }
   };
 
   if (isAbilityLoading || isServerLoading || isServerMembersLoading) {
@@ -387,7 +399,7 @@ export const EditServerPage = () => {
               <Button
                 variant="outline"
                 className="mt-2 w-full"
-                onClick={handleSwitchToServer}
+                onClick={() => void handleSwitchToServer()}
               >
                 {t('servers.actions.switchTo')}
                 <LuArrowRight />

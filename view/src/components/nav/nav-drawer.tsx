@@ -166,7 +166,7 @@ export const NavDrawer = ({ trigger }: Props) => {
                 variant="ghost"
                 className="text-md flex items-center gap-6 font-normal"
                 onClick={() => {
-                  navigate(NavigationPaths.Settings);
+                  navigate(`${serverPath}${NavigationPaths.Settings}`);
                   setIsNavSheetOpen(false);
                 }}
               >

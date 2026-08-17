@@ -13,7 +13,7 @@ export const PollSettings = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const { serverId } = useServerData();
+  const { serverId, serverPath } = useServerData();
 
   const { data, isPending, error } = useQuery({
     queryKey: ['servers', serverId, 'configs'],
@@ -40,7 +40,9 @@ export const PollSettings = () => {
         header={t('navigation.labels.proposals')}
         subheader={t('navigation.subheaders.serverSettings')}
         subheaderAboveHeader
-        onBackClick={() => navigate(NavigationPaths.Settings)}
+        onBackClick={() =>
+          navigate(`${serverPath}${NavigationPaths.Settings}`)
+        }
       />
 
       <Container>
