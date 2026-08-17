@@ -317,7 +317,6 @@ export const EditServerPage = () => {
     }
 
     try {
-      // TODO: Check if this should be pulled from useServer hook instead
       const { server } = await queryClient.fetchQuery({
         queryKey: ['servers', serverData.server.slug],
         queryFn: () => api.getServerBySlug(serverData.server.slug),
