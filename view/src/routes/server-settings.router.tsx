@@ -3,15 +3,14 @@ import { EditServerRolePage } from '@/pages/settings/edit-server-role-page';
 import { GeneralServerSettings } from '@/pages/settings/general-server-settings';
 import { PollSettings } from '@/pages/settings/poll-settings';
 import { ServerRoles } from '@/pages/settings/server-roles';
-import { ServerSettings } from '@/pages/settings/server-settings';
-import { type RouteObject } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 
 export const serverSettingsRouter: RouteObject = {
   path: '/s/:serverSlug/settings',
   children: [
     {
       index: true,
-      element: <ServerSettings />,
+      element: <Navigate to="/settings" replace />,
     },
     {
       path: 'general',

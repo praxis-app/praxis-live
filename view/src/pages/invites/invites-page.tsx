@@ -19,7 +19,7 @@ export const InvitesPage = () => {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
 
-  const { serverId, serverPath } = useServerData();
+  const { serverId } = useServerData();
 
   const { data: invitesData } = useQuery({
     queryKey: ['servers', serverId, 'invites'],
@@ -39,8 +39,8 @@ export const InvitesPage = () => {
   return (
     <>
       <TopNav
-        header={t('navigation.labels.invites')}
-        onBackClick={() => navigate(`${serverPath}${NavigationPaths.Settings}`)}
+        header={t('invites.headers.serverInvites')}
+        onBackClick={() => navigate(NavigationPaths.Settings)}
       />
 
       <div className="flex h-full flex-col items-center justify-center gap-3.5 p-3 pt-4 md:p-16">

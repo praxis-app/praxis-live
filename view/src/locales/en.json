@@ -790,6 +790,8 @@
       "anonymousUsersEnabled": "Anonymous users"
     },
     "descriptions": {
+      "serverSection": "Manage settings for the current server, including proposals, invites, and roles.",
+      "instanceSection": "Manage settings that apply across the entire instance, including instance roles and servers.",
       "decisionMakingModel": "Choose from consensus, consent, or majority vote to determine how decisions are made in the server.",
       "agreementThreshold": "Set the minimum percentage of positive votes required for a proposal to pass.",
       "quorumEnabled": "Require a minimum number of members to participate before a proposal can pass.",
@@ -1030,17 +1032,20 @@
       "navDrawer": "Navigation drawer"
     },
     "headers": {
+      "settings": "Settings",
       "serverSettings": "Server Settings",
       "instanceSettings": "Instance Settings"
     },
     "labels": {
       "general": "General",
+      "settings": "Settings",
       "serverSettings": "Server settings",
+      "serverRoles": "Server Roles",
       "instanceSettings": "Instance settings",
       "switchServers": "Switch servers",
       "instanceRoles": "Instance Roles",
       "proposals": "Proposals",
-      "invites": "Invites",
+      "invites": "Invite Links",
       "roles": "Roles",
       "events": "Events"
     },

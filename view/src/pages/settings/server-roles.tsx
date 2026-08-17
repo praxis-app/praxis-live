@@ -13,11 +13,11 @@ import { useNavigate } from 'react-router-dom';
 import { useServerData } from '../../hooks/use-server-data';
 
 export const ServerRoles = () => {
-  const { serverId, serverPath } = useServerData();
+  const { serverId } = useServerData();
   const { serverAbility, isLoading: isServerAbilityLoading } = useAbility();
 
   const canManageServerRoles = serverAbility.can('manage', 'ServerRole');
-  const serverSettingsPath = `${serverPath}${NavigationPaths.Settings}`;
+  const serverSettingsPath = NavigationPaths.Settings;
 
   const { data: serverRolesData, error: serverRolesError } = useQuery({
     queryKey: ['servers', serverId, 'roles'],

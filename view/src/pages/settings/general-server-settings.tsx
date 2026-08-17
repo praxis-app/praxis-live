@@ -38,7 +38,7 @@ export const GeneralServerSettings = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { server, serverId, serverPath, serverSlug } = useServerData();
+  const { server, serverId, serverSlug } = useServerData();
   const { serverAbility, isLoading: isAbilityLoading } = useAbility();
   const canManageServerSettings = serverAbility.can(
     'manage',
@@ -178,8 +178,7 @@ export const GeneralServerSettings = () => {
       <PermissionDenied
         topNavProps={{
           header: t('navigation.labels.general'),
-          onBackClick: () =>
-            navigate(`${serverPath}${NavigationPaths.Settings}`),
+          onBackClick: () => navigate(NavigationPaths.Settings),
         }}
       />
     );
@@ -197,7 +196,7 @@ export const GeneralServerSettings = () => {
     <>
       <TopNav
         header={t('navigation.labels.general')}
-        onBackClick={() => navigate(`${serverPath}${NavigationPaths.Settings}`)}
+        onBackClick={() => navigate(NavigationPaths.Settings)}
       />
 
       <Container className="space-y-4">

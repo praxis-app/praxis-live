@@ -33,7 +33,7 @@ import { useNavStore } from '@/store/nav.store';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdAddCircle, MdOutlineSettings, MdSettings } from 'react-icons/md';
+import { MdAddCircle, MdSettings } from 'react-icons/md';
 import { TbSwitchHorizontal } from 'react-icons/tb';
 import { useNavigate } from 'react-router-dom';
 
@@ -161,7 +161,7 @@ export const NavDrawer = ({ trigger }: Props) => {
               </Dialog>
             )}
 
-            {canManageInstanceSettings && (
+            {(canManageServerSettings || canManageInstanceSettings) && (
               <Button
                 variant="ghost"
                 className="text-md flex items-center gap-6 font-normal"
@@ -170,22 +170,8 @@ export const NavDrawer = ({ trigger }: Props) => {
                   setIsNavSheetOpen(false);
                 }}
               >
-                <MdOutlineSettings className="size-6" />
-                {t('navigation.labels.instanceSettings')}
-              </Button>
-            )}
-
-            {canManageServerSettings && (
-              <Button
-                variant="ghost"
-                className="text-md flex items-center gap-6 font-normal"
-                onClick={() => {
-                  navigate(`${serverPath}${NavigationPaths.Settings}`);
-                  setIsNavSheetOpen(false);
-                }}
-              >
                 <MdSettings className="size-6" />
-                {t('navigation.labels.serverSettings')}
+                {t('navigation.labels.settings')}
               </Button>
             )}
 

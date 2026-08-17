@@ -40,7 +40,6 @@ import {
   MdAddCircle,
   MdExpandMore,
   MdEvent,
-  MdOutlineSettings,
   MdRocketLaunch,
   MdSettings,
 } from 'react-icons/md';
@@ -132,24 +131,6 @@ export const LeftNavDesktop = ({ me }: Props) => {
               </DialogTrigger>
             )}
 
-            {canManageInstanceSettings && (
-              <Link to={NavigationPaths.Settings}>
-                <DropdownMenuItem className="text-md">
-                  <MdOutlineSettings className="text-foreground size-5" />
-                  {t('navigation.labels.instanceSettings')}
-                </DropdownMenuItem>
-              </Link>
-            )}
-
-            {canManageServerSettings && (
-              <Link to={`${serverPath}${NavigationPaths.Settings}`}>
-                <DropdownMenuItem className="text-md">
-                  <MdSettings className="text-foreground size-5" />
-                  {t('navigation.labels.serverSettings')}
-                </DropdownMenuItem>
-              </Link>
-            )}
-
             {me && me.serversCount > 1 && (
               <DropdownMenuItem
                 className="text-md"
@@ -158,6 +139,15 @@ export const LeftNavDesktop = ({ me }: Props) => {
                 <TbSwitchHorizontal className="text-foreground size-5" />
                 {t('navigation.labels.switchServers')}
               </DropdownMenuItem>
+            )}
+
+            {(canManageServerSettings || canManageInstanceSettings) && (
+              <Link to={NavigationPaths.Settings}>
+                <DropdownMenuItem className="text-md">
+                  <MdSettings className="text-foreground size-5" />
+                  {t('navigation.labels.settings')}
+                </DropdownMenuItem>
+              </Link>
             )}
 
             {hasServerMenuActions && <DropdownMenuSeparator />}
