@@ -161,17 +161,6 @@ export const NavDrawer = ({ trigger }: Props) => {
               </Dialog>
             )}
 
-            {hasMultipleServers && (
-              <Button
-                variant="ghost"
-                className="text-md flex items-center gap-6 font-normal"
-                onClick={() => setShowServerSwitchDialog(true)}
-              >
-                <TbSwitchHorizontal className="size-6" />
-                {t('navigation.labels.switchServers')}
-              </Button>
-            )}
-
             {(canManageServerSettings || canManageInstanceSettings) && (
               <Button
                 variant="ghost"
@@ -183,6 +172,17 @@ export const NavDrawer = ({ trigger }: Props) => {
               >
                 <MdSettings className="size-6" />
                 {t('navigation.labels.settings')}
+              </Button>
+            )}
+
+            {hasMultipleServers && (
+              <Button
+                variant="ghost"
+                className="text-md flex items-center gap-6 font-normal"
+                onClick={() => setShowServerSwitchDialog(true)}
+              >
+                <TbSwitchHorizontal className="size-6" />
+                {t('navigation.labels.switchServers')}
               </Button>
             )}
           </div>

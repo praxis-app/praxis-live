@@ -1046,7 +1046,7 @@
     },
     "labels": {
       "general": "General",
-      "settings": "Settings",
+      "settings": "Manage Settings",
       "serverSettings": "Server settings",
       "serverRoles": "Server Roles",
       "instanceSettings": "Instance settings",
