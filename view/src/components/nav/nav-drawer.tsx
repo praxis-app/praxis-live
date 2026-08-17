@@ -29,6 +29,7 @@ import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { useMeQuery } from '@/hooks/use-me-query';
 import { useServerData } from '@/hooks/use-server-data';
+import { getSettingsAccess } from '@/lib/role.utils';
 import { useNavStore } from '@/store/nav.store';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { type ReactNode, useState } from 'react';
@@ -55,22 +56,14 @@ export const NavDrawer = ({ trigger }: Props) => {
   const { data: meData } = useMeQuery();
 
   const canManageChannels = serverAbility.can('manage', 'Channel');
-  const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
-  const canManageServers = instanceAbility.can('manage', 'Server');
-  const canManageInstanceSettings = instanceAbility.can(
-    'manage',
-    'InstanceConfig',
-  );
+  const { canManageServers, canManageServerSettings, hasSettingsAccess } =
+    getSettingsAccess(serverAbility, instanceAbility);
 
   const serverName = server?.name || PRAXIS_NAME;
   const hasMultipleServers = !!meData && meData.user.serversCount > 1;
 
   const hasServerMenuActions =
-    canManageChannels ||
-    canManageServerSettings ||
-    canManageServers ||
-    canManageInstanceSettings ||
-    hasMultipleServers;
+    canManageChannels || hasSettingsAccess || hasMultipleServers;
 
   const manageServerPath = canManageServerSettings
     ? `${serverPath}${NavigationPaths.GeneralSettings}`
@@ -161,7 +154,7 @@ export const NavDrawer = ({ trigger }: Props) => {
               </Dialog>
             )}
 
-            {(canManageServerSettings || canManageInstanceSettings) && (
+            {hasSettingsAccess && (
               <Button
                 variant="ghost"
                 className="text-md flex items-center gap-6 font-normal"

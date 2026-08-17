@@ -5,6 +5,7 @@ import { Container } from '@/components/ui/container';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { useServerData } from '@/hooks/use-server-data';
+import { getSettingsAccess } from '@/lib/role.utils';
 import { useTranslation } from 'react-i18next';
 import {
   MdAdminPanelSettings,
@@ -20,17 +21,22 @@ export const Settings = () => {
   const { serverPath } = useServerData();
   const { serverAbility, instanceAbility, isLoading } = useAbility();
 
-  const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
-  const canManageInstanceSettings = instanceAbility.can(
-    'manage',
-    'InstanceConfig',
-  );
+  const {
+    canAccessInvites,
+    canManageInstanceRoles,
+    canManageServers,
+    canManageServerRoles,
+    canManageServerSettings,
+    hasInstanceSettingsAccess,
+    hasServerSettingsAccess,
+    hasSettingsAccess,
+  } = getSettingsAccess(serverAbility, instanceAbility);
 
   if (isLoading) {
     return null;
   }
 
-  if (!canManageServerSettings && !canManageInstanceSettings) {
+  if (!hasSettingsAccess) {
     return (
       <PermissionDenied
         topNavProps={{ header: t('navigation.headers.settings') }}
@@ -47,7 +53,7 @@ export const Settings = () => {
       />
 
       <Container className="flex flex-col gap-8">
-        {canManageServerSettings && (
+        {hasServerSettingsAccess && (
           <section aria-labelledby="server-settings-heading">
             <h2 id="server-settings-heading" className="text-lg font-semibold">
               {t('navigation.labels.serverSettings')}
@@ -56,31 +62,39 @@ export const Settings = () => {
               {t('settings.descriptions.serverSection')}
             </p>
             <div className="flex flex-col gap-3">
-              <SettingsNavItem
-                Icon={MdSettings}
-                label={t('navigation.labels.general')}
-                to={`${serverPath}${NavigationPaths.GeneralSettings}`}
-              />
-              <SettingsNavItem
-                Icon={MdEmojiPeople}
-                label={t('navigation.labels.proposals')}
-                to={`${serverPath}${NavigationPaths.ProposalSettings}`}
-              />
-              <SettingsNavItem
-                Icon={MdAdminPanelSettings}
-                label={t('navigation.labels.serverRoles')}
-                to={`${serverPath}${NavigationPaths.Roles}`}
-              />
-              <SettingsNavItem
-                Icon={MdLink}
-                label={t('navigation.labels.invites')}
-                to={`${serverPath}${NavigationPaths.Invites}`}
-              />
+              {canManageServerSettings && (
+                <>
+                  <SettingsNavItem
+                    Icon={MdSettings}
+                    label={t('navigation.labels.general')}
+                    to={`${serverPath}${NavigationPaths.GeneralSettings}`}
+                  />
+                  <SettingsNavItem
+                    Icon={MdEmojiPeople}
+                    label={t('navigation.labels.proposals')}
+                    to={`${serverPath}${NavigationPaths.ProposalSettings}`}
+                  />
+                </>
+              )}
+              {canManageServerRoles && (
+                <SettingsNavItem
+                  Icon={MdAdminPanelSettings}
+                  label={t('navigation.labels.serverRoles')}
+                  to={`${serverPath}${NavigationPaths.Roles}`}
+                />
+              )}
+              {canAccessInvites && (
+                <SettingsNavItem
+                  Icon={MdLink}
+                  label={t('navigation.labels.invites')}
+                  to={`${serverPath}${NavigationPaths.Invites}`}
+                />
+              )}
             </div>
           </section>
         )}
 
-        {canManageInstanceSettings && (
+        {hasInstanceSettingsAccess && (
           <section aria-labelledby="instance-settings-heading">
             <h2
               id="instance-settings-heading"
@@ -92,16 +106,20 @@ export const Settings = () => {
               {t('settings.descriptions.instanceSection')}
             </p>
             <div className="flex flex-col gap-3">
-              <SettingsNavItem
-                Icon={MdAdminPanelSettings}
-                label={t('navigation.labels.instanceRoles')}
-                to={NavigationPaths.Roles}
-              />
-              <SettingsNavItem
-                Icon={MdGroups}
-                label={t('settings.headers.manageServers')}
-                to={NavigationPaths.ManageServers}
-              />
+              {canManageInstanceRoles && (
+                <SettingsNavItem
+                  Icon={MdAdminPanelSettings}
+                  label={t('navigation.labels.instanceRoles')}
+                  to={NavigationPaths.Roles}
+                />
+              )}
+              {canManageServers && (
+                <SettingsNavItem
+                  Icon={MdGroups}
+                  label={t('settings.headers.manageServers')}
+                  to={NavigationPaths.ManageServers}
+                />
+              )}
             </div>
           </section>
         )}
