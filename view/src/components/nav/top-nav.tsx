@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 interface Props {
   header?: string;
   subheader?: ReactNode;
+  subheaderAboveHeader?: boolean;
   onBackClick?: () => void;
   backBtnIcon?: ReactNode;
   goBackOnEscape?: boolean;
@@ -33,6 +34,7 @@ interface Props {
 export const TopNav = ({
   header,
   subheader,
+  subheaderAboveHeader = false,
   onBackClick,
   backBtnIcon,
   goBackOnEscape = false,
@@ -100,6 +102,11 @@ export const TopNav = ({
     return renderBtn();
   };
 
+  const renderSubheader = () =>
+    subheader && (
+      <div className="text-muted-foreground truncate text-xs">{subheader}</div>
+    );
+
   return (
     <header
       className={cn(
@@ -111,12 +118,9 @@ export const TopNav = ({
         {renderBackBtn()}
 
         <div className="min-w-0 flex-1 select-none">
+          {subheaderAboveHeader && renderSubheader()}
           <div className="truncate text-[1.05rem] font-medium">{header}</div>
-          {subheader && (
-            <div className="text-muted-foreground truncate text-xs">
-              {subheader}
-            </div>
-          )}
+          {!subheaderAboveHeader && renderSubheader()}
         </div>
       </div>
 

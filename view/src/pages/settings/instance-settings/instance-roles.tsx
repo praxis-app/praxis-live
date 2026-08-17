@@ -29,7 +29,9 @@ export const InstanceRoles = () => {
     return (
       <PermissionDenied
         topNavProps={{
-          header: t('roles.headers.instanceRoles'),
+          header: t('navigation.labels.roles'),
+          subheader: t('navigation.subheaders.instanceSettings'),
+          subheaderAboveHeader: true,
           onBackClick: () => navigate(NavigationPaths.Settings),
         }}
       />
@@ -39,7 +41,9 @@ export const InstanceRoles = () => {
   return (
     <>
       <TopNav
-        header={t('roles.headers.instanceRoles')}
+        header={t('navigation.labels.roles')}
+        subheader={t('navigation.subheaders.instanceSettings')}
+        subheaderAboveHeader
         onBackClick={() => navigate(NavigationPaths.Settings)}
       />
       <Container>

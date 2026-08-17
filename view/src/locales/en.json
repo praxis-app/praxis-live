@@ -1033,6 +1033,12 @@
     "titles": {
       "navDrawer": "Navigation drawer"
     },
+    "subheaders": {
+      "serverSettings": "Server settings",
+      "instanceSettings": "Instance settings",
+      "manageServers": "Instance settings · Manage servers",
+      "instanceRoles": "Instance settings · Instance roles"
+    },
     "headers": {
       "settings": "Settings",
       "serverSettings": "Server Settings",

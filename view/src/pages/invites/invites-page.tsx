@@ -40,6 +40,8 @@ export const InvitesPage = () => {
     <>
       <TopNav
         header={t('invites.headers.serverInvites')}
+        subheader={t('navigation.subheaders.serverSettings')}
+        subheaderAboveHeader
         onBackClick={() => navigate(NavigationPaths.Settings)}
       />
 

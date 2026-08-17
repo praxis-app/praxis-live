@@ -335,6 +335,8 @@ export const EditServerPage = () => {
       <PermissionDenied
         topNavProps={{
           header: t('servers.headers.edit'),
+          subheader: t('navigation.subheaders.manageServers'),
+          subheaderAboveHeader: true,
           onBackClick: () => navigate(NavigationPaths.ManageServers),
         }}
       />
@@ -353,6 +355,8 @@ export const EditServerPage = () => {
     <>
       <TopNav
         header={serverData.server.name}
+        subheader={t('navigation.subheaders.manageServers')}
+        subheaderAboveHeader
         onBackClick={() => navigate(NavigationPaths.ManageServers)}
       />
 
