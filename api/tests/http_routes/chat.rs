@@ -122,6 +122,78 @@ async fn logged_out_users_cannot_read_non_default_server_channel_feeds() {
     assert_eq!(feed_response.status(), StatusCode::FORBIDDEN);
 }
 
+#[tokio::test]
+async fn channel_order_can_be_updated_and_is_returned_consistently() {
+    let app = TestApp::new().await;
+    let token = signup_and_get_token(&app).await;
+    let server_id = default_server_id(&app).await;
+
+    let first_response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/channels"),
+            &json!({
+                "name": "first",
+                "description": null,
+                "channelType": "text"
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(first_response.status(), StatusCode::OK);
+    let first_id = json_body(first_response).await["channel"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let second_response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/channels"),
+            &json!({
+                "name": "second",
+                "description": null,
+                "channelType": "text"
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(second_response.status(), StatusCode::OK);
+    let second_id = json_body(second_response).await["channel"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let initial_response =
+        app.get(&format!("/api/servers/{server_id}/channels")).await;
+    let initial_body = json_body(initial_response).await;
+    let general_id = initial_body["channels"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let reorder_response = app
+        .put_json_with_bearer(
+            &format!("/api/servers/{server_id}/channels/order"),
+            &json!({
+                "channelIds": [&second_id, &general_id, &first_id]
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(reorder_response.status(), StatusCode::OK);
+
+    let reordered_response =
+        app.get(&format!("/api/servers/{server_id}/channels")).await;
+    let reordered_body = json_body(reordered_response).await;
+    let reordered_ids = reordered_body["channels"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|channel| channel["id"].as_str().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(reordered_ids, vec![second_id, general_id, first_id]);
+}
+
 async fn default_server_id(app: &TestApp) -> String {
     let response = app.get("/api/servers/default").await;
     let body = json_body(response).await;

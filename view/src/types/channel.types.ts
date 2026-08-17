@@ -25,6 +25,10 @@ export interface UpdateChannelReq {
   description?: string;
 }
 
+export interface UpdateChannelOrderReq {
+  channelIds: string[];
+}
+
 export type FeedItemRes =
   | (MessageRes & { type: 'message' })
   | (PollRes & { type: 'poll' })

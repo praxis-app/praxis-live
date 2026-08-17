@@ -8,8 +8,8 @@ use std::sync::Arc;
 use super::{
     service,
     types::{
-        ChannelPath, ChannelPayload, ChannelRequest, ChannelsPayload,
-        ServerPath,
+        ChannelOrderRequest, ChannelPath, ChannelPayload, ChannelRequest,
+        ChannelsPayload, ServerPath,
     },
 };
 use crate::{
@@ -63,6 +63,22 @@ pub(super) async fn update_channel(
         &state.database,
         path.server_id,
         path.channel_id,
+        payload,
+    )
+    .await?;
+    Ok(Json(EmptyResponse {}))
+}
+
+pub(super) async fn update_channel_order(
+    State(state): State<ChannelsState>,
+    Path(path): Path<ServerPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    Json(payload): Json<ChannelOrderRequest>,
+) -> AppResult<Json<EmptyResponse>> {
+    service::update_channel_order(
+        &state.database,
+        path.server_id,
+        user_id,
         payload,
     )
     .await?;

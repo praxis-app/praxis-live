@@ -4,14 +4,16 @@ use entity::{
     server_members, servers,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter,
-    QueryOrder, Set,
+    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait,
+    ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    ModelTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid as NativeUuid;
 
-use super::types::{ChannelRequest, ChannelResponse, ChannelServer};
+use super::types::{
+    ChannelOrderRequest, ChannelRequest, ChannelResponse, ChannelServer,
+};
 use crate::{
     common::{encryption, text::sanitize_text, ApiError, AppResult},
     servers as servers_service,
@@ -26,6 +28,7 @@ pub(super) async fn get_channels(
     let server = servers_service::load_server(database, server_id).await?;
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
+        .order_by_asc(channels::Column::SortOrder)
         .order_by_asc(channels::Column::CreatedAt)
         .all(database)
         .await
@@ -63,6 +66,7 @@ pub(super) async fn get_joined_channels(
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
         .filter(channels::Column::Id.is_in(channel_ids))
+        .order_by_asc(channels::Column::SortOrder)
         .order_by_asc(channels::Column::CreatedAt)
         .all(database)
         .await
@@ -91,6 +95,7 @@ pub(super) async fn create_channel(
 ) -> AppResult<ChannelResponse> {
     let server = servers_service::load_server(database, server_id).await?;
     let (name, description, channel_type) = validate_channel_request(request)?;
+    let sort_order = next_sort_order(database, server_id).await?;
 
     let channel = channels::ActiveModel {
         id: Set(NativeUuid::new_v4()),
@@ -98,6 +103,7 @@ pub(super) async fn create_channel(
         name: Set(name),
         description: Set(description),
         channel_type: Set(channel_type),
+        sort_order: Set(sort_order),
         ..Default::default()
     }
     .insert(database)
@@ -123,6 +129,57 @@ pub(super) async fn create_channel(
     }
 
     Ok(shape_channel(channel, &server))
+}
+
+pub(super) async fn update_channel_order(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    user_id: Uuid,
+    request: ChannelOrderRequest,
+) -> AppResult<()> {
+    ensure_can_manage_channels(database, user_id, server_id).await?;
+
+    let channels = channels::Entity::find()
+        .filter(channels::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let existing_ids = channels
+        .into_iter()
+        .map(|channel| channel.id)
+        .collect::<HashSet<_>>();
+    let requested_ids =
+        request.channel_ids.iter().copied().collect::<HashSet<_>>();
+
+    if request.channel_ids.len() != existing_ids.len()
+        || requested_ids.len() != request.channel_ids.len()
+        || requested_ids != existing_ids
+    {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "Channel order must include every server channel exactly once.",
+        ));
+    }
+
+    let mut updates = request
+        .channel_ids
+        .into_iter()
+        .enumerate()
+        .map(|(sort_order, channel_id)| (channel_id, sort_order as i32))
+        .collect::<Vec<_>>();
+    updates.sort_by_key(|(channel_id, _sort_order)| *channel_id);
+
+    let transaction = database.begin().await.map_err(internal_error)?;
+    for (channel_id, sort_order) in updates {
+        channels::Entity::update_many()
+            .col_expr(channels::Column::SortOrder, Expr::value(sort_order))
+            .filter(channels::Column::ServerId.eq(server_id))
+            .filter(channels::Column::Id.eq(channel_id))
+            .exec(&transaction)
+            .await
+            .map_err(internal_error)?;
+    }
+    transaction.commit().await.map_err(internal_error)
 }
 
 pub(super) async fn update_channel(
@@ -302,6 +359,7 @@ pub(crate) async fn create_general_channel(
         id: Set(NativeUuid::new_v4()),
         server_id: Set(server_id),
         name: Set("general".to_owned()),
+        sort_order: Set(next_sort_order(database, server_id).await?),
         ..Default::default()
     }
     .insert(database)
@@ -327,6 +385,47 @@ pub(crate) async fn create_general_channel(
     }
 
     Ok(())
+}
+
+async fn next_sort_order<C>(database: &C, server_id: Uuid) -> AppResult<i32>
+where
+    C: ConnectionTrait,
+{
+    let last_channel = channels::Entity::find()
+        .filter(channels::Column::ServerId.eq(server_id))
+        .order_by_desc(channels::Column::SortOrder)
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(last_channel.map_or(0, |channel| channel.sort_order + 1))
+}
+
+async fn ensure_can_manage_channels(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    server_id: Uuid,
+) -> AppResult<()> {
+    let permissions =
+        crate::servers::server_roles::service::get_permissions_by_user(
+            database, user_id,
+        )
+        .await?;
+    let can_manage =
+        permissions
+            .get(&server_id.to_string())
+            .is_some_and(|rules| {
+                rules.iter().any(|rule| {
+                    (rule.subject == "Channel" || rule.subject == "all")
+                        && rule.action.iter().any(|action| action == "manage")
+                })
+            });
+
+    if can_manage {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
 }
 
 pub(crate) async fn general_channel_id(

@@ -15,6 +15,7 @@ mod m20260715_000001_add_forum_channel_schema;
 mod m20260802_000001_add_events;
 mod m20260811_000001_drop_unused_image_content_types;
 mod m20260814_000001_add_server_images;
+mod m20260817_000001_add_channel_sort_order;
 
 pub struct Migrator;
 
@@ -41,6 +42,7 @@ impl MigratorTrait for Migrator {
                 m20260811_000001_drop_unused_image_content_types::Migration,
             ),
             Box::new(m20260814_000001_add_server_images::Migration),
+            Box::new(m20260817_000001_add_channel_sort_order::Migration),
         ]
     }
 }

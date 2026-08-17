@@ -19,6 +19,12 @@ pub(super) struct ChannelRequest {
     pub(super) channel_type: Option<ChannelType>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ChannelOrderRequest {
+    pub(super) channel_ids: Vec<Uuid>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub(super) struct ChannelServer {
     pub(super) id: String,

@@ -12,6 +12,7 @@ import {
   type ChannelRes,
   type CreateChannelReq,
   type FeedPageRes,
+  type UpdateChannelOrderReq,
   type UpdateChannelReq,
 } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
@@ -235,6 +236,14 @@ class ApiClient {
     return this.executeRequest<void>('put', path, {
       data,
     });
+  };
+
+  updateChannelOrder = async (
+    serverId: string,
+    data: UpdateChannelOrderReq,
+  ) => {
+    const path = `/servers/${serverId}/channels/order`;
+    return this.executeRequest<void>('put', path, { data });
   };
 
   deleteChannel = async (serverId: string, channelId: string) => {
