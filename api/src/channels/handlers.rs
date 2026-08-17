@@ -1,5 +1,6 @@
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     response::Json,
 };
 use sea_orm::DatabaseConnection;
@@ -74,7 +75,7 @@ pub(super) async fn update_channel_order(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<ChannelOrderRequest>,
-) -> AppResult<Json<EmptyResponse>> {
+) -> AppResult<StatusCode> {
     service::update_channel_order(
         &state.database,
         path.server_id,
@@ -82,7 +83,7 @@ pub(super) async fn update_channel_order(
         payload,
     )
     .await?;
-    Ok(Json(EmptyResponse {}))
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub(super) async fn delete_channel(

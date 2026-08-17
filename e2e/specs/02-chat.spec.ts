@@ -87,7 +87,7 @@ test('server admin can drag channels into a persistent order on desktop', async 
     return (
       response.request().method() === 'PUT' &&
       url.pathname === `/api/servers/${server.id}/channels/order` &&
-      response.status() === 200
+      response.status() === 204
     );
   });
   const secondChannel = channelItems.filter({ hasText: channelNames[1] });
