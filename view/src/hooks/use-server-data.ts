@@ -41,6 +41,12 @@ export const useServerData = () => {
         throw error;
       }
     },
+    // Intentionally refetches on mount: the request is what records the visit
+    // on the backend, so revisits to cached servers still update currentServer.
+    //
+    // TODO: This couples caching behaviour to activity tracking, so the query
+    // cannot be tuned on its own merits. A dedicated endpoint for recording the
+    // visit, or persisting the current server client side, would decouple them.
     enabled: !!serverSlug && isMeSuccess,
   });
 

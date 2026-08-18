@@ -868,6 +868,18 @@ pub(crate) async fn create_initial_server(
     Ok(server)
 }
 
+// Records the user's activity so slug-less routes such as `/` can resolve the
+// server they were last in. Activity is per user, not per session, so tabs and
+// devices share one value and the most recent view wins.
+//
+// TODO: Collapse this into a single `update_many().col_expr()` filtered on
+// server and user, since the lookup above the write is redundant. More broadly,
+// this is a write on a read path: `get_server_by_slug` runs on every in-app
+// navigation, so each one costs a lookup plus an update on top of the four
+// reads the endpoint already makes. That is cheap at current scale, as
+// `last_active_at` is unindexed and the update stays heap-only, but it keeps
+// this GET from being a pure read and rules out serving it from a replica.
+// Move activity tracking behind a cache such as Redis if the volume ever bites.
 async fn set_member_activity(
     database: &DatabaseConnection,
     server_id: Uuid,
