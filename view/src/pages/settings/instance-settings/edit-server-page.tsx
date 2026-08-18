@@ -321,16 +321,6 @@ export const EditServerPage = () => {
         queryKey: ['servers', serverData.server.slug],
         queryFn: () => api.getServerBySlug(serverData.server.slug),
       });
-      queryClient.setQueryData<{ user: CurrentUserRes }>(
-        ['me'],
-        (oldData) =>
-          oldData && {
-            user: {
-              ...oldData.user,
-              currentServer: server,
-            },
-          },
-      );
       navigate(`/s/${server.slug}`);
     } catch (error) {
       handleError(error as Error);
