@@ -1,11 +1,3 @@
-/**
- * FIXME: When the user switches between servers, `meData?.user.currentServer` is not
- * always updated. There's likely issues with caching for both FE and BE
- *
- * NOTE: There might be a better solution for persisting and updating the current
- * server that involves Redis and web sockets.
- */
-
 import { api } from '@/client/api-client';
 import {
   LocalStorageKeys,
@@ -13,8 +5,10 @@ import {
 } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useAuthStore } from '@/store/auth.store';
-import { useQuery } from '@tanstack/react-query';
+import { type CurrentUser } from '@/types/user.types';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 export const useServerData = () => {
@@ -22,6 +16,7 @@ export const useServerData = () => {
 
   const { serverSlug } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { me, isMeLoading, isMeSuccess, isMeError, isAuthError } = useAuthData({
     isMeQueryEnabled: !serverSlug,
@@ -38,8 +33,7 @@ export const useServerData = () => {
         throw new Error('Server slug is missing in URL');
       }
       try {
-        const result = await api.getServerBySlug(serverSlug);
-        return result;
+        return await api.getServerBySlug(serverSlug);
       } catch (error) {
         if (isAxiosError(error) && error.response?.status === 404) {
           navigate(NavigationPaths.Root);
@@ -48,7 +42,6 @@ export const useServerData = () => {
       }
     },
     enabled: !!serverSlug && isMeSuccess,
-    refetchOnMount: false,
   });
 
   const {
@@ -94,6 +87,26 @@ export const useServerData = () => {
       enabled: isDefaultServerQueryEnabled(),
       refetchOnMount: false,
     });
+
+  // Keep the cached `me.currentServer` in sync with the server being viewed.
+  // `me` is long lived (30 minute stale time, no refetch on mount) and is the
+  // only source of the current server on slug-less routes such as `/`, so
+  // without this it keeps pointing at whichever server the session started on.
+  // This runs off the resolved query data rather than inside `queryFn` so that
+  // it also fires when a previously visited server is served from the cache.
+  const viewedServer = serverBySlugData?.server;
+
+  useEffect(() => {
+    if (!viewedServer) {
+      return;
+    }
+    queryClient.setQueryData<{ user: CurrentUser }>(['me'], (oldData) => {
+      if (!oldData || oldData.user.currentServer?.id === viewedServer.id) {
+        return oldData;
+      }
+      return { user: { ...oldData.user, currentServer: viewedServer } };
+    });
+  }, [queryClient, viewedServer]);
 
   const server =
     serverBySlugData?.server ||
