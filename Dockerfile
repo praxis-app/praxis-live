@@ -41,19 +41,20 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY --from=frontend-builder /app/view/dist ./static
 COPY content ./content
 
 ENV FRONTEND_DIST_DIR=/app/static
 
 CMD ["./praxis-live"]
 
-# E2E image built from the current Rust source
+# E2E image built from the current Rust and Vite source
 FROM runtime AS e2e
 
 COPY --from=backend-builder /praxis-live ./
+COPY --from=frontend-builder /app/view/dist ./static
 
-# Production image built from the tracked Linux artifact
+# Production image built from the tracked Linux and frontend artifacts
 FROM runtime AS production
 
 COPY deploy/artifacts/linux-x86_64/praxis-live ./
+COPY deploy/artifacts/frontend-dist ./static

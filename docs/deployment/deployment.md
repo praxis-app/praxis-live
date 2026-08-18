@@ -2,8 +2,10 @@
 
 Praxis uses the repository's shared `Dockerfile` and `docker-compose.yml`. The
 production image copies the tracked Linux x86_64 (`linux/amd64`) Rust binary
-from `deploy/artifacts/linux-x86_64/praxis-live` and builds the Vite frontend
-inside Docker.
+from `deploy/artifacts/linux-x86_64/praxis-live` and the tracked Vite frontend
+build from `deploy/artifacts/frontend-dist`. The VPS never compiles Rust or
+runs `npm run build`, which keeps deploys viable on resource-constrained
+hosts.
 
 ## Initial deployment
 
@@ -55,8 +57,14 @@ deploying:
 scripts/build-linux-artifact.sh
 ```
 
-Frontend-only changes do not require rebuilding that artifact. Never run
-`docker compose down --volumes`; PostgreSQL, Redis, and uploads use named
-volumes.
+After frontend changes, rebuild and commit the tracked frontend artifact
+before deploying:
+
+```bash
+scripts/build-frontend-artifact.sh
+```
+
+Never run `docker compose down --volumes`; PostgreSQL, Redis, and uploads use
+named volumes.
 
 See the root [DEPLOY.md](../../DEPLOY.md) for the shortest deployment reference.

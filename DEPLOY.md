@@ -1,8 +1,9 @@
 # Deploy Praxis Live
 
-The repository contains the prebuilt Linux x86_64 backend binary used by the
-Docker image (`linux/amd64` in Docker terminology). On the VPS, clone the repository, create `.env` from
-`.env.example`, configure it, and start the existing Compose stack:
+The repository contains the prebuilt Linux x86_64 backend binary and the
+prebuilt Vite frontend used by the Docker image. On the VPS, clone the
+repository, create `.env` from `.env.example`, configure it, and start the
+existing Compose stack:
 
 ```bash
 cp .env.example .env
@@ -22,5 +23,14 @@ machine with Docker/buildx:
 scripts/build-linux-artifact.sh
 ```
 
-The VPS Docker build uses this artifact and does not install Rust or compile the
-backend. The Vite frontend continues to build in Docker.
+## Refresh the frontend build
+
+After changing frontend code, rebuild and commit the frontend artifact from a
+machine with Docker/buildx:
+
+```bash
+scripts/build-frontend-artifact.sh
+```
+
+The VPS Docker build uses both artifacts and does not install Rust, compile
+the backend, or run `npm run build`.
