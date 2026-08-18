@@ -1,5 +1,6 @@
 import { api } from '@/client/api-client';
 import { ChannelListItemDesktop } from '@/components/channels/channel-list-item-desktop';
+import { ChannelListSkeleton } from '@/components/channels/channel-list-skeleton';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useAbility } from '@/hooks/use-ability';
 import { useServerData } from '@/hooks/use-server-data';
@@ -100,9 +101,8 @@ export const ChannelListDesktop = () => {
       },
     });
 
-  // TODO: Add skeleton loader
   if (!serverSlug || isLoading) {
-    return <div className="flex flex-1" />;
+    return <ChannelListSkeleton />;
   }
 
   const handleDragEnd = ({ source, destination }: DropResult) => {
