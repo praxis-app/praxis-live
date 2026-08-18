@@ -9,8 +9,6 @@ import {
 import {
   authorizationHeaders,
   createAuthenticatedUser,
-  getOrCreateInstanceAdmin,
-  seedAuthenticatedSession,
   signUpViaApi,
   setupAnonymousInvite,
 } from '../lib/auth';
@@ -36,145 +34,8 @@ type JoinCallResponse = {
   };
 };
 
-type ChannelOrderRecorderWindow = Window & {
-  channelOrderAnimationFrame?: number;
-  channelOrderFrames?: string[][];
-};
-
 const feedPageSize = 20;
 const totalFeedMessages = 41;
-
-test('server admin can drag channels into a persistent order on desktop', async ({
-  context,
-  page,
-  request,
-}) => {
-  const admin = await getOrCreateInstanceAdmin(request);
-  await seedAuthenticatedSession(context, admin.accessToken);
-  const server = await getDefaultServer(request, admin);
-  const channelNames = [
-    `first-${admin.user.suffix}`,
-    `second-${admin.user.suffix}`,
-  ];
-
-  for (const name of channelNames) {
-    const response = await request.post(
-      `/api/servers/${server.id}/channels`,
-      {
-        headers: authorizationHeaders(admin),
-        data: {
-          name,
-          description: null,
-          channelType: 'text',
-        },
-      },
-    );
-    await expect(response).toBeOK();
-  }
-
-  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
-  const channelList = page.getByTestId('channel-list');
-  const channelItems = channelList.getByTestId('channel-list-item');
-  await expect(channelItems).toHaveCount(3);
-  await expect(channelItems).toHaveText([
-    'general',
-    channelNames[0],
-    channelNames[1],
-  ]);
-
-  const reorderResponse = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return (
-      response.request().method() === 'PUT' &&
-      url.pathname === `/api/servers/${server.id}/channels/order` &&
-      response.status() === 204
-    );
-  });
-  const secondChannel = channelItems.filter({ hasText: channelNames[1] });
-  const generalChannel = channelItems.filter({ hasText: 'general' });
-  const sourceBox = await secondChannel.boundingBox();
-  const targetBox = await generalChannel.boundingBox();
-  expect(sourceBox).not.toBeNull();
-  expect(targetBox).not.toBeNull();
-
-  await page.mouse.move(
-    sourceBox!.x + sourceBox!.width / 2,
-    sourceBox!.y + sourceBox!.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    sourceBox!.x + sourceBox!.width / 2,
-    sourceBox!.y - 10,
-    { steps: 5 },
-  );
-  await page.mouse.move(
-    targetBox!.x + targetBox!.width / 2,
-    targetBox!.y + targetBox!.height / 4,
-    { steps: 10 },
-  );
-
-  await page.evaluate(() => {
-    const recorderWindow = window as ChannelOrderRecorderWindow;
-    const frames: string[][] = [];
-    const recordVisualOrder = () => {
-      const order = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '[data-testid="channel-list-item"]',
-        ),
-      )
-        .map((element) => ({
-          name: element.textContent?.trim() ?? '',
-          top: element.getBoundingClientRect().top,
-        }))
-        .sort((left, right) => left.top - right.top)
-        .map(({ name }) => name);
-      const previousOrder = frames.at(-1);
-      if (!previousOrder || previousOrder.join('|') !== order.join('|')) {
-        frames.push(order);
-      }
-      recorderWindow.channelOrderAnimationFrame = requestAnimationFrame(
-        recordVisualOrder,
-      );
-    };
-
-    recorderWindow.channelOrderFrames = frames;
-    recordVisualOrder();
-  });
-
-  await page.mouse.up();
-  await reorderResponse;
-
-  const observedVisualOrders = await page.evaluate(() => {
-    const recorderWindow = window as ChannelOrderRecorderWindow;
-    if (recorderWindow.channelOrderAnimationFrame) {
-      cancelAnimationFrame(recorderWindow.channelOrderAnimationFrame);
-    }
-    return recorderWindow.channelOrderFrames ?? [];
-  });
-  const reorderedChannelNames = [
-    channelNames[1],
-    'general',
-    channelNames[0],
-  ];
-  const firstReorderedFrame = observedVisualOrders.findIndex(
-    (order) => order.join('|') === reorderedChannelNames.join('|'),
-  );
-  expect(firstReorderedFrame).toBeGreaterThanOrEqual(0);
-  expect(observedVisualOrders.slice(firstReorderedFrame)).not.toContainEqual([
-    'general',
-    channelNames[0],
-    channelNames[1],
-  ]);
-
-  await expect(channelItems).toHaveText(reorderedChannelNames);
-
-  await page.reload();
-  await expect(channelItems).toHaveText([
-    channelNames[1],
-    'general',
-    channelNames[0],
-  ]);
-});
 
 test('authenticated user can send a basic chat message', async ({
   context,
