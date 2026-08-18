@@ -178,6 +178,8 @@ export const GeneralServerSettings = () => {
       <PermissionDenied
         topNavProps={{
           header: t('navigation.labels.general'),
+          subheader: t('navigation.subheaders.serverSettings'),
+          subheaderAboveHeader: true,
           onBackClick: () =>
             navigate(`${serverPath}${NavigationPaths.Settings}`),
         }}
@@ -197,7 +199,11 @@ export const GeneralServerSettings = () => {
     <>
       <TopNav
         header={t('navigation.labels.general')}
-        onBackClick={() => navigate(`${serverPath}${NavigationPaths.Settings}`)}
+        subheader={t('navigation.subheaders.serverSettings')}
+        subheaderAboveHeader
+        onBackClick={() =>
+          navigate(`${serverPath}${NavigationPaths.Settings}`)
+        }
       />
 
       <Container className="space-y-4">

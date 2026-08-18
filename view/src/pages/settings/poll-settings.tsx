@@ -38,7 +38,11 @@ export const PollSettings = () => {
     <>
       <TopNav
         header={t('navigation.labels.proposals')}
-        onBackClick={() => navigate(`${serverPath}${NavigationPaths.Settings}`)}
+        subheader={t('navigation.subheaders.serverSettings')}
+        subheaderAboveHeader
+        onBackClick={() =>
+          navigate(`${serverPath}${NavigationPaths.Settings}`)
+        }
       />
 
       <Container>

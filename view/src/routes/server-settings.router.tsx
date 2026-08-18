@@ -3,7 +3,7 @@ import { EditServerRolePage } from '@/pages/settings/edit-server-role-page';
 import { GeneralServerSettings } from '@/pages/settings/general-server-settings';
 import { PollSettings } from '@/pages/settings/poll-settings';
 import { ServerRoles } from '@/pages/settings/server-roles';
-import { ServerSettings } from '@/pages/settings/server-settings';
+import { Settings } from '@/pages/settings/settings';
 import { type RouteObject } from 'react-router-dom';
 
 export const serverSettingsRouter: RouteObject = {
@@ -11,7 +11,7 @@ export const serverSettingsRouter: RouteObject = {
   children: [
     {
       index: true,
-      element: <ServerSettings />,
+      element: <Settings />,
     },
     {
       path: 'general',

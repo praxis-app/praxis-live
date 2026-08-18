@@ -11,6 +11,7 @@ pub struct Model {
     pub name: String,
     pub description: Option<String>,
     pub channel_type: ChannelType,
+    pub sort_order: i32,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

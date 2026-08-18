@@ -62,6 +62,7 @@ export const UserProfile = ({ userId, me, className }: Props) => {
 
   return (
     <div className={cn('flex flex-col gap-4 md:min-w-lg', className)}>
+      {/* TODO: Check if the relative class here is actually needed for anything */}
       <div className="relative">
         {profileData.user.coverPhoto?.id ? (
           <LazyLoadImage

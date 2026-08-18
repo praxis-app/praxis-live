@@ -198,6 +198,8 @@ export const EditInstanceRolePage = () => {
       <PermissionDenied
         topNavProps={{
           header: t('roles.headers.instanceRoles'),
+          subheader: t('navigation.subheaders.instanceRoles'),
+          subheaderAboveHeader: true,
           onBackClick: () => navigate(NavigationPaths.Settings),
         }}
       />
@@ -216,6 +218,8 @@ export const EditInstanceRolePage = () => {
     <>
       <TopNav
         header={instanceRoleData.instanceRole.name}
+        subheader={t('navigation.subheaders.instanceRoles')}
+        subheaderAboveHeader
         onBackClick={() => navigate(NavigationPaths.Roles)}
       />
 

@@ -1,14 +1,16 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   authorizationHeaders,
+  createAuthenticatedUser,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser, INSTANCE_ADMIN_USER } from '../lib/data';
 import { createInvite } from '../lib/invites';
+import { getDefaultServer } from '../lib/servers';
 import { AuthPage } from '../pages/auth.page';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
@@ -195,4 +197,96 @@ test('invited user can sign up and join the invited server', async ({
       page.evaluate(() => window.localStorage.getItem('invite-token')),
     )
     .toBeNull();
+});
+
+const switchToServer = async (page: Page, serverName: string) => {
+  await page.getByRole('button', { name: /praxis/i }).first().click();
+  await page.getByRole('menuitem', { name: 'Switch servers' }).click();
+  const switchDialog = page.getByRole('dialog', { name: 'Switch servers' });
+  await switchDialog.getByText(serverName, { exact: true }).click();
+  await expect(switchDialog).toBeHidden();
+};
+
+const goToLandingPage = async (page: Page) => {
+  await page.getByRole('button', { name: /praxis/i }).first().click();
+  await page
+    .getByRole('menuitem', { name: 'About Praxis', exact: true })
+    .click();
+  await expect(page).toHaveURL('/about');
+};
+
+// The landing page renders separate mobile and desktop heroes, so only the
+// visible copy of a call to action can be clicked.
+const clickLandingLink = async (page: Page, linkName: string) => {
+  await page
+    .getByRole('link', { name: linkName, exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+};
+
+const landingPageEntryPoints = ['Open Praxis', 'Explore Praxis'];
+
+test('Open Praxis and Explore Praxis both return a logged in user to the server they last switched to', async ({
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+
+  const user = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('open-praxis'),
+  );
+  const defaultServer = await getDefaultServer(request, user);
+
+  const servers: { name: string; slug: string }[] = [];
+  for (const index of [1, 2, 3, 4, 5]) {
+    const name = `Switch server ${index} ${user.user.suffix}`;
+    const slug = `switch-${index}-${user.user.suffix}`;
+    const createServerResponse = await request.post('/api/servers', {
+      headers: authorizationHeaders(user),
+      data: {
+        name,
+        slug,
+        description: null,
+        isDefaultServer: false,
+      },
+    });
+    await expect(createServerResponse).toBeOK();
+    servers.push({ name, slug });
+  }
+
+  await page.goto(
+    `/s/${defaultServer.slug}/c/${defaultServer.generalChannelId}`,
+  );
+  await expect(
+    page.getByText('general', { exact: true }).first(),
+  ).toBeVisible();
+
+  // Switch to each server in turn and confirm that leaving for the landing
+  // page and coming back through either entry point returns to that same
+  // server. The trailing repeats re-enter servers whose data is already in
+  // the client-side query cache, which is where the reported bug shows up.
+  for (const server of [...servers, servers[0], servers[2]]) {
+    await switchToServer(page, server.name);
+    await expect(page).toHaveURL(new RegExp(`/s/${server.slug}(/|$)`));
+
+    for (const entryPoint of landingPageEntryPoints) {
+      await goToLandingPage(page);
+      await clickLandingLink(page, entryPoint);
+      await expect(page).toHaveURL(new RegExp(`/s/${server.slug}(/|$)`));
+    }
+  }
+
+  // Finally, the same journeys across a cold load, which drops the client
+  // cache entirely and relies on the backend's record of the last active
+  // server.
+  const lastServer = servers[2];
+  for (const entryPoint of landingPageEntryPoints) {
+    await page.goto('/about');
+    await clickLandingLink(page, entryPoint);
+    await expect(page).toHaveURL(new RegExp(`/s/${lastServer.slug}(/|$)`));
+  }
 });

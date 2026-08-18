@@ -790,6 +790,8 @@
       "anonymousUsersEnabled": "Anonymous users"
     },
     "descriptions": {
+      "serverSection": "Manage settings for the current server, including proposals, invites, and roles.",
+      "instanceSection": "Manage settings across the entire instance, including instance roles and servers.",
       "decisionMakingModel": "Choose from consensus, consent, or majority vote to determine how decisions are made in the server.",
       "agreementThreshold": "Set the minimum percentage of positive votes required for a proposal to pass.",
       "quorumEnabled": "Require a minimum number of members to participate before a proposal can pass.",
@@ -825,7 +827,9 @@
     },
     "actions": {
       "addMembers": "Add members",
+      "deleteServer": "Delete Server",
       "manage": "Manage server",
+      "switchTo": "Switch to server",
       "selectImage": "Select server image",
       "changeImage": "Change server image"
     },
@@ -1029,18 +1033,27 @@
     "titles": {
       "navDrawer": "Navigation drawer"
     },
+    "subheaders": {
+      "serverSettings": "Server settings",
+      "instanceSettings": "Instance settings",
+      "manageServers": "Instance settings · Manage servers",
+      "instanceRoles": "Instance settings · Instance roles"
+    },
     "headers": {
+      "settings": "Settings",
       "serverSettings": "Server Settings",
       "instanceSettings": "Instance Settings"
     },
     "labels": {
       "general": "General",
+      "settings": "Manage Settings",
       "serverSettings": "Server settings",
+      "serverRoles": "Server Roles",
       "instanceSettings": "Instance settings",
       "switchServers": "Switch servers",
       "instanceRoles": "Instance Roles",
       "proposals": "Proposals",
-      "invites": "Invites",
+      "invites": "Invite Links",
       "roles": "Roles",
       "events": "Events"
     },

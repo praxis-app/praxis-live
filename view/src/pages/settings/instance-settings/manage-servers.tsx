@@ -77,6 +77,8 @@ export const ManageServers = () => {
       <PermissionDenied
         topNavProps={{
           header: t('settings.headers.manageServers'),
+          subheader: t('navigation.subheaders.instanceSettings'),
+          subheaderAboveHeader: true,
           onBackClick: () => navigate(NavigationPaths.Settings),
         }}
       />
@@ -91,6 +93,8 @@ export const ManageServers = () => {
     <>
       <TopNav
         header={t('settings.headers.manageServers')}
+        subheader={t('navigation.subheaders.instanceSettings')}
+        subheaderAboveHeader
         onBackClick={() => navigate(NavigationPaths.Settings)}
       />
 

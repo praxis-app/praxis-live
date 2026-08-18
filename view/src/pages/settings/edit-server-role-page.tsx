@@ -189,6 +189,8 @@ export const EditServerRolePage = () => {
       <PermissionDenied
         topNavProps={{
           header: t('roles.headers.serverRoles'),
+          subheader: t('navigation.subheaders.serverSettings'),
+          subheaderAboveHeader: true,
           onBackClick: () =>
             navigate(`${serverPath}${NavigationPaths.Settings}`),
         }}
@@ -204,6 +206,8 @@ export const EditServerRolePage = () => {
     <>
       <TopNav
         header={serverRoleData.serverRole.name}
+        subheader={t('navigation.subheaders.serverSettings')}
+        subheaderAboveHeader
         onBackClick={() => navigate(`${serverPath}${NavigationPaths.Roles}`)}
       />
 

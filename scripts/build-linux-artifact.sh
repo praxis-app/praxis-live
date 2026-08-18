@@ -9,7 +9,7 @@ trap 'rm -rf "$temporary_dir"' EXIT
 
 docker buildx build \
   --platform linux/amd64 \
-  --file deploy/Dockerfile.artifact \
+  --file deploy/Dockerfile.backend-artifact \
   --output "type=local,dest=$temporary_dir" \
   .
 

@@ -19,6 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
+import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
 import { type ServerReq, type ServerRes } from '@/types/server.types';
 import { type CurrentUserRes, type UserRes } from '@/types/user.types';
@@ -26,7 +27,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuChevronRight, LuPlus } from 'react-icons/lu';
+import { LuArrowRight, LuChevronRight, LuPlus } from 'react-icons/lu';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 const mergeServerResponse = (
@@ -54,6 +55,7 @@ export const EditServerPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { server: currentServer } = useServerData();
 
   const { instanceAbility, isLoading: isAbilityLoading } = useAbility();
   const canManageServers = instanceAbility.can('manage', 'Server');
@@ -107,7 +109,13 @@ export const EditServerPage = () => {
 
   const { mutateAsync: updateServer, isPending: isUpdatePending } = useMutation(
     {
-      mutationFn: async ({ values, image }: { values: ServerReq; image?: File }) => {
+      mutationFn: async ({
+        values,
+        image,
+      }: {
+        values: ServerReq;
+        image?: File;
+      }) => {
         if (!serverId || !serverData?.server) {
           throw new Error('Server ID and server data are required');
         }
@@ -154,10 +162,7 @@ export const EditServerPage = () => {
             (oldData) =>
               oldData
                 ? {
-                    server: mergeServerResponse(
-                      oldData.server,
-                      updatedServer,
-                    ),
+                    server: mergeServerResponse(oldData.server, updatedServer),
                   }
                 : { server: updatedServer },
           );
@@ -306,6 +311,22 @@ export const EditServerPage = () => {
     deleteServer();
   };
 
+  const handleSwitchToServer = async () => {
+    if (!serverData?.server) {
+      return;
+    }
+
+    try {
+      const { server } = await queryClient.fetchQuery({
+        queryKey: ['servers', serverData.server.slug],
+        queryFn: () => api.getServerBySlug(serverData.server.slug),
+      });
+      navigate(`/s/${server.slug}`);
+    } catch (error) {
+      handleError(error as Error);
+    }
+  };
+
   if (isAbilityLoading || isServerLoading || isServerMembersLoading) {
     return null;
   }
@@ -315,6 +336,8 @@ export const EditServerPage = () => {
       <PermissionDenied
         topNavProps={{
           header: t('servers.headers.edit'),
+          subheader: t('navigation.subheaders.manageServers'),
+          subheaderAboveHeader: true,
           onBackClick: () => navigate(NavigationPaths.ManageServers),
         }}
       />
@@ -333,6 +356,8 @@ export const EditServerPage = () => {
     <>
       <TopNav
         header={serverData.server.name}
+        subheader={t('navigation.subheaders.manageServers')}
+        subheaderAboveHeader
         onBackClick={() => navigate(NavigationPaths.ManageServers)}
       />
 
@@ -359,12 +384,23 @@ export const EditServerPage = () => {
               </CardContent>
             </Card>
 
+            {currentServer?.id !== serverData.server.id && (
+              <Button
+                variant="outline"
+                className="mt-2 w-full"
+                onClick={() => void handleSwitchToServer()}
+              >
+                {t('servers.actions.switchTo')}
+                <LuArrowRight />
+              </Button>
+            )}
+
             <DeleteButton
               className="mt-2"
               onClick={() => setIsConfirmDialogOpen(true)}
               disabled={serverData.server.isDefaultServer}
             >
-              {t('actions.delete')}
+              {t('servers.actions.deleteServer')}
             </DeleteButton>
 
             <Dialog

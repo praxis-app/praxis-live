@@ -29,11 +29,12 @@ import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { useMeQuery } from '@/hooks/use-me-query';
 import { useServerData } from '@/hooks/use-server-data';
+import { getSettingsAccess } from '@/lib/role.utils';
 import { useNavStore } from '@/store/nav.store';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdAddCircle, MdOutlineSettings, MdSettings } from 'react-icons/md';
+import { MdAddCircle, MdSettings } from 'react-icons/md';
 import { TbSwitchHorizontal } from 'react-icons/tb';
 import { useNavigate } from 'react-router-dom';
 
@@ -55,22 +56,14 @@ export const NavDrawer = ({ trigger }: Props) => {
   const { data: meData } = useMeQuery();
 
   const canManageChannels = serverAbility.can('manage', 'Channel');
-  const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
-  const canManageServers = instanceAbility.can('manage', 'Server');
-  const canManageInstanceSettings = instanceAbility.can(
-    'manage',
-    'InstanceConfig',
-  );
+  const { canManageServers, canManageServerSettings, hasSettingsAccess } =
+    getSettingsAccess(serverAbility, instanceAbility);
 
   const serverName = server?.name || PRAXIS_NAME;
   const hasMultipleServers = !!meData && meData.user.serversCount > 1;
 
   const hasServerMenuActions =
-    canManageChannels ||
-    canManageServerSettings ||
-    canManageServers ||
-    canManageInstanceSettings ||
-    hasMultipleServers;
+    canManageChannels || hasSettingsAccess || hasMultipleServers;
 
   const manageServerPath = canManageServerSettings
     ? `${serverPath}${NavigationPaths.GeneralSettings}`
@@ -161,21 +154,7 @@ export const NavDrawer = ({ trigger }: Props) => {
               </Dialog>
             )}
 
-            {canManageInstanceSettings && (
-              <Button
-                variant="ghost"
-                className="text-md flex items-center gap-6 font-normal"
-                onClick={() => {
-                  navigate(NavigationPaths.Settings);
-                  setIsNavSheetOpen(false);
-                }}
-              >
-                <MdOutlineSettings className="size-6" />
-                {t('navigation.labels.instanceSettings')}
-              </Button>
-            )}
-
-            {canManageServerSettings && (
+            {hasSettingsAccess && (
               <Button
                 variant="ghost"
                 className="text-md flex items-center gap-6 font-normal"
@@ -185,7 +164,7 @@ export const NavDrawer = ({ trigger }: Props) => {
                 }}
               >
                 <MdSettings className="size-6" />
-                {t('navigation.labels.serverSettings')}
+                {t('navigation.labels.settings')}
               </Button>
             )}
 

@@ -6,7 +6,7 @@ use sea_orm::DatabaseConnection;
 
 use super::handlers::{
     create_channel, delete_channel, get_channel, get_channels,
-    get_joined_channels, update_channel, ChannelsState,
+    get_joined_channels, update_channel, update_channel_order, ChannelsState,
 };
 use crate::{
     calls, calls::LiveKitConfig, feeds, forum, messages, polls,
@@ -23,6 +23,7 @@ pub(crate) fn router(
         .route("/", get(get_channels))
         .route("/joined", get(get_joined_channels))
         .route("/", post(create_channel))
+        .route("/order", put(update_channel_order))
         .route("/{channelId}", get(get_channel))
         .route("/{channelId}", put(update_channel))
         .route("/{channelId}", delete(delete_channel))

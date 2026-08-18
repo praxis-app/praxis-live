@@ -1,13 +1,15 @@
 use axum::http::StatusCode;
+use chrono::Utc;
 use entity::{
     channel_members, channels, event_attendees, events, instance_configs,
     server_images, server_members, servers, users,
 };
 use sea_orm::{
-    prelude::Uuid, sea_query::Query, ActiveModelTrait, ColumnTrait,
-    ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, SqlErr,
-    TransactionTrait,
+    prelude::Uuid,
+    sea_query::{NullOrdering, Query},
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection,
+    EntityTrait, IntoActiveModel, ModelTrait, Order, PaginatorTrait,
+    QueryFilter, QueryOrder, Set, SqlErr, TransactionTrait,
 };
 use std::path::Path;
 use uuid::Uuid as NativeUuid;
@@ -188,7 +190,11 @@ pub(crate) async fn get_current_server(
     let default_server_id = default_server_id(database).await?;
     let membership = server_members::Entity::find()
         .filter(server_members::Column::UserId.eq(user_id))
-        .order_by_desc(server_members::Column::LastActiveAt)
+        .order_by_with_nulls(
+            server_members::Column::LastActiveAt,
+            Order::Desc,
+            NullOrdering::Last,
+        )
         .one(database)
         .await
         .map_err(internal_error)?;
@@ -862,17 +868,36 @@ pub(crate) async fn create_initial_server(
     Ok(server)
 }
 
+// Records the user's activity so slug-less routes such as `/` can resolve the
+// server they were last in. Activity is per user, not per session, so tabs and
+// devices share one value and the most recent view wins.
+//
+// TODO: Collapse this into a single `update_many().col_expr()` filtered on
+// server and user, since the lookup above the write is redundant. More broadly,
+// this is a write on a read path: `get_server_by_slug` runs on every in-app
+// navigation, so each one costs a lookup plus an update on top of the four
+// reads the endpoint already makes. That is cheap at current scale, as
+// `last_active_at` is unindexed and the update stays heap-only, but it keeps
+// this GET from being a pure read and rules out serving it from a replica.
+// Move activity tracking behind a cache such as Redis if the volume ever bites.
 async fn set_member_activity(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
-    let _membership = server_members::Entity::find()
+    let Some(membership) = server_members::Entity::find()
         .filter(server_members::Column::ServerId.eq(server_id))
         .filter(server_members::Column::UserId.eq(user_id))
         .one(database)
         .await
-        .map_err(internal_error)?;
+        .map_err(internal_error)?
+    else {
+        return Ok(());
+    };
+
+    let mut active = membership.into_active_model();
+    active.last_active_at = Set(Some(Utc::now().fixed_offset()));
+    active.update(database).await.map_err(internal_error)?;
 
     Ok(())
 }

@@ -39,8 +39,12 @@ export const InvitesPage = () => {
   return (
     <>
       <TopNav
-        header={t('navigation.labels.invites')}
-        onBackClick={() => navigate(`${serverPath}${NavigationPaths.Settings}`)}
+        header={t('invites.headers.serverInvites')}
+        subheader={t('navigation.subheaders.serverSettings')}
+        subheaderAboveHeader
+        onBackClick={() =>
+          navigate(`${serverPath}${NavigationPaths.Settings}`)
+        }
       />
 
       <div className="flex h-full flex-col items-center justify-center gap-3.5 p-3 pt-4 md:p-16">

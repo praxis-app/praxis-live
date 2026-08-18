@@ -6,6 +6,8 @@
     "dev": "vite",
     "build": "tsc -b tsconfig.app.json tsconfig.node.json && vite build",
     "build:rust": "./scripts/build-linux-artifact.sh",
+    "build:frontend": "./scripts/build-frontend-artifact.sh",
+    "build:artifacts": "npm run build:rust && npm run build:frontend",
     "types": "tsc -b",
     "lint": "eslint .",
     "check": "npm run types && npm run lint && npm audit",
@@ -18,6 +20,7 @@
   },
   "dependencies": {
     "@casl/ability": "^6.8.0",
+    "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^5.2.2",
     "@livekit/components-react": "^2.9.20",
     "@livekit/components-styles": "^1.2.0",

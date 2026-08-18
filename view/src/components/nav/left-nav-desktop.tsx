@@ -29,6 +29,7 @@ import { NavigationPaths } from '@/constants/shared.constants';
 import { useAbility } from '@/hooks/use-ability';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
+import { getSettingsAccess } from '@/lib/role.utils';
 import { cn } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -40,7 +41,6 @@ import {
   MdAddCircle,
   MdExpandMore,
   MdEvent,
-  MdOutlineSettings,
   MdRocketLaunch,
   MdSettings,
 } from 'react-icons/md';
@@ -67,21 +67,13 @@ export const LeftNavDesktop = ({ me }: Props) => {
 
   const { serverAbility, instanceAbility } = useAbility();
   const canManageChannels = serverAbility.can('manage', 'Channel');
-  const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
-  const canManageServers = instanceAbility.can('manage', 'Server');
 
-  const canManageInstanceSettings = instanceAbility.can(
-    'manage',
-    'InstanceConfig',
-  );
+  const { canManageServers, canManageServerSettings, hasSettingsAccess } =
+    getSettingsAccess(serverAbility, instanceAbility);
 
   const hasMultipleServers = !!myServerCount && myServerCount > 1;
   const hasServerMenuActions =
-    canManageServerSettings ||
-    canManageServers ||
-    canManageChannels ||
-    canManageInstanceSettings ||
-    hasMultipleServers;
+    canManageChannels || hasSettingsAccess || hasMultipleServers;
 
   const manageServerPath = canManageServerSettings
     ? `${serverPath}${NavigationPaths.GeneralSettings}`
@@ -132,20 +124,11 @@ export const LeftNavDesktop = ({ me }: Props) => {
               </DialogTrigger>
             )}
 
-            {canManageInstanceSettings && (
-              <Link to={NavigationPaths.Settings}>
-                <DropdownMenuItem className="text-md">
-                  <MdOutlineSettings className="text-foreground size-5" />
-                  {t('navigation.labels.instanceSettings')}
-                </DropdownMenuItem>
-              </Link>
-            )}
-
-            {canManageServerSettings && (
+            {hasSettingsAccess && (
               <Link to={`${serverPath}${NavigationPaths.Settings}`}>
                 <DropdownMenuItem className="text-md">
                   <MdSettings className="text-foreground size-5" />
-                  {t('navigation.labels.serverSettings')}
+                  {t('navigation.labels.settings')}
                 </DropdownMenuItem>
               </Link>
             )}

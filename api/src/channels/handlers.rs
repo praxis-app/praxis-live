@@ -1,5 +1,6 @@
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     response::Json,
 };
 use sea_orm::DatabaseConnection;
@@ -8,8 +9,8 @@ use std::sync::Arc;
 use super::{
     service,
     types::{
-        ChannelPath, ChannelPayload, ChannelRequest, ChannelsPayload,
-        ServerPath,
+        ChannelOrderRequest, ChannelPath, ChannelPayload, ChannelRequest,
+        ChannelsPayload, ServerPath,
     },
 };
 use crate::{
@@ -67,6 +68,22 @@ pub(super) async fn update_channel(
     )
     .await?;
     Ok(Json(EmptyResponse {}))
+}
+
+pub(super) async fn update_channel_order(
+    State(state): State<ChannelsState>,
+    Path(path): Path<ServerPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    Json(payload): Json<ChannelOrderRequest>,
+) -> AppResult<StatusCode> {
+    service::update_channel_order(
+        &state.database,
+        path.server_id,
+        user_id,
+        payload,
+    )
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub(super) async fn delete_channel(
