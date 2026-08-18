@@ -465,7 +465,9 @@ test('call renders four participant tiles without overlap', async ({
       await leaveCallIfVisible(joinerPage);
     }
     await leaveCallIfVisible(page);
-    await Promise.all(joinerContexts.map((joinerContext) => joinerContext.close()));
+    await Promise.all(
+      joinerContexts.map((joinerContext) => joinerContext.close()),
+    );
   }
 });
 
@@ -587,10 +589,7 @@ test('in-call chat messages are delivered realtime between participants', async 
     context,
     createTestUser('call-chat-realtime-starter'),
   );
-  const message = createTestMessage(
-    'call-chat-realtime',
-    starter.user.suffix,
-  );
+  const message = createTestMessage('call-chat-realtime', starter.user.suffix);
   const server = await getDefaultServer(request, starter);
   const inviteToken = await createInvite(request, starter, server.id);
   const joiner = await signUpViaApi(

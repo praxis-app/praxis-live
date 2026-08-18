@@ -15,12 +15,7 @@ interface Props {
 
 export type CalendarView = 'month' | 'week';
 
-export const EventsCalendar = ({
-  events,
-  date,
-  view,
-  serverPath,
-}: Props) => {
+export const EventsCalendar = ({ events, date, view, serverPath }: Props) => {
   const elementRef = useRef<HTMLDivElement>(null);
   const calendarRef = useRef<CalendarApi | null>(null);
   const eventElementsRef = useRef(new Map<string, Set<HTMLElement>>());
@@ -123,7 +118,10 @@ export const EventsCalendar = ({
       const start = events[0] && new Date(events[0].startsAt);
       calendar.scrollToTime(
         start
-          ? { hours: Math.max(0, start.getHours() - 1), minutes: start.getMinutes() }
+          ? {
+              hours: Math.max(0, start.getHours() - 1),
+              minutes: start.getMinutes(),
+            }
           : '08:00:00',
       );
     }

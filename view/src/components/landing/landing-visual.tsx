@@ -35,9 +35,7 @@ export const LandingVisual = ({ variant }: Props) => {
               AR
             </div>
             <div>
-              <p className="text-sm font-semibold">
-                Ari
-              </p>
+              <p className="text-sm font-semibold">Ari</p>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
                 {t('landing.visuals.conversation.firstMessage')}
               </p>
@@ -48,9 +46,7 @@ export const LandingVisual = ({ variant }: Props) => {
               MK
             </div>
             <div>
-              <p className="text-sm font-semibold">
-                Mika
-              </p>
+              <p className="text-sm font-semibold">Mika</p>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
                 {t('landing.visuals.conversation.secondMessage')}
               </p>

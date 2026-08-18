@@ -197,9 +197,12 @@ export const usePreJoinMedia = () => {
 
     const AudioContextCtor =
       window.AudioContext ||
-      (window as Window & typeof globalThis & {
-        webkitAudioContext?: typeof AudioContext;
-      }).webkitAudioContext;
+      (
+        window as Window &
+          typeof globalThis & {
+            webkitAudioContext?: typeof AudioContext;
+          }
+      ).webkitAudioContext;
     if (!AudioContextCtor) {
       return;
     }

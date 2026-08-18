@@ -8,10 +8,7 @@ import { callPubSubTopic } from '@/lib/pub-sub.utils';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useFeedQuery } from '@/hooks/use-feed-query';
 import { useSubscription } from '@/hooks/use-subscription';
-import {
-  type FeedQuery,
-  type FeedQueryPage,
-} from '@/types/channel.types';
+import { type FeedQuery, type FeedQueryPage } from '@/types/channel.types';
 import { type ChannelRes } from '@/types/channel.types';
 import { type MessageRes } from '@/types/message.types';
 import { type PubSubMessage } from '@/types/shared.types';

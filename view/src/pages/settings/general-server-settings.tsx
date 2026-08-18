@@ -40,10 +40,7 @@ export const GeneralServerSettings = () => {
 
   const { server, serverId, serverPath, serverSlug } = useServerData();
   const { serverAbility, isLoading: isAbilityLoading } = useAbility();
-  const canManageServerSettings = serverAbility.can(
-    'manage',
-    'ServerConfig',
-  );
+  const canManageServerSettings = serverAbility.can('manage', 'ServerConfig');
 
   const { data, isPending, error } = useQuery({
     queryKey: ['servers', serverId, 'configs'],
@@ -53,8 +50,7 @@ export const GeneralServerSettings = () => {
       }
       return api.getServerConfig(serverId);
     },
-    enabled:
-      !!serverId && canManageServerSettings && !isAbilityLoading,
+    enabled: !!serverId && canManageServerSettings && !isAbilityLoading,
   });
 
   const form = useForm<zod.infer<typeof serverConfigSchema>>({
@@ -201,9 +197,7 @@ export const GeneralServerSettings = () => {
         header={t('navigation.labels.general')}
         subheader={t('navigation.subheaders.serverSettings')}
         subheaderAboveHeader
-        onBackClick={() =>
-          navigate(`${serverPath}${NavigationPaths.Settings}`)
-        }
+        onBackClick={() => navigate(`${serverPath}${NavigationPaths.Settings}`)}
       />
 
       <Container className="space-y-4">

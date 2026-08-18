@@ -46,13 +46,7 @@ test('forum post list loads every page when scrolled to the bottom', async ({
         user.user.suffix
       }`,
   );
-  await createForumPosts(
-    request,
-    user,
-    server.id,
-    forumChannel.id,
-    postTitles,
-  );
+  await createForumPosts(request, user, server.id, forumChannel.id, postTitles);
 
   const firstPageResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());

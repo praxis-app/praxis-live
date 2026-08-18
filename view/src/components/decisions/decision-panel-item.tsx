@@ -12,10 +12,7 @@ interface Props {
   serverPath: string;
 }
 
-export const DecisionPanelItem = ({
-  decision,
-  serverPath,
-}: Props) => {
+export const DecisionPanelItem = ({ decision, serverPath }: Props) => {
   const { t } = useTranslation();
 
   const ChannelIcon = decision.channelType === 'forum' ? MdForum : MdTag;

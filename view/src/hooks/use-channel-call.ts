@@ -1,8 +1,5 @@
 import { api } from '@/client/api-client';
-import {
-  type CallJoinPreferences,
-  type JoinCallRes,
-} from '@/types/call.types';
+import { type CallJoinPreferences, type JoinCallRes } from '@/types/call.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { useRef, useState } from 'react';

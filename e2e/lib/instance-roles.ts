@@ -1,8 +1,5 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import {
-  authorizationHeaders,
-  type AuthenticatedUser,
-} from './auth';
+import { authorizationHeaders, type AuthenticatedUser } from './auth';
 
 type InstanceRole = {
   id: string;
@@ -23,7 +20,8 @@ export async function grantInstanceAdminRole(
   });
 
   await expect(rolesResponse).toBeOK();
-  const { instanceRoles } = (await rolesResponse.json()) as InstanceRolesResponse;
+  const { instanceRoles } =
+    (await rolesResponse.json()) as InstanceRolesResponse;
   const adminRole = instanceRoles.find((role) => role.name === 'admin');
   expect(adminRole).toBeTruthy();
 

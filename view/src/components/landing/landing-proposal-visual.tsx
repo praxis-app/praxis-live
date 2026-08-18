@@ -84,9 +84,7 @@ export const LandingProposalVisual = () => {
         </div>
         <div className="w-full max-w-full min-w-0 flex-1">
           <div className="hidden min-w-0 items-center gap-1.5 pb-1 sm:flex">
-            <span className="font-medium">
-              Ari
-            </span>
+            <span className="font-medium">Ari</span>
             <span className="text-muted-foreground text-sm">
               {t('landing.visuals.proposal.timestamp')}
             </span>

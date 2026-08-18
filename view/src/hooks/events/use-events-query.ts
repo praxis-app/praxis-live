@@ -6,12 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 export const getEventsQueryKey = (
   serverId: string | undefined,
   inviteToken: string | null = null,
-) => [
-  'servers',
-  serverId,
-  'events',
-  inviteToken,
-];
+) => ['servers', serverId, 'events', inviteToken];
 
 export const useEventsQuery = (
   serverId: string | undefined,

@@ -2,10 +2,7 @@ import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { getProposalRuleStatus } from '@/lib/poll.utils';
 import { type PollRes } from '@/types/poll.types';
 import { useTranslation } from 'react-i18next';
-import {
-  LuLoaderCircle,
-  LuTrendingUp,
-} from 'react-icons/lu';
+import { LuLoaderCircle, LuTrendingUp } from 'react-icons/lu';
 
 interface Props {
   poll: PollRes;

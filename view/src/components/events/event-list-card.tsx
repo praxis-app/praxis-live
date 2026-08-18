@@ -30,7 +30,7 @@ export const EventListCard = ({ event, serverPath }: Props) => {
   return (
     <Link
       to={`${serverPath}/events/${event.id}`}
-      className="focus-visible:ring-ring group bg-card block overflow-hidden rounded-xl border shadow-sm transition-[border-color,box-shadow,transform] hover:border-foreground/15 hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
+      className="focus-visible:ring-ring group bg-card hover:border-foreground/15 block overflow-hidden rounded-xl border shadow-sm transition-[border-color,box-shadow,transform] hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
     >
       {event.coverPhoto && (
         <LazyLoadImage

@@ -34,8 +34,7 @@ export const EventRsvpControls = ({
           aria-pressed={currentUserStatus === 'interested'}
           className={cn(
             RSVP_BUTTON_CLASS,
-            currentUserStatus === 'interested' &&
-              SELECTED_RSVP_BUTTON_CLASS,
+            currentUserStatus === 'interested' && SELECTED_RSVP_BUTTON_CLASS,
           )}
           disabled={isHost || isPending}
           onClick={() => onChange('interested')}

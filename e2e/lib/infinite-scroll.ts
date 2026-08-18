@@ -11,10 +11,7 @@ interface Options {
   pageSize: number;
   totalItems: number;
   direction: 'up' | 'down';
-  matchesPageResponse: (
-    response: Response,
-    loadedItemCount: number,
-  ) => boolean;
+  matchesPageResponse: (response: Response, loadedItemCount: number) => boolean;
   onPageLoaded?: (loadedItemCount: number) => Promise<void>;
 }
 

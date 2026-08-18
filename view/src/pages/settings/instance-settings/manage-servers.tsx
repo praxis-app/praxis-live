@@ -33,7 +33,13 @@ export const ManageServers = () => {
 
   const { mutateAsync: createServer, isPending: isCreatePending } = useMutation(
     {
-      mutationFn: async ({ values, image }: { values: ServerReq; image?: File }) => {
+      mutationFn: async ({
+        values,
+        image,
+      }: {
+        values: ServerReq;
+        image?: File;
+      }) => {
         const { server } = await api.createServer(values, image);
 
         queryClient.setQueryData<{ servers: ServerRes[] }>(

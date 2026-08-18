@@ -15,9 +15,7 @@ export type DecisionMakingModel = (typeof DECISION_MAKING_MODEL)[number];
 
 export type PollStage = (typeof POLL_STAGE)[number];
 
-export type PollClosedReason =
-  | 'event-start-elapsed'
-  | 'event-host-ineligible';
+export type PollClosedReason = 'event-start-elapsed' | 'event-host-ineligible';
 
 export type PollType = (typeof POLL_TYPE)[number];
 

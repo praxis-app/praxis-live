@@ -85,10 +85,7 @@ export const SwitchServerDialog = ({ open, onOpenChange, onSelect }: Props) => {
                 )}
                 onClick={() => handleSelect(server.slug)}
               >
-                <ServerAvatar
-                  server={server}
-                  className="size-10 shrink-0"
-                />
+                <ServerAvatar server={server} className="size-10 shrink-0" />
                 <div className="flex w-[70vw] min-w-0 flex-col gap-0.5 text-left">
                   <div className="flex items-center gap-2 truncate leading-tight font-semibold">
                     <div className="truncate">{server.name}</div>

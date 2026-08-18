@@ -20,17 +20,14 @@ interface Options {
   enabled: boolean;
   pageSize: number;
   queryKey: QueryKey;
-  fetchPage: (
-    cursor: FeedCursorParams,
-    limit: number,
-  ) => Promise<FeedPageRes>;
+  fetchPage: (cursor: FeedCursorParams, limit: number) => Promise<FeedPageRes>;
 }
 
 const feedItemKey = (item: FeedItemRes) => `${item.type}:${item.id}`;
 
 const sortNewestFirst = (left: FeedItemRes, right: FeedItemRes) =>
-  new Date(right.createdAt).getTime() -
-    new Date(left.createdAt).getTime() || right.id.localeCompare(left.id);
+  new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime() ||
+  right.id.localeCompare(left.id);
 
 export const useFeedQuery = ({
   enabled,

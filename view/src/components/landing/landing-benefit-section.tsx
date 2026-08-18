@@ -20,7 +20,7 @@ export const LandingBenefitSection = ({
   reversed = false,
 }: Props) => (
   <section className="grid min-w-0 items-center gap-8 py-10 first:pt-0 last:pb-0 sm:gap-12 sm:py-24 lg:grid-cols-2 lg:gap-24">
-    <div className={cn('min-w-0 max-w-xl', reversed && 'lg:order-2')}>
+    <div className={cn('max-w-xl min-w-0', reversed && 'lg:order-2')}>
       <div className="bg-praxis-coral-soft text-praxis-coral dark:bg-praxis-coral/15 mb-5 flex size-11 items-center justify-center rounded-2xl">
         <Icon className="size-5" aria-hidden="true" />
       </div>
@@ -34,7 +34,7 @@ export const LandingBenefitSection = ({
         {description}
       </p>
     </div>
-    <div className={cn('min-w-0 max-w-full', reversed && 'lg:order-1')}>
+    <div className={cn('max-w-full min-w-0', reversed && 'lg:order-1')}>
       {visual}
     </div>
   </section>

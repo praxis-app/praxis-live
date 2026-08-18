@@ -131,10 +131,9 @@ test('text channel feed preserves its pages and syncs only newer messages when r
     },
   );
   await expect(createChannelResponse).toBeOK();
-  const { channel: otherChannel } =
-    (await createChannelResponse.json()) as {
-      channel: { id: string };
-    };
+  const { channel: otherChannel } = (await createChannelResponse.json()) as {
+    channel: { id: string };
+  };
 
   const messageBodies = Array.from(
     { length: totalFeedMessages },
@@ -201,9 +200,7 @@ test('text channel feed preserves its pages and syncs only newer messages when r
       response.status() === 200
     );
   });
-  await page
-    .getByRole('link', { name: otherChannelName, exact: true })
-    .click();
+  await page.getByRole('link', { name: otherChannelName, exact: true }).click();
   await otherFeedResponse;
 
   const newerMessage = `Message received while away ${user.user.suffix}`;
@@ -218,10 +215,7 @@ test('text channel feed preserves its pages and syncs only newer messages when r
   const revisitRequests: string[] = [];
   const recordRevisitedFeedRequest = (networkRequest: Request) => {
     const url = new URL(networkRequest.url());
-    if (
-      networkRequest.method() === 'GET' &&
-      url.pathname === feedPath
-    ) {
+    if (networkRequest.method() === 'GET' && url.pathname === feedPath) {
       revisitRequests.push(
         url.searchParams.has('after')
           ? 'after'
@@ -389,9 +383,11 @@ test('in-call chat feed preserves its pages and syncs only newer messages when r
     const joinCallResponse = page.waitForResponse(
       (response) =>
         response.request().method() === 'POST' &&
-        response.url().endsWith(
-          `/api/servers/${server.id}/channels/${server.generalChannelId}/calls`,
-        ) &&
+        response
+          .url()
+          .endsWith(
+            `/api/servers/${server.id}/channels/${server.generalChannelId}/calls`,
+          ) &&
         response.status() === 200,
     );
     await startCallFromTopNav(page);
@@ -473,10 +469,7 @@ test('in-call chat feed preserves its pages and syncs only newer messages when r
     const revisitRequests: string[] = [];
     const recordRevisitedFeedRequest = (networkRequest: Request) => {
       const url = new URL(networkRequest.url());
-      if (
-        networkRequest.method() === 'GET' &&
-        url.pathname === callFeedPath
-      ) {
+      if (networkRequest.method() === 'GET' && url.pathname === callFeedPath) {
         revisitRequests.push(
           url.searchParams.has('after')
             ? 'after'
@@ -554,16 +547,16 @@ test('authenticated user can create and vote on an in-call proposal', async ({
         response.status() === 200,
     );
 
-    await page
-      .getByRole('button', { name: 'Decisions', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Decisions', exact: true }).click();
     await decisionResponse;
 
     const activeDecisionPanel = page.getByRole('region', {
       name: 'Active Decision',
     });
     await expect(activeDecisionPanel).toBeVisible();
-    await expect(activeDecisionPanel.getByText('No active decision')).toBeVisible();
+    await expect(
+      activeDecisionPanel.getByText('No active decision'),
+    ).toBeVisible();
 
     await activeDecisionPanel
       .getByRole('button', { name: 'Create proposal' })
@@ -606,7 +599,9 @@ test('authenticated user can create and vote on an in-call proposal', async ({
         exact: true,
       }),
     ).toBeVisible();
-    await expect(activeDecisionPanel.getByText(/0\/\d+ responded/)).toBeVisible();
+    await expect(
+      activeDecisionPanel.getByText(/0\/\d+ responded/),
+    ).toBeVisible();
 
     const disagreeButton = proposal.getByRole('button', { name: 'Disagree' });
     const initialBackground = await backgroundColor(disagreeButton);

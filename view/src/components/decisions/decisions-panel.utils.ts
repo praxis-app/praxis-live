@@ -11,9 +11,7 @@ export const updateActiveDecisionCache = (
   queryClient: QueryClient,
   serverId: string | undefined,
   decisionId: string,
-  update: (
-    decision: ActiveDecisionRes,
-  ) => ActiveDecisionRes | undefined,
+  update: (decision: ActiveDecisionRes) => ActiveDecisionRes | undefined,
 ) => {
   if (!serverId) {
     return false;

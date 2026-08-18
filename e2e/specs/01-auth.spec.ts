@@ -107,9 +107,9 @@ test('invited user can log in and join the invited server', async ({
   await page.getByRole('link', { name: 'Log in', exact: true }).click();
 
   const serverImageResponse = page.waitForResponse((response) =>
-    response.url().endsWith(
-      `/api/servers/${server.id}/images/${server.image.id}`,
-    ),
+    response
+      .url()
+      .endsWith(`/api/servers/${server.id}/images/${server.image.id}`),
   );
   await auth.logIn(invitedUser);
 
@@ -200,7 +200,10 @@ test('invited user can sign up and join the invited server', async ({
 });
 
 const switchToServer = async (page: Page, serverName: string) => {
-  await page.getByRole('button', { name: /praxis/i }).first().click();
+  await page
+    .getByRole('button', { name: /praxis/i })
+    .first()
+    .click();
   await page.getByRole('menuitem', { name: 'Switch servers' }).click();
   const switchDialog = page.getByRole('dialog', { name: 'Switch servers' });
   await switchDialog.getByText(serverName, { exact: true }).click();
@@ -208,7 +211,10 @@ const switchToServer = async (page: Page, serverName: string) => {
 };
 
 const goToLandingPage = async (page: Page) => {
-  await page.getByRole('button', { name: /praxis/i }).first().click();
+  await page
+    .getByRole('button', { name: /praxis/i })
+    .first()
+    .click();
   await page
     .getByRole('menuitem', { name: 'About Praxis', exact: true })
     .click();

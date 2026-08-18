@@ -2,10 +2,7 @@ import { expect, test } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  createAuthenticatedUser,
-  getOrCreateInstanceAdmin,
-} from '../lib/auth';
+import { createAuthenticatedUser, getOrCreateInstanceAdmin } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { grantInstanceAdminRole } from '../lib/instance-roles';
 
@@ -121,9 +118,14 @@ test('instance admin can set a server image when creating and replace it in sett
   expect(replacedImageResponse.status()).toBe(404);
 
   await page.goto(`/s/${createdServer.slug}/events`);
-  await page.getByRole('button', { name: /praxis/i }).first().click();
+  await page
+    .getByRole('button', { name: /praxis/i })
+    .first()
+    .click();
   await page.getByText(serverName, { exact: true }).click();
-  await expect(page.getByText(updatedDescription, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(updatedDescription, { exact: true }),
+  ).toBeVisible();
   expect(serverImageExists(createdServer.image.id)).toBe(false);
   expect(serverImageExists(updatedServer.image.id)).toBe(true);
 

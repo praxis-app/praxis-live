@@ -81,10 +81,7 @@ export const ProposalMetadata = ({
       {createdAt && (
         <span className="flex items-center">
           <span
-            className={cn(
-              'px-1.5',
-              variant !== 'forum' && 'hidden @sm:inline',
-            )}
+            className={cn('px-1.5', variant !== 'forum' && 'hidden @sm:inline')}
             aria-hidden="true"
           >
             {MIDDOT_WITH_SPACES.trim()}

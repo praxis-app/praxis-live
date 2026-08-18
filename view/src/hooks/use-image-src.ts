@@ -71,12 +71,7 @@ export const useImageSrc = ({
         if (!serverId) {
           throw new Error('Server ID is required for poll images');
         }
-        result = await api.getPollImage(
-          serverId,
-          channelId,
-          pollId,
-          imageId,
-        );
+        result = await api.getPollImage(serverId, channelId, pollId, imageId);
       } else if (eventId) {
         if (!serverId) {
           throw new Error('Server ID is required for event cover photos');

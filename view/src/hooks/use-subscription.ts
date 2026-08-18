@@ -49,8 +49,7 @@ const useSubscriptionInternal = (
     return { ...webSocketOptions, onMessage };
   };
 
-  const socketUrl =
-    normalizedChannels.length > 0 ? getWebSocketURL() : null;
+  const socketUrl = normalizedChannels.length > 0 ? getWebSocketURL() : null;
   const { sendMessage, readyState, ...rest } = useWebSocket(socketUrl, {
     share: true,
     shouldReconnect: () => isLoggedIn,
@@ -77,12 +76,7 @@ const useSubscriptionInternal = (
 
   useEffect(() => {
     const token = localStorage.getItem(LocalStorageKeys.AccessToken);
-    if (
-      !isLoggedIn ||
-      !token ||
-      !isEnabled ||
-      readyState !== WebSocket.OPEN
-    ) {
+    if (!isLoggedIn || !token || !isEnabled || readyState !== WebSocket.OPEN) {
       return;
     }
 
@@ -95,13 +89,7 @@ const useSubscriptionInternal = (
       };
       sendMessage(JSON.stringify(message));
     });
-  }, [
-    isEnabled,
-    isLoggedIn,
-    normalizedChannels,
-    readyState,
-    sendMessage,
-  ]);
+  }, [isEnabled, isLoggedIn, normalizedChannels, readyState, sendMessage]);
 
   return { sendMessage, ...rest };
 };

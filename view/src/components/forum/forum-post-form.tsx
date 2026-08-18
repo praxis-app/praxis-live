@@ -142,9 +142,7 @@ export const ForumPostForm = ({ channel, onSuccess }: Props) => {
       {isAddingProposal && (
         <>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-medium">
-              {t('forums.labels.proposal')}
-            </h2>
+            <h2 className="font-medium">{t('forums.labels.proposal')}</h2>
             <Button
               type="button"
               variant="ghost"

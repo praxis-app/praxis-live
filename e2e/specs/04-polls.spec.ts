@@ -438,8 +438,7 @@ test('invite holder can read proposals for all action types', async ({
     };
   };
   const adminRole = await getAdminRole(request, admin, server.id);
-  const proposalPath =
-    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
+  const proposalPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
   const bodies = {
     general: `Invited general proposal ${admin.user.suffix}`,
     changeSettings: `Invited settings proposal ${admin.user.suffix}`,

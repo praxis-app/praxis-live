@@ -391,9 +391,7 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     page.getByRole('button', { name: 'Going', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
-  await expect(
-    page.getByText('2 Going', { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText('2 Going', { exact: true })).toBeVisible();
   await expect(
     page.getByText('Your RSVP could not be updated.', { exact: true }),
   ).toHaveCount(0);
@@ -582,7 +580,9 @@ test('invite holder can view events and event details in a non-default server', 
   await expectImageToLoad(eventLink.getByRole('img', { name: 'Cover photo' }));
   await eventLink.click();
   await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
-  await expect(page.getByText(eventName, { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText(eventName, { exact: true }).first(),
+  ).toBeVisible();
   await expect(page.getByText(eventDescription, { exact: true })).toBeVisible();
 
   let rsvpRequestCount = 0;
@@ -674,9 +674,11 @@ test('invalid cover photo rolls back event proposal creation', async ({
       { exact: true },
     ),
   ).toBeVisible();
-  await expect(page.getByRole('article', {
-    name: `Majority Vote Proposal: ${proposalBody}`,
-  })).toHaveCount(0);
+  await expect(
+    page.getByRole('article', {
+      name: `Majority Vote Proposal: ${proposalBody}`,
+    }),
+  ).toHaveCount(0);
   expect(proposalCreateRequests).toBe(1);
   expect(
     runDatabaseCommand(
@@ -705,8 +707,7 @@ test('past event proposals are rejected and stale proposals expire automatically
   const server = await getDefaultServer(request, proposer);
   await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
 
-  const proposalPath =
-    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
+  const proposalPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
   const planEventAction = (startsAt: Date) => ({
     actionType: 'plan-event',
     event: {
@@ -837,9 +838,9 @@ test('event proposal expires when a proposed host leaves the server', async ({
   await expect(proposal.getByText('Closed', { exact: true })).toBeVisible();
   const closedReason =
     'This proposal expired because a proposed event host is no longer a server member.';
-  await expect(
-    proposal.getByText(closedReason, { exact: true }),
-  ).toHaveCount(0);
+  await expect(proposal.getByText(closedReason, { exact: true })).toHaveCount(
+    0,
+  );
   await proposal.getByRole('button', { name: 'Closed', exact: true }).click();
   const voteProgressDialog = page.getByRole('dialog', {
     name: 'Vote Progress',

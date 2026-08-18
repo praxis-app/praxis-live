@@ -87,7 +87,7 @@ export const AttachedImage = ({
       </DialogTrigger>
 
       <DialogContent
-        className="bg-background/95 text-foreground flex h-screen min-h-screen w-screen max-w-none flex-col items-center justify-center gap-0 overflow-hidden border-none p-2 sm:p-4 md:flex md:h-screen md:min-h-screen md:w-screen md:min-w-full md:max-w-none md:rounded-none md:p-6 supports-[height:100dvh]:h-dvh supports-[height:100dvh]:min-h-dvh supports-[height:100dvh]:md:h-dvh supports-[height:100dvh]:md:min-h-dvh supports-[height:100svh]:h-svh supports-[height:100svh]:min-h-svh supports-[height:100svh]:md:h-svh supports-[height:100svh]:md:min-h-svh dark:bg-black/90 dark:text-white"
+        className="bg-background/95 text-foreground flex h-screen min-h-screen w-screen max-w-none flex-col items-center justify-center gap-0 overflow-hidden border-none p-2 supports-[height:100dvh]:h-dvh supports-[height:100dvh]:min-h-dvh supports-[height:100svh]:h-svh supports-[height:100svh]:min-h-svh sm:p-4 md:flex md:h-screen md:min-h-screen md:w-screen md:max-w-none md:min-w-full md:rounded-none md:p-6 supports-[height:100dvh]:md:h-dvh supports-[height:100dvh]:md:min-h-dvh supports-[height:100svh]:md:h-svh supports-[height:100svh]:md:min-h-svh dark:bg-black/90 dark:text-white"
         closeButtonClassName="text-foreground data-[state=open]:text-foreground top-3 right-3 z-10 bg-transparent opacity-100 shadow-none data-[state=open]:bg-transparent dark:text-white dark:data-[state=open]:text-white md:top-4 md:right-4 [&_svg:not([class*='size-'])]:size-5"
       >
         <VisuallyHidden>

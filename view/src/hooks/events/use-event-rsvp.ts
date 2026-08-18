@@ -8,9 +8,7 @@ import {
 } from '@/types/event.types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-const isEventsResponse = (
-  data: unknown,
-): data is { events: EventRes[] } =>
+const isEventsResponse = (data: unknown): data is { events: EventRes[] } =>
   typeof data === 'object' &&
   data !== null &&
   'events' in data &&
