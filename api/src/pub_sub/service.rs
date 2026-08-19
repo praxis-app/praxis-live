@@ -546,6 +546,11 @@ fn channel_cache_key(channel: &str) -> String {
 #[derive(Debug)]
 enum SubscriptionStore {
     Redis(redis::Client),
+    // TODO: Remove this fallback once Redis is a required dependency rather
+    // than optional. Without Redis, subscriptions live only in this
+    // process's memory, so a server crash or restart silently drops every
+    // active websocket subscription. Redis outlives the process, so it
+    // survives that restart.
     Memory(Arc<DashMap<String, HashSet<String>>>),
 }
 
