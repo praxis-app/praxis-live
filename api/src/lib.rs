@@ -36,7 +36,7 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
     let livekit_config = calls::LiveKitConfig::from_env();
-    let cache_service = cache::CacheService::from_env();
+    let cache_service = cache::CacheService::from_env()?;
     let pub_sub_service = pub_sub::PubSubService::new(cache_service.clone());
 
     calls::spawn_stale_call_cleaner(
@@ -80,7 +80,8 @@ pub fn build_router(
     jwt_secret: impl Into<String>,
     livekit_config: Option<calls::LiveKitConfig>,
 ) -> Router {
-    let cache_service = cache::CacheService::from_env();
+    let cache_service = cache::CacheService::from_env()
+        .expect("Redis must be configured for the cache service");
     let pub_sub_service = pub_sub::PubSubService::new(cache_service.clone());
     build_router_with_pub_sub(
         database,
