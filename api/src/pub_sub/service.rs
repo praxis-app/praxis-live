@@ -6,14 +6,14 @@ use axum::{
     response::Response,
 };
 use dashmap::DashMap;
-use redis::AsyncCommands;
 use sea_orm::{prelude::Uuid, DatabaseConnection};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, env, fmt, sync::Arc};
+use std::{collections::HashSet, fmt, sync::Arc};
 use tokio::sync::mpsc;
 
 use crate::{
     auth::{authenticate_token, HasJwtSecret},
+    cache::CacheService,
     channels,
     common::{ApiError, AppResult},
 };
@@ -52,7 +52,7 @@ pub(crate) struct PubSubService {
 
 #[derive(Debug)]
 struct PubSubRegistry {
-    store: SubscriptionStore,
+    cache: CacheService,
     subscribers: DashMap<Uuid, mpsc::UnboundedSender<Message>>,
     socket_channels: DashMap<Uuid, HashSet<String>>,
 }
@@ -217,14 +217,10 @@ impl fmt::Display for PubSubTopic {
 }
 
 impl PubSubService {
-    pub(crate) fn from_env() -> Self {
-        Self::new(SubscriptionStore::from_env())
-    }
-
-    fn new(store: SubscriptionStore) -> Self {
+    pub(crate) fn new(cache: CacheService) -> Self {
         Self {
             registry: Arc::new(PubSubRegistry {
-                store,
+                cache,
                 subscribers: DashMap::new(),
                 socket_channels: DashMap::new(),
             }),
@@ -245,7 +241,7 @@ impl PubSubService {
 
     async fn subscribe(&self, socket_id: Uuid, channel: &str) -> AppResult<()> {
         self.registry
-            .store
+            .cache
             .add_member(channel_cache_key(channel), socket_id.to_string())
             .await?;
 
@@ -264,7 +260,7 @@ impl PubSubService {
         channel: &str,
     ) -> AppResult<()> {
         self.registry
-            .store
+            .cache
             .remove_member(channel_cache_key(channel), &socket_id.to_string())
             .await?;
 
@@ -289,7 +285,7 @@ impl PubSubService {
         for channel in channels {
             if let Err(error) = self
                 .registry
-                .store
+                .cache
                 .remove_member(
                     channel_cache_key(&channel),
                     &socket_id.to_string(),
@@ -329,7 +325,7 @@ impl PubSubService {
         let message = response_message(channel, body, None)?;
         let subscriber_ids = self
             .registry
-            .store
+            .cache
             .members(channel_cache_key(channel))
             .await?;
 
@@ -541,127 +537,6 @@ fn channel_access(channel: &str, user_id: Uuid) -> Option<ChannelAccess> {
 
 fn channel_cache_key(channel: &str) -> String {
     format!("channel:{channel}")
-}
-
-#[derive(Debug)]
-enum SubscriptionStore {
-    Redis(redis::Client),
-    // TODO: Remove this fallback once Redis is a required dependency rather
-    // than optional. Without Redis, subscriptions live only in this
-    // process's memory, so a server crash or restart silently drops every
-    // active websocket subscription. Redis outlives the process, so it
-    // survives that restart.
-    Memory(Arc<DashMap<String, HashSet<String>>>),
-}
-
-impl SubscriptionStore {
-    fn from_env() -> Self {
-        let Some(redis_url) = redis_url_from_env() else {
-            tracing::info!("Redis pub-sub cache is not configured; using in-memory websocket subscriptions.");
-            return Self::memory();
-        };
-
-        match redis::Client::open(redis_url.clone()) {
-            Ok(client) => Self::Redis(client),
-            Err(error) => {
-                tracing::warn!(
-                    "failed to initialize Redis pub-sub cache at {redis_url}: {error}; using in-memory websocket subscriptions"
-                );
-                Self::memory()
-            }
-        }
-    }
-
-    fn memory() -> Self {
-        Self::Memory(Arc::new(DashMap::new()))
-    }
-
-    async fn members(&self, key: String) -> AppResult<Vec<String>> {
-        match self {
-            Self::Redis(client) => {
-                let mut connection = client
-                    .get_multiplexed_async_connection()
-                    .await
-                    .map_err(internal_error)?;
-                connection.smembers(key).await.map_err(internal_error)
-            }
-            Self::Memory(channels) => Ok(channels
-                .get(&key)
-                .map(|members| members.iter().cloned().collect())
-                .unwrap_or_default()),
-        }
-    }
-
-    async fn add_member(&self, key: String, value: String) -> AppResult<()> {
-        match self {
-            Self::Redis(client) => {
-                let mut connection = client
-                    .get_multiplexed_async_connection()
-                    .await
-                    .map_err(internal_error)?;
-                let _: usize = connection
-                    .sadd(key, value)
-                    .await
-                    .map_err(internal_error)?;
-            }
-            Self::Memory(channels) => {
-                channels.entry(key).or_default().insert(value);
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn remove_member(&self, key: String, value: &str) -> AppResult<()> {
-        match self {
-            Self::Redis(client) => {
-                let mut connection = client
-                    .get_multiplexed_async_connection()
-                    .await
-                    .map_err(internal_error)?;
-                let _: usize = connection
-                    .srem(key, value)
-                    .await
-                    .map_err(internal_error)?;
-            }
-            Self::Memory(channels) => {
-                let remove_key =
-                    if let Some(mut members) = channels.get_mut(&key) {
-                        members.remove(value);
-                        members.is_empty()
-                    } else {
-                        false
-                    };
-                if remove_key {
-                    channels.remove(&key);
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
-fn redis_url_from_env() -> Option<String> {
-    if let Ok(redis_url) = env::var("REDIS_URL") {
-        if !redis_url.trim().is_empty() {
-            return Some(redis_url);
-        }
-    }
-
-    let host = env::var("REDIS_HOST").ok()?;
-    if host.trim().is_empty() {
-        return None;
-    }
-    let port = env::var("REDIS_PORT").unwrap_or_else(|_| "6379".to_owned());
-    let password = env::var("REDIS_PASSWORD").ok();
-
-    Some(match password {
-        Some(password) if !password.is_empty() => {
-            format!("redis://:{password}@{host}:{port}")
-        }
-        _ => format!("redis://{host}:{port}"),
-    })
 }
 
 #[derive(Debug, Deserialize)]

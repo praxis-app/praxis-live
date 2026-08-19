@@ -10,20 +10,21 @@ use super::{
         get_server_by_id, get_server_by_invite_token, get_server_by_slug,
         get_server_config, get_server_image, get_server_members, get_servers,
         get_users_eligible_for_server, is_anonymous_users_enabled, join_server,
-        remove_server_members, update_server, update_server_config,
-        ServersState,
+        record_server_activity, remove_server_members, update_server,
+        update_server_config, ServersState,
     },
     server_roles,
 };
 use crate::{
-    calls::LiveKitConfig, channels, events, invites, polls,
-    pub_sub::PubSubService,
+    cache::CacheService, calls::LiveKitConfig, channels, events, invites,
+    polls, pub_sub::PubSubService,
 };
 
 pub(crate) fn router(
     database: DatabaseConnection,
     jwt_secret: String,
     pub_sub_service: PubSubService,
+    cache_service: CacheService,
     livekit: Option<LiveKitConfig>,
 ) -> Router {
     let servers_router = Router::new()
@@ -42,6 +43,7 @@ pub(crate) fn router(
             "/servers/{serverId}/images/{imageId}",
             get(get_server_image),
         )
+        .route("/servers/{serverId}/current", post(record_server_activity))
         .route("/servers/{serverId}/join", post(join_server))
         .route("/servers/{serverId}/members", get(get_server_members))
         .route("/servers/{serverId}/members", post(add_server_members))
@@ -56,7 +58,11 @@ pub(crate) fn router(
             "/servers/{serverId}/configs/anon-enabled",
             get(is_anonymous_users_enabled),
         )
-        .with_state(ServersState::new(database.clone(), jwt_secret.clone()));
+        .with_state(ServersState::new(
+            database.clone(),
+            jwt_secret.clone(),
+            cache_service,
+        ));
 
     servers_router
         .nest(

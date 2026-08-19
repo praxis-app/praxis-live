@@ -17,6 +17,7 @@ use super::{
 };
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
+    cache::CacheService,
     common::{
         request::JsonOrMultipartFiles, response::EmptyResponse,
         storage::upload_root, ApiError, AppResult,
@@ -29,17 +30,20 @@ pub(super) struct ServersState {
     pub(super) database: DatabaseConnection,
     jwt_secret: Arc<str>,
     upload_root: Arc<PathBuf>,
+    cache_service: CacheService,
 }
 
 impl ServersState {
     pub(super) fn new(
         database: DatabaseConnection,
         jwt_secret: String,
+        cache_service: CacheService,
     ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
             upload_root: Arc::new(upload_root()),
+            cache_service,
         }
     }
 }
@@ -72,11 +76,28 @@ pub(super) async fn get_server_by_id(
 pub(super) async fn get_server_by_slug(
     State(state): State<ServersState>,
     Path(slug): Path<String>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<ServerPayload>> {
-    let server =
-        service::get_server_by_slug(&state.database, &slug, user_id).await?;
+    let server = service::get_server_by_slug(&state.database, &slug).await?;
     Ok(Json(ServerPayload { server }))
+}
+
+// Records the current server as a separate write, so the read above stays
+// pure. Best-effort: a client that navigates away mid-request may not have
+// its visit recorded.
+pub(super) async fn record_server_activity(
+    State(state): State<ServersState>,
+    Path(path): Path<ServerPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+) -> AppResult<Json<EmptyResponse>> {
+    service::set_member_activity(
+        &state.database,
+        &state.cache_service,
+        path.server_id,
+        user_id,
+    )
+    .await?;
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn get_server_by_invite_token(

@@ -15,6 +15,7 @@ use super::{
 };
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
+    cache::CacheService,
     common::{
         request::{parse_uuid, MultipartFile},
         storage::upload_root,
@@ -29,17 +30,20 @@ pub(super) struct UsersState {
     database: DatabaseConnection,
     jwt_secret: Arc<str>,
     upload_root: Arc<PathBuf>,
+    cache_service: CacheService,
 }
 
 impl UsersState {
     pub(super) fn new(
         database: DatabaseConnection,
         jwt_secret: String,
+        cache_service: CacheService,
     ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
             upload_root: Arc::new(upload_root()),
+            cache_service,
         }
     }
 }
@@ -54,7 +58,12 @@ pub(super) async fn get_current_user(
     State(state): State<UsersState>,
     AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<CurrentUserPayload>> {
-    let user = service::get_current_user(&state.database, user_id).await?;
+    let user = service::get_current_user(
+        &state.database,
+        &state.cache_service,
+        user_id,
+    )
+    .await?;
 
     Ok(Json(CurrentUserPayload { user }))
 }
