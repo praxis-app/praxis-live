@@ -3,11 +3,13 @@ import { expect, test, type Response } from '@playwright/test';
 import {
   authorizationHeaders,
   createAuthenticatedUser,
+  getOrCreateInstanceAdmin,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { expectImageToLoad } from '../lib/images';
+import { grantInstanceAdminRole } from '../lib/instance-roles';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
@@ -20,7 +22,11 @@ import {
   shortenNextPollDuration,
 } from '../lib/polls';
 import { createMessages } from '../lib/messages';
-import { getAdminRole, getDefaultServer, getServerRole } from '../lib/servers';
+import {
+  getAdminRole,
+  getDefaultServer,
+  getServerRole,
+} from '../lib/servers';
 import { minutesUntil, secondsUntil } from '../lib/time';
 import { ChatPage } from '../pages/chat.page';
 
@@ -1205,6 +1211,8 @@ test('user can create and ratify a majority vote proposal', async ({
     createTestUser('majority-proposer'),
   );
   const server = await getDefaultServer(request, proposer);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  await grantInstanceAdminRole(request, instanceAdmin, proposer);
 
   const configResponse = await request.put(
     `/api/servers/${server.id}/configs`,
@@ -1286,6 +1294,8 @@ test('server-controlled proposal deadline finalizes an eligible consensus propos
     createTestUser('proposal-deadline'),
   );
   const server = await getDefaultServer(request, proposer);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  await grantInstanceAdminRole(request, instanceAdmin, proposer);
 
   const configResponse = await request.put(
     `/api/servers/${server.id}/configs`,

@@ -172,17 +172,16 @@ pub(super) async fn get_server_image(
     crate::common::images::safe_image_response(image.bytes)
 }
 
-// TODO: This only checks that the caller is logged in, not that they can
-// manage this server (unlike `update_server`'s `ServerEditContext`, which
-// calls `ensure_can_update_server`). Confirm whether any authenticated user
-// deleting any server is intentional.
 pub(super) async fn delete_server(
     State(state): State<ServersState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    context: ServerEditContext,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::delete_server(&state.database, &state.upload_root, path.server_id)
-        .await?;
+    service::delete_server(
+        &state.database,
+        &state.upload_root,
+        context.path.server_id,
+    )
+    .await?;
     Ok(Json(EmptyResponse {}))
 }
 
@@ -207,30 +206,33 @@ pub(super) async fn get_users_eligible_for_server(
     Ok(Json(UsersPayload { users }))
 }
 
-// TODO: Same gap as `delete_server` — no permission check beyond being
-// logged in, so any authenticated user can add or remove members of any
-// server. Confirm whether that's intentional.
 pub(super) async fn add_server_members(
     State(state): State<ServersState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    context: ServerEditContext,
     Json(payload): Json<ServerMembersRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
-    service::add_server_members(&state.database, path.server_id, &user_ids)
-        .await?;
+    service::add_server_members(
+        &state.database,
+        context.path.server_id,
+        &user_ids,
+    )
+    .await?;
     Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn remove_server_members(
     State(state): State<ServersState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    context: ServerEditContext,
     Json(payload): Json<ServerMembersRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
-    service::remove_server_members(&state.database, path.server_id, &user_ids)
-        .await?;
+    service::remove_server_members(
+        &state.database,
+        context.path.server_id,
+        &user_ids,
+    )
+    .await?;
     Ok(Json(EmptyResponse {}))
 }
 
@@ -275,9 +277,11 @@ pub(super) async fn is_anonymous_users_enabled(
 pub(super) async fn update_server_config(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<ServerConfigRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
+    service::ensure_can_update_server(&state.database, user_id, path.server_id)
+        .await?;
     service::update_server_config(&state.database, path.server_id, payload)
         .await?;
     Ok(Json(EmptyResponse {}))

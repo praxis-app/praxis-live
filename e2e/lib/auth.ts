@@ -9,6 +9,7 @@ import {
   INSTANCE_ADMIN_USER,
   type TestUser,
 } from './data';
+import { grantInstanceAdminRole } from './instance-roles';
 import { createInvite } from './invites';
 import { enableAnonymousUsers, getDefaultServer } from './servers';
 
@@ -144,12 +145,14 @@ export async function setupAnonymousInvite(
   context: BrowserContext,
   adminLabel: string,
 ): Promise<AnonymousAuthSetup> {
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
   const admin = await createAuthenticatedUser(
     request,
     context,
     createTestUser(adminLabel),
   );
   const server = await getDefaultServer(request, admin);
+  await grantInstanceAdminRole(request, instanceAdmin, admin);
   await enableAnonymousUsers(request, admin, server.id);
   const inviteToken = await createInvite(request, admin, server.id);
 

@@ -4,14 +4,26 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
-import { authorizationHeaders, type AuthenticatedUser } from './auth';
+import {
+  authorizationHeaders,
+  getOrCreateInstanceAdmin,
+  type AuthenticatedUser,
+} from './auth';
 import { assertUuid, runDatabaseCommand } from './db';
+import { grantInstanceAdminRole } from './instance-roles';
 
 export async function makeProposalsRatifyWithOneAgreeVote(
   request: APIRequestContext,
   user: AuthenticatedUser,
   serverId: string,
 ) {
+  // Config changes require the instance-level `Server:manage` fallback
+  // rather than the server's own admin role, since other specs may have
+  // edited that role's `ServerConfig` permission (e.g. via a ratified
+  // role-change proposal).
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  await grantInstanceAdminRole(request, instanceAdmin, user);
+
   const response = await request.put(`/api/servers/${serverId}/configs`, {
     headers: authorizationHeaders(user),
     data: {

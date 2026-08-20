@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext } from '@playwright/test';
 import { authorizationHeaders, type AuthenticatedUser } from './auth';
+import { ensureServerAdminRole } from './servers';
 
 type ForumChannel = {
   id: string;
@@ -13,6 +14,8 @@ export async function createForumChannel(
   serverId: string,
   name: string,
 ) {
+  await ensureServerAdminRole(request, user, serverId);
+
   const response = await request.post(`/api/servers/${serverId}/channels`, {
     headers: authorizationHeaders(user),
     data: {

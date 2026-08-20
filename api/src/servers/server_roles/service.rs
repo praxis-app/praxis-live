@@ -112,6 +112,29 @@ pub(crate) async fn get_permissions_by_user(
         .collect())
 }
 
+pub(super) async fn ensure_can_manage_server_roles(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    server_id: Uuid,
+) -> AppResult<()> {
+    let permissions = get_permissions_by_user(database, user_id).await?;
+    let can_manage =
+        permissions
+            .get(&server_id.to_string())
+            .is_some_and(|rules| {
+                rules.iter().any(|rule| {
+                    (rule.subject == "ServerRole" || rule.subject == "all")
+                        && rule.action.iter().any(|action| action == "manage")
+                })
+            });
+
+    if can_manage {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
+}
+
 pub(super) async fn get_users_eligible_for_server_role(
     database: &DatabaseConnection,
     server_id: Uuid,

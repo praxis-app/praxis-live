@@ -9,11 +9,66 @@ use uuid::Uuid as NativeUuid;
 
 use super::types::{InviteRequest, InviteResponse, InviteUserResponse};
 use crate::{
-    common::{ApiError, AppResult},
-    servers, users as users_service,
+    common::{roles::PermissionRule, ApiError, AppResult},
+    servers::{self, server_roles},
+    users as users_service,
 };
 
 const INVITES_PAGE_SIZE: usize = 20;
+
+pub(super) async fn ensure_can_access_invites(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    server_id: Uuid,
+) -> AppResult<()> {
+    let permissions =
+        server_roles::service::get_permissions_by_user(database, user_id)
+            .await?;
+    let can_access =
+        permissions
+            .get(&server_id.to_string())
+            .is_some_and(|rules| {
+                has_invite_permission(rules, &["create", "manage"])
+            });
+
+    if can_access {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
+}
+
+pub(super) async fn ensure_can_manage_invites(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+    server_id: Uuid,
+) -> AppResult<()> {
+    let permissions =
+        server_roles::service::get_permissions_by_user(database, user_id)
+            .await?;
+    let can_manage = permissions
+        .get(&server_id.to_string())
+        .is_some_and(|rules| has_invite_permission(rules, &["manage"]));
+
+    if can_manage {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
+}
+
+fn has_invite_permission(
+    permissions: &[PermissionRule],
+    actions: &[&str],
+) -> bool {
+    permissions.iter().any(|permission| {
+        (permission.subject == "Invite" || permission.subject == "all")
+            && permission
+                .action
+                .iter()
+                .any(|action| actions.contains(&action.as_str()))
+    })
+}
 
 pub(super) async fn is_valid_invite(
     database: &DatabaseConnection,

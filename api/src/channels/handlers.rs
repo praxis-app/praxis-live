@@ -42,33 +42,33 @@ impl HasJwtSecret for ChannelsState {
     }
 }
 
-// TODO: This and `update_channel`/`delete_channel` below only check that the
-// caller is logged in, unlike the sibling `update_channel_order`, which
-// calls `ensure_can_manage_channels`. Confirm whether any authenticated
-// user creating, renaming, or deleting channels in any server is
-// intentional, or whether these need the same check.
 pub(super) async fn create_channel(
     State(state): State<ChannelsState>,
     Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<ChannelRequest>,
 ) -> AppResult<Json<ChannelPayload>> {
-    let channel =
-        service::create_channel(&state.database, path.server_id, payload)
-            .await?;
+    let channel = service::create_channel(
+        &state.database,
+        path.server_id,
+        user_id,
+        payload,
+    )
+    .await?;
     Ok(Json(ChannelPayload { channel }))
 }
 
 pub(super) async fn update_channel(
     State(state): State<ChannelsState>,
     Path(path): Path<ChannelPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<ChannelRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     service::update_channel(
         &state.database,
         path.server_id,
         path.channel_id,
+        user_id,
         payload,
     )
     .await?;
@@ -94,10 +94,15 @@ pub(super) async fn update_channel_order(
 pub(super) async fn delete_channel(
     State(state): State<ChannelsState>,
     Path(path): Path<ChannelPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::delete_channel(&state.database, path.server_id, path.channel_id)
-        .await?;
+    service::delete_channel(
+        &state.database,
+        path.server_id,
+        path.channel_id,
+        user_id,
+    )
+    .await?;
     Ok(Json(EmptyResponse {}))
 }
 

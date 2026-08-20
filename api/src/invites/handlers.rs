@@ -50,16 +50,17 @@ pub(super) async fn is_valid_invite(
     Ok(Json(InviteValidityResponse { is_valid_invite }))
 }
 
-// TODO: This and `create_invite`/`delete_invite` below only check that the
-// caller is logged in, not that they belong to or manage this server — the
-// service layer performs no such check either. `get_invites` in particular
-// returns live invite tokens, which double as server join credentials, to
-// any authenticated user for any server. Confirm whether that's intentional.
 pub(super) async fn get_invites(
     State(state): State<InvitesState>,
     Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<InvitesPayload>> {
+    service::ensure_can_access_invites(
+        &state.database,
+        user_id,
+        path.server_id,
+    )
+    .await?;
     let invites =
         service::get_valid_invites(&state.database, path.server_id).await?;
     Ok(Json(InvitesPayload { invites }))
@@ -71,6 +72,12 @@ pub(super) async fn create_invite(
     AuthenticatedUser(user_id): AuthenticatedUser,
     Json(payload): Json<InviteRequest>,
 ) -> AppResult<Json<InvitePayload>> {
+    service::ensure_can_access_invites(
+        &state.database,
+        user_id,
+        path.server_id,
+    )
+    .await?;
     let invite = service::create_invite(
         &state.database,
         path.server_id,
@@ -84,8 +91,14 @@ pub(super) async fn create_invite(
 pub(super) async fn delete_invite(
     State(state): State<InvitesState>,
     Path(path): Path<InvitePath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<EmptyResponse>> {
+    service::ensure_can_manage_invites(
+        &state.database,
+        user_id,
+        path.server_id,
+    )
+    .await?;
     service::delete_invite(&state.database, path.server_id, path.invite_id)
         .await?;
     Ok(Json(EmptyResponse {}))

@@ -78,6 +78,23 @@ pub(crate) async fn get_permissions_by_user(
     Ok(group_permissions(permissions))
 }
 
+pub(super) async fn ensure_can_manage_instance_roles(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<()> {
+    let permissions = get_permissions_by_user(database, user_id).await?;
+    let can_manage = permissions.iter().any(|permission| {
+        (permission.subject == "InstanceRole" || permission.subject == "all")
+            && permission.action.iter().any(|action| action == "manage")
+    });
+
+    if can_manage {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
+}
+
 pub(super) async fn get_users_eligible_for_instance_role(
     database: &DatabaseConnection,
     role_id: Uuid,

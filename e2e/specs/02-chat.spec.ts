@@ -18,7 +18,7 @@ import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import { createMessages } from '../lib/messages';
-import { getDefaultServer } from '../lib/servers';
+import { ensureServerAdminRole, getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
 
@@ -118,6 +118,7 @@ test('text channel feed preserves its pages and syncs only newer messages when r
     createTestUser('text-scroll'),
   );
   const server = await getDefaultServer(request, user);
+  await ensureServerAdminRole(request, user, server.id);
   const otherChannelName = `other-${user.user.suffix}`;
   const createChannelResponse = await request.post(
     `/api/servers/${server.id}/channels`,
