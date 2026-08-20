@@ -1,6 +1,6 @@
 use std::{error::Error, io, sync::Arc, time::Duration};
 
-use super::redis_backend::{redis_url_from_env, RedisCache};
+use super::redis::{redis_url_from_env, RedisCache};
 use crate::common::AppResult;
 
 #[derive(Clone, Debug)]
