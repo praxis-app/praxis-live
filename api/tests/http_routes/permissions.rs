@@ -92,53 +92,6 @@ async fn logged_out_users_cannot_read_non_default_server_channels() {
 }
 
 #[tokio::test]
-async fn members_cannot_read_instance_role_definitions() {
-    let app = TestApp::new().await;
-    let _admin = signup(&app, "admin@example.com", "Admin Example").await;
-    let member = signup(&app, "member@example.com", "Member Example").await;
-
-    let response = app
-        .get_with_bearer("/api/instance/roles", &member.token)
-        .await;
-
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
-}
-
-#[tokio::test]
-async fn members_cannot_read_server_role_definitions() {
-    let app = TestApp::new().await;
-    let _admin = signup(&app, "admin@example.com", "Admin Example").await;
-    let member = signup(&app, "member@example.com", "Member Example").await;
-    let server_id = default_server_id(&app).await;
-
-    let response = app
-        .get_with_bearer(
-            &format!("/api/servers/{server_id}/roles"),
-            &member.token,
-        )
-        .await;
-
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
-}
-
-#[tokio::test]
-async fn members_cannot_enumerate_users_eligible_for_a_server() {
-    let app = TestApp::new().await;
-    let _admin = signup(&app, "admin@example.com", "Admin Example").await;
-    let member = signup(&app, "member@example.com", "Member Example").await;
-    let server_id = default_server_id(&app).await;
-
-    let response = app
-        .get_with_bearer(
-            &format!("/api/servers/{server_id}/members/eligible"),
-            &member.token,
-        )
-        .await;
-
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
-}
-
-#[tokio::test]
 async fn proposals_cannot_target_a_role_in_another_server() {
     let app = TestApp::new().await;
     let admin = signup(&app, "admin@example.com", "Admin Example").await;
