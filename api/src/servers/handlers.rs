@@ -17,6 +17,7 @@ use super::{
 };
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
+    cache::CacheService,
     common::{
         request::JsonOrMultipartFiles, response::EmptyResponse,
         storage::upload_root, ApiError, AppResult,
@@ -29,17 +30,20 @@ pub(super) struct ServersState {
     pub(super) database: DatabaseConnection,
     jwt_secret: Arc<str>,
     upload_root: Arc<PathBuf>,
+    cache_service: CacheService,
 }
 
 impl ServersState {
     pub(super) fn new(
         database: DatabaseConnection,
         jwt_secret: String,
+        cache_service: CacheService,
     ) -> Self {
         Self {
             database,
             jwt_secret: Arc::<str>::from(jwt_secret),
             upload_root: Arc::new(upload_root()),
+            cache_service,
         }
     }
 }
@@ -72,11 +76,28 @@ pub(super) async fn get_server_by_id(
 pub(super) async fn get_server_by_slug(
     State(state): State<ServersState>,
     Path(slug): Path<String>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<ServerPayload>> {
-    let server =
-        service::get_server_by_slug(&state.database, &slug, user_id).await?;
+    let server = service::get_server_by_slug(&state.database, &slug).await?;
     Ok(Json(ServerPayload { server }))
+}
+
+// Records the current server as a separate write, so the read above
+// stays read only. Best-effort: a client that navigates away
+// mid-request may not have its visit recorded.
+pub(super) async fn set_current_server(
+    State(state): State<ServersState>,
+    Path(path): Path<ServerPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+) -> AppResult<Json<EmptyResponse>> {
+    service::set_current_server(
+        &state.database,
+        &state.cache_service,
+        path.server_id,
+        user_id,
+    )
+    .await?;
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn get_server_by_invite_token(
@@ -151,6 +172,10 @@ pub(super) async fn get_server_image(
     crate::common::images::safe_image_response(image.bytes)
 }
 
+// TODO: This only checks that the caller is logged in, not that they can
+// manage this server (unlike `update_server`'s `ServerEditContext`, which
+// calls `ensure_can_update_server`). Confirm whether any authenticated user
+// deleting any server is intentional.
 pub(super) async fn delete_server(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
@@ -182,6 +207,9 @@ pub(super) async fn get_users_eligible_for_server(
     Ok(Json(UsersPayload { users }))
 }
 
+// TODO: Same gap as `delete_server` — no permission check beyond being
+// logged in, so any authenticated user can add or remove members of any
+// server. Confirm whether that's intentional.
 pub(super) async fn add_server_members(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,

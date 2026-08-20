@@ -42,6 +42,11 @@ impl HasJwtSecret for ChannelsState {
     }
 }
 
+// TODO: This and `update_channel`/`delete_channel` below only check that the
+// caller is logged in, unlike the sibling `update_channel_order`, which
+// calls `ensure_can_manage_channels`. Confirm whether any authenticated
+// user creating, renaming, or deleting channels in any server is
+// intentional, or whether these need the same check.
 pub(super) async fn create_channel(
     State(state): State<ChannelsState>,
     Path(path): Path<ServerPath>,

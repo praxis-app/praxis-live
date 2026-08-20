@@ -17,6 +17,7 @@ use super::{
     },
 };
 use crate::{
+    cache::CacheService,
     common::{
         text::{normalize_text, sanitize_text},
         ApiError, AppResult,
@@ -141,6 +142,7 @@ pub(crate) async fn authenticate(
 
 pub(super) async fn get_current_user(
     database: &DatabaseConnection,
+    cache_service: &CacheService,
     user_id: Uuid,
 ) -> AppResult<CurrentUserResponse> {
     let user = get_user_by_id(database, user_id)
@@ -152,7 +154,8 @@ pub(super) async fn get_current_user(
     let servers =
         servers::service::get_servers_for_user(database, user_id).await?;
     let current_server =
-        servers::service::get_current_server(database, user_id).await?;
+        servers::service::get_current_server(database, cache_service, user_id)
+            .await?;
 
     Ok(CurrentUserResponse {
         id: user.id.to_string(),

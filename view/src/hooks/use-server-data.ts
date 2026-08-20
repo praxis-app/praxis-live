@@ -41,12 +41,7 @@ export const useServerData = () => {
         throw error;
       }
     },
-    // Intentionally refetches on mount: the request is what records the visit
-    // on the backend, so revisits to cached servers still update currentServer.
-    //
-    // TODO: This couples caching behaviour to activity tracking, so the query
-    // cannot be tuned on its own merits. A dedicated endpoint for recording the
-    // visit, or persisting the current server client side, would decouple them.
+    staleTime: 1000 * 60 * 5,
     enabled: !!serverSlug && isMeSuccess,
   });
 
@@ -94,31 +89,31 @@ export const useServerData = () => {
       refetchOnMount: false,
     });
 
-  // Keep the cached `me.currentServer` in sync with the server being viewed.
-  // `me` is long lived (30 minute stale time, no refetch on mount) and is the
-  // only source of the current server on slug-less routes such as `/`, so
-  // without this it keeps pointing at whichever server the session started on.
-  // This runs off the resolved query data rather than inside `queryFn` so that
-  // it also fires when a previously visited server is served from the cache.
-  const viewedServer = serverBySlugData?.server;
-
-  useEffect(() => {
-    if (!viewedServer) {
-      return;
-    }
-    queryClient.setQueryData<{ user: CurrentUser }>(['me'], (oldData) => {
-      if (!oldData || oldData.user.currentServer?.id === viewedServer.id) {
-        return oldData;
-      }
-      return { user: { ...oldData.user, currentServer: viewedServer } };
-    });
-  }, [queryClient, viewedServer]);
-
   const server =
     serverBySlugData?.server ||
     serverByInviteTokenData?.server ||
     (!serverSlug ? me?.currentServer : undefined) ||
     defaultServerData?.server;
+
+  // Record the visit and keep the cached `me.currentServer` in sync whenever
+  // the resolved server changes. `me` is long lived (30 minute stale time, no
+  // refetch on mount) and is the only source of the current server on
+  // slug-less routes such as `/`, so without this it keeps pointing at
+  // whichever server the session started on.
+  useEffect(() => {
+    if (!server || !isMeSuccess) {
+      return;
+    }
+    api.setCurrentServer(server.id).catch(() => {
+      // Best-effort: a failed write here should not block viewing the server.
+    });
+    queryClient.setQueryData<{ user: CurrentUser }>(['me'], (oldData) => {
+      if (!oldData || oldData.user.currentServer?.id === server.id) {
+        return oldData;
+      }
+      return { user: { ...oldData.user, currentServer: server } };
+    });
+  }, [queryClient, server, isMeSuccess]);
 
   const resolvedServerSlug = server?.slug || serverSlug;
   const resolvedServerPath = resolvedServerSlug

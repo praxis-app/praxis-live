@@ -9,10 +9,12 @@ use super::handlers::{
     get_user_profile, is_first_user, update_user_profile,
     upload_user_cover_photo, upload_user_profile_picture, UsersState,
 };
+use crate::cache::CacheService;
 
 pub(crate) fn router(
     database: DatabaseConnection,
     jwt_secret: String,
+    cache_service: CacheService,
 ) -> Router {
     Router::new()
         .route("/users/me", get(get_current_user))
@@ -23,5 +25,5 @@ pub(crate) fn router(
         .route("/users/cover-photo", post(upload_user_cover_photo))
         .route("/users/{userId}/profile", get(get_user_profile))
         .route("/users/{userId}/images/{imageId}", get(get_user_image))
-        .with_state(UsersState::new(database, jwt_secret))
+        .with_state(UsersState::new(database, jwt_secret, cache_service))
 }

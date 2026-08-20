@@ -6,12 +6,12 @@ use entity::{
 };
 use sea_orm::{
     prelude::Uuid,
-    sea_query::{NullOrdering, Query},
+    sea_query::{Expr, NullOrdering, Query},
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection,
     EntityTrait, IntoActiveModel, ModelTrait, Order, PaginatorTrait,
     QueryFilter, QueryOrder, Set, SqlErr, TransactionTrait,
 };
-use std::path::Path;
+use std::{path::Path, time::Duration};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
@@ -19,10 +19,21 @@ use super::types::{
     StoredServerImage, UserResponse,
 };
 use crate::{
+    cache::CacheService,
     channels as channels_service,
     common::{roles::PermissionRule, ApiError, AppResult},
     instance, users as users_service,
 };
+
+// Time-to-live for the cached current-server value. Chosen generously since
+// the durable `last_active_at` column remains the source of truth on a miss.
+const CURRENT_SERVER_CACHE_TTL: Duration =
+    Duration::from_secs(60 * 60 * 24 * 7);
+
+// Minimum interval between durable `last_active_at` writes for the same
+// server/user pair, so frequent navigation doesn't hit Postgres on every
+// request.
+const CURRENT_SERVER_WRITE_THROTTLE: Duration = Duration::from_secs(60);
 
 pub(crate) use super::server_configs::{
     ensure_server_config, get_server_config, is_anonymous_users_enabled,
@@ -185,22 +196,26 @@ pub(crate) async fn get_servers_for_user(
 
 pub(crate) async fn get_current_server(
     database: &DatabaseConnection,
+    cache_service: &CacheService,
     user_id: Uuid,
 ) -> AppResult<Option<ServerResponse>> {
     let default_server_id = default_server_id(database).await?;
-    let membership = server_members::Entity::find()
-        .filter(server_members::Column::UserId.eq(user_id))
-        .order_by_with_nulls(
-            server_members::Column::LastActiveAt,
-            Order::Desc,
-            NullOrdering::Last,
-        )
-        .one(database)
-        .await
-        .map_err(internal_error)?;
 
-    let server_id = membership
-        .map(|membership| membership.server_id)
+    let server_id =
+        match cached_current_server_id(cache_service, user_id).await {
+            Some(server_id) => Some(server_id),
+            None => server_members::Entity::find()
+                .filter(server_members::Column::UserId.eq(user_id))
+                .order_by_with_nulls(
+                    server_members::Column::LastActiveAt,
+                    Order::Desc,
+                    NullOrdering::Last,
+                )
+                .one(database)
+                .await
+                .map_err(internal_error)?
+                .map(|membership| membership.server_id),
+        }
         .unwrap_or(default_server_id);
 
     let Some(server) = servers::Entity::find_by_id(server_id)
@@ -236,7 +251,6 @@ pub(super) async fn get_server_by_id(
 pub(super) async fn get_server_by_slug(
     database: &DatabaseConnection,
     slug: &str,
-    user_id: Uuid,
 ) -> AppResult<ServerResponse> {
     let server = servers::Entity::find()
         .filter(servers::Column::Slug.eq(slug))
@@ -247,7 +261,6 @@ pub(super) async fn get_server_by_slug(
             ApiError::new(StatusCode::NOT_FOUND, "Server not found.")
         })?;
 
-    set_member_activity(database, server.id, user_id).await?;
     let default_server_id = default_server_id(database).await?;
     shape_server(database, server, default_server_id, true, false).await
 }
@@ -868,38 +881,81 @@ pub(crate) async fn create_initial_server(
     Ok(server)
 }
 
-// Records the user's activity so slug-less routes such as `/` can resolve the
-// server they were last in. Activity is per user, not per session, so tabs and
-// devices share one value and the most recent view wins.
-//
-// TODO: Collapse this into a single `update_many().col_expr()` filtered on
-// server and user, since the lookup above the write is redundant. More broadly,
-// this is a write on a read path: `get_server_by_slug` runs on every in-app
-// navigation, so each one costs a lookup plus an update on top of the four
-// reads the endpoint already makes. That is cheap at current scale, as
-// `last_active_at` is unindexed and the update stays heap-only, but it keeps
-// this GET from being a pure read and rules out serving it from a replica.
-// Move activity tracking behind a cache such as Redis if the volume ever bites.
-async fn set_member_activity(
+// Records the server the user last viewed, so slug-less routes such as `/`
+// can resolve back to it. Tracked per user, not per session, so tabs and
+// devices share one value and the most recent view wins. Best-effort: a
+// client that navigates away mid-request may not have its visit recorded.
+pub(super) async fn set_current_server(
     database: &DatabaseConnection,
+    cache_service: &CacheService,
     server_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
-    let Some(membership) = server_members::Entity::find()
+    if let Err(error) = cache_service
+        .set(
+            current_server_cache_key(user_id),
+            server_id.to_string(),
+            CURRENT_SERVER_CACHE_TTL,
+        )
+        .await
+    {
+        tracing::warn!("failed to cache current server: {error}");
+    }
+
+    let throttle_key = current_server_write_throttle_key(server_id, user_id);
+    let recently_written = match cache_service.get(&throttle_key).await {
+        Ok(value) => value.is_some(),
+        Err(error) => {
+            tracing::warn!(
+                "failed to read current server write throttle: {error}"
+            );
+            false
+        }
+    };
+    if recently_written {
+        return Ok(());
+    }
+
+    server_members::Entity::update_many()
+        .col_expr(
+            server_members::Column::LastActiveAt,
+            Expr::value(Utc::now().fixed_offset()),
+        )
         .filter(server_members::Column::ServerId.eq(server_id))
         .filter(server_members::Column::UserId.eq(user_id))
-        .one(database)
+        .exec(database)
         .await
-        .map_err(internal_error)?
-    else {
-        return Ok(());
-    };
+        .map_err(internal_error)?;
 
-    let mut active = membership.into_active_model();
-    active.last_active_at = Set(Some(Utc::now().fixed_offset()));
-    active.update(database).await.map_err(internal_error)?;
+    if let Err(error) = cache_service
+        .set(throttle_key, String::new(), CURRENT_SERVER_WRITE_THROTTLE)
+        .await
+    {
+        tracing::warn!("failed to set current server write throttle: {error}");
+    }
 
     Ok(())
+}
+
+async fn cached_current_server_id(
+    cache_service: &CacheService,
+    user_id: Uuid,
+) -> Option<Uuid> {
+    match cache_service.get(&current_server_cache_key(user_id)).await {
+        Ok(value) => value.and_then(|value| value.parse().ok()),
+        Err(error) => {
+            tracing::warn!("failed to read cached current server: {error}");
+            None
+        }
+    }
+}
+
+fn current_server_cache_key(user_id: Uuid) -> String {
+    format!("current-server:{user_id}")
+}
+
+fn current_server_write_throttle_key(server_id: Uuid, user_id: Uuid) -> String {
+    format!("current-server-write:{server_id}:{user_id}")
 }
 
 fn validate_server_request(

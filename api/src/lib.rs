@@ -2,6 +2,7 @@
 // See .docs/prompts/backend/split-api-composition-root.md.
 
 mod auth;
+mod cache;
 mod calls;
 mod channels;
 mod common;
@@ -35,7 +36,8 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let database = connect_database_from_env().await?;
     let jwt_secret = required_env("AUTH_TOKEN_SECRET")?;
     let livekit_config = calls::LiveKitConfig::from_env();
-    let pub_sub_service = pub_sub::PubSubService::from_env();
+    let cache_service = cache::CacheService::from_env()?;
+    let pub_sub_service = pub_sub::PubSubService::new(cache_service.clone());
 
     calls::spawn_stale_call_cleaner(
         database.clone(),
@@ -48,6 +50,7 @@ pub async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         jwt_secret,
         livekit_config,
         pub_sub_service,
+        cache_service,
     )
     .layer(
         TraceLayer::new_for_http()
@@ -77,12 +80,15 @@ pub fn build_router(
     jwt_secret: impl Into<String>,
     livekit_config: Option<calls::LiveKitConfig>,
 ) -> Router {
-    let pub_sub_service = pub_sub::PubSubService::from_env();
+    let cache_service = cache::CacheService::from_env()
+        .expect("Redis must be configured for the cache service");
+    let pub_sub_service = pub_sub::PubSubService::new(cache_service.clone());
     build_router_with_pub_sub(
         database,
         jwt_secret,
         livekit_config,
         pub_sub_service,
+        cache_service,
     )
 }
 
@@ -91,6 +97,7 @@ fn build_router_with_pub_sub(
     jwt_secret: impl Into<String>,
     livekit_config: Option<calls::LiveKitConfig>,
     pub_sub_service: pub_sub::PubSubService,
+    cache_service: cache::CacheService,
 ) -> Router {
     let jwt_secret = jwt_secret.into();
     polls::service::spawn_proposal_synchronizer(
@@ -115,7 +122,11 @@ fn build_router_with_pub_sub(
         .route("/health", get(health::health))
         .merge(auth::router(database.clone(), jwt_secret.clone()))
         .merge(invites::router(database.clone(), jwt_secret.clone()))
-        .merge(users::router(database.clone(), jwt_secret.clone()))
+        .merge(users::router(
+            database.clone(),
+            jwt_secret.clone(),
+            cache_service.clone(),
+        ))
         .merge(instance::router(
             database.clone(),
             jwt_secret.clone(),
@@ -125,6 +136,7 @@ fn build_router_with_pub_sub(
             database.clone(),
             jwt_secret.clone(),
             pub_sub_service.clone(),
+            cache_service,
             livekit_config.clone(),
         ))
         .merge(calls::livekit_webhook_router(
