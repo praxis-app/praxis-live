@@ -10,8 +10,7 @@ use entity::{
         ServerAbilitySubject, ServerRoleAbilityAction,
     },
     poll_action_permissions, poll_action_role_members, poll_action_roles,
-    polls, server_members, server_role_members, server_role_permissions,
-    server_roles, users,
+    polls, server_role_members, server_role_permissions, server_roles, users,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
@@ -27,7 +26,7 @@ use super::types::{
 };
 use crate::{
     common::{request::parse_uuid, ApiError, AppResult},
-    users as users_service,
+    servers, users as users_service,
 };
 
 pub(super) fn validate_role_change_payload(
@@ -386,7 +385,8 @@ async fn apply_member_changes(
         // proposed member who does not belong to that server is skipped
         // rather than silently granted access to it.
         if member.change_type == PollActionRoleMemberChangeType::Add
-            && !is_server_member(database, server_id, member.user_id).await?
+            && !servers::is_server_member(database, server_id, member.user_id)
+                .await?
         {
             continue;
         }
@@ -419,21 +419,6 @@ async fn apply_member_changes(
         }
     }
     Ok(())
-}
-
-async fn is_server_member<C: ConnectionTrait>(
-    database: &C,
-    server_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<bool> {
-    let membership = server_members::Entity::find()
-        .filter(server_members::Column::ServerId.eq(server_id))
-        .filter(server_members::Column::UserId.eq(user_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(membership.is_some())
 }
 
 async fn shape_role(

@@ -191,8 +191,18 @@ pub(crate) async fn is_first_user(
 
 pub(super) async fn get_user_profile(
     database: &DatabaseConnection,
+    current_user_id: Option<Uuid>,
     user_id: Uuid,
+    invite_token: Option<&str>,
 ) -> AppResult<UserProfileResponse> {
+    authorize_user_profile_access(
+        database,
+        current_user_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
+
     let user = users::Entity::find_by_id(user_id)
         .one(database)
         .await
@@ -465,6 +475,37 @@ pub(super) async fn is_default_server_member(
         .map_err(internal_error)?;
 
     Ok(membership.is_some())
+}
+
+// Follows the same rules `authorize_user_image_access` applies to a user's
+// images: a profile is public when its owner belongs to the default server,
+// and otherwise visible to the owner, to anyone sharing a channel with them,
+// and to callers holding an invite to a server the owner belongs to.
+async fn authorize_user_profile_access(
+    database: &DatabaseConnection,
+    current_user_id: Option<Uuid>,
+    user_id: Uuid,
+    invite_token: Option<&str>,
+) -> AppResult<()> {
+    if current_user_id == Some(user_id)
+        || is_default_server_member(database, user_id).await?
+        || is_member_of_invited_server(database, invite_token, user_id).await?
+    {
+        return Ok(());
+    }
+
+    let shared_channel = match current_user_id {
+        Some(current_user_id) => {
+            has_shared_channel(database, current_user_id, user_id).await?
+        }
+        None => false,
+    };
+
+    if shared_channel {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
 }
 
 async fn authorize_user_image_access(

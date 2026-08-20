@@ -60,8 +60,9 @@ pub(super) struct InstanceRoleMemberPath {
 pub(super) async fn get_instance_role(
     State(state): State<InstanceRolesState>,
     Path(path): Path<InstanceRolePath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<InstanceRolePayload>> {
+    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     let instance_role =
         service::get_instance_role(&state.database, path.instance_role_id)
             .await?;
@@ -77,11 +78,14 @@ pub(super) async fn get_instance_roles(
     Ok(Json(InstanceRolesPayload { instance_roles }))
 }
 
+// Unlike the server-role equivalent, no proposal flow needs this list: poll
+// actions can only propose changes to server roles, never instance roles.
 pub(super) async fn get_users_eligible_for_instance_role(
     State(state): State<InstanceRolesState>,
     Path(path): Path<InstanceRolePath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<UsersPayload>> {
+    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     let users = service::get_users_eligible_for_instance_role(
         &state.database,
         path.instance_role_id,

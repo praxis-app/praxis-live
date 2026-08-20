@@ -173,14 +173,18 @@ pub(super) async fn get_server_image(
     crate::common::images::safe_image_response(image.bytes)
 }
 
+// Deleting a server is instance-wide state, so this deliberately does not use
+// `ServerEditContext`: a server's own admins must not be able to destroy it.
 pub(super) async fn delete_server(
     State(state): State<ServersState>,
-    context: ServerEditContext,
+    Path(path): Path<ServerPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<EmptyResponse>> {
     service::delete_server(
         &state.database,
         &state.upload_root,
-        context.path.server_id,
+        path.server_id,
+        user_id,
     )
     .await?;
     Ok(Json(EmptyResponse {}))

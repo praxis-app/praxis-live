@@ -127,13 +127,7 @@ pub(crate) async fn ensure_server_read_access(
     ensure_server(database, server_id).await?;
 
     if let Some(user_id) = user_id {
-        let membership = server_members::Entity::find()
-            .filter(server_members::Column::ServerId.eq(server_id))
-            .filter(server_members::Column::UserId.eq(user_id))
-            .one(database)
-            .await
-            .map_err(internal_error)?;
-        if membership.is_some() {
+        if is_server_member(database, server_id, user_id).await? {
             return Ok(());
         }
     }
@@ -396,7 +390,10 @@ pub(super) async fn delete_server(
     database: &DatabaseConnection,
     upload_root: &Path,
     server_id: Uuid,
+    user_id: Uuid,
 ) -> AppResult<()> {
+    ensure_can_manage_servers(database, user_id).await?;
+
     let server = get_server(database, server_id).await?;
     let server_count = servers::Entity::find()
         .count(database)
@@ -526,6 +523,26 @@ pub(super) async fn add_server_members(
     Ok(())
 }
 
+// The single source of truth for server membership. Anything that grants
+// server-scoped standing — roles, invites, read access — must agree on it.
+pub(crate) async fn is_server_member<C>(
+    database: &C,
+    server_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
+    let membership = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .filter(server_members::Column::UserId.eq(user_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(membership.is_some())
+}
+
 pub(crate) async fn add_member_to_server<C>(
     database: &C,
     server_id: Uuid,
@@ -534,15 +551,7 @@ pub(crate) async fn add_member_to_server<C>(
 where
     C: ConnectionTrait,
 {
-    let exists = server_members::Entity::find()
-        .filter(server_members::Column::ServerId.eq(server_id))
-        .filter(server_members::Column::UserId.eq(user_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .is_some();
-
-    if exists {
+    if is_server_member(database, server_id, user_id).await? {
         return Ok(());
     }
 

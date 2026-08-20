@@ -275,10 +275,22 @@ pub(super) async fn add_server_role_members(
             .one(database)
             .await
             .map_err(internal_error)?
-            .is_some()
+            .is_none()
         {
-            add_member(database, role_id, *user_id).await?;
+            continue;
         }
+
+        // A server role only grants standing within its own server, so it
+        // cannot be handed to someone who has not joined that server. The
+        // proposal path enforces the same rule in `poll_actions::roles`.
+        if !servers::is_server_member(database, server_id, *user_id).await? {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Server roles can only be granted to server members.",
+            ));
+        }
+
+        add_member(database, role_id, *user_id).await?;
     }
     Ok(())
 }

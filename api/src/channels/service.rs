@@ -250,11 +250,11 @@ pub(crate) async fn get_channel(
         })
 }
 
-pub(crate) async fn ensure_channel_membership(
+pub(crate) async fn is_channel_member(
     database: &DatabaseConnection,
     channel_id: Uuid,
     user_id: Uuid,
-) -> AppResult<()> {
+) -> AppResult<bool> {
     let membership = channel_members::Entity::find()
         .filter(channel_members::Column::ChannelId.eq(channel_id))
         .filter(channel_members::Column::UserId.eq(user_id))
@@ -262,7 +262,15 @@ pub(crate) async fn ensure_channel_membership(
         .await
         .map_err(internal_error)?;
 
-    if membership.is_some() {
+    Ok(membership.is_some())
+}
+
+pub(crate) async fn ensure_channel_membership(
+    database: &DatabaseConnection,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<()> {
+    if is_channel_member(database, channel_id, user_id).await? {
         Ok(())
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
@@ -278,8 +286,13 @@ pub(crate) async fn ensure_channel_read_access(
 ) -> AppResult<()> {
     get_channel(database, server_id, channel_id).await?;
 
+    // Membership is one way in, not the only one. Signing in must never take
+    // away access an anonymous caller would have had, so this falls through to
+    // the same public and invite paths as `ensure_server_read_access`.
     if let Some(user_id) = user_id {
-        return ensure_channel_membership(database, channel_id, user_id).await;
+        if is_channel_member(database, channel_id, user_id).await? {
+            return Ok(());
+        }
     }
 
     if servers_service::default_server_id(database).await? == server_id {

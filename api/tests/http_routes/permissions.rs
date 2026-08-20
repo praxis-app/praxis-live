@@ -64,14 +64,21 @@ async fn server_admins_cannot_delete_a_server() {
     let other_server_id = create_server(&app, &admin, "Other", "other").await;
     grant_server_admin(&app, &admin, &other_server_id, &member).await;
 
-    let response = app
+    let member_response = app
         .delete_with_bearer(
             &format!("/api/servers/{other_server_id}"),
             &member.token,
         )
         .await;
+    assert_eq!(member_response.status(), StatusCode::FORBIDDEN);
 
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let admin_response = app
+        .delete_with_bearer(
+            &format!("/api/servers/{other_server_id}"),
+            &admin.token,
+        )
+        .await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
 }
 
 #[tokio::test]
@@ -106,6 +113,140 @@ async fn only_instance_role_managers_can_read_instance_roles() {
         .get_with_bearer("/api/instance/roles", &admin.token)
         .await;
     assert_eq!(admin_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn only_instance_role_managers_can_read_a_single_instance_role() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let role_id = create_instance_role(&app, &admin, "Moderators").await;
+    let uri = format!("/api/instance/roles/{role_id}");
+
+    let member_response = app.get_with_bearer(&uri, &member.token).await;
+    assert_eq!(member_response.status(), StatusCode::FORBIDDEN);
+
+    let admin_response = app.get_with_bearer(&uri, &admin.token).await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn only_instance_role_managers_can_list_users_eligible_for_a_role() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let role_id = create_instance_role(&app, &admin, "Moderators").await;
+    let uri = format!("/api/instance/roles/{role_id}/members/eligible");
+
+    let member_response = app.get_with_bearer(&uri, &member.token).await;
+    assert_eq!(member_response.status(), StatusCode::FORBIDDEN);
+
+    let admin_response = app.get_with_bearer(&uri, &admin.token).await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
+}
+
+// A server role only ever grants standing within its own server, so handing one
+// to a non-member would grant working permissions on a server they never
+// joined. The proposal path already refuses this in `poll_actions`.
+#[tokio::test]
+async fn server_roles_cannot_be_granted_to_non_members() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let outsider = signup(&app, "outsider@example.com", "Outsider").await;
+    let insider = signup(&app, "insider@example.com", "Insider").await;
+    let server_id = create_server(&app, &admin, "Other", "other").await;
+    let role_id =
+        create_server_role(&app, &admin, &server_id, "Moderators").await;
+    let uri = format!("/api/servers/{server_id}/roles/{role_id}/members");
+
+    let outsider_response = app
+        .post_json_with_bearer(
+            &uri,
+            &json!({ "userIds": [outsider.user_id] }),
+            &admin.token,
+        )
+        .await;
+    assert_eq!(outsider_response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    add_server_member(&app, &admin, &server_id, &insider).await;
+    let insider_response = app
+        .post_json_with_bearer(
+            &uri,
+            &json!({ "userIds": [insider.user_id] }),
+            &admin.token,
+        )
+        .await;
+    assert_eq!(insider_response.status(), StatusCode::OK);
+}
+
+// Holding a valid invite must grant the same channel reads whether or not the
+// caller is signed in. `ensure_server_read_access` already honors the invite;
+// `ensure_channel_read_access` must agree with it.
+#[tokio::test]
+async fn invited_users_can_read_channels_whether_or_not_they_are_signed_in() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+    let channel_id = general_channel_id(&app, &server_id).await;
+    let invite_token = create_invite(&app, &admin, &server_id).await;
+
+    let list_uri =
+        format!("/api/servers/{server_id}/channels?inviteToken={invite_token}");
+    let detail_uri = format!(
+        "/api/servers/{server_id}/channels/{channel_id}\
+         ?inviteToken={invite_token}"
+    );
+
+    let logged_out_list = app.get(&list_uri).await;
+    assert_eq!(logged_out_list.status(), StatusCode::OK);
+    let logged_out_detail = app.get(&detail_uri).await;
+    assert_eq!(logged_out_detail.status(), StatusCode::OK);
+
+    let member_list = app.get_with_bearer(&list_uri, &member.token).await;
+    assert_eq!(member_list.status(), StatusCode::OK);
+    let member_detail = app.get_with_bearer(&detail_uri, &member.token).await;
+    assert_eq!(member_detail.status(), StatusCode::OK);
+}
+
+// Profiles of default-server members are public by design, matching how
+// `get_user_image` treats their profile pictures. Everyone else's is not.
+#[tokio::test]
+async fn profiles_outside_the_default_server_are_not_publicly_readable() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+    let invite_token = create_invite(&app, &admin, &server_id).await;
+    let outsider = signup_with_invite(
+        &app,
+        "outsider@example.com",
+        "Outsider",
+        &invite_token,
+    )
+    .await;
+
+    let outsider_uri = format!("/api/users/{}/profile", outsider.user_id);
+    let logged_out_response = app.get(&outsider_uri).await;
+    assert_eq!(logged_out_response.status(), StatusCode::FORBIDDEN);
+
+    let self_response =
+        app.get_with_bearer(&outsider_uri, &outsider.token).await;
+    assert_eq!(self_response.status(), StatusCode::OK);
+
+    // The admin shares the private server's channels with the outsider, so the
+    // people who can actually see them in the app keep their profile reads.
+    let admin_response = app.get_with_bearer(&outsider_uri, &admin.token).await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
+
+    // Someone with no server in common cannot.
+    let stranger = signup(&app, "stranger@example.com", "Stranger").await;
+    let stranger_response =
+        app.get_with_bearer(&outsider_uri, &stranger.token).await;
+    assert_eq!(stranger_response.status(), StatusCode::FORBIDDEN);
+
+    let admin_uri = format!("/api/users/{}/profile", admin.user_id);
+    let default_member_response = app.get(&admin_uri).await;
+    assert_eq!(default_member_response.status(), StatusCode::OK);
 }
 
 #[tokio::test]
@@ -279,6 +420,26 @@ fn server_payload(
 }
 
 async fn signup(app: &TestApp, email: &str, name: &str) -> TestUser {
+    signup_request(app, email, name, None).await
+}
+
+// Signing up through an invite joins the invited server instead of the default
+// one, which is the only way to end up with an account outside it.
+async fn signup_with_invite(
+    app: &TestApp,
+    email: &str,
+    name: &str,
+    invite_token: &str,
+) -> TestUser {
+    signup_request(app, email, name, Some(invite_token)).await
+}
+
+async fn signup_request(
+    app: &TestApp,
+    email: &str,
+    name: &str,
+    invite_token: Option<&str>,
+) -> TestUser {
     let response = app
         .post_json(
             "/api/auth/signup",
@@ -286,6 +447,7 @@ async fn signup(app: &TestApp, email: &str, name: &str) -> TestUser {
                 "email": email,
                 "name": name,
                 "password": "correct horse battery staple",
+                "inviteToken": invite_token,
             }),
         )
         .await;
@@ -296,6 +458,83 @@ async fn signup(app: &TestApp, email: &str, name: &str) -> TestUser {
         token: body["access_token"].as_str().unwrap().to_owned(),
         user_id: body["user"]["id"].as_str().unwrap().to_owned(),
     }
+}
+
+async fn create_invite(
+    app: &TestApp,
+    granter: &TestUser,
+    server_id: &str,
+) -> String {
+    let response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/invites"),
+            &json!({ "maxUses": null, "expiresAt": null }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    json_body(response).await["invite"]["token"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn create_instance_role(
+    app: &TestApp,
+    granter: &TestUser,
+    name: &str,
+) -> String {
+    let response = app
+        .post_json_with_bearer(
+            "/api/instance/roles",
+            &json!({ "name": name, "color": "#336699" }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    json_body(response).await["instanceRole"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn create_server_role(
+    app: &TestApp,
+    granter: &TestUser,
+    server_id: &str,
+    name: &str,
+) -> String {
+    let response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/roles"),
+            &json!({ "name": name, "color": "#336699" }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    json_body(response).await["serverRole"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn add_server_member(
+    app: &TestApp,
+    granter: &TestUser,
+    server_id: &str,
+    user: &TestUser,
+) {
+    let response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/members"),
+            &json!({ "userIds": [user.user_id] }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
 }
 
 async fn default_server_id(app: &TestApp) -> String {
@@ -337,14 +576,7 @@ async fn grant_server_admin(
     server_id: &str,
     user: &TestUser,
 ) {
-    let members_response = app
-        .post_json_with_bearer(
-            &format!("/api/servers/{server_id}/members"),
-            &json!({ "userIds": [user.user_id] }),
-            &granter.token,
-        )
-        .await;
-    assert_eq!(members_response.status(), StatusCode::OK);
+    add_server_member(app, granter, server_id, user).await;
 
     let role_id = admin_role_id(app, server_id).await;
     let role_members_response = app
