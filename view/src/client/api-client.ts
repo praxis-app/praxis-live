@@ -561,7 +561,7 @@ class ApiClient {
     return this.executeRequest<{ server: ServerRes }>('get', path);
   };
 
-  recordServerVisit = async (serverId: string) => {
+  setCurrentServer = async (serverId: string) => {
     const path = `/servers/${serverId}/current`;
     return this.executeRequest<void>('post', path);
   };

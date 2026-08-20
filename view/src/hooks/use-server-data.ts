@@ -104,7 +104,7 @@ export const useServerData = () => {
     if (!server || !isMeSuccess) {
       return;
     }
-    api.recordServerVisit(server.id).catch(() => {
+    api.setCurrentServer(server.id).catch(() => {
       // Best-effort: a failed write here should not block viewing the server.
     });
     queryClient.setQueryData<{ user: CurrentUser }>(['me'], (oldData) => {
