@@ -70,8 +70,9 @@ pub(super) async fn get_instance_role(
 
 pub(super) async fn get_instance_roles(
     State(state): State<InstanceRolesState>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<InstanceRolesPayload>> {
+    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     let instance_roles = service::get_instance_roles(&state.database).await?;
     Ok(Json(InstanceRolesPayload { instance_roles }))
 }

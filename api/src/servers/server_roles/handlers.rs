@@ -88,6 +88,9 @@ pub(super) async fn get_server_roles(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<ServerRolesPayload>> {
+    // Any authenticated user may read complete role definitions because the
+    // proposal flow needs the current role permissions and members in order to
+    // propose changes. Role mutations remain independently permission-gated.
     let server_roles =
         service::get_server_roles(&state.database, path.server_id).await?;
     Ok(Json(ServerRolesPayload { server_roles }))
@@ -98,6 +101,9 @@ pub(super) async fn get_users_eligible_for_server_role(
     Path(path): Path<ServerRolePath>,
     AuthenticatedUser(_user_id): AuthenticatedUser,
 ) -> AppResult<Json<UsersPayload>> {
+    // Any authenticated user may read eligible role members because proposing
+    // role membership changes requires selecting users who do not yet hold the
+    // role. Direct membership mutations remain independently permission-gated.
     let users = service::get_users_eligible_for_server_role(
         &state.database,
         path.server_id,
