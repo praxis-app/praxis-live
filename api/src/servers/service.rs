@@ -33,7 +33,7 @@ const CURRENT_SERVER_CACHE_TTL: Duration =
 // Minimum interval between durable `last_active_at` writes for the same
 // server/user pair, so frequent navigation doesn't hit Postgres on every
 // request.
-const ACTIVITY_WRITE_THROTTLE: Duration = Duration::from_secs(60);
+const CURRENT_SERVER_WRITE_THROTTLE: Duration = Duration::from_secs(60);
 
 pub(crate) use super::server_configs::{
     ensure_server_config, get_server_config, is_anonymous_users_enabled,
@@ -881,11 +881,11 @@ pub(crate) async fn create_initial_server(
     Ok(server)
 }
 
-// Records the user's activity so slug-less routes such as `/` can resolve the
-// server they were last in. Activity is per user, not per session, so tabs and
+// Records the server the user last viewed, so slug-less routes such as `/`
+// can resolve back to it. Tracked per user, not per session, so tabs and
 // devices share one value and the most recent view wins. Best-effort: a
 // client that navigates away mid-request may not have its visit recorded.
-pub(super) async fn set_member_activity(
+pub(super) async fn set_current_server(
     database: &DatabaseConnection,
     cache_service: &CacheService,
     server_id: Uuid,
@@ -902,11 +902,13 @@ pub(super) async fn set_member_activity(
         tracing::warn!("failed to cache current server: {error}");
     }
 
-    let throttle_key = activity_write_throttle_key(server_id, user_id);
+    let throttle_key = current_server_write_throttle_key(server_id, user_id);
     let recently_written = match cache_service.get(&throttle_key).await {
         Ok(value) => value.is_some(),
         Err(error) => {
-            tracing::warn!("failed to read activity write throttle: {error}");
+            tracing::warn!(
+                "failed to read current server write throttle: {error}"
+            );
             false
         }
     };
@@ -926,10 +928,10 @@ pub(super) async fn set_member_activity(
         .map_err(internal_error)?;
 
     if let Err(error) = cache_service
-        .set(throttle_key, String::new(), ACTIVITY_WRITE_THROTTLE)
+        .set(throttle_key, String::new(), CURRENT_SERVER_WRITE_THROTTLE)
         .await
     {
-        tracing::warn!("failed to set activity write throttle: {error}");
+        tracing::warn!("failed to set current server write throttle: {error}");
     }
 
     Ok(())
@@ -952,7 +954,7 @@ fn current_server_cache_key(user_id: Uuid) -> String {
     format!("current-server:{user_id}")
 }
 
-fn activity_write_throttle_key(server_id: Uuid, user_id: Uuid) -> String {
+fn current_server_write_throttle_key(server_id: Uuid, user_id: Uuid) -> String {
     format!("current-server-write:{server_id}:{user_id}")
 }
 

@@ -12,6 +12,9 @@ pub(crate) trait HasJwtSecret {
     fn jwt_secret(&self) -> &str;
 }
 
+// TODO: Many handlers only need this as an auth gate and discard the id
+// (`AuthenticatedUser(_user_id)`). Consider a zero-sized `RequireAuthenticatedUser`
+// extractor for those cases so the binding doesn't imply an unused identity.
 pub(crate) struct AuthenticatedUser(pub(crate) Uuid);
 pub(crate) struct AuthenticatedUserOptional(pub(crate) Option<Uuid>);
 

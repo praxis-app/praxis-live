@@ -85,12 +85,12 @@ pub(super) async fn get_server_by_slug(
 // Records the current server as a separate write, so the read above
 // stays read only. Best-effort: a client that navigates away
 // mid-request may not have its visit recorded.
-pub(super) async fn record_server_activity(
+pub(super) async fn set_current_server(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::set_member_activity(
+    service::set_current_server(
         &state.database,
         &state.cache_service,
         path.server_id,
@@ -172,6 +172,10 @@ pub(super) async fn get_server_image(
     crate::common::images::safe_image_response(image.bytes)
 }
 
+// TODO: This only checks that the caller is logged in, not that they can
+// manage this server (unlike `update_server`'s `ServerEditContext`, which
+// calls `ensure_can_update_server`). Confirm whether any authenticated user
+// deleting any server is intentional.
 pub(super) async fn delete_server(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
@@ -203,6 +207,9 @@ pub(super) async fn get_users_eligible_for_server(
     Ok(Json(UsersPayload { users }))
 }
 
+// TODO: Same gap as `delete_server` — no permission check beyond being
+// logged in, so any authenticated user can add or remove members of any
+// server. Confirm whether that's intentional.
 pub(super) async fn add_server_members(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
