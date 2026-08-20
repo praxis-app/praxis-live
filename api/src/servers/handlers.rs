@@ -82,9 +82,9 @@ pub(super) async fn get_server_by_slug(
     Ok(Json(ServerPayload { server }))
 }
 
-// Records the current server as a separate write, so the read above stays
-// pure. Best-effort: a client that navigates away mid-request may not have
-// its visit recorded.
+// Records the current server as a separate write, so the read above
+// stays read only. Best-effort: a client that navigates away
+// mid-request may not have its visit recorded.
 pub(super) async fn record_server_activity(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
