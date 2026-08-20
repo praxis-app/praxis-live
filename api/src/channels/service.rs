@@ -22,8 +22,16 @@ use crate::{
 pub(super) async fn get_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<Vec<ChannelResponse>> {
-    servers_service::ensure_server(database, server_id).await?;
+    servers_service::ensure_server_read_access(
+        database,
+        server_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
 
     let server = servers_service::load_server(database, server_id).await?;
     let channels = channels::Entity::find()
@@ -82,7 +90,18 @@ pub(super) async fn get_channel_with_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
 ) -> AppResult<ChannelResponse> {
+    ensure_channel_read_access(
+        database,
+        server_id,
+        channel_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
+
     let server = servers_service::load_server(database, server_id).await?;
     let channel = get_channel(database, server_id, channel_id).await?;
     Ok(shape_channel(channel, &server))

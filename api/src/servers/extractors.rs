@@ -2,12 +2,14 @@ use axum::{
     extract::{FromRequestParts, Path},
     http::{request::Parts, StatusCode},
 };
+use sea_orm::prelude::Uuid;
 
 use super::{handlers::ServersState, service, types::ServerPath};
 use crate::{auth::AuthenticatedUser, common::ApiError};
 
 pub(super) struct ServerEditContext {
     pub(super) path: ServerPath,
+    pub(super) user_id: Uuid,
 }
 
 impl FromRequestParts<ServersState> for ServerEditContext {
@@ -32,6 +34,6 @@ impl FromRequestParts<ServersState> for ServerEditContext {
         )
         .await?;
 
-        Ok(Self { path })
+        Ok(Self { path, user_id })
     }
 }

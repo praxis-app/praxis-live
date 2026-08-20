@@ -47,16 +47,38 @@ pub(super) async fn ensure_can_update_server(
     user_id: Uuid,
     server_id: Uuid,
 ) -> AppResult<()> {
+    if can_manage_servers(database, user_id).await? {
+        return Ok(());
+    }
+
+    ensure_can_manage_server_settings(database, user_id, server_id).await
+}
+
+// Instance-level authority over servers themselves: creating them and
+// designating the instance default. Server-scoped `ServerConfig: manage`
+// deliberately does not satisfy this.
+pub(super) async fn ensure_can_manage_servers(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<()> {
+    if can_manage_servers(database, user_id).await? {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
+}
+
+async fn can_manage_servers(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<bool> {
     let instance_permissions =
         crate::instance::instance_roles::service::get_permissions_by_user(
             database, user_id,
         )
         .await?;
-    if has_manage_permission(&instance_permissions, "Server") {
-        return Ok(());
-    }
 
-    ensure_can_manage_server_settings(database, user_id, server_id).await
+    Ok(has_manage_permission(&instance_permissions, "Server"))
 }
 
 pub(super) async fn ensure_can_manage_server_settings(
@@ -292,6 +314,8 @@ pub(super) async fn create_server(
     current_user_id: Uuid,
     image: Option<Vec<u8>>,
 ) -> AppResult<ServerResponse> {
+    ensure_can_manage_servers(database, current_user_id).await?;
+
     if let Some(image) = image.as_deref() {
         crate::common::images::validate_raster(image, "Server image")?;
     }
@@ -335,9 +359,16 @@ pub(super) async fn update_server(
     database: &DatabaseConnection,
     upload_root: &Path,
     server_id: Uuid,
+    user_id: Uuid,
     request: ServerRequest,
     image: Option<Vec<u8>>,
 ) -> AppResult<ServerResponse> {
+    // The caller already holds authority over this server, but the default
+    // server is instance-wide state and needs instance-level authority.
+    if request.is_default_server.unwrap_or(false) {
+        ensure_can_manage_servers(database, user_id).await?;
+    }
+
     if let Some(image) = image.as_deref() {
         crate::common::images::validate_raster(image, "Server image")?;
     }

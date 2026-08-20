@@ -146,6 +146,7 @@ pub(super) async fn update_server(
         &state.database,
         &state.upload_root,
         context.path.server_id,
+        context.user_id,
         payload,
         image,
     )

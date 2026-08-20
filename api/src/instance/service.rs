@@ -53,9 +53,7 @@ async fn initialize_config(
     .map_err(internal_error)
 }
 
-fn internal_error(error: sea_orm::DbErr) -> ApiError {
-    ApiError::new(
-        StatusCode::INTERNAL_SERVER_ERROR,
-        format!("Database error: {error}"),
-    )
+fn internal_error(error: impl std::fmt::Display) -> ApiError {
+    tracing::error!("instance request failed: {error}");
+    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }

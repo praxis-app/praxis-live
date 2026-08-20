@@ -3,14 +3,13 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  authorizationHeaders,
   createAuthenticatedUser,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser, INSTANCE_ADMIN_USER } from '../lib/data';
 import { createInvite } from '../lib/invites';
-import { getDefaultServer } from '../lib/servers';
+import { createServer, getDefaultServer } from '../lib/servers';
 import { AuthPage } from '../pages/auth.page';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
@@ -72,26 +71,16 @@ test('invited user can log in and join the invited server', async ({
   const admin = await signUpViaApi(request, createTestUser('invite-admin'));
   const serverName = `Invite server ${admin.user.suffix}`;
   const serverSlug = `invite-${admin.user.suffix}`;
-  const createServerResponse = await request.post('/api/servers', {
-    headers: authorizationHeaders(admin),
-    multipart: {
-      payload: JSON.stringify({
-        name: serverName,
-        slug: serverSlug,
-        description: 'Server for the invite login flow.',
-        isDefaultServer: false,
-      }),
-      file: {
-        name: 'server-image.png',
-        mimeType: 'image/png',
-        buffer: readFileSync(fixturePath),
-      },
+  const server = (await createServer(request, admin, {
+    name: serverName,
+    slug: serverSlug,
+    description: 'Server for the invite login flow.',
+    image: {
+      name: 'server-image.png',
+      mimeType: 'image/png',
+      buffer: readFileSync(fixturePath),
     },
-  });
-  await expect(createServerResponse).toBeOK();
-  const { server } = (await createServerResponse.json()) as {
-    server: { id: string; slug: string; image: { id: string } };
-  };
+  })) as { id: string; slug: string; image: { id: string } };
   const inviteToken = await createInvite(request, admin, server.id);
   const invitedUser = createTestUser('invite-member');
   await signUpViaApi(request, invitedUser);
@@ -151,19 +140,11 @@ test('invited user can sign up and join the invited server', async ({
   );
   const serverName = `Signup invite server ${admin.user.suffix}`;
   const serverSlug = `signup-invite-${admin.user.suffix}`;
-  const createServerResponse = await request.post('/api/servers', {
-    headers: authorizationHeaders(admin),
-    data: {
-      name: serverName,
-      slug: serverSlug,
-      description: 'Server for the invite signup flow.',
-      isDefaultServer: false,
-    },
-  });
-  await expect(createServerResponse).toBeOK();
-  const { server } = (await createServerResponse.json()) as {
-    server: { id: string; slug: string };
-  };
+  const server = (await createServer(request, admin, {
+    name: serverName,
+    slug: serverSlug,
+    description: 'Server for the invite signup flow.',
+  })) as { id: string; slug: string };
   const inviteToken = await createInvite(request, admin, server.id);
   const invitedUser = createTestUser('signup-invite-member');
   const auth = new AuthPage(page);
@@ -251,16 +232,7 @@ test('Open Praxis and Explore Praxis both return a logged in user to the server 
   for (const index of [1, 2, 3, 4, 5]) {
     const name = `Switch server ${index} ${user.user.suffix}`;
     const slug = `switch-${index}-${user.user.suffix}`;
-    const createServerResponse = await request.post('/api/servers', {
-      headers: authorizationHeaders(user),
-      data: {
-        name,
-        slug,
-        description: null,
-        isDefaultServer: false,
-      },
-    });
-    await expect(createServerResponse).toBeOK();
+    await createServer(request, user, { name, slug });
     servers.push({ name, slug });
   }
 

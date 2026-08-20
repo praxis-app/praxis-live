@@ -18,7 +18,11 @@ import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import { createMessages } from '../lib/messages';
-import { ensureServerAdminRole, getDefaultServer } from '../lib/servers';
+import {
+  createServer,
+  ensureServerAdminRole,
+  getDefaultServer,
+} from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
 
@@ -294,16 +298,11 @@ test('invite holder can read a non-default server feed with images', async ({
     createTestUser('invite-feed-admin'),
   );
   const serverSlug = `invite-feed-${admin.user.suffix}`;
-  const createServerResponse = await request.post('/api/servers', {
-    headers: authorizationHeaders(admin),
-    data: {
-      name: `Invite feed ${admin.user.suffix}`,
-      slug: serverSlug,
-      description: 'Non-default server for invite feed access.',
-      isDefaultServer: false,
-    },
+  await createServer(request, admin, {
+    name: `Invite feed ${admin.user.suffix}`,
+    slug: serverSlug,
+    description: 'Non-default server for invite feed access.',
   });
-  await expect(createServerResponse).toBeOK();
 
   const getServerResponse = await request.get(
     `/api/servers/slug/${serverSlug}`,

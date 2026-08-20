@@ -10,7 +10,8 @@ use entity::{
         ServerAbilitySubject, ServerRoleAbilityAction,
     },
     poll_action_permissions, poll_action_role_members, poll_action_roles,
-    polls, server_role_members, server_role_permissions, server_roles, users,
+    polls, server_members, server_role_members, server_role_permissions,
+    server_roles, users,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
@@ -61,6 +62,7 @@ pub(super) fn validate_role_change_payload(
 pub(super) async fn create_poll_action_role<C: ConnectionTrait>(
     database: &C,
     poll_action_id: Uuid,
+    server_id: Uuid,
     request: CreatePollActionServerRoleRequest,
 ) -> AppResult<poll_action_roles::Model> {
     let server_role_id = request
@@ -70,18 +72,7 @@ pub(super) async fn create_poll_action_role<C: ConnectionTrait>(
         .transpose()?;
 
     let role_to_update = if let Some(server_role_id) = server_role_id {
-        Some(
-            server_roles::Entity::find_by_id(server_role_id)
-                .one(database)
-                .await
-                .map_err(internal_error)?
-                .ok_or_else(|| {
-                    ApiError::new(
-                        StatusCode::NOT_FOUND,
-                        "Server role not found.",
-                    )
-                })?,
-        )
+        Some(load_server_role(database, server_id, server_role_id).await?)
     } else {
         None
     };
@@ -155,6 +146,7 @@ pub(super) async fn create_poll_action_role<C: ConnectionTrait>(
 
 pub(super) async fn implement_change_server_role(
     database: &DatabaseTransaction,
+    poll_id: Uuid,
     poll_action_id: Uuid,
 ) -> AppResult<()> {
     let action_role = load_action_role(database, poll_action_id).await?;
@@ -164,13 +156,12 @@ pub(super) async fn implement_change_server_role(
             "Server role is required.",
         )
     })?;
-    let role = server_roles::Entity::find_by_id(role_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Server role not found.")
-        })?;
+
+    // Re-derive the server from the poll rather than trusting the stored
+    // role id, so a ratified proposal can only ever change a role in the
+    // server it was proposed in.
+    let server_id = poll_server_id(database, poll_id).await?;
+    let role = load_server_role(database, server_id, role_id).await?;
 
     if action_role.name.is_some() || action_role.color.is_some() {
         let mut active = role.clone().into_active_model();
@@ -184,7 +175,7 @@ pub(super) async fn implement_change_server_role(
     }
 
     apply_permission_changes(database, role_id, action_role.id).await?;
-    apply_member_changes(database, role_id, action_role.id).await
+    apply_member_changes(database, server_id, role_id, action_role.id).await
 }
 
 pub(super) async fn implement_create_server_role(
@@ -193,20 +184,7 @@ pub(super) async fn implement_create_server_role(
     poll_action_id: Uuid,
 ) -> AppResult<()> {
     let action_role = load_action_role(database, poll_action_id).await?;
-    let poll = polls::Entity::find_by_id(poll_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
-        })?;
-    let channel = channels::Entity::find_by_id(poll.channel_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
-        })?;
+    let server_id = poll_server_id(database, poll_id).await?;
     let name = action_role.name.ok_or_else(|| {
         ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -221,7 +199,7 @@ pub(super) async fn implement_create_server_role(
     })?;
     let role = server_roles::ActiveModel {
         id: Set(NativeUuid::new_v4()),
-        server_id: Set(channel.server_id),
+        server_id: Set(server_id),
         name: Set(name),
         color: Set(color),
         ..Default::default()
@@ -231,7 +209,46 @@ pub(super) async fn implement_create_server_role(
     .map_err(internal_error)?;
 
     copy_action_permissions(database, role.id, action_role.id).await?;
-    apply_member_changes(database, role.id, action_role.id).await
+    apply_member_changes(database, server_id, role.id, action_role.id).await
+}
+
+// Resolves the server a poll belongs to through its channel. Poll actions
+// derive their scope from this rather than from client-supplied ids.
+async fn poll_server_id<C: ConnectionTrait>(
+    database: &C,
+    poll_id: Uuid,
+) -> AppResult<Uuid> {
+    let poll = polls::Entity::find_by_id(poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
+        })?;
+    let channel = channels::Entity::find_by_id(poll.channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
+        })?;
+
+    Ok(channel.server_id)
+}
+
+async fn load_server_role<C: ConnectionTrait>(
+    database: &C,
+    server_id: Uuid,
+    server_role_id: Uuid,
+) -> AppResult<server_roles::Model> {
+    server_roles::Entity::find_by_id(server_role_id)
+        .filter(server_roles::Column::ServerId.eq(server_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Server role not found.")
+        })
 }
 
 async fn load_action_role(
@@ -352,6 +369,7 @@ async fn add_role_permission(
 
 async fn apply_member_changes(
     database: &DatabaseTransaction,
+    server_id: Uuid,
     role_id: Uuid,
     action_role_id: Uuid,
 ) -> AppResult<()> {
@@ -364,6 +382,15 @@ async fn apply_member_changes(
         .await
         .map_err(internal_error)?;
     for member in members {
+        // A role only ever grants standing within its own server, so a
+        // proposed member who does not belong to that server is skipped
+        // rather than silently granted access to it.
+        if member.change_type == PollActionRoleMemberChangeType::Add
+            && !is_server_member(database, server_id, member.user_id).await?
+        {
+            continue;
+        }
+
         if member.change_type == PollActionRoleMemberChangeType::Remove {
             server_role_members::Entity::delete_many()
                 .filter(server_role_members::Column::ServerRoleId.eq(role_id))
@@ -392,6 +419,21 @@ async fn apply_member_changes(
         }
     }
     Ok(())
+}
+
+async fn is_server_member<C: ConnectionTrait>(
+    database: &C,
+    server_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<bool> {
+    let membership = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .filter(server_members::Column::UserId.eq(user_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(membership.is_some())
 }
 
 async fn shape_role(

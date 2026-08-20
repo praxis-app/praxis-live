@@ -23,6 +23,7 @@ import {
 } from '../lib/polls';
 import { createMessages } from '../lib/messages';
 import {
+  createServer,
   getAdminRole,
   getDefaultServer,
   getServerRole,
@@ -225,16 +226,11 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
   );
   const serverName = `Decision scroll ${authenticatedUser.user.suffix}`;
   const serverSlug = `decision-scroll-${authenticatedUser.user.suffix}`;
-  const createServerResponse = await request.post('/api/servers', {
-    headers: authorizationHeaders(authenticatedUser),
-    data: {
-      name: serverName,
-      slug: serverSlug,
-      description: 'Server for active decision pagination.',
-      isDefaultServer: false,
-    },
+  await createServer(request, authenticatedUser, {
+    name: serverName,
+    slug: serverSlug,
+    description: 'Server for active decision pagination.',
   });
-  await expect(createServerResponse).toBeOK();
 
   const getServerResponse = await request.get(
     `/api/servers/slug/${serverSlug}`,
@@ -348,16 +344,11 @@ test('invite holder can read active decisions in a non-default server', async ({
     createTestUser('invite-decisions-admin'),
   );
   const serverSlug = `invite-decisions-${admin.user.suffix}`;
-  const createServerResponse = await request.post('/api/servers', {
-    headers: authorizationHeaders(admin),
-    data: {
-      name: `Invite decisions ${admin.user.suffix}`,
-      slug: serverSlug,
-      description: 'Non-default server for invite decision access.',
-      isDefaultServer: false,
-    },
+  await createServer(request, admin, {
+    name: `Invite decisions ${admin.user.suffix}`,
+    slug: serverSlug,
+    description: 'Non-default server for invite decision access.',
   });
-  await expect(createServerResponse).toBeOK();
 
   const getServerResponse = await request.get(
     `/api/servers/slug/${serverSlug}`,
@@ -420,16 +411,11 @@ test('invite holder can read proposals for all action types', async ({
     createTestUser('invite-proposal-actions-admin'),
   );
   const serverSlug = `invite-actions-${admin.user.suffix}`;
-  const createServerResponse = await request.post('/api/servers', {
-    headers: authorizationHeaders(admin),
-    data: {
-      name: `Invite actions ${admin.user.suffix}`,
-      slug: serverSlug,
-      description: 'Non-default server for invited proposal action access.',
-      isDefaultServer: false,
-    },
+  await createServer(request, admin, {
+    name: `Invite actions ${admin.user.suffix}`,
+    slug: serverSlug,
+    description: 'Non-default server for invited proposal action access.',
   });
-  await expect(createServerResponse).toBeOK();
 
   const getServerResponse = await request.get(
     `/api/servers/slug/${serverSlug}`,
@@ -613,16 +599,11 @@ test('active decision opens fully in view across channels and feed pages', async
     createTestUser('decision-focus'),
   );
   const serverSlug = `decision-focus-${authenticatedUser.user.suffix}`;
-  const createServerResponse = await request.post('/api/servers', {
-    headers: authorizationHeaders(authenticatedUser),
-    data: {
-      name: `Decision focus ${authenticatedUser.user.suffix}`,
-      slug: serverSlug,
-      description: 'Server for active decision feed focus.',
-      isDefaultServer: false,
-    },
+  await createServer(request, authenticatedUser, {
+    name: `Decision focus ${authenticatedUser.user.suffix}`,
+    slug: serverSlug,
+    description: 'Server for active decision feed focus.',
   });
-  await expect(createServerResponse).toBeOK();
 
   const getServerResponse = await request.get(
     `/api/servers/slug/${serverSlug}`,

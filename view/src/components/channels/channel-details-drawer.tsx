@@ -43,7 +43,6 @@ export const ChannelDetailsDrawer = ({ channel, trigger }: Props) => {
 
   const { serverAbility } = useAbility();
   const canManageChannels = serverAbility.can('manage', 'Channel');
-  const canDeleteChannel = serverAbility.can('delete', 'Channel');
 
   return (
     <Drawer>
@@ -87,7 +86,7 @@ export const ChannelDetailsDrawer = ({ channel, trigger }: Props) => {
               open={showDeleteChannelDialog}
               onOpenChange={setShowDeleteChannelDialog}
             >
-              {canDeleteChannel && (
+              {canManageChannels && (
                 <DialogTrigger asChild>
                   <Button
                     className="text-destructive mx-auto mt-6 h-[3.2rem] w-[92%] justify-start gap-3"

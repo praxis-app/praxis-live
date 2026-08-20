@@ -1,5 +1,9 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import { authorizationHeaders, type AuthenticatedUser } from './auth';
+import {
+  authorizationHeaders,
+  getOrCreateInstanceAdmin,
+  type AuthenticatedUser,
+} from './auth';
 
 type InstanceRole = {
   id: string;
@@ -9,6 +13,20 @@ type InstanceRole = {
 type InstanceRolesResponse = {
   instanceRoles: InstanceRole[];
 };
+
+// Elevates `user` to the instance admin role, which is what the API requires
+// for instance-scoped actions such as creating a server.
+export async function ensureInstanceAdminRole(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+) {
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  if (instanceAdmin.userId === user.userId) {
+    return;
+  }
+
+  await grantInstanceAdminRole(request, instanceAdmin, user);
+}
 
 export async function grantInstanceAdminRole(
   request: APIRequestContext,

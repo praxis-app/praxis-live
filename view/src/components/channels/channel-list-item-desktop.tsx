@@ -45,7 +45,6 @@ export const ChannelListItemDesktop = ({
   const navigate = useNavigate();
 
   const canManageChannels = serverAbility.can('manage', 'Channel');
-  const canDeleteChannel = serverAbility.can('delete', 'Channel');
   const showSettingsBtn = canManageChannels && (isHovering || isActive);
 
   const channelPath = `/s/${serverSlug}/c/${channel.id}`;
@@ -101,7 +100,7 @@ export const ChannelListItemDesktop = ({
             </ContextMenuItem>
           )}
 
-          {canDeleteChannel && (
+          {canManageChannels && (
             <DialogTrigger asChild>
               <ContextMenuItem className="text-destructive">
                 {t('channels.actions.delete')}

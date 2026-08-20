@@ -14,8 +14,9 @@ use super::{
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     common::{response::EmptyResponse, AppResult},
+    invites::InviteAccessToken,
 };
 
 #[derive(Clone, Debug)]
@@ -109,9 +110,16 @@ pub(super) async fn delete_channel(
 pub(super) async fn get_channels(
     State(state): State<ChannelsState>,
     Path(path): Path<ServerPath>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Json<ChannelsPayload>> {
-    let channels =
-        service::get_channels(&state.database, path.server_id).await?;
+    let channels = service::get_channels(
+        &state.database,
+        path.server_id,
+        user_id,
+        invite_token.as_deref(),
+    )
+    .await?;
     Ok(Json(ChannelsPayload { channels }))
 }
 
@@ -129,11 +137,15 @@ pub(super) async fn get_joined_channels(
 pub(super) async fn get_channel(
     State(state): State<ChannelsState>,
     Path(path): Path<ChannelPath>,
+    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Json<ChannelPayload>> {
     let channel = service::get_channel_with_server(
         &state.database,
         path.server_id,
         path.channel_id,
+        user_id,
+        invite_token.as_deref(),
     )
     .await?;
     Ok(Json(ChannelPayload { channel }))

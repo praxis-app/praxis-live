@@ -107,8 +107,9 @@ async fn logged_out_users_cannot_read_non_default_server_channel_feeds() {
         .unwrap()
         .to_owned();
 
-    let channels_response =
-        app.get(&format!("/api/servers/{server_id}/channels")).await;
+    let channels_response = app
+        .get_with_bearer(&format!("/api/servers/{server_id}/channels"), &token)
+        .await;
     let channel_id = json_body(channels_response).await["channels"][0]["id"]
         .as_str()
         .unwrap()

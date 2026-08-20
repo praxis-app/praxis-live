@@ -16,7 +16,7 @@ import {
   openCreateProposalDialog,
   selectRadixOption,
 } from '../lib/polls';
-import { getDefaultServer } from '../lib/servers';
+import { createServer, getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 
 type UserSummary = {
@@ -441,16 +441,11 @@ test('invite holder can view events and event details in a non-default server', 
     createTestUser('invite-events-admin'),
   );
   const serverSlug = `invite-events-${admin.user.suffix}`;
-  const createServerResponse = await request.post('/api/servers', {
-    headers: authorizationHeaders(admin),
-    data: {
-      name: `Invite events ${admin.user.suffix}`,
-      slug: serverSlug,
-      description: 'Non-default server for invited event access.',
-      isDefaultServer: false,
-    },
+  await createServer(request, admin, {
+    name: `Invite events ${admin.user.suffix}`,
+    slug: serverSlug,
+    description: 'Non-default server for invited event access.',
   });
-  await expect(createServerResponse).toBeOK();
 
   const getServerResponse = await request.get(
     `/api/servers/slug/${serverSlug}`,
