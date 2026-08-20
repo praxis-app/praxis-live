@@ -1,7 +1,9 @@
-//! Authorization coverage for endpoints whose only gate is `AuthenticatedUser`.
+//! Authorization coverage for permission-gated endpoints.
 //!
 //! Each test asserts the permission boundary the endpoint is meant to enforce,
-//! not the behavior it currently has.
+//! not the behavior it currently has. Tests that gate a `manage` permission
+//! also assert the positive case, so that a check which rejects everyone is
+//! not mistaken for a working one.
 
 use axum::http::StatusCode;
 use entity::{channels, server_roles};
@@ -169,6 +171,110 @@ async fn proposals_cannot_target_a_role_in_another_server() {
         .await;
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn only_channel_managers_can_create_channels() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = default_server_id(&app).await;
+    let uri = format!("/api/servers/{server_id}/channels");
+
+    let member_response = app
+        .post_json_with_bearer(
+            &uri,
+            &json!({ "name": "member-channel" }),
+            &member.token,
+        )
+        .await;
+    assert_eq!(member_response.status(), StatusCode::FORBIDDEN);
+
+    let admin_response = app
+        .post_json_with_bearer(
+            &uri,
+            &json!({ "name": "admin-channel" }),
+            &admin.token,
+        )
+        .await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn only_invite_managers_can_read_server_invites() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = default_server_id(&app).await;
+    let uri = format!("/api/servers/{server_id}/invites");
+
+    let member_response = app.get_with_bearer(&uri, &member.token).await;
+    assert_eq!(member_response.status(), StatusCode::FORBIDDEN);
+
+    let admin_response = app.get_with_bearer(&uri, &admin.token).await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn only_role_managers_can_update_server_role_permissions() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = default_server_id(&app).await;
+
+    // Target a purpose-built role so that rewriting its permissions cannot
+    // strip the admin's own standing partway through the test.
+    let create_response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/roles"),
+            &json!({ "name": "Moderators", "color": "#336699" }),
+            &admin.token,
+        )
+        .await;
+    assert_eq!(create_response.status(), StatusCode::OK);
+    let role_id = json_body(create_response).await["serverRole"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let uri = format!("/api/servers/{server_id}/roles/{role_id}/permissions");
+    let payload = json!({
+        "permissions": [{ "subject": "Channel", "action": ["manage"] }],
+    });
+
+    let member_response = app
+        .put_json_with_bearer(&uri, &payload, &member.token)
+        .await;
+    assert_eq!(member_response.status(), StatusCode::FORBIDDEN);
+
+    let admin_response =
+        app.put_json_with_bearer(&uri, &payload, &admin.token).await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn only_instance_role_managers_can_create_instance_roles() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+
+    let member_response = app
+        .post_json_with_bearer(
+            "/api/instance/roles",
+            &json!({ "name": "Member role", "color": "#336699" }),
+            &member.token,
+        )
+        .await;
+    assert_eq!(member_response.status(), StatusCode::FORBIDDEN);
+
+    let admin_response = app
+        .post_json_with_bearer(
+            "/api/instance/roles",
+            &json!({ "name": "Admin role", "color": "#336699" }),
+            &admin.token,
+        )
+        .await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
 }
 
 fn server_payload(
