@@ -1,10 +1,15 @@
 use axum::{
-    extract::{FromRequestParts, Query},
+    extract::{FromRequestParts, Path, Query},
     http::{request::Parts, StatusCode},
 };
+use sea_orm::prelude::Uuid;
 
-use super::types::InviteAccessQuery;
-use crate::common::ApiError;
+use super::{
+    handlers::InvitesState,
+    service,
+    types::{InviteAccessQuery, InvitePath, ServerPath},
+};
+use crate::{auth::AuthenticatedUser, common::ApiError};
 
 const INVITE_TOKEN_HEADER: &str = "x-invite-token";
 
@@ -35,4 +40,76 @@ where
 
 fn invalid_invite_token() -> ApiError {
     ApiError::new(StatusCode::BAD_REQUEST, "Invalid invite token.")
+}
+
+/// Caller may create and read invites for the server named in the path.
+/// `user_id` is carried through because a created invite records its author.
+pub(crate) struct InviteAccessContext {
+    pub(super) server_id: Uuid,
+    pub(super) user_id: Uuid,
+}
+
+/// Caller may manage (revoke) the invite named in the path. Managing is a
+/// strictly narrower permission than creating, so this is its own context.
+pub(crate) struct InviteManageContext {
+    pub(super) server_id: Uuid,
+    pub(super) invite_id: Uuid,
+}
+
+impl FromRequestParts<InvitesState> for InviteAccessContext {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &InvitesState,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) = Path::<ServerPath>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| invalid_route_path())?;
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        service::ensure_can_access_invites(
+            &state.database,
+            user_id,
+            path.server_id,
+        )
+        .await?;
+
+        Ok(Self {
+            server_id: path.server_id,
+            user_id,
+        })
+    }
+}
+
+impl FromRequestParts<InvitesState> for InviteManageContext {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &InvitesState,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) = Path::<InvitePath>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| invalid_route_path())?;
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        service::ensure_can_manage_invites(
+            &state.database,
+            user_id,
+            path.server_id,
+        )
+        .await?;
+
+        Ok(Self {
+            server_id: path.server_id,
+            invite_id: path.invite_id,
+        })
+    }
+}
+
+fn invalid_route_path() -> ApiError {
+    ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
 }

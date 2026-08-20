@@ -282,14 +282,15 @@ pub(super) async fn is_anonymous_users_enabled(
 
 pub(super) async fn update_server_config(
     State(state): State<ServersState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ServerEditContext,
     Json(payload): Json<ServerConfigRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_update_server(&state.database, user_id, path.server_id)
-        .await?;
-    service::update_server_config(&state.database, path.server_id, payload)
-        .await?;
+    service::update_server_config(
+        &state.database,
+        context.path.server_id,
+        payload,
+    )
+    .await?;
     Ok(Json(EmptyResponse {}))
 }
 

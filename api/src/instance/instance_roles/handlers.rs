@@ -1,13 +1,12 @@
-use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::Json,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use sea_orm::{prelude::Uuid, DatabaseConnection};
-use serde::Deserialize;
 use std::sync::Arc;
 
 use super::{
+    extractors::{
+        InstanceRoleContext, InstanceRoleManagerContext,
+        InstanceRoleMemberContext,
+    },
     service,
     types::{
         InstanceRolePayload, InstanceRolesPayload, RoleMembersRequest,
@@ -15,14 +14,14 @@ use super::{
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::HasJwtSecret,
     common::{response::EmptyResponse, ApiError, AppResult},
     servers::types::UsersPayload,
 };
 
 #[derive(Clone, Debug)]
 pub(super) struct InstanceRolesState {
-    database: DatabaseConnection,
+    pub(super) database: DatabaseConnection,
     jwt_secret: Arc<str>,
 }
 
@@ -44,36 +43,20 @@ impl HasJwtSecret for InstanceRolesState {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct InstanceRolePath {
-    instance_role_id: Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct InstanceRoleMemberPath {
-    instance_role_id: Uuid,
-    user_id: Uuid,
-}
-
 pub(super) async fn get_instance_role(
     State(state): State<InstanceRolesState>,
-    Path(path): Path<InstanceRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InstanceRoleContext,
 ) -> AppResult<Json<InstanceRolePayload>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     let instance_role =
-        service::get_instance_role(&state.database, path.instance_role_id)
+        service::get_instance_role(&state.database, context.instance_role_id)
             .await?;
     Ok(Json(InstanceRolePayload { instance_role }))
 }
 
 pub(super) async fn get_instance_roles(
     State(state): State<InstanceRolesState>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    _: InstanceRoleManagerContext,
 ) -> AppResult<Json<InstanceRolesPayload>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     let instance_roles = service::get_instance_roles(&state.database).await?;
     Ok(Json(InstanceRolesPayload { instance_roles }))
 }
@@ -82,13 +65,11 @@ pub(super) async fn get_instance_roles(
 // actions can only propose changes to server roles, never instance roles.
 pub(super) async fn get_users_eligible_for_instance_role(
     State(state): State<InstanceRolesState>,
-    Path(path): Path<InstanceRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InstanceRoleContext,
 ) -> AppResult<Json<UsersPayload>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     let users = service::get_users_eligible_for_instance_role(
         &state.database,
-        path.instance_role_id,
+        context.instance_role_id,
     )
     .await?;
     Ok(Json(UsersPayload { users }))
@@ -96,10 +77,9 @@ pub(super) async fn get_users_eligible_for_instance_role(
 
 pub(super) async fn create_instance_role(
     State(state): State<InstanceRolesState>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    _: InstanceRoleManagerContext,
     Json(payload): Json<RoleRequest>,
 ) -> AppResult<Json<InstanceRolePayload>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     let instance_role =
         service::create_instance_role(&state.database, payload).await?;
     Ok(Json(InstanceRolePayload { instance_role }))
@@ -107,14 +87,12 @@ pub(super) async fn create_instance_role(
 
 pub(super) async fn update_instance_role(
     State(state): State<InstanceRolesState>,
-    Path(path): Path<InstanceRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InstanceRoleContext,
     Json(payload): Json<RoleRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     service::update_instance_role(
         &state.database,
-        path.instance_role_id,
+        context.instance_role_id,
         payload,
     )
     .await?;
@@ -123,14 +101,12 @@ pub(super) async fn update_instance_role(
 
 pub(super) async fn update_instance_role_permissions(
     State(state): State<InstanceRolesState>,
-    Path(path): Path<InstanceRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InstanceRoleContext,
     Json(payload): Json<UpdatePermissionsRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     service::update_instance_role_permissions(
         &state.database,
-        path.instance_role_id,
+        context.instance_role_id,
         payload.permissions,
     )
     .await?;
@@ -139,15 +115,13 @@ pub(super) async fn update_instance_role_permissions(
 
 pub(super) async fn add_instance_role_members(
     State(state): State<InstanceRolesState>,
-    Path(path): Path<InstanceRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InstanceRoleContext,
     Json(payload): Json<RoleMembersRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     let user_ids = parse_user_ids(&payload.user_ids)?;
     service::add_instance_role_members(
         &state.database,
-        path.instance_role_id,
+        context.instance_role_id,
         &user_ids,
     )
     .await?;
@@ -156,14 +130,12 @@ pub(super) async fn add_instance_role_members(
 
 pub(super) async fn remove_instance_role_member(
     State(state): State<InstanceRolesState>,
-    Path(path): Path<InstanceRoleMemberPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InstanceRoleMemberContext,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
     service::remove_instance_role_member(
         &state.database,
-        path.instance_role_id,
-        path.user_id,
+        context.instance_role_id,
+        context.member_user_id,
     )
     .await?;
     Ok(Json(EmptyResponse {}))
@@ -171,11 +143,9 @@ pub(super) async fn remove_instance_role_member(
 
 pub(super) async fn delete_instance_role(
     State(state): State<InstanceRolesState>,
-    Path(path): Path<InstanceRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InstanceRoleContext,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await?;
-    service::delete_instance_role(&state.database, path.instance_role_id)
+    service::delete_instance_role(&state.database, context.instance_role_id)
         .await?;
     Ok(Json(EmptyResponse {}))
 }

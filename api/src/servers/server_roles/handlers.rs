@@ -4,14 +4,16 @@ use axum::{
     response::Json,
 };
 use sea_orm::{prelude::Uuid, DatabaseConnection};
-use serde::Deserialize;
 use std::sync::Arc;
 
 use super::{
+    extractors::{
+        ServerRoleContext, ServerRoleManagerContext, ServerRoleMemberContext,
+    },
     service,
     types::{
-        RoleMembersRequest, RoleRequest, ServerRolePayload, ServerRolesPayload,
-        UpdatePermissionsRequest,
+        RoleMembersRequest, RoleRequest, ServerRolePath, ServerRolePayload,
+        ServerRolesPayload, UpdatePermissionsRequest,
     },
 };
 use crate::{
@@ -24,7 +26,7 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub(super) struct ServerRolesState {
-    database: DatabaseConnection,
+    pub(super) database: DatabaseConnection,
     jwt_secret: Arc<str>,
 }
 
@@ -44,21 +46,6 @@ impl HasJwtSecret for ServerRolesState {
     fn jwt_secret(&self) -> &str {
         &self.jwt_secret
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ServerRolePath {
-    server_id: Uuid,
-    server_role_id: Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ServerRoleMemberPath {
-    server_id: Uuid,
-    server_role_id: Uuid,
-    user_id: Uuid,
 }
 
 pub(super) async fn get_server_role(
@@ -115,38 +102,27 @@ pub(super) async fn get_users_eligible_for_server_role(
 
 pub(super) async fn create_server_role(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ServerRoleManagerContext,
     Json(payload): Json<RoleRequest>,
 ) -> AppResult<Json<ServerRolePayload>> {
-    service::ensure_can_manage_server_roles(
+    let server_role = service::create_server_role(
         &state.database,
-        user_id,
-        path.server_id,
+        context.server_id,
+        payload,
     )
     .await?;
-    let server_role =
-        service::create_server_role(&state.database, path.server_id, payload)
-            .await?;
     Ok(Json(ServerRolePayload { server_role }))
 }
 
 pub(super) async fn update_server_role(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ServerRoleContext,
     Json(payload): Json<RoleRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_server_roles(
-        &state.database,
-        user_id,
-        path.server_id,
-    )
-    .await?;
     service::update_server_role(
         &state.database,
-        path.server_id,
-        path.server_role_id,
+        context.server_id,
+        context.server_role_id,
         payload,
     )
     .await?;
@@ -155,20 +131,13 @@ pub(super) async fn update_server_role(
 
 pub(super) async fn update_server_role_permissions(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ServerRoleContext,
     Json(payload): Json<UpdatePermissionsRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_server_roles(
-        &state.database,
-        user_id,
-        path.server_id,
-    )
-    .await?;
     service::update_server_role_permissions(
         &state.database,
-        path.server_id,
-        path.server_role_id,
+        context.server_id,
+        context.server_role_id,
         payload.permissions,
     )
     .await?;
@@ -177,21 +146,14 @@ pub(super) async fn update_server_role_permissions(
 
 pub(super) async fn add_server_role_members(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ServerRoleContext,
     Json(payload): Json<RoleMembersRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_server_roles(
-        &state.database,
-        user_id,
-        path.server_id,
-    )
-    .await?;
     let user_ids = parse_user_ids(&payload.user_ids)?;
     service::add_server_role_members(
         &state.database,
-        path.server_id,
-        path.server_role_id,
+        context.server_id,
+        context.server_role_id,
         &user_ids,
     )
     .await?;
@@ -200,20 +162,13 @@ pub(super) async fn add_server_role_members(
 
 pub(super) async fn remove_server_role_member(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerRoleMemberPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ServerRoleMemberContext,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_server_roles(
-        &state.database,
-        user_id,
-        path.server_id,
-    )
-    .await?;
     service::remove_server_role_member(
         &state.database,
-        path.server_id,
-        path.server_role_id,
-        path.user_id,
+        context.server_id,
+        context.server_role_id,
+        context.member_user_id,
     )
     .await?;
     Ok(Json(EmptyResponse {}))
@@ -221,19 +176,12 @@ pub(super) async fn remove_server_role_member(
 
 pub(super) async fn delete_server_role(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: ServerRoleContext,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_server_roles(
-        &state.database,
-        user_id,
-        path.server_id,
-    )
-    .await?;
     service::delete_server_role(
         &state.database,
-        path.server_id,
-        path.server_role_id,
+        context.server_id,
+        context.server_role_id,
     )
     .await?;
     Ok(Json(EmptyResponse {}))

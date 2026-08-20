@@ -6,20 +6,20 @@ use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 use super::{
+    extractors::{InviteAccessContext, InviteManageContext},
     service,
     types::{
-        InvitePath, InvitePayload, InviteRequest, InviteValidityResponse,
-        InvitesPayload, ServerPath,
+        InvitePayload, InviteRequest, InviteValidityResponse, InvitesPayload,
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::HasJwtSecret,
     common::{response::EmptyResponse, AppResult},
 };
 
 #[derive(Clone, Debug)]
 pub(super) struct InvitesState {
-    database: DatabaseConnection,
+    pub(super) database: DatabaseConnection,
     jwt_secret: Arc<str>,
 }
 
@@ -52,36 +52,22 @@ pub(super) async fn is_valid_invite(
 
 pub(super) async fn get_invites(
     State(state): State<InvitesState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InviteAccessContext,
 ) -> AppResult<Json<InvitesPayload>> {
-    service::ensure_can_access_invites(
-        &state.database,
-        user_id,
-        path.server_id,
-    )
-    .await?;
     let invites =
-        service::get_valid_invites(&state.database, path.server_id).await?;
+        service::get_valid_invites(&state.database, context.server_id).await?;
     Ok(Json(InvitesPayload { invites }))
 }
 
 pub(super) async fn create_invite(
     State(state): State<InvitesState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InviteAccessContext,
     Json(payload): Json<InviteRequest>,
 ) -> AppResult<Json<InvitePayload>> {
-    service::ensure_can_access_invites(
-        &state.database,
-        user_id,
-        path.server_id,
-    )
-    .await?;
     let invite = service::create_invite(
         &state.database,
-        path.server_id,
-        user_id,
+        context.server_id,
+        context.user_id,
         payload,
     )
     .await?;
@@ -90,16 +76,13 @@ pub(super) async fn create_invite(
 
 pub(super) async fn delete_invite(
     State(state): State<InvitesState>,
-    Path(path): Path<InvitePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: InviteManageContext,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::ensure_can_manage_invites(
+    service::delete_invite(
         &state.database,
-        user_id,
-        path.server_id,
+        context.server_id,
+        context.invite_id,
     )
     .await?;
-    service::delete_invite(&state.database, path.server_id, path.invite_id)
-        .await?;
     Ok(Json(EmptyResponse {}))
 }
