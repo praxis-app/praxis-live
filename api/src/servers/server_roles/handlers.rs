@@ -107,6 +107,12 @@ pub(super) async fn get_users_eligible_for_server_role(
     Ok(Json(UsersPayload { users }))
 }
 
+// TODO: This and the other mutating handlers below (update, update
+// permissions, add/remove members, delete) only check that the caller is
+// logged in — the service layer performs no permission check either.
+// Confirm whether any authenticated user managing a server's roles is
+// intentional, or whether these need a manage-permission check like
+// `ensure_can_manage_server_settings`.
 pub(super) async fn create_server_role(
     State(state): State<ServerRolesState>,
     Path(path): Path<ServerPath>,

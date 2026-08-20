@@ -50,6 +50,11 @@ pub(super) async fn is_valid_invite(
     Ok(Json(InviteValidityResponse { is_valid_invite }))
 }
 
+// TODO: This and `create_invite`/`delete_invite` below only check that the
+// caller is logged in, not that they belong to or manage this server — the
+// service layer performs no such check either. `get_invites` in particular
+// returns live invite tokens, which double as server join credentials, to
+// any authenticated user for any server. Confirm whether that's intentional.
 pub(super) async fn get_invites(
     State(state): State<InvitesState>,
     Path(path): Path<ServerPath>,
