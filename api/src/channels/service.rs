@@ -244,11 +244,11 @@ pub(crate) async fn get_channel(
         })
 }
 
-pub(crate) async fn has_channel_membership<C>(
+pub(crate) async fn is_channel_member<C>(
     database: &C,
     channel_id: Uuid,
     user_id: Uuid,
-) -> AppResult<bool>
+) -> AppResult<()>
 where
     C: ConnectionTrait,
 {
@@ -259,18 +259,7 @@ where
         .await
         .map_err(internal_error)?;
 
-    Ok(membership.is_some())
-}
-
-pub(crate) async fn is_channel_member<C>(
-    database: &C,
-    channel_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()>
-where
-    C: ConnectionTrait,
-{
-    if has_channel_membership(database, channel_id, user_id).await? {
+    if membership.is_some() {
         Ok(())
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
@@ -288,10 +277,14 @@ pub(crate) async fn can_read_channel(
 
     // Membership is one way in, not the only one. Signing in must never take
     // away access an anonymous caller would have had, so this falls through to
-    // the same public and invite paths as `can_read_server`.
+    // the same public and invite paths as `can_read_server`. Only a denial
+    // falls through; a lookup failure stays an error rather than quietly
+    // reaching the grants below.
     if let Some(user_id) = user_id {
-        if has_channel_membership(database, channel_id, user_id).await? {
-            return Ok(());
+        match is_channel_member(database, channel_id, user_id).await {
+            Ok(()) => return Ok(()),
+            Err(error) if error.status() == StatusCode::FORBIDDEN => {}
+            Err(error) => return Err(error),
         }
     }
 
