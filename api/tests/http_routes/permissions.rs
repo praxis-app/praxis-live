@@ -264,6 +264,27 @@ async fn invited_users_can_read_channels_whether_or_not_they_are_signed_in() {
     assert_eq!(member_detail.status(), StatusCode::OK);
 }
 
+// Complete role definitions name who holds authority over a server, so reading
+// them takes read access to it. Deliberately not gated on `ServerRole: manage`
+// — proposing a role change needs the current definitions.
+#[tokio::test]
+async fn reading_server_roles_requires_read_access_to_the_server() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let outsider = signup(&app, "outsider@example.com", "Outsider").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+    add_server_member(&app, &admin, &server_id, &member).await;
+    let uri = format!("/api/servers/{server_id}/roles");
+
+    let outsider_response = app.get_with_bearer(&uri, &outsider.token).await;
+    assert_eq!(outsider_response.status(), StatusCode::FORBIDDEN);
+
+    // A plain member, holding no `ServerRole` permission at all, still reads.
+    let member_response = app.get_with_bearer(&uri, &member.token).await;
+    assert_eq!(member_response.status(), StatusCode::OK);
+}
+
 // Same rule as `can_read_channel`: an invite grants the same poll reads whether
 // or not the caller is signed in. Returning early on a failed membership check
 // made signing in strictly remove access, since the invite path below it was

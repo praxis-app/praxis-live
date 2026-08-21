@@ -73,11 +73,19 @@ pub(super) async fn get_server_role(
 pub(super) async fn get_server_roles(
     State(state): State<ServerRolesState>,
     Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<ServerRolesPayload>> {
-    // Any authenticated user may read complete role definitions because the
-    // proposal flow needs the current role permissions and members in order to
-    // propose changes. Role mutations remain independently permission-gated.
+    // Readable without `ServerRole: manage` because the proposal flow needs
+    // current role permissions and members in order to propose changes, but
+    // only by someone who can read the server. Role mutations remain
+    // independently permission-gated.
+    servers::can_read_server(
+        &state.database,
+        path.server_id,
+        Some(user_id),
+        None,
+    )
+    .await?;
     let server_roles =
         service::get_server_roles(&state.database, path.server_id).await?;
     Ok(Json(ServerRolesPayload { server_roles }))
