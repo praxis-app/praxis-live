@@ -25,6 +25,8 @@ use crate::{
     users as users_service,
 };
 
+// NOTE: `Message` is reserved for future moderation permissions and is
+// not enforced yet, so granting it currently changes nothing.
 const SERVER_SUBJECTS: &[&str] = &[
     "ServerConfig",
     "Channel",

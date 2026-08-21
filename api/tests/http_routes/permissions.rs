@@ -264,6 +264,52 @@ async fn invited_users_can_read_channels_whether_or_not_they_are_signed_in() {
     assert_eq!(member_detail.status(), StatusCode::OK);
 }
 
+// Same rule as `can_read_channel`: an invite grants the same poll reads whether
+// or not the caller is signed in. Returning early on a failed membership check
+// made signing in strictly remove access, since the invite path below it was
+// then unreachable.
+#[tokio::test]
+async fn invited_users_can_read_poll_voters_whether_or_not_they_are_signed_in()
+{
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let outsider = signup(&app, "outsider@example.com", "Outsider").await;
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+    let channel_id = general_channel_id(&app, &server_id).await;
+    let invite_token = create_invite(&app, &admin, &server_id).await;
+
+    let poll_response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/channels/{channel_id}/polls"),
+            &json!({
+                "body": "Lunch?",
+                "pollType": "poll",
+                "options": ["Tacos", "Pizza"],
+            }),
+            &admin.token,
+        )
+        .await;
+    assert_eq!(poll_response.status(), StatusCode::OK);
+
+    let body = json_body(poll_response).await;
+    let poll_id = body["poll"]["id"].as_str().expect("poll id").to_owned();
+    let option_id = body["poll"]["options"][0]["id"]
+        .as_str()
+        .expect("poll option id")
+        .to_owned();
+
+    let uri = format!(
+        "/api/servers/{server_id}/channels/{channel_id}/polls/{poll_id}\
+         /options/{option_id}/voters?inviteToken={invite_token}"
+    );
+
+    let logged_out = app.get(&uri).await;
+    assert_eq!(logged_out.status(), StatusCode::OK);
+
+    let signed_in = app.get_with_bearer(&uri, &outsider.token).await;
+    assert_eq!(signed_in.status(), StatusCode::OK);
+}
+
 // Profiles of default-server members are public by design, matching how
 // `get_user_image` treats their profile pictures. Everyone else's is not.
 #[tokio::test]
