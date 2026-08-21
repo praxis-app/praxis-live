@@ -418,21 +418,31 @@ pub(super) async fn delete_server(
     Ok(())
 }
 
-pub(super) async fn get_server_members(
+// The membership roster in join order. Callers that need to scope a list of
+// users to one server should start here rather than querying `users` directly.
+pub(super) async fn get_server_member_user_ids(
     database: &DatabaseConnection,
     server_id: Uuid,
-) -> AppResult<Vec<UserResponse>> {
-    get_server(database, server_id).await?;
+) -> AppResult<Vec<Uuid>> {
     let memberships = server_members::Entity::find()
         .filter(server_members::Column::ServerId.eq(server_id))
         .order_by_asc(server_members::Column::CreatedAt)
         .all(database)
         .await
         .map_err(internal_error)?;
-    let user_ids: Vec<Uuid> = memberships
-        .iter()
+
+    Ok(memberships
+        .into_iter()
         .map(|membership| membership.user_id)
-        .collect();
+        .collect())
+}
+
+pub(super) async fn get_server_members(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<Vec<UserResponse>> {
+    get_server(database, server_id).await?;
+    let user_ids = get_server_member_user_ids(database, server_id).await?;
 
     if user_ids.is_empty() {
         return Ok(vec![]);

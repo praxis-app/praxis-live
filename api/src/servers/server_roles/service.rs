@@ -149,13 +149,22 @@ pub(super) async fn get_users_eligible_for_server_role(
     let member_ids: Vec<Uuid> =
         memberships.iter().map(|item| item.user_id).collect();
 
-    let mut query = users::Entity::find();
-    if !member_ids.is_empty() {
-        query = query.filter(users::Column::Id.is_not_in(member_ids));
+    let user_ids: Vec<Uuid> =
+        servers::service::get_server_member_user_ids(database, server_id)
+            .await?
+            .into_iter()
+            .filter(|user_id| !member_ids.contains(user_id))
+            .collect();
+
+    if user_ids.is_empty() {
+        return Ok(vec![]);
     }
 
-    let users = query.all(database).await.map_err(internal_error)?;
-    let user_ids: Vec<Uuid> = users.iter().map(|user| user.id).collect();
+    let users = users::Entity::find()
+        .filter(users::Column::Id.is_in(user_ids.clone()))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
     let profile_pictures =
         users_service::get_user_profile_pictures_map(database, &user_ids)
             .await?;

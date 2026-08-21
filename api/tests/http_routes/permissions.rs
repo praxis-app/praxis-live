@@ -179,6 +179,61 @@ async fn server_roles_cannot_be_granted_to_non_members() {
     assert_eq!(insider_response.status(), StatusCode::OK);
 }
 
+// A server role only grants standing within its own server, so the candidate
+// list must be drawn from that server's members. Returning the whole `users`
+// table would both leak every account on the instance and offer users that
+// `add_server_role_members` refuses.
+#[tokio::test]
+async fn eligible_role_members_are_scoped_to_the_server() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let outsider = signup(&app, "outsider@example.com", "Outsider").await;
+    let insider = signup(&app, "insider@example.com", "Insider").await;
+    let server_id = create_server(&app, &admin, "Other", "other").await;
+    let role_id =
+        create_server_role(&app, &admin, &server_id, "Moderators").await;
+    add_server_member(&app, &admin, &server_id, &insider).await;
+    let uri =
+        format!("/api/servers/{server_id}/roles/{role_id}/members/eligible");
+
+    let response = app.get_with_bearer(&uri, &admin.token).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = json_body(response).await;
+    let user_ids: Vec<String> = body["users"]
+        .as_array()
+        .expect("users should be an array")
+        .iter()
+        .map(|user| user["id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+
+    assert!(user_ids.contains(&insider.user_id));
+    assert!(!user_ids.contains(&outsider.user_id));
+}
+
+// Reading the candidate list does not require `ServerRole: manage`, since
+// proposing a membership change needs it, but it does require read access to
+// the server it belongs to.
+#[tokio::test]
+async fn eligible_role_members_require_read_access_to_the_server() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let outsider = signup(&app, "outsider@example.com", "Outsider").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+    let role_id =
+        create_server_role(&app, &admin, &server_id, "Moderators").await;
+    add_server_member(&app, &admin, &server_id, &member).await;
+    let uri =
+        format!("/api/servers/{server_id}/roles/{role_id}/members/eligible");
+
+    let outsider_response = app.get_with_bearer(&uri, &outsider.token).await;
+    assert_eq!(outsider_response.status(), StatusCode::FORBIDDEN);
+
+    let member_response = app.get_with_bearer(&uri, &member.token).await;
+    assert_eq!(member_response.status(), StatusCode::OK);
+}
+
 // Holding a valid invite must grant the same channel reads whether or not the
 // caller is signed in. `can_read_server` already honors the invite;
 // `can_read_channel` must agree with it.

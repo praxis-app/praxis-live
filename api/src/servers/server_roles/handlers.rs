@@ -86,11 +86,20 @@ pub(super) async fn get_server_roles(
 pub(super) async fn get_users_eligible_for_server_role(
     State(state): State<ServerRolesState>,
     Path(path): Path<ServerRolePath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<UsersPayload>> {
-    // Any authenticated user may read eligible role members because proposing
-    // role membership changes requires selecting users who do not yet hold the
-    // role. Direct membership mutations remain independently permission-gated.
+    // Readable without `ServerRole: manage` because proposing a membership
+    // change requires selecting users who do not yet hold the role. It still
+    // takes read access to the server, and the candidates are that server's
+    // members, so this discloses no more than the roster already does.
+    // Direct membership mutations remain independently permission-gated.
+    servers::can_read_server(
+        &state.database,
+        path.server_id,
+        Some(user_id),
+        None,
+    )
+    .await?;
     let users = service::get_users_eligible_for_server_role(
         &state.database,
         path.server_id,
