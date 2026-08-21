@@ -340,14 +340,7 @@ pub(super) async fn can_vote_anonymously_on_poll(
         return Ok(());
     }
 
-    let user = users::Entity::find_by_id(user_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
-        })?;
-    if !user.anonymous {
+    if !users_service::is_anonymous_user(database, user_id).await? {
         return Ok(());
     }
 

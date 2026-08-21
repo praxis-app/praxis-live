@@ -6,11 +6,10 @@ use chrono::{Duration, Utc};
 use entity::{
     enums::{PollActionType, PollType},
     poll_configs, poll_images, poll_options, polls,
-    server_configs as server_config_entities, users,
+    server_configs as server_config_entities,
 };
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ConnectionTrait, DatabaseConnection,
-    EntityTrait, Set,
+    prelude::Uuid, ActiveModelTrait, ConnectionTrait, DatabaseConnection, Set,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid as NativeUuid;
@@ -21,6 +20,7 @@ use crate::{
     common::{encryption, text::sanitize_text, ApiError, AppResult},
     poll_actions,
     servers::server_configs,
+    users,
 };
 
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
@@ -334,15 +334,7 @@ async fn can_create_proposal(
         return Ok(());
     }
 
-    let user = users::Entity::find_by_id(user_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
-        })?;
-
-    if user.anonymous {
+    if users::is_anonymous_user(database, user_id).await? {
         return Err(ApiError::new(
             StatusCode::FORBIDDEN,
             "Only registered users can create non-test proposals.",

@@ -119,6 +119,23 @@ pub(crate) async fn get_user_by_id(
         .map(|user| user.map(Into::into))
 }
 
+/// Reports whether the account behind a validated JWT is anonymous. Callers
+/// that gate a feature on registration own the resulting error, since some
+/// rules (test proposals) admit anonymous users conditionally.
+pub(crate) async fn is_anonymous_user(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<bool> {
+    let user = get_user_by_id(database, user_id)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
+        })?;
+
+    Ok(user.anonymous)
+}
+
 pub(crate) async fn authenticate(
     database: &DatabaseConnection,
     email: String,

@@ -12,14 +12,9 @@ pub(crate) trait HasJwtSecret {
     fn jwt_secret(&self) -> &str;
 }
 
-// TODO: Many handlers only need this as an auth gate and discard the id
-// (`AuthenticatedUser(_user_id)`). Consider a zero-sized `RequireAuthenticatedUser`
-// extractor for those cases so the binding doesn't imply an unused identity.
-//
-// This extractor validates a JWT, not whether the account is non-anonymous.
-// Anonymous users receive valid JWTs when anonymous access is enabled for the
-// relevant server, so they also satisfy `AuthenticatedUser`. Handlers that need
-// a registered user or a permission boundary must enforce that separately.
+// Validates a JWT, not whether the account is registered. Anonymous users hold
+// valid JWTs where anonymous access is enabled, so they satisfy this too.
+// Registered-only rules live in the services (see `users::is_anonymous_user`).
 pub(crate) struct AuthenticatedUser(pub(crate) Uuid);
 pub(crate) struct AuthenticatedUserOptional(pub(crate) Option<Uuid>);
 
