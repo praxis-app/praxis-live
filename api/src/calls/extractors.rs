@@ -42,12 +42,8 @@ where
             path.channel_id,
         )
         .await?;
-        channels::ensure_channel_membership(
-            state.database(),
-            path.channel_id,
-            user_id,
-        )
-        .await?;
+        channels::is_channel_member(state.database(), path.channel_id, user_id)
+            .await?;
         super::service::get_call(
             state.database(),
             path.server_id,

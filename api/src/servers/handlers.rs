@@ -205,7 +205,7 @@ pub(super) async fn get_users_eligible_for_server(
     Path(path): Path<ServerPath>,
     AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<UsersPayload>> {
-    service::ensure_can_manage_servers(&state.database, user_id).await?;
+    service::can_manage_servers(&state.database, user_id).await?;
     let users =
         service::get_users_eligible_for_server(&state.database, path.server_id)
             .await?;

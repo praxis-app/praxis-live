@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
-    channel_members, channels as channel_entities,
+    channels as channel_entities,
     enums::{ChannelType, ForumPostStatus},
     forum_posts, messages, polls, users, votes,
 };
@@ -59,9 +59,8 @@ pub(crate) async fn move_proposal_to_forum(
         ChannelType::Forum,
         "Proposals can only be moved to Forum channels.",
     )?;
-    channels::ensure_channel_membership(database, source_channel_id, user_id)
-        .await?;
-    channels::ensure_channel_membership(
+    channels::is_channel_member(database, source_channel_id, user_id).await?;
+    channels::is_channel_member(
         database,
         request.destination_channel_id,
         user_id,
@@ -160,9 +159,9 @@ pub(crate) async fn move_proposal_to_forum(
         ChannelType::Forum,
         "Proposals can only be moved to Forum channels.",
     )?;
-    ensure_membership_for_move(&transaction, source_channel_id, user_id)
+    channels::is_channel_member(&transaction, source_channel_id, user_id)
         .await?;
-    ensure_membership_for_move(&transaction, destination_channel_id, user_id)
+    channels::is_channel_member(&transaction, destination_channel_id, user_id)
         .await?;
 
     let proposal = polls::Entity::find_by_id(poll_id)
@@ -457,27 +456,6 @@ where
         .await
         .map_err(internal_error)?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, not_found_message))
-}
-
-async fn ensure_membership_for_move<C>(
-    database: &C,
-    channel_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()>
-where
-    C: ConnectionTrait,
-{
-    let membership = channel_members::Entity::find()
-        .filter(channel_members::Column::ChannelId.eq(channel_id))
-        .filter(channel_members::Column::UserId.eq(user_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?;
-    if membership.is_some() {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
 }
 
 fn ensure_move_channel_type(

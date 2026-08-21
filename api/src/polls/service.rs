@@ -291,7 +291,7 @@ pub(super) async fn get_poll_action_event_cover_photo(
     invite_token: Option<&str>,
 ) -> AppResult<StoredPollImage> {
     load_poll(database, server_id, channel_id, poll_id).await?;
-    channels::ensure_channel_read_access(
+    channels::can_read_channel(
         database,
         server_id,
         channel_id,
@@ -325,7 +325,7 @@ pub(super) async fn get_poll_image(
     invite_token: Option<&str>,
 ) -> AppResult<StoredPollImage> {
     load_poll(database, server_id, channel_id, poll_id).await?;
-    channels::ensure_channel_read_access(
+    channels::can_read_channel(
         database,
         server_id,
         channel_id,
@@ -457,7 +457,7 @@ pub(super) async fn get_active_decisions(
     before: Option<&str>,
     limit: u64,
 ) -> AppResult<ActiveDecisionsResponse> {
-    servers::ensure_server_read_access(
+    servers::can_read_server(
         database,
         server_id,
         current_user_id,

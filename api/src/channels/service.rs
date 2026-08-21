@@ -25,7 +25,7 @@ pub(super) async fn get_channels(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<Vec<ChannelResponse>> {
-    servers_service::ensure_server_read_access(
+    servers_service::can_read_server(
         database,
         server_id,
         user_id,
@@ -93,14 +93,8 @@ pub(super) async fn get_channel_with_server(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<ChannelResponse> {
-    ensure_channel_read_access(
-        database,
-        server_id,
-        channel_id,
-        user_id,
-        invite_token,
-    )
-    .await?;
+    can_read_channel(database, server_id, channel_id, user_id, invite_token)
+        .await?;
 
     let server = servers_service::load_server(database, server_id).await?;
     let channel = get_channel(database, server_id, channel_id).await?;
@@ -113,7 +107,7 @@ pub(super) async fn create_channel(
     user_id: Uuid,
     request: ChannelRequest,
 ) -> AppResult<ChannelResponse> {
-    ensure_can_manage_channels(database, user_id, server_id).await?;
+    can_manage_channels(database, user_id, server_id).await?;
 
     let server = servers_service::load_server(database, server_id).await?;
     let (name, description, channel_type) = validate_channel_request(request)?;
@@ -159,7 +153,7 @@ pub(super) async fn update_channel_order(
     user_id: Uuid,
     request: ChannelOrderRequest,
 ) -> AppResult<()> {
-    ensure_can_manage_channels(database, user_id, server_id).await?;
+    can_manage_channels(database, user_id, server_id).await?;
 
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
@@ -211,7 +205,7 @@ pub(super) async fn update_channel(
     user_id: Uuid,
     request: ChannelRequest,
 ) -> AppResult<()> {
-    ensure_can_manage_channels(database, user_id, server_id).await?;
+    can_manage_channels(database, user_id, server_id).await?;
 
     let (name, description, _) = validate_channel_request(request)?;
     let channel = get_channel(database, server_id, channel_id).await?;
@@ -228,7 +222,7 @@ pub(super) async fn delete_channel(
     channel_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
-    ensure_can_manage_channels(database, user_id, server_id).await?;
+    can_manage_channels(database, user_id, server_id).await?;
 
     let channel = get_channel(database, server_id, channel_id).await?;
     channel.delete(database).await.map_err(internal_error)?;
@@ -250,11 +244,14 @@ pub(crate) async fn get_channel(
         })
 }
 
-pub(crate) async fn is_channel_member(
-    database: &DatabaseConnection,
+pub(crate) async fn has_channel_membership<C>(
+    database: &C,
     channel_id: Uuid,
     user_id: Uuid,
-) -> AppResult<bool> {
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
     let membership = channel_members::Entity::find()
         .filter(channel_members::Column::ChannelId.eq(channel_id))
         .filter(channel_members::Column::UserId.eq(user_id))
@@ -265,19 +262,22 @@ pub(crate) async fn is_channel_member(
     Ok(membership.is_some())
 }
 
-pub(crate) async fn ensure_channel_membership(
-    database: &DatabaseConnection,
+pub(crate) async fn is_channel_member<C>(
+    database: &C,
     channel_id: Uuid,
     user_id: Uuid,
-) -> AppResult<()> {
-    if is_channel_member(database, channel_id, user_id).await? {
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    if has_channel_membership(database, channel_id, user_id).await? {
         Ok(())
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
     }
 }
 
-pub(crate) async fn ensure_channel_read_access(
+pub(crate) async fn can_read_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -288,9 +288,9 @@ pub(crate) async fn ensure_channel_read_access(
 
     // Membership is one way in, not the only one. Signing in must never take
     // away access an anonymous caller would have had, so this falls through to
-    // the same public and invite paths as `ensure_server_read_access`.
+    // the same public and invite paths as `can_read_server`.
     if let Some(user_id) = user_id {
-        if is_channel_member(database, channel_id, user_id).await? {
+        if has_channel_membership(database, channel_id, user_id).await? {
             return Ok(());
         }
     }
@@ -442,7 +442,7 @@ where
     Ok(last_channel.map_or(0, |channel| channel.sort_order + 1))
 }
 
-async fn ensure_can_manage_channels(
+async fn can_manage_channels(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,

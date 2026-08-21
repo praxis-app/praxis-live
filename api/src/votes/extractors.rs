@@ -120,7 +120,7 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
             path.poll_option_id,
         )
         .await?;
-        service::ensure_can_read_poll_option(
+        service::can_read_poll_option(
             &state.database,
             path.server_id,
             path.channel_id,
@@ -172,9 +172,8 @@ async fn load_vote_route_context(
             "Poll is no longer accepting votes.",
         ));
     }
-    channels::ensure_channel_membership(&state.database, channel_id, user_id)
-        .await?;
-    service::ensure_anonymous_can_vote_on_poll(&state.database, user_id, &poll)
+    channels::is_channel_member(&state.database, channel_id, user_id).await?;
+    service::can_vote_anonymously_on_poll(&state.database, user_id, &poll)
         .await?;
 
     Ok(VoteRouteContext {

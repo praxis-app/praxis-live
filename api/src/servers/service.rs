@@ -42,46 +42,41 @@ pub(crate) use super::server_configs::{
 
 const INITIAL_SERVER_NAME: &str = "praxis";
 
-pub(super) async fn ensure_can_update_server(
+pub(super) async fn can_update_server(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,
 ) -> AppResult<()> {
-    if can_manage_servers(database, user_id).await? {
+    // Instance-level authority covers any single server's settings, so fall
+    // back to the server-scoped check only when it does not apply.
+    if can_manage_servers(database, user_id).await.is_ok() {
         return Ok(());
     }
 
-    ensure_can_manage_server_settings(database, user_id, server_id).await
+    can_manage_server_settings(database, user_id, server_id).await
 }
 
 // Instance-level authority over servers themselves: creating them and
 // designating the instance default. Server-scoped `ServerConfig: manage`
 // deliberately does not satisfy this.
-pub(super) async fn ensure_can_manage_servers(
+pub(super) async fn can_manage_servers(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> AppResult<()> {
-    if can_manage_servers(database, user_id).await? {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
-}
-
-async fn can_manage_servers(
-    database: &DatabaseConnection,
-    user_id: Uuid,
-) -> AppResult<bool> {
     let instance_permissions =
         crate::instance::instance_roles::service::get_permissions_by_user(
             database, user_id,
         )
         .await?;
 
-    Ok(has_manage_permission(&instance_permissions, "Server"))
+    if has_manage_permission(&instance_permissions, "Server") {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
 }
 
-pub(super) async fn ensure_can_manage_server_settings(
+pub(super) async fn can_manage_server_settings(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,
@@ -118,7 +113,7 @@ pub(crate) async fn default_server_id(
     Ok(config.default_server_id)
 }
 
-pub(crate) async fn ensure_server_read_access(
+pub(crate) async fn can_read_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Option<Uuid>,
@@ -308,7 +303,7 @@ pub(super) async fn create_server(
     current_user_id: Uuid,
     image: Option<Vec<u8>>,
 ) -> AppResult<ServerResponse> {
-    ensure_can_manage_servers(database, current_user_id).await?;
+    can_manage_servers(database, current_user_id).await?;
 
     if let Some(image) = image.as_deref() {
         crate::common::images::validate_raster(image, "Server image")?;
@@ -360,7 +355,7 @@ pub(super) async fn update_server(
     // The caller already holds authority over this server, but the default
     // server is instance-wide state and needs instance-level authority.
     if request.is_default_server.unwrap_or(false) {
-        ensure_can_manage_servers(database, user_id).await?;
+        can_manage_servers(database, user_id).await?;
     }
 
     if let Some(image) = image.as_deref() {
@@ -392,7 +387,7 @@ pub(super) async fn delete_server(
     server_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
-    ensure_can_manage_servers(database, user_id).await?;
+    can_manage_servers(database, user_id).await?;
 
     let server = get_server(database, server_id).await?;
     let server_count = servers::Entity::find()
@@ -800,8 +795,7 @@ pub(super) async fn get_server_image(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<StoredServerImage> {
-    ensure_server_read_access(database, server_id, user_id, invite_token)
-        .await?;
+    can_read_server(database, server_id, user_id, invite_token).await?;
     let image = server_images::Entity::find_by_id(image_id)
         .filter(server_images::Column::ServerId.eq(server_id))
         .one(database)

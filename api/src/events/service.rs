@@ -35,13 +35,8 @@ pub(super) async fn list_events(
     invite_token: Option<&str>,
     query: ListEventsQuery,
 ) -> AppResult<EventsResponse> {
-    servers::ensure_server_read_access(
-        database,
-        server_id,
-        user_id,
-        invite_token,
-    )
-    .await?;
+    servers::can_read_server(database, server_id, user_id, invite_token)
+        .await?;
     validate_date_range(query.from, query.to)?;
 
     let event_query = events::Entity::find()
@@ -76,13 +71,8 @@ pub(super) async fn get_event(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<EventDetailResponse> {
-    servers::ensure_server_read_access(
-        database,
-        server_id,
-        user_id,
-        invite_token,
-    )
-    .await?;
+    servers::can_read_server(database, server_id, user_id, invite_token)
+        .await?;
     let event = load_event(database, server_id, event_id).await?;
     shape_event_detail(database, event, user_id).await
 }
@@ -94,7 +84,7 @@ pub(super) async fn upsert_rsvp(
     user_id: Uuid,
     status: EventAttendeeStatus,
 ) -> AppResult<EventDetailResponse> {
-    ensure_server_member(database, server_id, user_id).await?;
+    is_server_member(database, server_id, user_id).await?;
     if status == EventAttendeeStatus::Host {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -141,7 +131,7 @@ pub(super) async fn clear_rsvp(
     event_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<EventDetailResponse> {
-    ensure_server_member(database, server_id, user_id).await?;
+    is_server_member(database, server_id, user_id).await?;
     let transaction = database.begin().await.map_err(internal_error)?;
     let event =
         load_event_for_update(&transaction, server_id, event_id).await?;
@@ -173,13 +163,8 @@ pub(super) async fn get_event_cover_photo(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<StoredEventCoverPhoto> {
-    servers::ensure_server_read_access(
-        database,
-        server_id,
-        user_id,
-        invite_token,
-    )
-    .await?;
+    servers::can_read_server(database, server_id, user_id, invite_token)
+        .await?;
     load_event(database, server_id, event_id).await?;
     let image = event_cover_photos::Entity::find_by_id(image_id)
         .filter(event_cover_photos::Column::EventId.eq(event_id))
@@ -197,7 +182,7 @@ pub(super) async fn get_event_cover_photo(
     Ok(StoredEventCoverPhoto { bytes })
 }
 
-async fn ensure_server_member(
+async fn is_server_member(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Uuid,

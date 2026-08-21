@@ -69,12 +69,8 @@ impl FromRequestParts<InvitesState> for InviteAccessContext {
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        service::ensure_can_access_invites(
-            &state.database,
-            user_id,
-            path.server_id,
-        )
-        .await?;
+        service::can_create_invites(&state.database, user_id, path.server_id)
+            .await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -96,12 +92,8 @@ impl FromRequestParts<InvitesState> for InviteManageContext {
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        service::ensure_can_manage_invites(
-            &state.database,
-            user_id,
-            path.server_id,
-        )
-        .await?;
+        service::can_manage_invites(&state.database, user_id, path.server_id)
+            .await?;
 
         Ok(Self {
             server_id: path.server_id,

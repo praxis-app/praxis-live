@@ -180,8 +180,8 @@ async fn server_roles_cannot_be_granted_to_non_members() {
 }
 
 // Holding a valid invite must grant the same channel reads whether or not the
-// caller is signed in. `ensure_server_read_access` already honors the invite;
-// `ensure_channel_read_access` must agree with it.
+// caller is signed in. `can_read_server` already honors the invite;
+// `can_read_channel` must agree with it.
 #[tokio::test]
 async fn invited_users_can_read_channels_whether_or_not_they_are_signed_in() {
     let app = TestApp::new().await;

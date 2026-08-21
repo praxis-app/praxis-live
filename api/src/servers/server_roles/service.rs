@@ -112,7 +112,7 @@ pub(crate) async fn get_permissions_by_user(
         .collect())
 }
 
-pub(super) async fn ensure_can_manage_server_roles(
+pub(super) async fn can_manage_server_roles(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,

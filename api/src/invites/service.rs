@@ -16,7 +16,9 @@ use crate::{
 
 const INVITES_PAGE_SIZE: usize = 20;
 
-pub(super) async fn ensure_can_access_invites(
+// TODO: This also gates listing invites, so `read` on `Invite` does not grant
+// it. Decide whether `get_invites` should check `read` instead.
+pub(super) async fn can_create_invites(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,
@@ -24,21 +26,21 @@ pub(super) async fn ensure_can_access_invites(
     let permissions =
         server_roles::service::get_permissions_by_user(database, user_id)
             .await?;
-    let can_access =
+    let can_create =
         permissions
             .get(&server_id.to_string())
             .is_some_and(|rules| {
                 has_invite_permission(rules, &["create", "manage"])
             });
 
-    if can_access {
+    if can_create {
         Ok(())
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
     }
 }
 
-pub(super) async fn ensure_can_manage_invites(
+pub(super) async fn can_manage_invites(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,

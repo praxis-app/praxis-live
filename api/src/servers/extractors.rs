@@ -27,12 +27,8 @@ impl FromRequestParts<ServersState> for ServerEditContext {
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        service::ensure_can_update_server(
-            &state.database,
-            user_id,
-            path.server_id,
-        )
-        .await?;
+        service::can_update_server(&state.database, user_id, path.server_id)
+            .await?;
 
         Ok(Self { path, user_id })
     }

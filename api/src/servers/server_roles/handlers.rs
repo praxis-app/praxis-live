@@ -54,7 +54,7 @@ pub(super) async fn get_server_role(
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
     InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Json<ServerRolePayload>> {
-    servers::ensure_server_read_access(
+    servers::can_read_server(
         &state.database,
         path.server_id,
         user_id,

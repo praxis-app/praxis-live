@@ -78,7 +78,7 @@ pub(crate) async fn get_permissions_by_user(
     Ok(group_permissions(permissions))
 }
 
-pub(super) async fn ensure_can_manage_instance_roles(
+pub(super) async fn can_manage_instance_roles(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> AppResult<()> {

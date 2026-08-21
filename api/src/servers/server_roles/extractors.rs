@@ -51,7 +51,7 @@ impl FromRequestParts<ServerRolesState> for ServerRoleManagerContext {
         let Path(path) = Path::<ServerPath>::from_request_parts(parts, state)
             .await
             .map_err(|_| invalid_route_path())?;
-        ensure_server_role_manager(parts, state, path.server_id).await?;
+        can_manage_server_roles(parts, state, path.server_id).await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -70,7 +70,7 @@ impl FromRequestParts<ServerRolesState> for ServerRoleContext {
             Path::<ServerRolePath>::from_request_parts(parts, state)
                 .await
                 .map_err(|_| invalid_route_path())?;
-        ensure_server_role_manager(parts, state, path.server_id).await?;
+        can_manage_server_roles(parts, state, path.server_id).await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -90,7 +90,7 @@ impl FromRequestParts<ServerRolesState> for ServerRoleMemberContext {
             Path::<ServerRoleMemberPath>::from_request_parts(parts, state)
                 .await
                 .map_err(|_| invalid_route_path())?;
-        ensure_server_role_manager(parts, state, path.server_id).await?;
+        can_manage_server_roles(parts, state, path.server_id).await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -100,7 +100,7 @@ impl FromRequestParts<ServerRolesState> for ServerRoleMemberContext {
     }
 }
 
-async fn ensure_server_role_manager(
+async fn can_manage_server_roles(
     parts: &mut Parts,
     state: &ServerRolesState,
     server_id: Uuid,
@@ -108,8 +108,7 @@ async fn ensure_server_role_manager(
     let AuthenticatedUser(user_id) =
         AuthenticatedUser::from_request_parts(parts, state).await?;
 
-    service::ensure_can_manage_server_roles(&state.database, user_id, server_id)
-        .await
+    service::can_manage_server_roles(&state.database, user_id, server_id).await
 }
 
 fn invalid_route_path() -> ApiError {

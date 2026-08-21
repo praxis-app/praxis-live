@@ -52,7 +52,7 @@ impl FromRequestParts<InstanceRolesState> for InstanceRoleManagerContext {
         parts: &mut Parts,
         state: &InstanceRolesState,
     ) -> Result<Self, Self::Rejection> {
-        ensure_instance_role_manager(parts, state).await?;
+        can_manage_instance_roles(parts, state).await?;
         Ok(Self)
     }
 }
@@ -68,7 +68,7 @@ impl FromRequestParts<InstanceRolesState> for InstanceRoleContext {
             Path::<InstanceRolePath>::from_request_parts(parts, state)
                 .await
                 .map_err(|_| invalid_route_path())?;
-        ensure_instance_role_manager(parts, state).await?;
+        can_manage_instance_roles(parts, state).await?;
 
         Ok(Self {
             instance_role_id: path.instance_role_id,
@@ -87,7 +87,7 @@ impl FromRequestParts<InstanceRolesState> for InstanceRoleMemberContext {
             Path::<InstanceRoleMemberPath>::from_request_parts(parts, state)
                 .await
                 .map_err(|_| invalid_route_path())?;
-        ensure_instance_role_manager(parts, state).await?;
+        can_manage_instance_roles(parts, state).await?;
 
         Ok(Self {
             instance_role_id: path.instance_role_id,
@@ -96,14 +96,14 @@ impl FromRequestParts<InstanceRolesState> for InstanceRoleMemberContext {
     }
 }
 
-async fn ensure_instance_role_manager(
+async fn can_manage_instance_roles(
     parts: &mut Parts,
     state: &InstanceRolesState,
 ) -> Result<(), ApiError> {
     let AuthenticatedUser(user_id) =
         AuthenticatedUser::from_request_parts(parts, state).await?;
 
-    service::ensure_can_manage_instance_roles(&state.database, user_id).await
+    service::can_manage_instance_roles(&state.database, user_id).await
 }
 
 fn invalid_route_path() -> ApiError {

@@ -241,7 +241,7 @@ pub(super) async fn get_voters_by_poll_option(
         .collect())
 }
 
-pub(super) async fn ensure_can_read_poll_option(
+pub(super) async fn can_read_poll_option(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -250,10 +250,8 @@ pub(super) async fn ensure_can_read_poll_option(
     invite_token: Option<&str>,
 ) -> AppResult<()> {
     if let Some(user_id) = current_user_id {
-        return channels::ensure_channel_membership(
-            database, channel_id, user_id,
-        )
-        .await;
+        return channels::is_channel_member(database, channel_id, user_id)
+            .await;
     }
 
     if polls_service::is_public_channel_poll(
@@ -333,7 +331,7 @@ fn validate_vote_request(
     Ok(())
 }
 
-pub(super) async fn ensure_anonymous_can_vote_on_poll(
+pub(super) async fn can_vote_anonymously_on_poll(
     database: &DatabaseConnection,
     user_id: Uuid,
     poll: &polls::Model,

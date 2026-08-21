@@ -83,7 +83,7 @@ pub(super) async fn prepare_poll_creation(
             "Forum proposals must be created as part of a forum post.",
         ));
     }
-    ensure_allowed_to_create_proposal(database, user_id, &request).await?;
+    can_create_proposal(database, user_id, &request).await?;
     let server_config =
         server_configs::service::ensure_server_config(database, server_id)
             .await?;
@@ -317,7 +317,7 @@ async fn cleanup_image_paths(paths: Vec<PathBuf>) {
     }
 }
 
-async fn ensure_allowed_to_create_proposal(
+async fn can_create_proposal(
     database: &DatabaseConnection,
     user_id: Uuid,
     request: &CreatePollRequest,

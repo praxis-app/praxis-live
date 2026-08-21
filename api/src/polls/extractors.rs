@@ -37,20 +37,19 @@ impl FromRequestParts<PollsState> for PollDeleteContext {
         )
         .await?;
 
-        ensure_poll_owner(state, path.channel_id, user_id, &poll).await?;
+        can_manage_poll(state, path.channel_id, user_id, &poll).await?;
 
         Ok(Self { poll })
     }
 }
 
-async fn ensure_poll_owner(
+async fn can_manage_poll(
     state: &PollsState,
     channel_id: Uuid,
     user_id: Uuid,
     poll: &polls::Model,
 ) -> Result<(), ApiError> {
-    channels::ensure_channel_membership(&state.database, channel_id, user_id)
-        .await?;
+    channels::is_channel_member(&state.database, channel_id, user_id).await?;
     if poll.user_id == user_id {
         Ok(())
     } else {
