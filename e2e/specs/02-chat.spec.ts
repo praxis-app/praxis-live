@@ -18,11 +18,8 @@ import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import { createMessages } from '../lib/messages';
-import {
-  createServer,
-  ensureServerAdminRole,
-  getDefaultServer,
-} from '../lib/servers';
+import { ensureServerAdminRole } from '../lib/server-roles';
+import { createServer, getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
 

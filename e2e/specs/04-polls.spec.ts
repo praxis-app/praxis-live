@@ -22,12 +22,8 @@ import {
   shortenNextPollDuration,
 } from '../lib/polls';
 import { createMessages } from '../lib/messages';
-import {
-  createServer,
-  getAdminRole,
-  getDefaultServer,
-  getServerRole,
-} from '../lib/servers';
+import { getAdminServerRole, getServerRole } from '../lib/server-roles';
+import { createServer, getDefaultServer } from '../lib/servers';
 import { minutesUntil, secondsUntil } from '../lib/time';
 import { ChatPage } from '../pages/chat.page';
 
@@ -429,7 +425,7 @@ test('invite holder can read proposals for all action types', async ({
       generalChannelId: string;
     };
   };
-  const adminRole = await getAdminRole(request, admin, server.id);
+  const adminRole = await getAdminServerRole(request, admin, server.id);
   const proposalPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
   const bodies = {
     general: `Invited general proposal ${admin.user.suffix}`,
@@ -949,7 +945,7 @@ test('user can create and ratify a proposal to change a role', async ({
   const server = await getDefaultServer(request, proposer);
   await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
 
-  const adminRole = await getAdminRole(request, proposer, server.id);
+  const adminRole = await getAdminServerRole(request, proposer, server.id);
   const changedRoleName = `admin-${proposer.user.suffix}`;
   const proposalBody = `Change the admin role ${proposer.user.suffix}`;
 

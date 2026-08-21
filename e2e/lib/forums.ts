@@ -1,6 +1,6 @@
 import { expect, type APIRequestContext } from '@playwright/test';
 import { authorizationHeaders, type AuthenticatedUser } from './auth';
-import { ensureServerAdminRole } from './servers';
+import { ensureServerAdminRole } from './server-roles';
 
 type ForumChannel = {
   id: string;
