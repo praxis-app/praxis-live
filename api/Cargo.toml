@@ -7,7 +7,6 @@ rust-version.workspace = true
 [dependencies]
 axum = { workspace = true, features = ["multipart", "ws"] }
 base64.workspace = true
-casbin.workspace = true
 chrono.workspace = true
 dashmap.workspace = true
 dotenv.workspace = true

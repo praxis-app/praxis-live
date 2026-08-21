@@ -1,5 +1,4 @@
 use axum::http::StatusCode;
-use casbin::{CoreApi, DefaultModel, Enforcer, MemoryAdapter, MgmtApi};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -19,21 +18,28 @@ pub(crate) struct PermissionRule {
 
 pub(crate) type PermissionMap = BTreeMap<String, Vec<PermissionRule>>;
 
-const RBAC_MODEL: &str = r#"
-[request_definition]
-r = sub, obj, act
+/// Whether a permission set grants `action` on `subject`.
+///
+/// The single definition of what a grant means, mirroring the CASL semantics
+/// the frontend evaluates in `use-ability`: the `"all"` subject matches every
+/// subject, and `manage` satisfies every action. Both rules are easy to forget
+/// when the match is written out by hand, which is why call sites should ask
+/// through `authz::can` rather than inspect `PermissionRule` themselves.
+pub(crate) fn is_allowed(
+    rules: &[PermissionRule],
+    subject: &str,
+    action: &str,
+) -> bool {
+    rules.iter().any(|rule| {
+        (rule.subject == subject || rule.subject == "all")
+            && rule
+                .action
+                .iter()
+                .any(|granted| granted == action || granted == "manage")
+    })
+}
 
-[policy_definition]
-p = sub, obj, act
-
-[policy_effect]
-e = some(where (p.eft == allow))
-
-[matchers]
-m = r.sub == p.sub && (p.obj == r.obj || p.obj == "all") && (p.act == r.act || p.act == "manage")
-"#;
-
-pub(crate) async fn validate_permissions(
+pub(crate) fn validate_permissions(
     permissions: &[PermissionRule],
     subjects: &[&str],
 ) -> AppResult<()> {
@@ -58,40 +64,8 @@ pub(crate) async fn validate_permissions(
         }
     }
 
-    let model = DefaultModel::from_str(RBAC_MODEL)
-        .await
-        .map_err(internal_error)?;
-    let mut enforcer = Enforcer::new(model, MemoryAdapter::default())
-        .await
-        .map_err(internal_error)?;
-
-    for permission in permissions {
-        for action in &permission.action {
-            enforcer
-                .add_policy(vec![
-                    "role".to_owned(),
-                    permission.subject.clone(),
-                    action.clone(),
-                ])
-                .await
-                .map_err(internal_error)?;
-
-            let allowed = enforcer
-                .enforce(("role", permission.subject.as_str(), action.as_str()))
-                .map_err(internal_error)?;
-            if !allowed {
-                return Err(ApiError::new(
-                    StatusCode::BAD_REQUEST,
-                    "Permission policy is invalid.",
-                ));
-            }
-        }
-    }
-
     Ok(())
 }
 
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
-    tracing::error!("authorization request failed: {error}");
-    ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
-}
+#[cfg(test)]
+mod tests;

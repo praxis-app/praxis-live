@@ -2,6 +2,7 @@
 // See .docs/prompts/backend/split-api-composition-root.md.
 
 mod auth;
+mod authz;
 mod cache;
 mod calls;
 mod channels;

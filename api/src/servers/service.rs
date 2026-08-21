@@ -19,9 +19,10 @@ use super::types::{
     StoredServerImage, UserResponse,
 };
 use crate::{
+    authz::{self, PermissionScope},
     cache::CacheService,
     channels as channels_service,
-    common::{roles::PermissionRule, ApiError, AppResult},
+    common::{ApiError, AppResult},
     instance, users as users_service,
 };
 
@@ -63,17 +64,14 @@ pub(super) async fn can_manage_servers(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> AppResult<()> {
-    let instance_permissions =
-        crate::instance::instance_roles::service::get_permissions_by_user(
-            database, user_id,
-        )
-        .await?;
-
-    if has_manage_permission(&instance_permissions, "Server") {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "Server",
+        PermissionScope::Instance,
+    )
+    .await
 }
 
 pub(super) async fn can_manage_server_settings(
@@ -81,29 +79,14 @@ pub(super) async fn can_manage_server_settings(
     user_id: Uuid,
     server_id: Uuid,
 ) -> AppResult<()> {
-    let permissions = super::server_roles::service::get_permissions_by_user(
-        database, user_id,
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "ServerConfig",
+        PermissionScope::Server(server_id),
     )
-    .await?;
-    let can_manage = permissions
-        .get(&server_id.to_string())
-        .is_some_and(|rules| has_manage_permission(rules, "ServerConfig"));
-
-    if can_manage {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
-}
-
-fn has_manage_permission(
-    permissions: &[PermissionRule],
-    subject: &str,
-) -> bool {
-    permissions.iter().any(|permission| {
-        (permission.subject == subject || permission.subject == "all")
-            && permission.action.iter().any(|action| action == "manage")
-    })
+    .await
 }
 
 pub(crate) async fn default_server_id(

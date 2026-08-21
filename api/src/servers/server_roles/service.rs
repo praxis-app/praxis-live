@@ -13,6 +13,7 @@ use uuid::Uuid as NativeUuid;
 
 use super::types::{RoleRequest, ServerRoleResponse};
 use crate::{
+    authz::{self, PermissionScope},
     common::{
         roles::{
             validate_permissions, PermissionMap, PermissionRule,
@@ -119,22 +120,14 @@ pub(super) async fn can_manage_server_roles(
     user_id: Uuid,
     server_id: Uuid,
 ) -> AppResult<()> {
-    let permissions = get_permissions_by_user(database, user_id).await?;
-    let can_manage =
-        permissions
-            .get(&server_id.to_string())
-            .is_some_and(|rules| {
-                rules.iter().any(|rule| {
-                    (rule.subject == "ServerRole" || rule.subject == "all")
-                        && rule.action.iter().any(|action| action == "manage")
-                })
-            });
-
-    if can_manage {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "ServerRole",
+        PermissionScope::Server(server_id),
+    )
+    .await
 }
 
 pub(super) async fn get_users_eligible_for_server_role(
@@ -269,7 +262,7 @@ pub(super) async fn update_server_role_permissions(
     role_id: Uuid,
     permissions: Vec<PermissionRule>,
 ) -> AppResult<()> {
-    validate_permissions(&permissions, SERVER_SUBJECTS).await?;
+    validate_permissions(&permissions, SERVER_SUBJECTS)?;
     load_server_role(database, server_id, role_id).await?;
     set_permissions(database, role_id, &permissions).await
 }

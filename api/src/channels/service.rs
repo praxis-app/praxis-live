@@ -15,6 +15,7 @@ use super::types::{
     ChannelOrderRequest, ChannelRequest, ChannelResponse, ChannelServer,
 };
 use crate::{
+    authz::{self, PermissionScope},
     common::{encryption, text::sanitize_text, ApiError, AppResult},
     servers as servers_service,
 };
@@ -440,26 +441,14 @@ async fn can_manage_channels(
     user_id: Uuid,
     server_id: Uuid,
 ) -> AppResult<()> {
-    let permissions =
-        crate::servers::server_roles::service::get_permissions_by_user(
-            database, user_id,
-        )
-        .await?;
-    let can_manage =
-        permissions
-            .get(&server_id.to_string())
-            .is_some_and(|rules| {
-                rules.iter().any(|rule| {
-                    (rule.subject == "Channel" || rule.subject == "all")
-                        && rule.action.iter().any(|action| action == "manage")
-                })
-            });
-
-    if can_manage {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "Channel",
+        PermissionScope::Server(server_id),
+    )
+    .await
 }
 
 pub(crate) async fn general_channel_id(

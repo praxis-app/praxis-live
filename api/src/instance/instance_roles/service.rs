@@ -13,6 +13,7 @@ use uuid::Uuid as NativeUuid;
 
 use super::types::{InstanceRoleResponse, RoleRequest};
 use crate::{
+    authz::{self, PermissionScope},
     common::{
         roles::{
             validate_permissions, PermissionRule, ADMIN_ROLE_NAME,
@@ -82,17 +83,14 @@ pub(super) async fn can_manage_instance_roles(
     database: &DatabaseConnection,
     user_id: Uuid,
 ) -> AppResult<()> {
-    let permissions = get_permissions_by_user(database, user_id).await?;
-    let can_manage = permissions.iter().any(|permission| {
-        (permission.subject == "InstanceRole" || permission.subject == "all")
-            && permission.action.iter().any(|action| action == "manage")
-    });
-
-    if can_manage {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "InstanceRole",
+        PermissionScope::Instance,
+    )
+    .await
 }
 
 pub(super) async fn get_users_eligible_for_instance_role(
@@ -207,7 +205,7 @@ pub(super) async fn update_instance_role_permissions(
     role_id: Uuid,
     permissions: Vec<PermissionRule>,
 ) -> AppResult<()> {
-    validate_permissions(&permissions, INSTANCE_SUBJECTS).await?;
+    validate_permissions(&permissions, INSTANCE_SUBJECTS)?;
     load_instance_role(database, role_id).await?;
     set_permissions(database, role_id, &permissions).await
 }
