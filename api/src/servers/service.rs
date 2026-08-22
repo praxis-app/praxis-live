@@ -54,7 +54,14 @@ pub(super) async fn can_update_server(
         return Ok(());
     }
 
-    can_manage_server_settings(database, user_id, server_id).await
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "ServerConfig",
+        PermissionScope::Server(server_id),
+    )
+    .await
 }
 
 // Instance-level authority over servers themselves: creating them and
@@ -70,21 +77,6 @@ pub(super) async fn can_manage_servers(
         "manage",
         "Server",
         PermissionScope::Instance,
-    )
-    .await
-}
-
-pub(super) async fn can_manage_server_settings(
-    database: &DatabaseConnection,
-    user_id: Uuid,
-    server_id: Uuid,
-) -> AppResult<()> {
-    authz::can(
-        database,
-        user_id,
-        "manage",
-        "ServerConfig",
-        PermissionScope::Server(server_id),
     )
     .await
 }

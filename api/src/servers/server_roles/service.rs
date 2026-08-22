@@ -14,8 +14,8 @@ use uuid::Uuid as NativeUuid;
 use super::types::{RoleRequest, ServerRoleResponse};
 use crate::{
     authz::{
-        self, validate_permissions, PermissionMap, PermissionRule,
-        PermissionScope, ADMIN_ROLE_NAME, DEFAULT_ROLE_COLOR,
+        validate_permissions, PermissionMap, PermissionRule, ADMIN_ROLE_NAME,
+        DEFAULT_ROLE_COLOR,
     },
     common::{text::sanitize_text, ApiError, AppResult},
     servers::{self, types::UserResponse},
@@ -109,21 +109,6 @@ pub(crate) async fn get_permissions_by_user(
             (server_id, group_permissions(permissions))
         })
         .collect())
-}
-
-pub(super) async fn can_manage_server_roles(
-    database: &DatabaseConnection,
-    user_id: Uuid,
-    server_id: Uuid,
-) -> AppResult<()> {
-    authz::can(
-        database,
-        user_id,
-        "manage",
-        "ServerRole",
-        PermissionScope::Server(server_id),
-    )
-    .await
 }
 
 pub(super) async fn get_users_eligible_for_server_role(

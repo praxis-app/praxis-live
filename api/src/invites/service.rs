@@ -9,44 +9,11 @@ use uuid::Uuid as NativeUuid;
 
 use super::types::{InviteRequest, InviteResponse, InviteUserResponse};
 use crate::{
-    authz::{self, PermissionScope},
     common::{ApiError, AppResult},
     servers, users as users_service,
 };
 
 const INVITES_PAGE_SIZE: usize = 20;
-
-// TODO: This also gates listing invites, so `read` on `Invite` does not grant
-// it. Decide whether `get_invites` should check `read` instead.
-pub(super) async fn can_create_invites(
-    database: &DatabaseConnection,
-    user_id: Uuid,
-    server_id: Uuid,
-) -> AppResult<()> {
-    authz::can(
-        database,
-        user_id,
-        "create",
-        "Invite",
-        PermissionScope::Server(server_id),
-    )
-    .await
-}
-
-pub(super) async fn can_manage_invites(
-    database: &DatabaseConnection,
-    user_id: Uuid,
-    server_id: Uuid,
-) -> AppResult<()> {
-    authz::can(
-        database,
-        user_id,
-        "manage",
-        "Invite",
-        PermissionScope::Server(server_id),
-    )
-    .await
-}
 
 pub(super) async fn is_valid_invite(
     database: &DatabaseConnection,

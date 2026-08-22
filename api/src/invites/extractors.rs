@@ -6,10 +6,13 @@ use sea_orm::prelude::Uuid;
 
 use super::{
     handlers::InvitesState,
-    service,
     types::{InviteAccessQuery, InvitePath, ServerPath},
 };
-use crate::{auth::AuthenticatedUser, common::ApiError};
+use crate::{
+    auth::AuthenticatedUser,
+    authz::{self, PermissionScope},
+    common::ApiError,
+};
 
 const INVITE_TOKEN_HEADER: &str = "x-invite-token";
 
@@ -69,8 +72,17 @@ impl FromRequestParts<InvitesState> for InviteAccessContext {
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        service::can_create_invites(&state.database, user_id, path.server_id)
-            .await?;
+        // TODO: This also gates listing invites, so `read` on `Invite` does
+        // not grant it. Decide whether `get_invites` should check `read`
+        // instead.
+        authz::can(
+            &state.database,
+            user_id,
+            "create",
+            "Invite",
+            PermissionScope::Server(path.server_id),
+        )
+        .await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -92,8 +104,14 @@ impl FromRequestParts<InvitesState> for InviteManageContext {
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        service::can_manage_invites(&state.database, user_id, path.server_id)
-            .await?;
+        authz::can(
+            &state.database,
+            user_id,
+            "manage",
+            "Invite",
+            PermissionScope::Server(path.server_id),
+        )
+        .await?;
 
         Ok(Self {
             server_id: path.server_id,

@@ -13,11 +13,13 @@ use sea_orm::prelude::Uuid;
 
 use super::{
     handlers::ServerRolesState,
-    service,
     types::{ServerRoleMemberPath, ServerRolePath},
 };
 use crate::{
-    auth::AuthenticatedUser, common::ApiError, servers::types::ServerPath,
+    auth::AuthenticatedUser,
+    authz::{self, PermissionScope},
+    common::ApiError,
+    servers::types::ServerPath,
 };
 
 /// Caller may manage roles in the server named in the path.
@@ -108,7 +110,14 @@ async fn can_manage_server_roles(
     let AuthenticatedUser(user_id) =
         AuthenticatedUser::from_request_parts(parts, state).await?;
 
-    service::can_manage_server_roles(&state.database, user_id, server_id).await
+    authz::can(
+        &state.database,
+        user_id,
+        "manage",
+        "ServerRole",
+        PermissionScope::Server(server_id),
+    )
+    .await
 }
 
 fn invalid_route_path() -> ApiError {

@@ -14,8 +14,8 @@ use uuid::Uuid as NativeUuid;
 use super::types::{InstanceRoleResponse, RoleRequest};
 use crate::{
     authz::{
-        self, validate_permissions, PermissionRule, PermissionScope,
-        ADMIN_ROLE_NAME, DEFAULT_ROLE_COLOR,
+        validate_permissions, PermissionRule, ADMIN_ROLE_NAME,
+        DEFAULT_ROLE_COLOR,
     },
     common::{text::sanitize_text, ApiError, AppResult},
     servers::types::UserResponse,
@@ -73,20 +73,6 @@ pub(crate) async fn get_permissions_by_user(
         .await
         .map_err(internal_error)?;
     Ok(group_permissions(permissions))
-}
-
-pub(super) async fn can_manage_instance_roles(
-    database: &DatabaseConnection,
-    user_id: Uuid,
-) -> AppResult<()> {
-    authz::can(
-        database,
-        user_id,
-        "manage",
-        "InstanceRole",
-        PermissionScope::Instance,
-    )
-    .await
 }
 
 pub(super) async fn get_users_eligible_for_instance_role(

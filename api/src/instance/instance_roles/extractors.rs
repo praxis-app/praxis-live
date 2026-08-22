@@ -13,8 +13,12 @@ use axum::{
 use sea_orm::prelude::Uuid;
 use serde::Deserialize;
 
-use super::{handlers::InstanceRolesState, service};
-use crate::{auth::AuthenticatedUser, common::ApiError};
+use super::handlers::InstanceRolesState;
+use crate::{
+    auth::AuthenticatedUser,
+    authz::{self, PermissionScope},
+    common::ApiError,
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -103,7 +107,14 @@ async fn can_manage_instance_roles(
     let AuthenticatedUser(user_id) =
         AuthenticatedUser::from_request_parts(parts, state).await?;
 
-    service::can_manage_instance_roles(&state.database, user_id).await
+    authz::can(
+        &state.database,
+        user_id,
+        "manage",
+        "InstanceRole",
+        PermissionScope::Instance,
+    )
+    .await
 }
 
 fn invalid_route_path() -> ApiError {
