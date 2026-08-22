@@ -2,8 +2,9 @@ use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{invites, users};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, Set,
+    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait, Condition,
+    ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+    Set,
 };
 use uuid::Uuid as NativeUuid;
 
@@ -135,14 +136,40 @@ pub(super) async fn create_invite(
     shape_invite(database, invite).await
 }
 
-pub(crate) async fn redeem_invite(
-    database: &DatabaseConnection,
-    token: &str,
-) -> AppResult<invites::Model> {
-    let invite = get_invite_by_token(database, token).await?;
-    let mut active = invite.clone().into_active_model();
-    active.uses = Set(invite.uses + 1);
-    active.update(database).await.map_err(internal_error)
+pub(crate) async fn redeem_invite<C>(database: &C, token: &str) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let is_unexpired = Condition::any()
+        .add(invites::Column::ExpiresAt.is_null())
+        .add(invites::Column::ExpiresAt.gt(Utc::now().fixed_offset()));
+    let has_uses_left = Condition::any()
+        .add(invites::Column::MaxUses.is_null())
+        .add(
+            Expr::col(invites::Column::Uses)
+                .lt(Expr::col(invites::Column::MaxUses)),
+        );
+
+    let result = invites::Entity::update_many()
+        .col_expr(
+            invites::Column::Uses,
+            Expr::col(invites::Column::Uses).add(1),
+        )
+        .filter(invites::Column::Token.eq(token))
+        .filter(is_unexpired)
+        .filter(has_uses_left)
+        .exec(database)
+        .await
+        .map_err(internal_error)?;
+
+    if result.rows_affected == 0 {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "Invalid invite token.",
+        ));
+    }
+
+    Ok(())
 }
 
 pub(super) async fn delete_invite(

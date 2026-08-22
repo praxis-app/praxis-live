@@ -1,12 +1,5 @@
-//! Authorization coverage for permission-gated endpoints.
-//!
-//! Each test asserts the permission boundary the endpoint is meant to enforce,
-//! not the behavior it currently has. Tests that gate a `manage` permission
-//! also assert the positive case, so that a check which rejects everyone is
-//! not mistaken for a working one.
-
 use axum::http::StatusCode;
-use entity::{channels, server_roles};
+use entity::{channels, server_members, server_roles};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde_json::json;
 use uuid::Uuid;
@@ -145,9 +138,6 @@ async fn only_instance_role_managers_can_list_users_eligible_for_a_role() {
     assert_eq!(admin_response.status(), StatusCode::OK);
 }
 
-// A server role only ever grants standing within its own server, so handing one
-// to a non-member would grant working permissions on a server they never
-// joined. The proposal path already refuses this in `poll_actions`.
 #[tokio::test]
 async fn server_roles_cannot_be_granted_to_non_members() {
     let app = TestApp::new().await;
@@ -179,10 +169,6 @@ async fn server_roles_cannot_be_granted_to_non_members() {
     assert_eq!(insider_response.status(), StatusCode::OK);
 }
 
-// A server role only grants standing within its own server, so the candidate
-// list must be drawn from that server's members. Returning the whole `users`
-// table would both leak every account on the instance and offer users that
-// `add_server_role_members` refuses.
 #[tokio::test]
 async fn eligible_role_members_are_scoped_to_the_server() {
     let app = TestApp::new().await;
@@ -211,9 +197,6 @@ async fn eligible_role_members_are_scoped_to_the_server() {
     assert!(!user_ids.contains(&outsider.user_id));
 }
 
-// Reading the candidate list does not require `ServerRole: manage`, since
-// proposing a membership change needs it, but it does require read access to
-// the server it belongs to.
 #[tokio::test]
 async fn eligible_role_members_require_read_access_to_the_server() {
     let app = TestApp::new().await;
@@ -234,9 +217,6 @@ async fn eligible_role_members_require_read_access_to_the_server() {
     assert_eq!(member_response.status(), StatusCode::OK);
 }
 
-// Holding a valid invite must grant the same channel reads whether or not the
-// caller is signed in. `can_read_server` already honors the invite;
-// `can_read_channel` must agree with it.
 #[tokio::test]
 async fn invited_users_can_read_channels_whether_or_not_they_are_signed_in() {
     let app = TestApp::new().await;
@@ -264,9 +244,6 @@ async fn invited_users_can_read_channels_whether_or_not_they_are_signed_in() {
     assert_eq!(member_detail.status(), StatusCode::OK);
 }
 
-// Complete role definitions name who holds authority over a server, so reading
-// them takes read access to it. Deliberately not gated on `ServerRole: manage`
-// — proposing a role change needs the current definitions.
 #[tokio::test]
 async fn reading_server_roles_requires_read_access_to_the_server() {
     let app = TestApp::new().await;
@@ -280,15 +257,10 @@ async fn reading_server_roles_requires_read_access_to_the_server() {
     let outsider_response = app.get_with_bearer(&uri, &outsider.token).await;
     assert_eq!(outsider_response.status(), StatusCode::FORBIDDEN);
 
-    // A plain member, holding no `ServerRole` permission at all, still reads.
     let member_response = app.get_with_bearer(&uri, &member.token).await;
     assert_eq!(member_response.status(), StatusCode::OK);
 }
 
-// Same rule as `can_read_channel`: an invite grants the same poll reads whether
-// or not the caller is signed in. Returning early on a failed membership check
-// made signing in strictly remove access, since the invite path below it was
-// then unreachable.
 #[tokio::test]
 async fn invited_users_can_read_poll_voters_whether_or_not_they_are_signed_in()
 {
@@ -331,8 +303,6 @@ async fn invited_users_can_read_poll_voters_whether_or_not_they_are_signed_in()
     assert_eq!(signed_in.status(), StatusCode::OK);
 }
 
-// Profiles of default-server members are public by design, matching how
-// `get_user_image` treats their profile pictures. Everyone else's is not.
 #[tokio::test]
 async fn profiles_outside_the_default_server_are_not_publicly_readable() {
     let app = TestApp::new().await;
@@ -355,12 +325,9 @@ async fn profiles_outside_the_default_server_are_not_publicly_readable() {
         app.get_with_bearer(&outsider_uri, &outsider.token).await;
     assert_eq!(self_response.status(), StatusCode::OK);
 
-    // The admin shares the private server's channels with the outsider, so the
-    // people who can actually see them in the app keep their profile reads.
     let admin_response = app.get_with_bearer(&outsider_uri, &admin.token).await;
     assert_eq!(admin_response.status(), StatusCode::OK);
 
-    // Someone with no server in common cannot.
     let stranger = signup(&app, "stranger@example.com", "Stranger").await;
     let stranger_response =
         app.get_with_bearer(&outsider_uri, &stranger.token).await;
@@ -389,9 +356,6 @@ async fn only_instance_server_managers_can_list_users_eligible_for_a_server() {
     assert_eq!(admin_response.status(), StatusCode::OK);
 }
 
-// Listing every server on the instance, with member counts, is the instance
-// admin panel's query. It is not a per-server read, so server-level standing
-// does not earn it.
 #[tokio::test]
 async fn only_instance_server_managers_can_list_all_servers() {
     let app = TestApp::new().await;
@@ -411,9 +375,6 @@ async fn only_instance_server_managers_can_list_all_servers() {
     assert_eq!(admin_response.status(), StatusCode::OK);
 }
 
-// A server's metadata, roster, and decision-making config are all gated by the
-// same rule as its channels: read access to the server itself. Reachable by id
-// and by slug, so both spellings are asserted.
 #[tokio::test]
 async fn reading_a_server_requires_read_access_to_it() {
     let app = TestApp::new().await;
@@ -441,9 +402,6 @@ async fn reading_a_server_requires_read_access_to_it() {
     }
 }
 
-// Instance `Server: manage` holders administer servers they never joined, via
-// the instance admin panel. Gating these reads on membership alone would break
-// that panel, so the check must admit instance managers as well as members.
 #[tokio::test]
 async fn instance_server_managers_can_read_servers_they_have_not_joined() {
     let app = TestApp::new().await;
@@ -451,7 +409,6 @@ async fn instance_server_managers_can_read_servers_they_have_not_joined() {
     let manager = signup(&app, "manager@example.com", "Instance Manager").await;
     grant_instance_server_manager(&app, &admin, &manager).await;
 
-    // Created by `admin`, so `manager` holds no membership in it.
     let server_id = create_server(&app, &admin, "Private", "private").await;
 
     for uri in server_read_uris(&server_id, "private") {
@@ -464,8 +421,6 @@ async fn instance_server_managers_can_read_servers_they_have_not_joined() {
     }
 }
 
-// An invite is what lets someone size up a server before joining it, so it
-// grants the same reads a member gets.
 #[tokio::test]
 async fn invited_users_can_read_a_server_before_joining() {
     let app = TestApp::new().await;
@@ -489,11 +444,6 @@ async fn invited_users_can_read_a_server_before_joining() {
     }
 }
 
-// These endpoints must keep requiring a real token. Switching any of them to
-// `AuthenticatedUserOptional` fails open: an absent or malformed token becomes
-// an anonymous caller, and the default server admits anonymous callers, so the
-// instance's default roster and config would be readable by anyone at all.
-// The default server is used deliberately here — it is the case that leaks.
 #[tokio::test]
 async fn server_reads_require_a_token_even_on_the_default_server() {
     let app = TestApp::new().await;
@@ -517,6 +467,39 @@ async fn server_reads_require_a_token_even_on_the_default_server() {
             "expected {uri} to reject a malformed token"
         );
     }
+}
+
+#[tokio::test]
+async fn a_single_use_invite_admits_only_one_member_under_concurrency() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let first = signup(&app, "first@example.com", "First Joiner").await;
+    let second = signup(&app, "second@example.com", "Second Joiner").await;
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+    let invite_token =
+        create_invite_with_max_uses(&app, &admin, &server_id, 1).await;
+
+    let uri = format!("/api/servers/{server_id}/join");
+    let payload = json!({ "inviteToken": invite_token });
+    let (first_response, second_response) = tokio::join!(
+        app.post_json_with_bearer(&uri, &payload, &first.token),
+        app.post_json_with_bearer(&uri, &payload, &second.token),
+    );
+
+    let mut statuses =
+        [first_response.status(), second_response.status()].to_vec();
+    statuses.sort_by_key(|status| status.as_u16());
+    assert_eq!(
+        statuses,
+        vec![StatusCode::OK, StatusCode::BAD_REQUEST],
+        "expected exactly one join to succeed and one to be refused"
+    );
+
+    assert_eq!(
+        server_member_count(&app, &server_id).await,
+        2,
+        "expected the invite to admit exactly one new member"
+    );
 }
 
 #[tokio::test]
@@ -603,8 +586,6 @@ async fn only_role_managers_can_update_server_role_permissions() {
     let member = signup(&app, "member@example.com", "Member Example").await;
     let server_id = default_server_id(&app).await;
 
-    // Target a purpose-built role so that rewriting its permissions cannot
-    // strip the admin's own standing partway through the test.
     let create_response = app
         .post_json_with_bearer(
             &format!("/api/servers/{server_id}/roles"),
@@ -675,8 +656,6 @@ async fn signup(app: &TestApp, email: &str, name: &str) -> TestUser {
     signup_request(app, email, name, None).await
 }
 
-// Signing up through an invite joins the invited server instead of the default
-// one, which is the only way to end up with an account outside it.
 async fn signup_with_invite(
     app: &TestApp,
     email: &str,
@@ -730,6 +709,37 @@ async fn create_invite(
         .as_str()
         .unwrap()
         .to_owned()
+}
+
+async fn create_invite_with_max_uses(
+    app: &TestApp,
+    granter: &TestUser,
+    server_id: &str,
+    max_uses: u32,
+) -> String {
+    let response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/invites"),
+            &json!({ "maxUses": max_uses, "expiresAt": null }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    json_body(response).await["invite"]["token"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn server_member_count(app: &TestApp, server_id: &str) -> usize {
+    let server_id = Uuid::parse_str(server_id).unwrap();
+    server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .all(app.database())
+        .await
+        .unwrap()
+        .len()
 }
 
 async fn create_instance_role(
@@ -809,8 +819,6 @@ async fn default_server_slug(app: &TestApp) -> String {
         .to_owned()
 }
 
-// Every server read that is gated on read access to the server itself. Kept in
-// one place so a new one cannot be added without deciding how it is secured.
 fn server_read_uris(server_id: &str, slug: &str) -> Vec<String> {
     vec![
         format!("/api/servers/{server_id}"),
@@ -820,8 +828,6 @@ fn server_read_uris(server_id: &str, slug: &str) -> Vec<String> {
     ]
 }
 
-// Grants instance-level `Server: manage`, the standing the instance admin panel
-// runs on, without granting membership in any particular server.
 async fn grant_instance_server_manager(
     app: &TestApp,
     granter: &TestUser,
@@ -873,8 +879,6 @@ async fn create_server(
         .to_owned()
 }
 
-// Grants the server's admin role, which carries `ServerConfig: manage` but no
-// instance-level permissions.
 async fn grant_server_admin(
     app: &TestApp,
     granter: &TestUser,
@@ -894,8 +898,6 @@ async fn grant_server_admin(
     assert_eq!(role_members_response.status(), StatusCode::OK);
 }
 
-// Reads role and channel ids straight from the database so that setup does not
-// depend on the read endpoints these tests are asserting against.
 async fn admin_role_id(app: &TestApp, server_id: &str) -> String {
     let server_id = Uuid::parse_str(server_id).unwrap();
     let role = server_roles::Entity::find()

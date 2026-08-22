@@ -650,8 +650,10 @@ pub(super) async fn join_server(
         ));
     }
 
-    add_server_members(database, server_id, &[user_id]).await?;
+    // Spend the invite before granting membership. The other order lets a
+    // caller that loses the race for the last use still end up a member.
     crate::invites::service::redeem_invite(database, invite_token).await?;
+    add_server_members(database, server_id, &[user_id]).await?;
     Ok(())
 }
 

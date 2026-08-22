@@ -64,6 +64,12 @@ pub(super) async fn signup(
     };
     let transaction = database.begin().await.map_err(internal_error)?;
 
+    // In-transaction, so losing the race rolls back the membership below.
+    if let Some(invite_token) = signup.invite_token.as_deref() {
+        crate::invites::service::redeem_invite(&transaction, invite_token)
+            .await?;
+    }
+
     servers::add_member_to_server(&transaction, server_id, user.id)
         .await
         .map_err(internal_error)?;
@@ -93,10 +99,6 @@ pub(super) async fn signup(
 
     transaction.commit().await.map_err(internal_error)?;
 
-    if let Some(invite_token) = signup.invite_token.as_deref() {
-        crate::invites::service::redeem_invite(database, invite_token).await?;
-    }
-
     Ok(user)
 }
 
@@ -123,10 +125,11 @@ pub(super) async fn create_anon_session(
         ));
     }
 
+    // Spend the invite first: it is what authorizes the session.
+    crate::invites::service::redeem_invite(database, &invite_token).await?;
     let user = users::create_anon_user(database, invite.server_id)
         .await
         .map_err(map_create_user_error)?;
-    crate::invites::service::redeem_invite(database, &invite_token).await?;
 
     Ok(user)
 }

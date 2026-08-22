@@ -72,9 +72,8 @@ impl FromRequestParts<InvitesState> for InviteAccessContext {
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
 
-        // Checks `create` rather than `read`, and deliberately gates listing
-        // too: the invite list exists to manage invites you are issuing, so
-        // only users who can create one have any reason to see it.
+        // `create`, not `read`: the list exists to manage invites you issue,
+        // so only users who can create one need it.
         authz::can(
             &state.database,
             user_id,
