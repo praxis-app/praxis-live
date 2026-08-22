@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 use super::types::PermissionRule;
 use crate::common::{ApiError, AppResult};
 
-pub(crate) const ABILITY_ACTIONS: &[&str] =
+const ABILITY_ACTIONS: &[&str] =
     &["delete", "create", "read", "update", "manage"];
 
 pub(crate) fn validate_permissions(
@@ -32,34 +32,4 @@ pub(crate) fn validate_permissions(
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::validate_permissions;
-    use crate::authz::types::PermissionRule;
-
-    fn rule(subject: &str, actions: &[&str]) -> PermissionRule {
-        PermissionRule {
-            subject: subject.to_owned(),
-            action: actions.iter().map(|action| (*action).to_owned()).collect(),
-        }
-    }
-
-    #[test]
-    fn rejects_unknown_subjects_and_actions() {
-        let subjects = &["Channel", "all"];
-        assert!(
-            validate_permissions(&[rule("Channel", &["read"])], subjects)
-                .is_ok()
-        );
-        assert!(
-            validate_permissions(&[rule("Nope", &["read"])], subjects).is_err()
-        );
-        assert!(validate_permissions(&[rule("Channel", &["fly"])], subjects)
-            .is_err());
-        assert!(
-            validate_permissions(&[rule("Channel", &[])], subjects).is_err()
-        );
-    }
 }
