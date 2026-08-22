@@ -7,7 +7,7 @@ use sea_orm::{prelude::Uuid, DatabaseConnection};
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    extractors::ServerEditContext,
+    extractors::{ServerEditContext, ServerViewContext},
     service,
     types::{
         AnonymousUsersEnabledResponse, JoinServerRequest, ServerConfigPayload,
@@ -56,29 +56,39 @@ impl HasJwtSecret for ServersState {
 
 pub(super) async fn get_servers(
     State(state): State<ServersState>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
 ) -> AppResult<Json<ServersPayload>> {
+    service::can_manage_servers(&state.database, user_id).await?;
     let servers = service::get_servers(&state.database).await?;
     Ok(Json(ServersPayload { servers }))
 }
 
 pub(super) async fn get_server_by_id(
     State(state): State<ServersState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    context: ServerViewContext,
 ) -> AppResult<Json<ServerPayload>> {
-    let server =
-        service::get_server_by_id(&state.database, path.server_id, false)
-            .await?;
+    let server = service::get_server_by_id(
+        &state.database,
+        context.path.server_id,
+        false,
+    )
+    .await?;
     Ok(Json(ServerPayload { server }))
 }
 
 pub(super) async fn get_server_by_slug(
     State(state): State<ServersState>,
     Path(slug): Path<String>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Json<ServerPayload>> {
-    let server = service::get_server_by_slug(&state.database, &slug).await?;
+    let server = service::get_server_by_slug(
+        &state.database,
+        &slug,
+        user_id,
+        invite_token.as_deref(),
+    )
+    .await?;
     Ok(Json(ServerPayload { server }))
 }
 
@@ -192,11 +202,11 @@ pub(super) async fn delete_server(
 
 pub(super) async fn get_server_members(
     State(state): State<ServersState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    context: ServerViewContext,
 ) -> AppResult<Json<UsersPayload>> {
     let users =
-        service::get_server_members(&state.database, path.server_id).await?;
+        service::get_server_members(&state.database, context.path.server_id)
+            .await?;
     Ok(Json(UsersPayload { users }))
 }
 
@@ -260,11 +270,11 @@ pub(super) async fn join_server(
 
 pub(super) async fn get_server_config(
     State(state): State<ServersState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    context: ServerViewContext,
 ) -> AppResult<Json<ServerConfigPayload>> {
     let server_config =
-        service::get_server_config(&state.database, path.server_id).await?;
+        service::get_server_config(&state.database, context.path.server_id)
+            .await?;
     Ok(Json(ServerConfigPayload { server_config }))
 }
 

@@ -121,6 +121,31 @@ pub(crate) async fn can_read_server(
     Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
 }
 
+// Like `can_read_server`, but also admits instance-level `Server: manage`
+// holders, who administer servers they may never have joined (see the
+// instance "manage servers" admin panel).
+pub(super) async fn can_view_server(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
+) -> AppResult<()> {
+    if can_read_server(database, server_id, user_id, invite_token)
+        .await
+        .is_ok()
+    {
+        return Ok(());
+    }
+
+    if let Some(user_id) = user_id {
+        if can_manage_servers(database, user_id).await.is_ok() {
+            return Ok(());
+        }
+    }
+
+    Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+}
+
 pub(super) async fn get_servers(
     database: &DatabaseConnection,
 ) -> AppResult<Vec<ServerResponse>> {
@@ -234,9 +259,14 @@ pub(super) async fn get_server_by_id(
     .await
 }
 
+// Unlike its `ServerPath` siblings, this cannot be gated by `ServerViewContext`:
+// the server id is not known until the slug is resolved, so the access check
+// lives here, immediately after the lookup and before anything is shaped.
 pub(super) async fn get_server_by_slug(
     database: &DatabaseConnection,
     slug: &str,
+    user_id: Uuid,
+    invite_token: Option<&str>,
 ) -> AppResult<ServerResponse> {
     let server = servers::Entity::find()
         .filter(servers::Column::Slug.eq(slug))
@@ -246,6 +276,8 @@ pub(super) async fn get_server_by_slug(
         .ok_or_else(|| {
             ApiError::new(StatusCode::NOT_FOUND, "Server not found.")
         })?;
+
+    can_view_server(database, server.id, Some(user_id), invite_token).await?;
 
     let default_server_id = default_server_id(database).await?;
     shape_server(database, server, default_server_id, true, false).await

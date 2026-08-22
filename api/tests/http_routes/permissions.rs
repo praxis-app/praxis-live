@@ -389,6 +389,136 @@ async fn only_instance_server_managers_can_list_users_eligible_for_a_server() {
     assert_eq!(admin_response.status(), StatusCode::OK);
 }
 
+// Listing every server on the instance, with member counts, is the instance
+// admin panel's query. It is not a per-server read, so server-level standing
+// does not earn it.
+#[tokio::test]
+async fn only_instance_server_managers_can_list_all_servers() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let server_admin =
+        signup(&app, "server-admin@example.com", "Server Admin").await;
+    let default_server_id = default_server_id(&app).await;
+    grant_server_admin(&app, &admin, &default_server_id, &server_admin).await;
+
+    let server_admin_response = app
+        .get_with_bearer("/api/servers", &server_admin.token)
+        .await;
+    assert_eq!(server_admin_response.status(), StatusCode::FORBIDDEN);
+
+    let admin_response =
+        app.get_with_bearer("/api/servers", &admin.token).await;
+    assert_eq!(admin_response.status(), StatusCode::OK);
+}
+
+// A server's metadata, roster, and decision-making config are all gated by the
+// same rule as its channels: read access to the server itself. Reachable by id
+// and by slug, so both spellings are asserted.
+#[tokio::test]
+async fn reading_a_server_requires_read_access_to_it() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let outsider = signup(&app, "outsider@example.com", "Outsider").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+    add_server_member(&app, &admin, &server_id, &member).await;
+
+    for uri in server_read_uris(&server_id, "private") {
+        let outsider_response =
+            app.get_with_bearer(&uri, &outsider.token).await;
+        assert_eq!(
+            outsider_response.status(),
+            StatusCode::FORBIDDEN,
+            "expected a non-member to be refused by {uri}"
+        );
+
+        let member_response = app.get_with_bearer(&uri, &member.token).await;
+        assert_eq!(
+            member_response.status(),
+            StatusCode::OK,
+            "expected a member to be admitted by {uri}"
+        );
+    }
+}
+
+// Instance `Server: manage` holders administer servers they never joined, via
+// the instance admin panel. Gating these reads on membership alone would break
+// that panel, so the check must admit instance managers as well as members.
+#[tokio::test]
+async fn instance_server_managers_can_read_servers_they_have_not_joined() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let manager = signup(&app, "manager@example.com", "Instance Manager").await;
+    grant_instance_server_manager(&app, &admin, &manager).await;
+
+    // Created by `admin`, so `manager` holds no membership in it.
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+
+    for uri in server_read_uris(&server_id, "private") {
+        let response = app.get_with_bearer(&uri, &manager.token).await;
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "expected an instance server manager to be admitted by {uri}"
+        );
+    }
+}
+
+// An invite is what lets someone size up a server before joining it, so it
+// grants the same reads a member gets.
+#[tokio::test]
+async fn invited_users_can_read_a_server_before_joining() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let outsider = signup(&app, "outsider@example.com", "Outsider").await;
+    let server_id = create_server(&app, &admin, "Private", "private").await;
+    let invite_token = create_invite(&app, &admin, &server_id).await;
+
+    for uri in server_read_uris(&server_id, "private") {
+        let refused = app.get_with_bearer(&uri, &outsider.token).await;
+        assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+
+        let separator = if uri.contains('?') { '&' } else { '?' };
+        let invited_uri = format!("{uri}{separator}inviteToken={invite_token}");
+        let admitted = app.get_with_bearer(&invited_uri, &outsider.token).await;
+        assert_eq!(
+            admitted.status(),
+            StatusCode::OK,
+            "expected an invite holder to be admitted by {invited_uri}"
+        );
+    }
+}
+
+// These endpoints must keep requiring a real token. Switching any of them to
+// `AuthenticatedUserOptional` fails open: an absent or malformed token becomes
+// an anonymous caller, and the default server admits anonymous callers, so the
+// instance's default roster and config would be readable by anyone at all.
+// The default server is used deliberately here — it is the case that leaks.
+#[tokio::test]
+async fn server_reads_require_a_token_even_on_the_default_server() {
+    let app = TestApp::new().await;
+    let _admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let server_id = default_server_id(&app).await;
+    let slug = default_server_slug(&app).await;
+
+    for uri in server_read_uris(&server_id, &slug) {
+        let anonymous_response = app.get(&uri).await;
+        assert_eq!(
+            anonymous_response.status(),
+            StatusCode::UNAUTHORIZED,
+            "expected {uri} to reject a request carrying no token"
+        );
+
+        let malformed_response =
+            app.get_with_bearer(&uri, "not-a-real-token").await;
+        assert_eq!(
+            malformed_response.status(),
+            StatusCode::UNAUTHORIZED,
+            "expected {uri} to reject a malformed token"
+        );
+    }
+}
+
 #[tokio::test]
 async fn proposals_cannot_target_a_role_in_another_server() {
     let app = TestApp::new().await;
@@ -667,6 +797,59 @@ async fn default_server_id(app: &TestApp) -> String {
         .as_str()
         .unwrap()
         .to_owned()
+}
+
+async fn default_server_slug(app: &TestApp) -> String {
+    let response = app.get("/api/servers/default").await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    json_body(response).await["server"]["slug"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+// Every server read that is gated on read access to the server itself. Kept in
+// one place so a new one cannot be added without deciding how it is secured.
+fn server_read_uris(server_id: &str, slug: &str) -> Vec<String> {
+    vec![
+        format!("/api/servers/{server_id}"),
+        format!("/api/servers/slug/{slug}"),
+        format!("/api/servers/{server_id}/members"),
+        format!("/api/servers/{server_id}/configs"),
+    ]
+}
+
+// Grants instance-level `Server: manage`, the standing the instance admin panel
+// runs on, without granting membership in any particular server.
+async fn grant_instance_server_manager(
+    app: &TestApp,
+    granter: &TestUser,
+    user: &TestUser,
+) {
+    let role_id = create_instance_role(app, granter, "Server Managers").await;
+
+    let permissions_response = app
+        .put_json_with_bearer(
+            &format!("/api/instance/roles/{role_id}/permissions"),
+            &json!({
+                "permissions": [
+                    { "subject": "Server", "action": ["manage"] },
+                ],
+            }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(permissions_response.status(), StatusCode::OK);
+
+    let members_response = app
+        .post_json_with_bearer(
+            &format!("/api/instance/roles/{role_id}/members"),
+            &json!({ "userIds": [user.user_id] }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(members_response.status(), StatusCode::OK);
 }
 
 async fn create_server(
