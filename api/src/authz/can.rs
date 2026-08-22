@@ -1,6 +1,3 @@
-//! The one place a permission question is answered. Call `can` from an
-//! extractor so a route declares its permission next to its handler.
-
 use axum::http::StatusCode;
 use sea_orm::{prelude::Uuid, DatabaseConnection};
 
@@ -29,8 +26,8 @@ pub(crate) enum PermissionScope {
     Server(Uuid),
 }
 
-/// `actions` is conjunctive: every one must be granted, so it is not a way to
-/// spell "either". An empty list denies rather than vacuously allowing.
+/// If multiple `actions` are given, all of them must be granted
+/// (not just one). An empty list always denies.
 pub(crate) async fn can(
     database: &DatabaseConnection,
     user_id: Uuid,
