@@ -1,34 +1,51 @@
-//! The one place a permission question is answered.
-//!
-//! Ports the `can(action, subject, scope)` middleware the legacy Express app
-//! used (`common/roles/can.middleware.ts`): resolve the caller's permissions
-//! for a scope, then ask whether they grant the action on the subject. Call it
-//! from an extractor so a route declares its permission next to its handler
-//! and cannot ship without one, and so the `"all"` and `manage` semantics have
-//! exactly one implementation instead of one per domain.
+//! The one place a permission question is answered. Call `can` from an
+//! extractor so a route declares its permission next to its handler.
 
 use axum::http::StatusCode;
 use sea_orm::{prelude::Uuid, DatabaseConnection};
 
 use crate::common::{roles::is_allowed, ApiError, AppResult};
 
-/// Which permission set answers the question. Instance-level authority is
-/// separate from, and never implied by, authority within a single server.
+/// Lets `can` take `"manage"` or `["create", "read"]`.
+pub(crate) trait Actions {
+    fn as_slice(&self) -> &[&str];
+}
+
+impl Actions for &str {
+    fn as_slice(&self) -> &[&str] {
+        std::slice::from_ref(self)
+    }
+}
+
+impl<const N: usize> Actions for [&str; N] {
+    fn as_slice(&self) -> &[&str] {
+        self
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum PermissionScope {
     Instance,
     Server(Uuid),
 }
 
-/// `Ok(())` when the caller may take `action` on `subject` in `scope`,
-/// otherwise `403`. The error carries no detail about what was missing.
+/// `actions` is conjunctive: every one must be granted, so it is not a way to
+/// spell "either". An empty list denies rather than vacuously allowing.
 pub(crate) async fn can(
     database: &DatabaseConnection,
     user_id: Uuid,
-    action: &str,
+    actions: impl Actions,
     subject: &str,
     scope: PermissionScope,
 ) -> AppResult<()> {
+    let actions = actions.as_slice();
+    let granted = |rules: &[_]| {
+        !actions.is_empty()
+            && actions
+                .iter()
+                .all(|action| is_allowed(rules, subject, action))
+    };
+
     let allowed = match scope {
         PermissionScope::Instance => {
             let rules =
@@ -36,7 +53,7 @@ pub(crate) async fn can(
                     database, user_id,
                 )
                 .await?;
-            is_allowed(&rules, subject, action)
+            granted(&rules)
         }
         PermissionScope::Server(server_id) => {
             let permissions =
@@ -46,7 +63,7 @@ pub(crate) async fn can(
                 .await?;
             permissions
                 .get(&server_id.to_string())
-                .is_some_and(|rules| is_allowed(rules, subject, action))
+                .is_some_and(|rules: &Vec<_>| granted(rules))
         }
     };
 

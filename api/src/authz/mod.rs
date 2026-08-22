@@ -1,3 +1,3 @@
-pub(crate) mod service;
+pub(crate) mod can;
 
-pub(crate) use service::{can, PermissionScope};
+pub(crate) use can::{can, PermissionScope};
