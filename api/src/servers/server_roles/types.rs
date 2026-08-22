@@ -1,7 +1,7 @@
 use sea_orm::prelude::Uuid;
 use serde::{Deserialize, Serialize};
 
-use crate::{common::roles::PermissionRule, servers::types::UserResponse};
+use crate::{authz::PermissionRule, servers::types::UserResponse};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

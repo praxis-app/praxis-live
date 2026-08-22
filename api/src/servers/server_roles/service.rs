@@ -13,15 +13,11 @@ use uuid::Uuid as NativeUuid;
 
 use super::types::{RoleRequest, ServerRoleResponse};
 use crate::{
-    authz::{self, PermissionScope},
-    common::{
-        roles::{
-            validate_permissions, PermissionMap, PermissionRule,
-            ADMIN_ROLE_NAME, DEFAULT_ROLE_COLOR,
-        },
-        text::sanitize_text,
-        ApiError, AppResult,
+    authz::{
+        self, validate_permissions, PermissionMap, PermissionRule,
+        PermissionScope, ADMIN_ROLE_NAME, DEFAULT_ROLE_COLOR,
     },
+    common::{text::sanitize_text, ApiError, AppResult},
     servers::{self, types::UserResponse},
     users as users_service,
 };

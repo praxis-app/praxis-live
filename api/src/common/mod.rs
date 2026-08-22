@@ -4,7 +4,6 @@ pub(crate) mod images;
 pub(crate) mod pagination;
 pub(crate) mod request;
 pub(crate) mod response;
-pub(crate) mod roles;
 pub(crate) mod storage;
 pub(crate) mod text;
 
