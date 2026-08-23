@@ -457,7 +457,7 @@ pub(super) async fn get_active_decisions(
     before: Option<&str>,
     limit: u64,
 ) -> AppResult<ActiveDecisionsResponse> {
-    servers::can_read_server(
+    servers::is_server_audience(
         database,
         server_id,
         current_user_id,

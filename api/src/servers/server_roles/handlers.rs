@@ -54,7 +54,7 @@ pub(super) async fn get_server_role(
     AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
     InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Json<ServerRolePayload>> {
-    servers::can_read_server(
+    servers::is_server_audience(
         &state.database,
         path.server_id,
         user_id,
@@ -79,7 +79,7 @@ pub(super) async fn get_server_roles(
     // current role permissions and members in order to propose changes, but
     // only by someone who can read the server. Role mutations remain
     // independently permission-gated.
-    servers::can_read_server(
+    servers::is_server_audience(
         &state.database,
         path.server_id,
         Some(user_id),
@@ -101,7 +101,7 @@ pub(super) async fn get_users_eligible_for_server_role(
     // takes read access to the server, and the candidates are that server's
     // members, so this discloses no more than the roster already does.
     // Direct membership mutations remain independently permission-gated.
-    servers::can_read_server(
+    servers::is_server_audience(
         &state.database,
         path.server_id,
         Some(user_id),

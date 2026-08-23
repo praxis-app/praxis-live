@@ -35,7 +35,7 @@ pub(super) async fn list_events(
     invite_token: Option<&str>,
     query: ListEventsQuery,
 ) -> AppResult<EventsResponse> {
-    servers::can_read_server(database, server_id, user_id, invite_token)
+    servers::is_server_audience(database, server_id, user_id, invite_token)
         .await?;
     validate_date_range(query.from, query.to)?;
 
@@ -71,7 +71,7 @@ pub(super) async fn get_event(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<EventDetailResponse> {
-    servers::can_read_server(database, server_id, user_id, invite_token)
+    servers::is_server_audience(database, server_id, user_id, invite_token)
         .await?;
     let event = load_event(database, server_id, event_id).await?;
     shape_event_detail(database, event, user_id).await
@@ -163,7 +163,7 @@ pub(super) async fn get_event_cover_photo(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<StoredEventCoverPhoto> {
-    servers::can_read_server(database, server_id, user_id, invite_token)
+    servers::is_server_audience(database, server_id, user_id, invite_token)
         .await?;
     load_event(database, server_id, event_id).await?;
     let image = event_cover_photos::Entity::find_by_id(image_id)

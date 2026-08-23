@@ -34,7 +34,7 @@ impl FromRequestParts<ServersState> for ServerViewContext {
         let InviteAccessToken(invite_token) =
             InviteAccessToken::from_request_parts(parts, state).await?;
 
-        service::can_view_server(
+        service::can_read_server(
             &state.database,
             path.server_id,
             Some(user_id),

@@ -88,7 +88,7 @@ pub(crate) async fn default_server_id(
     Ok(config.default_server_id)
 }
 
-pub(crate) async fn can_read_server(
+pub(crate) async fn is_server_audience(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Option<Uuid>,
@@ -121,16 +121,16 @@ pub(crate) async fn can_read_server(
     Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
 }
 
-// Like `can_read_server`, but also admits instance-level `Server: manage`
+// Like `is_server_audience`, but also admits instance-level `Server: manage`
 // holders, who administer servers they may never have joined (see the
 // instance "manage servers" admin panel).
-pub(super) async fn can_view_server(
+pub(super) async fn can_read_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<()> {
-    if can_read_server(database, server_id, user_id, invite_token)
+    if is_server_audience(database, server_id, user_id, invite_token)
         .await
         .is_ok()
     {
@@ -277,7 +277,7 @@ pub(super) async fn get_server_by_slug(
             ApiError::new(StatusCode::NOT_FOUND, "Server not found.")
         })?;
 
-    can_view_server(database, server.id, Some(user_id), invite_token).await?;
+    can_read_server(database, server.id, Some(user_id), invite_token).await?;
 
     let default_server_id = default_server_id(database).await?;
     shape_server(database, server, default_server_id, true, false).await
@@ -814,7 +814,7 @@ pub(super) async fn get_server_image(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<StoredServerImage> {
-    can_read_server(database, server_id, user_id, invite_token).await?;
+    is_server_audience(database, server_id, user_id, invite_token).await?;
     let image = server_images::Entity::find_by_id(image_id)
         .filter(server_images::Column::ServerId.eq(server_id))
         .one(database)

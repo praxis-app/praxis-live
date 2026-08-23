@@ -26,7 +26,7 @@ pub(super) async fn get_channels(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<Vec<ChannelResponse>> {
-    servers_service::can_read_server(
+    servers_service::is_server_audience(
         database,
         server_id,
         user_id,
@@ -278,7 +278,7 @@ pub(crate) async fn can_read_channel(
 
     // Membership is one way in, not the only one. Signing in must never take
     // away access an anonymous caller would have had, so this falls through to
-    // the same public and invite paths as `can_read_server`. Only a denial
+    // the same public and invite paths as `is_server_audience`. Only a denial
     // falls through; a lookup failure stays an error rather than quietly
     // reaching the grants below.
     if let Some(user_id) = user_id {
