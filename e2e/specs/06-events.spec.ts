@@ -118,6 +118,10 @@ const selectEventTime = async (
     .click();
 };
 
+test.beforeAll(async ({ request }) => {
+  await getOrCreateInstanceAdmin(request);
+});
+
 test('user can propose and ratify an online event with all details preserved', async ({
   context,
   page,

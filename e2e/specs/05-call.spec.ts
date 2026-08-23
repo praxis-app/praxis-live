@@ -62,6 +62,10 @@ const leaveCallIfVisible = async (page: Page) => {
   await leaveCallResponse;
 };
 
+test.beforeAll(async ({ request }) => {
+  await getOrCreateInstanceAdmin(request);
+});
+
 test('authenticated user can start a call and see a video tile', async ({
   context,
   page,

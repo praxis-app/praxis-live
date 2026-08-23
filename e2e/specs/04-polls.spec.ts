@@ -56,6 +56,10 @@ const activeDecisionsPageSize = 10;
 const channelFeedPageSize = 20;
 const totalActiveDecisions = 41;
 
+test.beforeAll(async ({ request }) => {
+  await getOrCreateInstanceAdmin(request);
+});
+
 test('authenticated user can create and vote in a poll', async ({
   context,
   page,
