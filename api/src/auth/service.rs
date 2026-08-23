@@ -130,10 +130,12 @@ pub(super) async fn create_anon_session(
     }
 
     // Spend the invite first: it is what authorizes the session.
-    crate::invites::service::redeem_invite(database, &invite_token).await?;
-    let user = users::create_anon_user(database, invite.server_id)
+    let transaction = database.begin().await.map_err(internal_error)?;
+    crate::invites::service::redeem_invite(&transaction, &invite_token).await?;
+    let user = users::create_anon_user(&transaction, invite.server_id)
         .await
         .map_err(map_create_user_error)?;
+    transaction.commit().await.map_err(internal_error)?;
 
     Ok(user)
 }

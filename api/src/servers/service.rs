@@ -50,8 +50,10 @@ pub(super) async fn can_update_server(
 ) -> AppResult<()> {
     // Instance-level authority covers any single server's settings, so fall
     // back to the server-scoped check only when it does not apply.
-    if can_manage_servers(database, user_id).await.is_ok() {
-        return Ok(());
+    match can_manage_servers(database, user_id).await {
+        Ok(()) => return Ok(()),
+        Err(error) if error.status() == StatusCode::FORBIDDEN => {}
+        Err(error) => return Err(error),
     }
 
     authz::can(
@@ -130,16 +132,17 @@ pub(super) async fn can_read_server(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<()> {
-    if is_server_audience(database, server_id, user_id, invite_token)
-        .await
-        .is_ok()
-    {
-        return Ok(());
+    match is_server_audience(database, server_id, user_id, invite_token).await {
+        Ok(()) => return Ok(()),
+        Err(error) if error.status() == StatusCode::FORBIDDEN => {}
+        Err(error) => return Err(error),
     }
 
     if let Some(user_id) = user_id {
-        if can_manage_servers(database, user_id).await.is_ok() {
-            return Ok(());
+        match can_manage_servers(database, user_id).await {
+            Ok(()) => return Ok(()),
+            Err(error) if error.status() == StatusCode::FORBIDDEN => {}
+            Err(error) => return Err(error),
         }
     }
 
@@ -508,11 +511,14 @@ pub(super) async fn get_users_eligible_for_server(
         .collect())
 }
 
-pub(super) async fn add_server_members(
-    database: &DatabaseConnection,
+pub(super) async fn add_server_members<C>(
+    database: &C,
     server_id: Uuid,
     user_ids: &[Uuid],
-) -> AppResult<()> {
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     get_server(database, server_id).await?;
 
     for user_id in user_ids {
@@ -652,8 +658,11 @@ pub(super) async fn join_server(
 
     // Spend the invite before granting membership. The other order lets a
     // caller that loses the race for the last use still end up a member.
-    crate::invites::service::redeem_invite(database, invite_token).await?;
-    add_server_members(database, server_id, &[user_id]).await?;
+    let transaction = database.begin().await.map_err(internal_error)?;
+    crate::invites::service::redeem_invite(&transaction, invite_token).await?;
+    add_server_members(&transaction, server_id, &[user_id]).await?;
+    transaction.commit().await.map_err(internal_error)?;
+
     Ok(())
 }
 
@@ -851,10 +860,13 @@ fn shape_user(
     }
 }
 
-pub(crate) async fn load_server(
-    database: &DatabaseConnection,
+pub(crate) async fn load_server<C>(
+    database: &C,
     server_id: Uuid,
-) -> AppResult<servers::Model> {
+) -> AppResult<servers::Model>
+where
+    C: ConnectionTrait,
+{
     servers::Entity::find_by_id(server_id)
         .one(database)
         .await
@@ -871,10 +883,13 @@ pub(crate) async fn ensure_server(
     load_server(database, server_id).await.map(|_| ())
 }
 
-async fn get_server(
-    database: &DatabaseConnection,
+async fn get_server<C>(
+    database: &C,
     server_id: Uuid,
-) -> AppResult<servers::Model> {
+) -> AppResult<servers::Model>
+where
+    C: ConnectionTrait,
+{
     load_server(database, server_id).await
 }
 

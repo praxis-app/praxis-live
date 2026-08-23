@@ -50,10 +50,13 @@ where
     .map_err(map_create_user_error)
 }
 
-pub(crate) async fn create_anon_user(
-    database: &DatabaseConnection,
+pub(crate) async fn create_anon_user<C>(
+    database: &C,
     server_id: Uuid,
-) -> Result<UserRecord, CreateUserError> {
+) -> Result<UserRecord, CreateUserError>
+where
+    C: ConnectionTrait,
+{
     let user_id = NativeUuid::new_v4();
     let suffix = user_id.simple().to_string()[..8].to_owned();
 
