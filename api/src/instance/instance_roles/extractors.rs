@@ -2,9 +2,7 @@
 //! permission before handlers execute.
 //!
 //! Instance roles are the highest-privilege scope in the app, and every route
-//! in this module — reads included — requires the same permission. Gating that
-//! here rather than in each handler means a new route cannot silently ship
-//! without the check.
+//! in this module — reads included — requires the same permission.
 
 use axum::{
     extract::{FromRequestParts, Path},
