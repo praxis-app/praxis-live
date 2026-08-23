@@ -1,9 +1,9 @@
 use axum::http::StatusCode;
 use entity::{channel_members, server_members, user_images, users};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr,
-    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, Set,
-    SqlErr, TransactionTrait,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
+    DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, QueryOrder, Set, SqlErr, TransactionTrait,
 };
 use std::{collections::BTreeMap, path::Path};
 use uuid::Uuid as NativeUuid;
@@ -28,12 +28,15 @@ use crate::{
 const PROFILE_PICTURE_KIND: &str = "profile-picture";
 const COVER_PHOTO_KIND: &str = "cover-photo";
 
-pub(crate) async fn create_user(
-    database: &DatabaseConnection,
+pub(crate) async fn create_user<C>(
+    database: &C,
     email: String,
     name: String,
     password_hash: String,
-) -> Result<UserRecord, CreateUserError> {
+) -> Result<UserRecord, CreateUserError>
+where
+    C: ConnectionTrait,
+{
     users::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         email: Set(Some(normalize_text(&email))),
