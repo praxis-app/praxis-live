@@ -35,6 +35,12 @@ The Rust backend under `api/src` is organized into modules divided by domain or 
 - `extractors.rs`, when present, contains custom request extraction logic.
 - Keep Rust modules, types, fields, and functions as private as possible. Use `pub(super)` or `pub(crate)` for internal access, and reserve `pub` for intentional public APIs.
 
+## Code comments
+
+- Do not add a comment for every change. Most code should read clearly on its own.
+- When a comment is warranted, keep it minimal and compact — a short line, not a block.
+- Only add a comment where the code's intent is genuinely unclear and cannot reasonably be made obvious through better naming or structure alone.
+
 ## Required verifications
 
 - After frontend changes, run `npm run lint` and fix any reported issues with code edits.
