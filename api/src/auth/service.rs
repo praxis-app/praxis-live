@@ -51,18 +51,28 @@ pub(super) async fn signup(
         None => None,
     };
     let password_hash = password_auth::generate_hash(signup.password);
-    let user =
-        users::create_user(database, signup.email, signup.name, password_hash)
-            .await
-            .map_err(map_create_user_error)?;
-
     let server_id = match &invite {
         Some(invite) => invite.server_id,
         None => servers::default_server_id(database)
             .await
             .map_err(internal_error)?,
     };
+
     let transaction = database.begin().await.map_err(internal_error)?;
+
+    if let Some(invite_token) = signup.invite_token.as_deref() {
+        crate::invites::service::redeem_invite(&transaction, invite_token)
+            .await?;
+    }
+
+    let user = users::create_user(
+        &transaction,
+        signup.email,
+        signup.name,
+        password_hash,
+    )
+    .await
+    .map_err(map_create_user_error)?;
 
     servers::add_member_to_server(&transaction, server_id, user.id)
         .await
@@ -93,10 +103,6 @@ pub(super) async fn signup(
 
     transaction.commit().await.map_err(internal_error)?;
 
-    if let Some(invite_token) = signup.invite_token.as_deref() {
-        crate::invites::service::redeem_invite(database, invite_token).await?;
-    }
-
     Ok(user)
 }
 
@@ -123,10 +129,13 @@ pub(super) async fn create_anon_session(
         ));
     }
 
-    let user = users::create_anon_user(database, invite.server_id)
+    // Spend the invite first: it is what authorizes the session.
+    let transaction = database.begin().await.map_err(internal_error)?;
+    crate::invites::service::redeem_invite(&transaction, &invite_token).await?;
+    let user = users::create_anon_user(&transaction, invite.server_id)
         .await
         .map_err(map_create_user_error)?;
-    crate::invites::service::redeem_invite(database, &invite_token).await?;
+    transaction.commit().await.map_err(internal_error)?;
 
     Ok(user)
 }

@@ -1,9 +1,9 @@
 use axum::http::StatusCode;
 use entity::{channel_members, server_members, user_images, users};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr,
-    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, Set,
-    SqlErr, TransactionTrait,
+    prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
+    DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, QueryOrder, Set, SqlErr, TransactionTrait,
 };
 use std::{collections::BTreeMap, path::Path};
 use uuid::Uuid as NativeUuid;
@@ -28,12 +28,15 @@ use crate::{
 const PROFILE_PICTURE_KIND: &str = "profile-picture";
 const COVER_PHOTO_KIND: &str = "cover-photo";
 
-pub(crate) async fn create_user(
-    database: &DatabaseConnection,
+pub(crate) async fn create_user<C>(
+    database: &C,
     email: String,
     name: String,
     password_hash: String,
-) -> Result<UserRecord, CreateUserError> {
+) -> Result<UserRecord, CreateUserError>
+where
+    C: ConnectionTrait,
+{
     users::ActiveModel {
         id: Set(NativeUuid::new_v4()),
         email: Set(Some(normalize_text(&email))),
@@ -47,10 +50,13 @@ pub(crate) async fn create_user(
     .map_err(map_create_user_error)
 }
 
-pub(crate) async fn create_anon_user(
-    database: &DatabaseConnection,
+pub(crate) async fn create_anon_user<C>(
+    database: &C,
     server_id: Uuid,
-) -> Result<UserRecord, CreateUserError> {
+) -> Result<UserRecord, CreateUserError>
+where
+    C: ConnectionTrait,
+{
     let user_id = NativeUuid::new_v4();
     let suffix = user_id.simple().to_string()[..8].to_owned();
 
@@ -117,6 +123,23 @@ pub(crate) async fn get_user_by_id(
         .one(database)
         .await
         .map(|user| user.map(Into::into))
+}
+
+/// Reports whether the account behind a validated JWT is anonymous. Callers
+/// that gate a feature on registration own the resulting error, since some
+/// rules (test proposals) admit anonymous users conditionally.
+pub(crate) async fn is_anonymous_user(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<bool> {
+    let user = get_user_by_id(database, user_id)
+        .await
+        .map_err(internal_error)?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
+        })?;
+
+    Ok(user.anonymous)
 }
 
 pub(crate) async fn authenticate(
@@ -191,8 +214,18 @@ pub(crate) async fn is_first_user(
 
 pub(super) async fn get_user_profile(
     database: &DatabaseConnection,
+    current_user_id: Option<Uuid>,
     user_id: Uuid,
+    invite_token: Option<&str>,
 ) -> AppResult<UserProfileResponse> {
+    authorize_user_profile_access(
+        database,
+        current_user_id,
+        user_id,
+        invite_token,
+    )
+    .await?;
+
     let user = users::Entity::find_by_id(user_id)
         .one(database)
         .await
@@ -465,6 +498,37 @@ pub(super) async fn is_default_server_member(
         .map_err(internal_error)?;
 
     Ok(membership.is_some())
+}
+
+// Follows the same rules `authorize_user_image_access` applies to a user's
+// images: a profile is public when its owner belongs to the default server,
+// and otherwise visible to the owner, to anyone sharing a channel with them,
+// and to callers holding an invite to a server the owner belongs to.
+async fn authorize_user_profile_access(
+    database: &DatabaseConnection,
+    current_user_id: Option<Uuid>,
+    user_id: Uuid,
+    invite_token: Option<&str>,
+) -> AppResult<()> {
+    if current_user_id == Some(user_id)
+        || is_default_server_member(database, user_id).await?
+        || is_member_of_invited_server(database, invite_token, user_id).await?
+    {
+        return Ok(());
+    }
+
+    let shared_channel = match current_user_id {
+        Some(current_user_id) => {
+            has_shared_channel(database, current_user_id, user_id).await?
+        }
+        None => false,
+    };
+
+    if shared_channel {
+        Ok(())
+    } else {
+        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+    }
 }
 
 async fn authorize_user_image_access(

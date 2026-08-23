@@ -6,20 +6,20 @@ use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 use super::{
+    extractors::{CanCreateInviteContext, CanManageInviteContext},
     service,
     types::{
-        InvitePath, InvitePayload, InviteRequest, InviteValidityResponse,
-        InvitesPayload, ServerPath,
+        InvitePayload, InviteRequest, InviteValidityResponse, InvitesPayload,
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, HasJwtSecret},
+    auth::HasJwtSecret,
     common::{response::EmptyResponse, AppResult},
 };
 
 #[derive(Clone, Debug)]
 pub(super) struct InvitesState {
-    database: DatabaseConnection,
+    pub(super) database: DatabaseConnection,
     jwt_secret: Arc<str>,
 }
 
@@ -50,31 +50,24 @@ pub(super) async fn is_valid_invite(
     Ok(Json(InviteValidityResponse { is_valid_invite }))
 }
 
-// TODO: This and `create_invite`/`delete_invite` below only check that the
-// caller is logged in, not that they belong to or manage this server — the
-// service layer performs no such check either. `get_invites` in particular
-// returns live invite tokens, which double as server join credentials, to
-// any authenticated user for any server. Confirm whether that's intentional.
 pub(super) async fn get_invites(
     State(state): State<InvitesState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    context: CanCreateInviteContext,
 ) -> AppResult<Json<InvitesPayload>> {
     let invites =
-        service::get_valid_invites(&state.database, path.server_id).await?;
+        service::get_valid_invites(&state.database, context.server_id).await?;
     Ok(Json(InvitesPayload { invites }))
 }
 
 pub(super) async fn create_invite(
     State(state): State<InvitesState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: CanCreateInviteContext,
     Json(payload): Json<InviteRequest>,
 ) -> AppResult<Json<InvitePayload>> {
     let invite = service::create_invite(
         &state.database,
-        path.server_id,
-        user_id,
+        context.server_id,
+        context.user_id,
         payload,
     )
     .await?;
@@ -83,10 +76,13 @@ pub(super) async fn create_invite(
 
 pub(super) async fn delete_invite(
     State(state): State<InvitesState>,
-    Path(path): Path<InvitePath>,
-    AuthenticatedUser(_user_id): AuthenticatedUser,
+    context: CanManageInviteContext,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::delete_invite(&state.database, path.server_id, path.invite_id)
-        .await?;
+    service::delete_invite(
+        &state.database,
+        context.server_id,
+        context.invite_id,
+    )
+    .await?;
     Ok(Json(EmptyResponse {}))
 }

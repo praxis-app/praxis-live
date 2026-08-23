@@ -107,6 +107,17 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
         let AuthenticatedUserOptional(current_user_id) =
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
 
+        // Authorize before resolving the option, so a refused caller cannot
+        // tell an option that exists from one that does not
+        service::can_read_poll_option(
+            &state.database,
+            path.server_id,
+            path.channel_id,
+            path.poll_id,
+            current_user_id,
+            invite_token.as_deref(),
+        )
+        .await?;
         polls_service::load_poll(
             &state.database,
             path.server_id,
@@ -118,15 +129,6 @@ impl FromRequestParts<PollsState> for ReadablePollOptionContext {
             &state.database,
             path.poll_id,
             path.poll_option_id,
-        )
-        .await?;
-        service::ensure_can_read_poll_option(
-            &state.database,
-            path.server_id,
-            path.channel_id,
-            path.poll_id,
-            current_user_id,
-            invite_token.as_deref(),
         )
         .await?;
 
@@ -172,9 +174,9 @@ async fn load_vote_route_context(
             "Poll is no longer accepting votes.",
         ));
     }
-    channels::ensure_channel_membership(&state.database, channel_id, user_id)
+    channels::ensure_channel_member(&state.database, channel_id, user_id)
         .await?;
-    service::ensure_anonymous_can_vote_on_poll(&state.database, user_id, &poll)
+    service::can_vote_anonymously_on_poll(&state.database, user_id, &poll)
         .await?;
 
     Ok(VoteRouteContext {

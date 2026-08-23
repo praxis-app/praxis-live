@@ -88,9 +88,17 @@ pub(super) async fn is_first_user(
 pub(super) async fn get_user_profile(
     State(state): State<UsersState>,
     Path(user_id): Path<String>,
+    AuthenticatedUserOptional(current_user_id): AuthenticatedUserOptional,
+    InviteAccessToken(invite_token): InviteAccessToken,
 ) -> AppResult<Json<UserProfilePayload>> {
     let user_id = parse_uuid(&user_id, "userId")?;
-    let user = service::get_user_profile(&state.database, user_id).await?;
+    let user = service::get_user_profile(
+        &state.database,
+        current_user_id,
+        user_id,
+        invite_token.as_deref(),
+    )
+    .await?;
 
     Ok(Json(UserProfilePayload { user }))
 }

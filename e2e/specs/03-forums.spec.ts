@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { authorizationHeaders, createAuthenticatedUser } from '../lib/auth';
+import {
+  authorizationHeaders,
+  createAuthenticatedUser,
+  getOrCreateInstanceAdmin,
+} from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { createForumChannel, createForumPosts } from '../lib/forums';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
@@ -33,9 +37,10 @@ test('forum post list loads every page when scrolled to the bottom', async ({
     createTestUser('forum-scroll'),
   );
   const server = await getDefaultServer(request, user);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
   const forumChannel = await createForumChannel(
     request,
-    user,
+    instanceAdmin,
     server.id,
     `forum-scroll-${user.user.suffix}`,
   );
@@ -103,13 +108,14 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
   );
   const server = await getDefaultServer(request, proposer);
   const forumChannelName = `forum-${proposer.user.suffix}`;
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
   const forumChannel = await createForumChannel(
     request,
-    proposer,
+    instanceAdmin,
     server.id,
     forumChannelName,
   );
-  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  await makeProposalsRatifyWithOneAgreeVote(request, instanceAdmin, server.id);
 
   const proposalBody = `Move proposal ${proposer.user.suffix}`;
   const reply = `Moved proposal reply ${proposer.user.suffix}`;
@@ -248,13 +254,14 @@ test('user can turn a forum discussion into a ratified proposal', async ({
   );
   const server = await getDefaultServer(request, proposer);
   const forumChannelName = `forum-${proposer.user.suffix}`;
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
   const forumChannel = await createForumChannel(
     request,
-    proposer,
+    instanceAdmin,
     server.id,
     forumChannelName,
   );
-  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  await makeProposalsRatifyWithOneAgreeVote(request, instanceAdmin, server.id);
 
   const postTitle = `Forum discussion ${proposer.user.suffix}`;
   const postBody = `Opening message ${proposer.user.suffix}`;

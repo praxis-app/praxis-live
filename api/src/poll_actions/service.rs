@@ -58,6 +58,7 @@ pub(crate) async fn create_poll_action<C: ConnectionTrait>(
                 roles::create_poll_action_role(
                     database,
                     action.id,
+                    server_id,
                     server_role,
                 )
                 .await?;
@@ -161,7 +162,8 @@ pub(crate) async fn implement_poll_action_in_transaction(
 
     match action.action_type {
         PollActionType::ChangeRole => {
-            roles::implement_change_server_role(transaction, action.id).await?
+            roles::implement_change_server_role(transaction, poll_id, action.id)
+                .await?
         }
         PollActionType::CreateRole => {
             roles::implement_create_server_role(transaction, poll_id, action.id)

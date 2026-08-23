@@ -199,9 +199,11 @@ pub(super) async fn delete_vote(
 
 pub(super) async fn get_voters_by_poll_option(
     database: &DatabaseConnection,
-    _poll_id: Uuid,
+    poll_id: Uuid,
     poll_option_id: Uuid,
 ) -> AppResult<Vec<PollOptionVoterResponse>> {
+    ensure_poll_option_exists(database, poll_id, poll_option_id).await?;
+
     let selections = poll_option_selections::Entity::find()
         .filter(poll_option_selections::Column::PollOptionId.eq(poll_option_id))
         .all(database)
@@ -241,7 +243,7 @@ pub(super) async fn get_voters_by_poll_option(
         .collect())
 }
 
-pub(super) async fn ensure_can_read_poll_option(
+pub(super) async fn can_read_poll_option(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -250,10 +252,9 @@ pub(super) async fn ensure_can_read_poll_option(
     invite_token: Option<&str>,
 ) -> AppResult<()> {
     if let Some(user_id) = current_user_id {
-        return channels::ensure_channel_membership(
-            database, channel_id, user_id,
-        )
-        .await;
+        if channels::is_channel_member(database, channel_id, user_id).await? {
+            return Ok(());
+        }
     }
 
     if polls_service::is_public_channel_poll(
@@ -333,7 +334,7 @@ fn validate_vote_request(
     Ok(())
 }
 
-pub(super) async fn ensure_anonymous_can_vote_on_poll(
+pub(super) async fn can_vote_anonymously_on_poll(
     database: &DatabaseConnection,
     user_id: Uuid,
     poll: &polls::Model,
@@ -342,14 +343,7 @@ pub(super) async fn ensure_anonymous_can_vote_on_poll(
         return Ok(());
     }
 
-    let user = users::Entity::find_by_id(user_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::UNAUTHORIZED, "Authentication required.")
-        })?;
-    if !user.anonymous {
+    if !users_service::is_anonymous_user(database, user_id).await? {
         return Ok(());
     }
 

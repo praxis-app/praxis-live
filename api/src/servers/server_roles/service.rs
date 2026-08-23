@@ -13,18 +13,17 @@ use uuid::Uuid as NativeUuid;
 
 use super::types::{RoleRequest, ServerRoleResponse};
 use crate::{
-    common::{
-        roles::{
-            validate_permissions, PermissionMap, PermissionRule,
-            ADMIN_ROLE_NAME, DEFAULT_ROLE_COLOR,
-        },
-        text::sanitize_text,
-        ApiError, AppResult,
+    authz::{
+        validate_permissions, PermissionMap, PermissionRule, ADMIN_ROLE_NAME,
+        DEFAULT_ROLE_COLOR,
     },
+    common::{text::sanitize_text, ApiError, AppResult},
     servers::{self, types::UserResponse},
     users as users_service,
 };
 
+// NOTE: `Message` is reserved for future moderation permissions and is
+// not enforced yet, so granting it currently changes nothing.
 const SERVER_SUBJECTS: &[&str] = &[
     "ServerConfig",
     "Channel",
@@ -126,13 +125,22 @@ pub(super) async fn get_users_eligible_for_server_role(
     let member_ids: Vec<Uuid> =
         memberships.iter().map(|item| item.user_id).collect();
 
-    let mut query = users::Entity::find();
-    if !member_ids.is_empty() {
-        query = query.filter(users::Column::Id.is_not_in(member_ids));
+    let user_ids: Vec<Uuid> =
+        servers::service::get_server_member_user_ids(database, server_id)
+            .await?
+            .into_iter()
+            .filter(|user_id| !member_ids.contains(user_id))
+            .collect();
+
+    if user_ids.is_empty() {
+        return Ok(vec![]);
     }
 
-    let users = query.all(database).await.map_err(internal_error)?;
-    let user_ids: Vec<Uuid> = users.iter().map(|user| user.id).collect();
+    let users = users::Entity::find()
+        .filter(users::Column::Id.is_in(user_ids.clone()))
+        .all(database)
+        .await
+        .map_err(internal_error)?;
     let profile_pictures =
         users_service::get_user_profile_pictures_map(database, &user_ids)
             .await?;
@@ -235,7 +243,7 @@ pub(super) async fn update_server_role_permissions(
     role_id: Uuid,
     permissions: Vec<PermissionRule>,
 ) -> AppResult<()> {
-    validate_permissions(&permissions, SERVER_SUBJECTS).await?;
+    validate_permissions(&permissions, SERVER_SUBJECTS)?;
     load_server_role(database, server_id, role_id).await?;
     set_permissions(database, role_id, &permissions).await
 }
@@ -252,10 +260,22 @@ pub(super) async fn add_server_role_members(
             .one(database)
             .await
             .map_err(internal_error)?
-            .is_some()
+            .is_none()
         {
-            add_member(database, role_id, *user_id).await?;
+            continue;
         }
+
+        // A server role only grants standing within its own server, so it
+        // cannot be handed to someone who has not joined that server. The
+        // proposal path enforces the same rule in `poll_actions::roles`.
+        if !servers::is_server_member(database, server_id, *user_id).await? {
+            return Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Server roles can only be granted to server members.",
+            ));
+        }
+
+        add_member(database, role_id, *user_id).await?;
     }
     Ok(())
 }

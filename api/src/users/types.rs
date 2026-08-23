@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use super::models::UserRecord;
-use crate::{common::roles::PermissionRule, servers::types::ServerResponse};
+use crate::{authz::PermissionRule, servers::types::ServerResponse};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -4,25 +4,21 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
-import { authorizationHeaders, type AuthenticatedUser } from './auth';
+import { type AuthenticatedUser } from './auth';
 import { assertUuid, runDatabaseCommand } from './db';
+import { updateServerConfig } from './servers';
 
 export async function makeProposalsRatifyWithOneAgreeVote(
   request: APIRequestContext,
-  user: AuthenticatedUser,
+  admin: AuthenticatedUser,
   serverId: string,
 ) {
-  const response = await request.put(`/api/servers/${serverId}/configs`, {
-    headers: authorizationHeaders(user),
-    data: {
-      decisionMakingModel: 'majority-vote',
-      agreementThreshold: 51,
-      quorumEnabled: false,
-      votingTimeLimit: 0,
-    },
+  await updateServerConfig(request, admin, serverId, {
+    decisionMakingModel: 'majority-vote',
+    agreementThreshold: 51,
+    quorumEnabled: false,
+    votingTimeLimit: 0,
   });
-
-  await expect(response).toBeOK();
 }
 
 export async function shortenNextPollDuration(

@@ -19,9 +19,10 @@ use super::types::{
     StoredServerImage, UserResponse,
 };
 use crate::{
+    authz::{self, PermissionScope},
     cache::CacheService,
     channels as channels_service,
-    common::{roles::PermissionRule, ApiError, AppResult},
+    common::{ApiError, AppResult},
     instance, users as users_service,
 };
 
@@ -42,51 +43,44 @@ pub(crate) use super::server_configs::{
 
 const INITIAL_SERVER_NAME: &str = "praxis";
 
-pub(super) async fn ensure_can_update_server(
+pub(super) async fn can_update_server(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,
 ) -> AppResult<()> {
-    let instance_permissions =
-        crate::instance::instance_roles::service::get_permissions_by_user(
-            database, user_id,
-        )
-        .await?;
-    if has_manage_permission(&instance_permissions, "Server") {
-        return Ok(());
+    // Instance-level authority covers any single server's settings, so fall
+    // back to the server-scoped check only when it does not apply.
+    match can_manage_servers(database, user_id).await {
+        Ok(()) => return Ok(()),
+        Err(error) if error.status() == StatusCode::FORBIDDEN => {}
+        Err(error) => return Err(error),
     }
 
-    ensure_can_manage_server_settings(database, user_id, server_id).await
-}
-
-pub(super) async fn ensure_can_manage_server_settings(
-    database: &DatabaseConnection,
-    user_id: Uuid,
-    server_id: Uuid,
-) -> AppResult<()> {
-    let permissions = super::server_roles::service::get_permissions_by_user(
-        database, user_id,
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "ServerConfig",
+        PermissionScope::Server(server_id),
     )
-    .await?;
-    let can_manage = permissions
-        .get(&server_id.to_string())
-        .is_some_and(|rules| has_manage_permission(rules, "ServerConfig"));
-
-    if can_manage {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
+    .await
 }
 
-fn has_manage_permission(
-    permissions: &[PermissionRule],
-    subject: &str,
-) -> bool {
-    permissions.iter().any(|permission| {
-        (permission.subject == subject || permission.subject == "all")
-            && permission.action.iter().any(|action| action == "manage")
-    })
+// Instance-level authority over servers themselves: creating them and
+// designating the instance default. Server-scoped `ServerConfig: manage`
+// deliberately does not satisfy this.
+pub(super) async fn can_manage_servers(
+    database: &DatabaseConnection,
+    user_id: Uuid,
+) -> AppResult<()> {
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "Server",
+        PermissionScope::Instance,
+    )
+    .await
 }
 
 pub(crate) async fn default_server_id(
@@ -96,7 +90,7 @@ pub(crate) async fn default_server_id(
     Ok(config.default_server_id)
 }
 
-pub(crate) async fn ensure_server_read_access(
+pub(crate) async fn is_server_audience(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Option<Uuid>,
@@ -105,13 +99,7 @@ pub(crate) async fn ensure_server_read_access(
     ensure_server(database, server_id).await?;
 
     if let Some(user_id) = user_id {
-        let membership = server_members::Entity::find()
-            .filter(server_members::Column::ServerId.eq(server_id))
-            .filter(server_members::Column::UserId.eq(user_id))
-            .one(database)
-            .await
-            .map_err(internal_error)?;
-        if membership.is_some() {
+        if is_server_member(database, server_id, user_id).await? {
             return Ok(());
         }
     }
@@ -129,6 +117,32 @@ pub(crate) async fn ensure_server_read_access(
         .await?
         {
             return Ok(());
+        }
+    }
+
+    Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
+}
+
+// Like `is_server_audience`, but also admits instance-level `Server: manage`
+// holders, who administer servers they may never have joined (see the
+// instance "manage servers" admin panel).
+pub(super) async fn can_read_server(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    user_id: Option<Uuid>,
+    invite_token: Option<&str>,
+) -> AppResult<()> {
+    match is_server_audience(database, server_id, user_id, invite_token).await {
+        Ok(()) => return Ok(()),
+        Err(error) if error.status() == StatusCode::FORBIDDEN => {}
+        Err(error) => return Err(error),
+    }
+
+    if let Some(user_id) = user_id {
+        match can_manage_servers(database, user_id).await {
+            Ok(()) => return Ok(()),
+            Err(error) if error.status() == StatusCode::FORBIDDEN => {}
+            Err(error) => return Err(error),
         }
     }
 
@@ -248,9 +262,14 @@ pub(super) async fn get_server_by_id(
     .await
 }
 
+// Unlike its `ServerPath` siblings, this cannot be gated by `CanReadServerContext`:
+// the server id is not known until the slug is resolved, so the access check
+// lives here, immediately after the lookup and before anything is shaped.
 pub(super) async fn get_server_by_slug(
     database: &DatabaseConnection,
     slug: &str,
+    user_id: Uuid,
+    invite_token: Option<&str>,
 ) -> AppResult<ServerResponse> {
     let server = servers::Entity::find()
         .filter(servers::Column::Slug.eq(slug))
@@ -260,6 +279,8 @@ pub(super) async fn get_server_by_slug(
         .ok_or_else(|| {
             ApiError::new(StatusCode::NOT_FOUND, "Server not found.")
         })?;
+
+    can_read_server(database, server.id, Some(user_id), invite_token).await?;
 
     let default_server_id = default_server_id(database).await?;
     shape_server(database, server, default_server_id, true, false).await
@@ -335,9 +356,16 @@ pub(super) async fn update_server(
     database: &DatabaseConnection,
     upload_root: &Path,
     server_id: Uuid,
+    user_id: Uuid,
     request: ServerRequest,
     image: Option<Vec<u8>>,
 ) -> AppResult<ServerResponse> {
+    // The caller already holds authority over this server, but the default
+    // server is instance-wide state and needs instance-level authority.
+    if request.is_default_server.unwrap_or(false) {
+        can_manage_servers(database, user_id).await?;
+    }
+
     if let Some(image) = image.as_deref() {
         crate::common::images::validate_raster(image, "Server image")?;
     }
@@ -395,21 +423,31 @@ pub(super) async fn delete_server(
     Ok(())
 }
 
-pub(super) async fn get_server_members(
+// The membership roster in join order. Callers that need to scope a list of
+// users to one server should start here rather than querying `users` directly.
+pub(super) async fn get_server_member_user_ids(
     database: &DatabaseConnection,
     server_id: Uuid,
-) -> AppResult<Vec<UserResponse>> {
-    get_server(database, server_id).await?;
+) -> AppResult<Vec<Uuid>> {
     let memberships = server_members::Entity::find()
         .filter(server_members::Column::ServerId.eq(server_id))
         .order_by_asc(server_members::Column::CreatedAt)
         .all(database)
         .await
         .map_err(internal_error)?;
-    let user_ids: Vec<Uuid> = memberships
-        .iter()
+
+    Ok(memberships
+        .into_iter()
         .map(|membership| membership.user_id)
-        .collect();
+        .collect())
+}
+
+pub(super) async fn get_server_members(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+) -> AppResult<Vec<UserResponse>> {
+    get_server(database, server_id).await?;
+    let user_ids = get_server_member_user_ids(database, server_id).await?;
 
     if user_ids.is_empty() {
         return Ok(vec![]);
@@ -468,11 +506,14 @@ pub(super) async fn get_users_eligible_for_server(
         .collect())
 }
 
-pub(super) async fn add_server_members(
-    database: &DatabaseConnection,
+pub(super) async fn add_server_members<C>(
+    database: &C,
     server_id: Uuid,
     user_ids: &[Uuid],
-) -> AppResult<()> {
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
     get_server(database, server_id).await?;
 
     for user_id in user_ids {
@@ -495,6 +536,26 @@ pub(super) async fn add_server_members(
     Ok(())
 }
 
+// The single source of truth for server membership. Anything that grants
+// server-scoped standing — roles, invites, read access — must agree on it.
+pub(crate) async fn is_server_member<C>(
+    database: &C,
+    server_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
+    let membership = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .filter(server_members::Column::UserId.eq(user_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(membership.is_some())
+}
+
 pub(crate) async fn add_member_to_server<C>(
     database: &C,
     server_id: Uuid,
@@ -503,15 +564,7 @@ pub(crate) async fn add_member_to_server<C>(
 where
     C: ConnectionTrait,
 {
-    let exists = server_members::Entity::find()
-        .filter(server_members::Column::ServerId.eq(server_id))
-        .filter(server_members::Column::UserId.eq(user_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .is_some();
-
-    if exists {
+    if is_server_member(database, server_id, user_id).await? {
         return Ok(());
     }
 
@@ -598,8 +651,13 @@ pub(super) async fn join_server(
         ));
     }
 
-    add_server_members(database, server_id, &[user_id]).await?;
-    crate::invites::service::redeem_invite(database, invite_token).await?;
+    // Spend the invite before granting membership. The other order lets a
+    // caller that loses the race for the last use still end up a member.
+    let transaction = database.begin().await.map_err(internal_error)?;
+    crate::invites::service::redeem_invite(&transaction, invite_token).await?;
+    add_server_members(&transaction, server_id, &[user_id]).await?;
+    transaction.commit().await.map_err(internal_error)?;
+
     Ok(())
 }
 
@@ -760,8 +818,7 @@ pub(super) async fn get_server_image(
     user_id: Option<Uuid>,
     invite_token: Option<&str>,
 ) -> AppResult<StoredServerImage> {
-    ensure_server_read_access(database, server_id, user_id, invite_token)
-        .await?;
+    is_server_audience(database, server_id, user_id, invite_token).await?;
     let image = server_images::Entity::find_by_id(image_id)
         .filter(server_images::Column::ServerId.eq(server_id))
         .one(database)
@@ -798,10 +855,13 @@ fn shape_user(
     }
 }
 
-pub(crate) async fn load_server(
-    database: &DatabaseConnection,
+pub(crate) async fn load_server<C>(
+    database: &C,
     server_id: Uuid,
-) -> AppResult<servers::Model> {
+) -> AppResult<servers::Model>
+where
+    C: ConnectionTrait,
+{
     servers::Entity::find_by_id(server_id)
         .one(database)
         .await
@@ -818,10 +878,13 @@ pub(crate) async fn ensure_server(
     load_server(database, server_id).await.map(|_| ())
 }
 
-async fn get_server(
-    database: &DatabaseConnection,
+async fn get_server<C>(
+    database: &C,
     server_id: Uuid,
-) -> AppResult<servers::Model> {
+) -> AppResult<servers::Model>
+where
+    C: ConnectionTrait,
+{
     load_server(database, server_id).await
 }
 

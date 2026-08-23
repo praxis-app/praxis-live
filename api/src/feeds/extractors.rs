@@ -47,7 +47,7 @@ where
         let InviteAccessToken(invite_token) =
             InviteAccessToken::from_request_parts(parts, state).await?;
 
-        channels::ensure_channel_read_access(
+        channels::can_read_channel(
             state.database(),
             path.server_id,
             path.channel_id,
@@ -84,7 +84,7 @@ where
         let InviteAccessToken(invite_token) =
             InviteAccessToken::from_request_parts(parts, state).await?;
 
-        channels::ensure_channel_read_access(
+        channels::can_read_channel(
             state.database(),
             path.server_id,
             path.channel_id,

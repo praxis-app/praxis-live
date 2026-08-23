@@ -42,7 +42,7 @@ where
             path.channel_id,
         )
         .await?;
-        channels::ensure_channel_membership(
+        channels::ensure_channel_member(
             state.database(),
             path.channel_id,
             user_id,

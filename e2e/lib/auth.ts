@@ -10,6 +10,8 @@ import {
   type TestUser,
 } from './data';
 import { createInvite } from './invites';
+import { SERVER_PERMISSIONS } from './permissions';
+import { grantServerPermissions } from './server-roles';
 import { enableAnonymousUsers, getDefaultServer } from './servers';
 
 export type AuthenticatedUser = {
@@ -132,8 +134,9 @@ export async function createAuthenticatedUser(
   request: APIRequestContext,
   context: BrowserContext,
   user: TestUser = createTestUser(),
+  inviteToken?: string,
 ) {
-  const authenticatedUser = await signUpViaApi(request, user);
+  const authenticatedUser = await signUpViaApi(request, user, inviteToken);
   await seedAuthenticatedSession(context, authenticatedUser.accessToken);
 
   return authenticatedUser;
@@ -144,12 +147,21 @@ export async function setupAnonymousInvite(
   context: BrowserContext,
   adminLabel: string,
 ): Promise<AnonymousAuthSetup> {
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
   const admin = await createAuthenticatedUser(
     request,
     context,
     createTestUser(adminLabel),
   );
   const server = await getDefaultServer(request, admin);
+  await grantServerPermissions(
+    request,
+    instanceAdmin,
+    admin,
+    server.id,
+    [SERVER_PERMISSIONS.manageConfig, SERVER_PERMISSIONS.createInvites],
+    adminLabel,
+  );
   await enableAnonymousUsers(request, admin, server.id);
   const inviteToken = await createInvite(request, admin, server.id);
 

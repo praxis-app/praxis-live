@@ -44,7 +44,7 @@ where
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
         let InviteAccessToken(invite_token) =
             InviteAccessToken::from_request_parts(parts, state).await?;
-        ensure_forum_read_access(
+        can_read_forum_channel(
             state,
             path.server_id,
             path.channel_id,
@@ -74,7 +74,7 @@ where
             AuthenticatedUserOptional::from_request_parts(parts, state).await?;
         let InviteAccessToken(invite_token) =
             InviteAccessToken::from_request_parts(parts, state).await?;
-        ensure_forum_read_access(
+        can_read_forum_channel(
             state,
             path.server_id,
             path.channel_id,
@@ -119,8 +119,13 @@ where
         let Path(path) = forum_channel_path(parts, state).await?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
-        ensure_forum_access(state, path.server_id, path.channel_id, user_id)
-            .await?;
+        is_forum_channel_member(
+            state,
+            path.server_id,
+            path.channel_id,
+            user_id,
+        )
+        .await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -143,8 +148,13 @@ where
         let Path(path) = forum_post_path(parts, state).await?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
-        ensure_forum_access(state, path.server_id, path.channel_id, user_id)
-            .await?;
+        is_forum_channel_member(
+            state,
+            path.server_id,
+            path.channel_id,
+            user_id,
+        )
+        .await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -179,7 +189,7 @@ where
         .map_err(|_| invalid_route_path())
 }
 
-async fn ensure_forum_read_access<S>(
+async fn can_read_forum_channel<S>(
     state: &S,
     server_id: Uuid,
     channel_id: Uuid,
@@ -190,7 +200,7 @@ where
     S: HasDatabase + Send + Sync,
 {
     ensure_forum_channel(state, server_id, channel_id).await?;
-    channels::ensure_channel_read_access(
+    channels::can_read_channel(
         state.database(),
         server_id,
         channel_id,
@@ -221,8 +231,13 @@ where
                 })?;
         let AuthenticatedUser(user_id) =
             AuthenticatedUser::from_request_parts(parts, state).await?;
-        ensure_forum_access(state, path.server_id, path.channel_id, user_id)
-            .await?;
+        is_forum_channel_member(
+            state,
+            path.server_id,
+            path.channel_id,
+            user_id,
+        )
+        .await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -234,7 +249,7 @@ where
     }
 }
 
-async fn ensure_forum_access<S>(
+async fn is_forum_channel_member<S>(
     state: &S,
     server_id: Uuid,
     channel_id: Uuid,
@@ -244,7 +259,7 @@ where
     S: HasDatabase + Send + Sync,
 {
     ensure_forum_channel(state, server_id, channel_id).await?;
-    channels::ensure_channel_membership(state.database(), channel_id, user_id)
+    channels::ensure_channel_member(state.database(), channel_id, user_id)
         .await?;
     Ok(())
 }

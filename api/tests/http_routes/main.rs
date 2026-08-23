@@ -3,5 +3,5 @@ mod support;
 
 mod auth;
 mod chat;
-mod health;
+mod permissions;
 mod polls;

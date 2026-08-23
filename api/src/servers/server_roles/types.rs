@@ -1,6 +1,7 @@
+use sea_orm::prelude::Uuid;
 use serde::{Deserialize, Serialize};
 
-use crate::{common::roles::PermissionRule, servers::types::UserResponse};
+use crate::{authz::PermissionRule, servers::types::UserResponse};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,4 +43,19 @@ pub(super) struct ServerRolePayload {
 #[serde(rename_all = "camelCase")]
 pub(super) struct ServerRolesPayload {
     pub(super) server_roles: Vec<ServerRoleResponse>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ServerRolePath {
+    pub(super) server_id: Uuid,
+    pub(super) server_role_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ServerRoleMemberPath {
+    pub(super) server_id: Uuid,
+    pub(super) server_role_id: Uuid,
+    pub(super) user_id: Uuid,
 }

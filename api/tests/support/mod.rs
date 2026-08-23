@@ -77,6 +77,24 @@ impl TestApp {
         self.request(Method::GET, uri, Body::empty(), None).await
     }
 
+    pub(crate) async fn get_with_bearer(
+        &self,
+        uri: &str,
+        token: &str,
+    ) -> Response<Body> {
+        self.request(Method::GET, uri, Body::empty(), Some(token))
+            .await
+    }
+
+    pub(crate) async fn delete_with_bearer(
+        &self,
+        uri: &str,
+        token: &str,
+    ) -> Response<Body> {
+        self.request(Method::DELETE, uri, Body::empty(), Some(token))
+            .await
+    }
+
     pub(crate) async fn post_json<T: Serialize>(
         &self,
         uri: &str,

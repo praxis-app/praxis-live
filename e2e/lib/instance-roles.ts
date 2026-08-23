@@ -1,37 +1,27 @@
-import { expect, type APIRequestContext } from '@playwright/test';
-import { authorizationHeaders, type AuthenticatedUser } from './auth';
+import { type APIRequestContext } from '@playwright/test';
+import { getOrCreateInstanceAdmin, type AuthenticatedUser } from './auth';
+import { grantViaNewRole, type PermissionRule } from './permissions';
 
-type InstanceRole = {
-  id: string;
-  name: string;
-};
+const INSTANCE_ROLES_PATH = '/api/instance/roles';
 
-type InstanceRolesResponse = {
-  instanceRoles: InstanceRole[];
-};
-
-export async function grantInstanceAdminRole(
+export async function grantInstancePermissions(
   request: APIRequestContext,
-  instanceAdmin: AuthenticatedUser,
   user: AuthenticatedUser,
+  permissions: PermissionRule[],
+  label: string,
 ) {
-  const rolesResponse = await request.get('/api/instance/roles', {
-    headers: authorizationHeaders(instanceAdmin),
-  });
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  if (instanceAdmin.userId === user.userId) {
+    return;
+  }
 
-  await expect(rolesResponse).toBeOK();
-  const { instanceRoles } =
-    (await rolesResponse.json()) as InstanceRolesResponse;
-  const adminRole = instanceRoles.find((role) => role.name === 'admin');
-  expect(adminRole).toBeTruthy();
-
-  const membershipResponse = await request.post(
-    `/api/instance/roles/${adminRole!.id}/members`,
-    {
-      headers: authorizationHeaders(instanceAdmin),
-      data: { userIds: [user.userId] },
-    },
+  await grantViaNewRole(
+    request,
+    instanceAdmin,
+    INSTANCE_ROLES_PATH,
+    'instanceRole',
+    user,
+    permissions,
+    label,
   );
-
-  await expect(membershipResponse).toBeOK();
 }

@@ -15,6 +15,7 @@ use super::types::{
     ChannelOrderRequest, ChannelRequest, ChannelResponse, ChannelServer,
 };
 use crate::{
+    authz::{self, PermissionScope},
     common::{encryption, text::sanitize_text, ApiError, AppResult},
     servers as servers_service,
 };
@@ -23,8 +24,6 @@ pub(super) async fn get_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
 ) -> AppResult<Vec<ChannelResponse>> {
-    servers_service::ensure_server(database, server_id).await?;
-
     let server = servers_service::load_server(database, server_id).await?;
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
@@ -134,11 +133,8 @@ pub(super) async fn create_channel(
 pub(super) async fn update_channel_order(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: Uuid,
     request: ChannelOrderRequest,
 ) -> AppResult<()> {
-    ensure_can_manage_channels(database, user_id, server_id).await?;
-
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
         .all(database)
@@ -222,11 +218,14 @@ pub(crate) async fn get_channel(
         })
 }
 
-pub(crate) async fn ensure_channel_membership(
-    database: &DatabaseConnection,
+pub(crate) async fn is_channel_member<C>(
+    database: &C,
     channel_id: Uuid,
     user_id: Uuid,
-) -> AppResult<()> {
+) -> AppResult<bool>
+where
+    C: ConnectionTrait,
+{
     let membership = channel_members::Entity::find()
         .filter(channel_members::Column::ChannelId.eq(channel_id))
         .filter(channel_members::Column::UserId.eq(user_id))
@@ -234,14 +233,25 @@ pub(crate) async fn ensure_channel_membership(
         .await
         .map_err(internal_error)?;
 
-    if membership.is_some() {
+    Ok(membership.is_some())
+}
+
+pub(crate) async fn ensure_channel_member<C>(
+    database: &C,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    if is_channel_member(database, channel_id, user_id).await? {
         Ok(())
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
     }
 }
 
-pub(crate) async fn ensure_channel_read_access(
+pub(crate) async fn can_read_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
@@ -250,8 +260,13 @@ pub(crate) async fn ensure_channel_read_access(
 ) -> AppResult<()> {
     get_channel(database, server_id, channel_id).await?;
 
+    // Membership is one way in, not the only one. Signing in must never take
+    // away access an anonymous caller would have had, so this falls through to
+    // the same public and invite paths as `is_server_audience`.
     if let Some(user_id) = user_id {
-        return ensure_channel_membership(database, channel_id, user_id).await;
+        if is_channel_member(database, channel_id, user_id).await? {
+            return Ok(());
+        }
     }
 
     if servers_service::default_server_id(database).await? == server_id {
@@ -401,31 +416,19 @@ where
     Ok(last_channel.map_or(0, |channel| channel.sort_order + 1))
 }
 
-async fn ensure_can_manage_channels(
+pub(super) async fn can_manage_channels(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,
 ) -> AppResult<()> {
-    let permissions =
-        crate::servers::server_roles::service::get_permissions_by_user(
-            database, user_id,
-        )
-        .await?;
-    let can_manage =
-        permissions
-            .get(&server_id.to_string())
-            .is_some_and(|rules| {
-                rules.iter().any(|rule| {
-                    (rule.subject == "Channel" || rule.subject == "all")
-                        && rule.action.iter().any(|action| action == "manage")
-                })
-            });
-
-    if can_manage {
-        Ok(())
-    } else {
-        Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-    }
+    authz::can(
+        database,
+        user_id,
+        "manage",
+        "Channel",
+        PermissionScope::Server(server_id),
+    )
+    .await
 }
 
 pub(crate) async fn general_channel_id(

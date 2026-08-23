@@ -17,6 +17,10 @@ impl ApiError {
             message: message.into(),
         }
     }
+
+    pub(crate) fn status(&self) -> StatusCode {
+        self.status
+    }
 }
 
 impl std::fmt::Display for ApiError {
