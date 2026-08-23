@@ -1,15 +1,12 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import {
-  authorizationHeaders,
-  getOrCreateInstanceAdmin,
-  type AuthenticatedUser,
-} from './auth';
+import { authorizationHeaders, type AuthenticatedUser } from './auth';
+import { grantViaNewRole, type PermissionRule } from './permissions';
 
 type ServerRole = {
   id: string;
   name: string;
   color: string;
-  permissions: { subject: string; action: string[] }[];
+  permissions: PermissionRule[];
   members: { id: string; name: string; displayName?: string | null }[];
 };
 
@@ -20,6 +17,29 @@ type ServerRoleResponse = {
 type ServerRolesResponse = {
   serverRoles: ServerRole[];
 };
+
+export async function grantServerPermissions(
+  request: APIRequestContext,
+  granter: AuthenticatedUser,
+  user: AuthenticatedUser,
+  serverId: string,
+  permissions: PermissionRule[],
+  label: string,
+) {
+  if (granter.userId === user.userId) {
+    return;
+  }
+
+  await grantViaNewRole(
+    request,
+    granter,
+    `/api/servers/${serverId}/roles`,
+    'serverRole',
+    user,
+    permissions,
+    label,
+  );
+}
 
 export async function getAdminServerRole(
   request: APIRequestContext,
@@ -35,57 +55,6 @@ export async function getAdminServerRole(
   const adminRole = body.serverRoles.find((role) => role.name === 'admin');
   expect(adminRole).toBeTruthy();
   return adminRole!;
-}
-
-// Finds the server role that `memberUserId` already belongs to. Unlike
-// looking a role up by its literal 'admin' name, this survives role-rename
-// or permission-edit proposals that other specs exercise against the
-// server's original admin role (its membership is never altered by those
-// flows, only its name/permissions).
-async function findServerRoleForMember(
-  request: APIRequestContext,
-  caller: AuthenticatedUser,
-  serverId: string,
-  memberUserId: string,
-) {
-  const response = await request.get(`/api/servers/${serverId}/roles`, {
-    headers: authorizationHeaders(caller),
-  });
-
-  if (!response.ok()) {
-    return undefined;
-  }
-
-  const body = (await response.json()) as ServerRolesResponse;
-  return body.serverRoles.find((role) =>
-    role.members.some((member) => member.id === memberUserId),
-  );
-}
-
-// Elevates `user` to the server's admin role using the instance admin as
-// the granter, tolerating failure when the instance admin has no standing
-// on this particular server (e.g. `user` already administers a server they
-// created themselves).
-export async function ensureServerAdminRole(
-  request: APIRequestContext,
-  user: AuthenticatedUser,
-  serverId: string,
-) {
-  const instanceAdmin = await getOrCreateInstanceAdmin(request);
-  const adminRole = await findServerRoleForMember(
-    request,
-    instanceAdmin,
-    serverId,
-    instanceAdmin.userId,
-  );
-  if (!adminRole) {
-    return;
-  }
-
-  await request.post(`/api/servers/${serverId}/roles/${adminRole.id}/members`, {
-    headers: authorizationHeaders(instanceAdmin),
-    data: { userIds: [user.userId] },
-  });
 }
 
 export async function getServerRole(

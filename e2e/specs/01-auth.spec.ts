@@ -9,7 +9,12 @@ import {
 } from '../lib/auth';
 import { createTestUser, INSTANCE_ADMIN_USER } from '../lib/data';
 import { createInvite } from '../lib/invites';
-import { createServer, getDefaultServer } from '../lib/servers';
+import {
+  createServer,
+  createServerAdmin,
+  getDefaultServer,
+  joinServer,
+} from '../lib/servers';
 import { AuthPage } from '../pages/auth.page';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
@@ -68,7 +73,7 @@ test('invited user can log in and join the invited server', async ({
   page,
   request,
 }) => {
-  const admin = await signUpViaApi(request, createTestUser('invite-admin'));
+  const admin = await createServerAdmin(request, 'invite-admin');
   const serverName = `Invite server ${admin.user.suffix}`;
   const serverSlug = `invite-${admin.user.suffix}`;
   const server = (await createServer(request, admin, {
@@ -134,10 +139,7 @@ test('invited user can sign up and join the invited server', async ({
   page,
   request,
 }) => {
-  const admin = await signUpViaApi(
-    request,
-    createTestUser('signup-invite-admin'),
-  );
+  const admin = await createServerAdmin(request, 'signup-invite-admin');
   const serverName = `Signup invite server ${admin.user.suffix}`;
   const serverSlug = `signup-invite-${admin.user.suffix}`;
   const server = (await createServer(request, admin, {
@@ -227,12 +229,15 @@ test('Open Praxis and Explore Praxis both return a logged in user to the server 
     createTestUser('open-praxis'),
   );
   const defaultServer = await getDefaultServer(request, user);
+  const serverAdmin = await createServerAdmin(request, 'open-praxis-admin');
 
   const servers: { name: string; slug: string }[] = [];
   for (const index of [1, 2, 3, 4, 5]) {
     const name = `Switch server ${index} ${user.user.suffix}`;
     const slug = `switch-${index}-${user.user.suffix}`;
-    await createServer(request, user, { name, slug });
+    const server = await createServer(request, serverAdmin, { name, slug });
+    const inviteToken = await createInvite(request, serverAdmin, server.id);
+    await joinServer(request, user, server.id, inviteToken);
     servers.push({ name, slug });
   }
 

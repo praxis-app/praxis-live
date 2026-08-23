@@ -1,6 +1,12 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import { authorizationHeaders, type AuthenticatedUser } from './auth';
-import { ensureInstanceAdminRole } from './instance-roles';
+import {
+  authorizationHeaders,
+  signUpViaApi,
+  type AuthenticatedUser,
+} from './auth';
+import { createTestUser } from './data';
+import { grantInstancePermissions } from './instance-roles';
+import { INSTANCE_PERMISSIONS } from './permissions';
 
 type CreateServerOptions = {
   name: string;
@@ -10,16 +16,26 @@ type CreateServerOptions = {
   image?: { name: string; mimeType: string; buffer: Buffer };
 };
 
-// Creating a server is an instance-scoped action, so the caller is elevated to
-// the instance admin role first. Sends the request as multipart when an image
-// is supplied and as JSON otherwise, matching what the app itself does.
+export async function createServerAdmin(
+  request: APIRequestContext,
+  label: string,
+) {
+  const admin = await signUpViaApi(request, createTestUser(label));
+  await grantInstancePermissions(
+    request,
+    admin,
+    [INSTANCE_PERMISSIONS.manageServers],
+    label,
+  );
+
+  return admin;
+}
+
 export async function createServer(
   request: APIRequestContext,
   user: AuthenticatedUser,
   options: CreateServerOptions,
 ) {
-  await ensureInstanceAdminRole(request, user);
-
   const payload = {
     name: options.name,
     slug: options.slug,
@@ -55,15 +71,53 @@ export async function getDefaultServer(
   return (await response.json()).server;
 }
 
+export async function getServerBySlug(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+  slug: string,
+) {
+  const response = await request.get(`/api/servers/slug/${slug}`, {
+    headers: authorizationHeaders(user),
+  });
+
+  await expect(response).toBeOK();
+  return (await response.json()).server;
+}
+
+export async function joinServer(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+  serverId: string,
+  inviteToken: string,
+) {
+  const response = await request.post(`/api/servers/${serverId}/join`, {
+    headers: authorizationHeaders(user),
+    data: { inviteToken },
+  });
+
+  await expect(response).toBeOK();
+}
+
+export async function updateServerConfig(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+  serverId: string,
+  config: Record<string, unknown>,
+) {
+  const response = await request.put(`/api/servers/${serverId}/configs`, {
+    headers: authorizationHeaders(user),
+    data: config,
+  });
+
+  await expect(response).toBeOK();
+}
+
 export async function enableAnonymousUsers(
   request: APIRequestContext,
   user: AuthenticatedUser,
   serverId: string,
 ) {
-  const response = await request.put(`/api/servers/${serverId}/configs`, {
-    headers: authorizationHeaders(user),
-    data: { anonymousUsersEnabled: true },
+  await updateServerConfig(request, user, serverId, {
+    anonymousUsersEnabled: true,
   });
-
-  await expect(response).toBeOK();
 }

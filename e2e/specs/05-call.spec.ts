@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   createAuthenticatedUser,
+  getOrCreateInstanceAdmin,
   seedAuthenticatedSession,
   signUpViaApi,
 } from '../lib/auth';
@@ -133,7 +134,8 @@ test('starting a call immediately appears in other users channel feeds', async (
     createTestUser('call-feed-starter'),
   );
   const server = await getDefaultServer(request, starter);
-  const inviteToken = await createInvite(request, starter, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const inviteToken = await createInvite(request, instanceAdmin, server.id);
   const observer = await signUpViaApi(
     request,
     createTestUser('call-feed-observer'),
@@ -206,7 +208,8 @@ test('stale call cleanup updates other users channel feeds in realtime', async (
     createTestUser('call-stale-starter'),
   );
   const server = await getDefaultServer(request, starter);
-  const inviteToken = await createInvite(request, starter, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const inviteToken = await createInvite(request, instanceAdmin, server.id);
   const observer = await signUpViaApi(
     request,
     createTestUser('call-stale-observer'),
@@ -275,7 +278,8 @@ test('second user can join an active call from the call artifact', async ({
     createTestUser('call-artifact-starter'),
   );
   const server = await getDefaultServer(request, starter);
-  const inviteToken = await createInvite(request, starter, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const inviteToken = await createInvite(request, instanceAdmin, server.id);
   const joiner = await signUpViaApi(
     request,
     createTestUser('call-artifact-joiner'),
@@ -355,7 +359,8 @@ test('multi-user call stays active until the last participant leaves', async ({
     createTestUser('call-last-leaver-starter'),
   );
   const server = await getDefaultServer(request, starter);
-  const inviteToken = await createInvite(request, starter, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const inviteToken = await createInvite(request, instanceAdmin, server.id);
   const joiner = await signUpViaApi(
     request,
     createTestUser('call-last-leaver-joiner'),
@@ -461,7 +466,8 @@ test('in-call chat messages are delivered realtime between participants', async 
   );
   const message = createTestMessage('call-chat-realtime', starter.user.suffix);
   const server = await getDefaultServer(request, starter);
-  const inviteToken = await createInvite(request, starter, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const inviteToken = await createInvite(request, instanceAdmin, server.id);
   const joiner = await signUpViaApi(
     request,
     createTestUser('call-chat-realtime-joiner'),

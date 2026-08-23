@@ -1,55 +1,27 @@
-import { expect, type APIRequestContext } from '@playwright/test';
-import {
-  authorizationHeaders,
-  getOrCreateInstanceAdmin,
-  type AuthenticatedUser,
-} from './auth';
+import { type APIRequestContext } from '@playwright/test';
+import { getOrCreateInstanceAdmin, type AuthenticatedUser } from './auth';
+import { grantViaNewRole, type PermissionRule } from './permissions';
 
-type InstanceRole = {
-  id: string;
-  name: string;
-};
+const INSTANCE_ROLES_PATH = '/api/instance/roles';
 
-type InstanceRolesResponse = {
-  instanceRoles: InstanceRole[];
-};
-
-// Elevates `user` to the instance admin role, which is what the API requires
-// for instance-scoped actions such as creating a server.
-export async function ensureInstanceAdminRole(
+export async function grantInstancePermissions(
   request: APIRequestContext,
   user: AuthenticatedUser,
+  permissions: PermissionRule[],
+  label: string,
 ) {
   const instanceAdmin = await getOrCreateInstanceAdmin(request);
   if (instanceAdmin.userId === user.userId) {
     return;
   }
 
-  await grantInstanceAdminRole(request, instanceAdmin, user);
-}
-
-export async function grantInstanceAdminRole(
-  request: APIRequestContext,
-  instanceAdmin: AuthenticatedUser,
-  user: AuthenticatedUser,
-) {
-  const rolesResponse = await request.get('/api/instance/roles', {
-    headers: authorizationHeaders(instanceAdmin),
-  });
-
-  await expect(rolesResponse).toBeOK();
-  const { instanceRoles } =
-    (await rolesResponse.json()) as InstanceRolesResponse;
-  const adminRole = instanceRoles.find((role) => role.name === 'admin');
-  expect(adminRole).toBeTruthy();
-
-  const membershipResponse = await request.post(
-    `/api/instance/roles/${adminRole!.id}/members`,
-    {
-      headers: authorizationHeaders(instanceAdmin),
-      data: { userIds: [user.userId] },
-    },
+  await grantViaNewRole(
+    request,
+    instanceAdmin,
+    INSTANCE_ROLES_PATH,
+    'instanceRole',
+    user,
+    permissions,
+    label,
   );
-
-  await expect(membershipResponse).toBeOK();
 }

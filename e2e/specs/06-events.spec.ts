@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import {
   authorizationHeaders,
   createAuthenticatedUser,
+  getOrCreateInstanceAdmin,
   signUpViaApi,
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
@@ -16,7 +17,11 @@ import {
   openCreateProposalDialog,
   selectRadixOption,
 } from '../lib/polls';
-import { createServer, getDefaultServer } from '../lib/servers';
+import {
+  createServer,
+  createServerAdmin,
+  getDefaultServer,
+} from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 
 type UserSummary = {
@@ -74,6 +79,17 @@ const selectEventDate = async (
   date: Date,
 ) => {
   await dialog.getByRole('button', { name: label }).click();
+  const today = new Date();
+  const monthOffset =
+    (date.getFullYear() - today.getFullYear()) * 12 +
+    date.getMonth() -
+    today.getMonth();
+  const monthButton = page.getByRole('button', {
+    name: monthOffset < 0 ? 'Previous month' : 'Next month',
+  });
+  for (let offset = 0; offset < Math.abs(monthOffset); offset += 1) {
+    await monthButton.click();
+  }
   await page
     .getByRole('button', {
       name: new Intl.DateTimeFormat(undefined, {
@@ -116,7 +132,8 @@ test('user can propose and ratify an online event with all details preserved', a
   );
   const host = await signUpViaApi(request, createTestUser('event-host'));
   const server = await getDefaultServer(request, proposer);
-  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  await makeProposalsRatifyWithOneAgreeVote(request, instanceAdmin, server.id);
 
   const eventName = `Online planning session ${proposer.user.suffix}`;
   const eventDescription = `Plan the next campaign phase ${proposer.user.suffix}.`;
@@ -436,10 +453,7 @@ test('invite holder can view events and event details in a non-default server', 
   page,
   request,
 }) => {
-  const admin = await signUpViaApi(
-    request,
-    createTestUser('invite-events-admin'),
-  );
+  const admin = await createServerAdmin(request, 'invite-events-admin');
   const serverSlug = `invite-events-${admin.user.suffix}`;
   await createServer(request, admin, {
     name: `Invite events ${admin.user.suffix}`,
@@ -612,7 +626,8 @@ test('past event proposals are rejected and stale proposals expire automatically
     createTestUser('stale-event-proposer'),
   );
   const server = await getDefaultServer(request, proposer);
-  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  await makeProposalsRatifyWithOneAgreeVote(request, instanceAdmin, server.id);
 
   const proposalPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
   const planEventAction = (startsAt: Date) => ({
@@ -715,7 +730,8 @@ test('event proposal expires when a proposed host leaves the server', async ({
     createTestUser('departed-event-host'),
   );
   const server = await getDefaultServer(request, proposer);
-  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  await makeProposalsRatifyWithOneAgreeVote(request, instanceAdmin, server.id);
   const proposalBody = `Event with departing host ${proposer.user.suffix}`;
   const startsAt = new Date(Date.now() + 7 * 24 * 60 * 60_000);
   const { pollId, actionId, proposal } = await createPlanEventProposal({
@@ -736,7 +752,7 @@ test('event proposal expires when a proposed host leaves the server', async ({
   const removeHostResponse = await request.delete(
     `/api/servers/${server.id}/members`,
     {
-      headers: authorizationHeaders(proposer),
+      headers: authorizationHeaders(instanceAdmin),
       data: { userIds: [host.userId] },
     },
   );

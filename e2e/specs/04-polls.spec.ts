@@ -9,7 +9,6 @@ import {
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { expectImageToLoad } from '../lib/images';
-import { grantInstanceAdminRole } from '../lib/instance-roles';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
@@ -23,7 +22,14 @@ import {
 } from '../lib/polls';
 import { createMessages } from '../lib/messages';
 import { getAdminServerRole, getServerRole } from '../lib/server-roles';
-import { createServer, getDefaultServer } from '../lib/servers';
+import {
+  createServer,
+  createServerAdmin,
+  getDefaultServer,
+  getServerBySlug,
+  joinServer,
+  updateServerConfig,
+} from '../lib/servers';
 import { minutesUntil, secondsUntil } from '../lib/time';
 import { ChatPage } from '../pages/chat.page';
 
@@ -222,11 +228,23 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
   );
   const serverName = `Decision scroll ${authenticatedUser.user.suffix}`;
   const serverSlug = `decision-scroll-${authenticatedUser.user.suffix}`;
-  await createServer(request, authenticatedUser, {
+  const serverAdmin = await createServerAdmin(request, 'decision-scroll-admin');
+  const createdServer = await createServer(request, serverAdmin, {
     name: serverName,
     slug: serverSlug,
     description: 'Server for active decision pagination.',
   });
+  const decisionScrollInvite = await createInvite(
+    request,
+    serverAdmin,
+    createdServer.id,
+  );
+  await joinServer(
+    request,
+    authenticatedUser,
+    createdServer.id,
+    decisionScrollInvite,
+  );
 
   const getServerResponse = await request.get(
     `/api/servers/slug/${serverSlug}`,
@@ -335,10 +353,7 @@ test('invite holder can read active decisions in a non-default server', async ({
   page,
   request,
 }) => {
-  const admin = await signUpViaApi(
-    request,
-    createTestUser('invite-decisions-admin'),
-  );
+  const admin = await createServerAdmin(request, 'invite-decisions-admin');
   const serverSlug = `invite-decisions-${admin.user.suffix}`;
   await createServer(request, admin, {
     name: `Invite decisions ${admin.user.suffix}`,
@@ -402,9 +417,9 @@ test('invite holder can read proposals for all action types', async ({
   page,
   request,
 }) => {
-  const admin = await signUpViaApi(
+  const admin = await createServerAdmin(
     request,
-    createTestUser('invite-proposal-actions-admin'),
+    'invite-proposal-actions-admin',
   );
   const serverSlug = `invite-actions-${admin.user.suffix}`;
   await createServer(request, admin, {
@@ -595,11 +610,23 @@ test('active decision opens fully in view across channels and feed pages', async
     createTestUser('decision-focus'),
   );
   const serverSlug = `decision-focus-${authenticatedUser.user.suffix}`;
-  await createServer(request, authenticatedUser, {
+  const serverAdmin = await createServerAdmin(request, 'decision-focus-admin');
+  const createdServer = await createServer(request, serverAdmin, {
     name: `Decision focus ${authenticatedUser.user.suffix}`,
     slug: serverSlug,
     description: 'Server for active decision feed focus.',
   });
+  const decisionFocusInvite = await createInvite(
+    request,
+    serverAdmin,
+    createdServer.id,
+  );
+  await joinServer(
+    request,
+    authenticatedUser,
+    createdServer.id,
+    decisionFocusInvite,
+  );
 
   const getServerResponse = await request.get(
     `/api/servers/slug/${serverSlug}`,
@@ -617,7 +644,7 @@ test('active decision opens fully in view across channels and feed pages', async
   const createChannelResponse = await request.post(
     `/api/servers/${server.id}/channels`,
     {
-      headers: authorizationHeaders(authenticatedUser),
+      headers: authorizationHeaders(serverAdmin),
       data: {
         name: otherChannelName,
         description: 'Starting channel for decision focus navigation.',
@@ -932,25 +959,37 @@ test('user can create and ratify a proposal to change a role', async ({
   page,
   request,
 }) => {
+  const serverAdmin = await createServerAdmin(request, 'role-proposal-admin');
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Role proposal ${serverAdmin.user.suffix}`,
+    slug: `role-proposal-${serverAdmin.user.suffix}`,
+  });
+  const roleProposalInvite = await createInvite(
+    request,
+    serverAdmin,
+    createdServer.id,
+  );
   const proposer = await createAuthenticatedUser(
     request,
     context,
     createTestUser('role-proposal'),
+    roleProposalInvite,
   );
   const addedMember = await signUpViaApi(
     request,
     createTestUser('role-member'),
+    roleProposalInvite,
   );
 
-  const server = await getDefaultServer(request, proposer);
-  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
+  const server = await getServerBySlug(request, proposer, createdServer.slug);
+  await makeProposalsRatifyWithOneAgreeVote(request, serverAdmin, server.id);
 
   const adminRole = await getAdminServerRole(request, proposer, server.id);
   const changedRoleName = `admin-${proposer.user.suffix}`;
   const proposalBody = `Change the admin role ${proposer.user.suffix}`;
 
   const chat = new ChatPage(page);
-  await chat.goto();
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
   await chat.expectChannel('general');
 
   await openCreateProposalDialog(page);
@@ -1071,25 +1110,34 @@ test('user can create and ratify a proposal to change server settings', async ({
   page,
   request,
 }) => {
+  const serverAdmin = await createServerAdmin(
+    request,
+    'settings-proposal-admin',
+  );
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Settings proposal ${serverAdmin.user.suffix}`,
+    slug: `settings-proposal-${serverAdmin.user.suffix}`,
+  });
+  const settingsProposalInvite = await createInvite(
+    request,
+    serverAdmin,
+    createdServer.id,
+  );
   const proposer = await createAuthenticatedUser(
     request,
     context,
     createTestUser('settings-proposal'),
+    settingsProposalInvite,
   );
-  const server = await getDefaultServer(request, proposer);
-  await makeProposalsRatifyWithOneAgreeVote(request, proposer, server.id);
-  const initialConfigResponse = await request.put(
-    `/api/servers/${server.id}/configs`,
-    {
-      headers: { Authorization: `Bearer ${proposer.accessToken}` },
-      data: { anonymousUsersEnabled: false },
-    },
-  );
-  await expect(initialConfigResponse).toBeOK();
+  const server = await getServerBySlug(request, proposer, createdServer.slug);
+  await makeProposalsRatifyWithOneAgreeVote(request, serverAdmin, server.id);
+  await updateServerConfig(request, serverAdmin, server.id, {
+    anonymousUsersEnabled: false,
+  });
 
   const proposalBody = `Enable anonymous users ${proposer.user.suffix}`;
   const chat = new ChatPage(page);
-  await chat.goto();
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
   await chat.expectChannel('general');
 
   await openCreateProposalDialog(page);
@@ -1189,21 +1237,12 @@ test('user can create and ratify a majority vote proposal', async ({
   );
   const server = await getDefaultServer(request, proposer);
   const instanceAdmin = await getOrCreateInstanceAdmin(request);
-  await grantInstanceAdminRole(request, instanceAdmin, proposer);
-
-  const configResponse = await request.put(
-    `/api/servers/${server.id}/configs`,
-    {
-      headers: { Authorization: `Bearer ${proposer.accessToken}` },
-      data: {
-        decisionMakingModel: 'majority-vote',
-        agreementThreshold: 51,
-        quorumEnabled: false,
-        votingTimeLimit: 0,
-      },
-    },
-  );
-  await expect(configResponse).toBeOK();
+  await updateServerConfig(request, instanceAdmin, server.id, {
+    decisionMakingModel: 'majority-vote',
+    agreementThreshold: 51,
+    quorumEnabled: false,
+    votingTimeLimit: 0,
+  });
 
   const proposalBody = `Majority proposal ${proposer.user.suffix}`;
   const chat = new ChatPage(page);
@@ -1272,21 +1311,12 @@ test('server-controlled proposal deadline finalizes an eligible consensus propos
   );
   const server = await getDefaultServer(request, proposer);
   const instanceAdmin = await getOrCreateInstanceAdmin(request);
-  await grantInstanceAdminRole(request, instanceAdmin, proposer);
-
-  const configResponse = await request.put(
-    `/api/servers/${server.id}/configs`,
-    {
-      headers: { Authorization: `Bearer ${proposer.accessToken}` },
-      data: {
-        decisionMakingModel: 'consensus',
-        agreementThreshold: 51,
-        quorumEnabled: false,
-        votingTimeLimit: 30,
-      },
-    },
-  );
-  await expect(configResponse).toBeOK();
+  await updateServerConfig(request, instanceAdmin, server.id, {
+    decisionMakingModel: 'consensus',
+    agreementThreshold: 51,
+    quorumEnabled: false,
+    votingTimeLimit: 30,
+  });
 
   const proposalBody = `Deadline proposal ${proposer.user.suffix}`;
   const chat = new ChatPage(page);

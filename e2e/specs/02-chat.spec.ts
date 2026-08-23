@@ -9,7 +9,7 @@ import {
 import {
   authorizationHeaders,
   createAuthenticatedUser,
-  signUpViaApi,
+  getOrCreateInstanceAdmin,
   setupAnonymousInvite,
 } from '../lib/auth';
 import { startCallFromTopNav } from '../lib/calls';
@@ -18,8 +18,11 @@ import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import { createMessages } from '../lib/messages';
-import { ensureServerAdminRole } from '../lib/server-roles';
-import { createServer, getDefaultServer } from '../lib/servers';
+import {
+  createServer,
+  createServerAdmin,
+  getDefaultServer,
+} from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
 
@@ -119,12 +122,12 @@ test('text channel feed preserves its pages and syncs only newer messages when r
     createTestUser('text-scroll'),
   );
   const server = await getDefaultServer(request, user);
-  await ensureServerAdminRole(request, user, server.id);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
   const otherChannelName = `other-${user.user.suffix}`;
   const createChannelResponse = await request.post(
     `/api/servers/${server.id}/channels`,
     {
-      headers: authorizationHeaders(user),
+      headers: authorizationHeaders(instanceAdmin),
       data: {
         name: otherChannelName,
         description: 'Channel used to verify feed cache behavior.',
@@ -290,10 +293,7 @@ test('invite holder can read a non-default server feed with images', async ({
   page,
   request,
 }) => {
-  const admin = await signUpViaApi(
-    request,
-    createTestUser('invite-feed-admin'),
-  );
+  const admin = await createServerAdmin(request, 'invite-feed-admin');
   const serverSlug = `invite-feed-${admin.user.suffix}`;
   await createServer(request, admin, {
     name: `Invite feed ${admin.user.suffix}`,
