@@ -199,9 +199,11 @@ pub(super) async fn delete_vote(
 
 pub(super) async fn get_voters_by_poll_option(
     database: &DatabaseConnection,
-    _poll_id: Uuid,
+    poll_id: Uuid,
     poll_option_id: Uuid,
 ) -> AppResult<Vec<PollOptionVoterResponse>> {
+    ensure_poll_option_exists(database, poll_id, poll_option_id).await?;
+
     let selections = poll_option_selections::Entity::find()
         .filter(poll_option_selections::Column::PollOptionId.eq(poll_option_id))
         .all(database)
