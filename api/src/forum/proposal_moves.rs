@@ -59,8 +59,9 @@ pub(crate) async fn move_proposal_to_forum(
         ChannelType::Forum,
         "Proposals can only be moved to Forum channels.",
     )?;
-    channels::is_channel_member(database, source_channel_id, user_id).await?;
-    channels::is_channel_member(
+    channels::ensure_channel_member(database, source_channel_id, user_id)
+        .await?;
+    channels::ensure_channel_member(
         database,
         request.destination_channel_id,
         user_id,
@@ -159,10 +160,14 @@ pub(crate) async fn move_proposal_to_forum(
         ChannelType::Forum,
         "Proposals can only be moved to Forum channels.",
     )?;
-    channels::is_channel_member(&transaction, source_channel_id, user_id)
+    channels::ensure_channel_member(&transaction, source_channel_id, user_id)
         .await?;
-    channels::is_channel_member(&transaction, destination_channel_id, user_id)
-        .await?;
+    channels::ensure_channel_member(
+        &transaction,
+        destination_channel_id,
+        user_id,
+    )
+    .await?;
 
     let proposal = polls::Entity::find_by_id(poll_id)
         .filter(polls::Column::ChannelId.eq(source_channel_id))

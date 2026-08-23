@@ -250,10 +250,8 @@ pub(super) async fn can_read_poll_option(
     invite_token: Option<&str>,
 ) -> AppResult<()> {
     if let Some(user_id) = current_user_id {
-        match channels::is_channel_member(database, channel_id, user_id).await {
-            Ok(()) => return Ok(()),
-            Err(error) if error.status() == StatusCode::FORBIDDEN => {}
-            Err(error) => return Err(error),
+        if channels::is_channel_member(database, channel_id, user_id).await? {
+            return Ok(());
         }
     }
 

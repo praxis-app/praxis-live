@@ -259,7 +259,8 @@ where
     S: HasDatabase + Send + Sync,
 {
     ensure_forum_channel(state, server_id, channel_id).await?;
-    channels::is_channel_member(state.database(), channel_id, user_id).await?;
+    channels::ensure_channel_member(state.database(), channel_id, user_id)
+        .await?;
     Ok(())
 }
 

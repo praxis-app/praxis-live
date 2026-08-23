@@ -172,7 +172,8 @@ async fn load_vote_route_context(
             "Poll is no longer accepting votes.",
         ));
     }
-    channels::is_channel_member(&state.database, channel_id, user_id).await?;
+    channels::ensure_channel_member(&state.database, channel_id, user_id)
+        .await?;
     service::can_vote_anonymously_on_poll(&state.database, user_id, &poll)
         .await?;
 

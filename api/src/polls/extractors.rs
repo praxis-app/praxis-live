@@ -49,7 +49,8 @@ async fn can_manage_poll(
     user_id: Uuid,
     poll: &polls::Model,
 ) -> Result<(), ApiError> {
-    channels::is_channel_member(&state.database, channel_id, user_id).await?;
+    channels::ensure_channel_member(&state.database, channel_id, user_id)
+        .await?;
     if poll.user_id == user_id {
         Ok(())
     } else {

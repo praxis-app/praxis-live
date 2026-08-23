@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{
     enums::EventAttendeeStatus, event_attendees, event_cover_photos, events,
-    server_members, users,
+    users,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
@@ -84,7 +84,7 @@ pub(super) async fn upsert_rsvp(
     user_id: Uuid,
     status: EventAttendeeStatus,
 ) -> AppResult<EventDetailResponse> {
-    is_server_member(database, server_id, user_id).await?;
+    ensure_server_member(database, server_id, user_id).await?;
     if status == EventAttendeeStatus::Host {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -131,7 +131,7 @@ pub(super) async fn clear_rsvp(
     event_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<EventDetailResponse> {
-    is_server_member(database, server_id, user_id).await?;
+    ensure_server_member(database, server_id, user_id).await?;
     let transaction = database.begin().await.map_err(internal_error)?;
     let event =
         load_event_for_update(&transaction, server_id, event_id).await?;
@@ -182,20 +182,14 @@ pub(super) async fn get_event_cover_photo(
     Ok(StoredEventCoverPhoto { bytes })
 }
 
-async fn is_server_member(
+async fn ensure_server_member(
     database: &DatabaseConnection,
     server_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
     servers::ensure_server(database, server_id).await?;
-    let membership = server_members::Entity::find()
-        .filter(server_members::Column::ServerId.eq(server_id))
-        .filter(server_members::Column::UserId.eq(user_id))
-        .one(database)
-        .await
-        .map_err(internal_error)?;
 
-    if membership.is_some() {
+    if servers::is_server_member(database, server_id, user_id).await? {
         Ok(())
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))

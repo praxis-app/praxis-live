@@ -433,7 +433,7 @@ async fn handle_inbound_message(
     )
     .await
     .is_err()
-        || channels::is_channel_member(
+        || channels::ensure_channel_member(
             &state.database,
             access.channel_id,
             user_id,

@@ -40,8 +40,12 @@ where
 
         super::get_channel(state.database(), path.server_id, path.channel_id)
             .await?;
-        super::is_channel_member(state.database(), path.channel_id, user_id)
-            .await?;
+        super::ensure_channel_member(
+            state.database(),
+            path.channel_id,
+            user_id,
+        )
+        .await?;
 
         Ok(Self {
             server_id: path.server_id,
