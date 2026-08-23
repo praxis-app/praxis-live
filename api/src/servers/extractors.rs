@@ -9,15 +9,11 @@ use crate::{
     auth::AuthenticatedUser, common::ApiError, invites::InviteAccessToken,
 };
 
-/// Caller may read the server named in the path: a member, an invite holder,
-/// the default server's audience, or an instance-level `Server: manage`
-/// holder. Requires a real token — an invite token widens *which* servers a
-/// caller can see, it does not stand in for identity.
-pub(super) struct ServerViewContext {
+pub(super) struct CanReadServerContext {
     pub(super) path: ServerPath,
 }
 
-impl FromRequestParts<ServersState> for ServerViewContext {
+impl FromRequestParts<ServersState> for CanReadServerContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(
@@ -46,12 +42,12 @@ impl FromRequestParts<ServersState> for ServerViewContext {
     }
 }
 
-pub(super) struct ServerEditContext {
+pub(super) struct CanUpdateServerContext {
     pub(super) path: ServerPath,
     pub(super) user_id: Uuid,
 }
 
-impl FromRequestParts<ServersState> for ServerEditContext {
+impl FromRequestParts<ServersState> for CanUpdateServerContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(
@@ -70,5 +66,25 @@ impl FromRequestParts<ServersState> for ServerEditContext {
             .await?;
 
         Ok(Self { path, user_id })
+    }
+}
+
+pub(super) struct CanManageServersContext {
+    pub(super) user_id: Uuid,
+}
+
+impl FromRequestParts<ServersState> for CanManageServersContext {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServersState,
+    ) -> Result<Self, Self::Rejection> {
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        service::can_manage_servers(&state.database, user_id).await?;
+
+        Ok(Self { user_id })
     }
 }

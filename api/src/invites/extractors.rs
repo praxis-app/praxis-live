@@ -45,21 +45,17 @@ fn invalid_invite_token() -> ApiError {
     ApiError::new(StatusCode::BAD_REQUEST, "Invalid invite token.")
 }
 
-/// Caller may create and read invites for the server named in the path.
-/// `user_id` is carried through because a created invite records its author.
-pub(crate) struct InviteAccessContext {
+pub(crate) struct CanCreateInviteContext {
     pub(super) server_id: Uuid,
     pub(super) user_id: Uuid,
 }
 
-/// Caller may manage (revoke) the invite named in the path. Managing is a
-/// strictly narrower permission than creating, so this is its own context.
-pub(crate) struct InviteManageContext {
+pub(crate) struct CanManageInviteContext {
     pub(super) server_id: Uuid,
     pub(super) invite_id: Uuid,
 }
 
-impl FromRequestParts<InvitesState> for InviteAccessContext {
+impl FromRequestParts<InvitesState> for CanCreateInviteContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(
@@ -90,7 +86,7 @@ impl FromRequestParts<InvitesState> for InviteAccessContext {
     }
 }
 
-impl FromRequestParts<InvitesState> for InviteManageContext {
+impl FromRequestParts<InvitesState> for CanManageInviteContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(

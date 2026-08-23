@@ -7,7 +7,9 @@ use sea_orm::{prelude::Uuid, DatabaseConnection};
 use std::{path::PathBuf, sync::Arc};
 
 use super::{
-    extractors::{ServerEditContext, ServerViewContext},
+    extractors::{
+        CanManageServersContext, CanReadServerContext, CanUpdateServerContext,
+    },
     service,
     types::{
         AnonymousUsersEnabledResponse, JoinServerRequest, ServerConfigPayload,
@@ -56,16 +58,15 @@ impl HasJwtSecret for ServersState {
 
 pub(super) async fn get_servers(
     State(state): State<ServersState>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    _: CanManageServersContext,
 ) -> AppResult<Json<ServersPayload>> {
-    service::can_manage_servers(&state.database, user_id).await?;
     let servers = service::get_servers(&state.database).await?;
     Ok(Json(ServersPayload { servers }))
 }
 
 pub(super) async fn get_server_by_id(
     State(state): State<ServersState>,
-    context: ServerViewContext,
+    context: CanReadServerContext,
 ) -> AppResult<Json<ServerPayload>> {
     let server = service::get_server_by_id(
         &state.database,
@@ -129,7 +130,7 @@ pub(super) async fn get_default_server(
 
 pub(super) async fn create_server(
     State(state): State<ServersState>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: CanManageServersContext,
     multipart: JsonOrMultipartFiles<ServerRequest>,
 ) -> AppResult<Json<ServerPayload>> {
     let (payload, images) = multipart.into_payload_and_files();
@@ -138,7 +139,7 @@ pub(super) async fn create_server(
         &state.database,
         &state.upload_root,
         payload,
-        user_id,
+        context.user_id,
         image,
     )
     .await?;
@@ -147,7 +148,7 @@ pub(super) async fn create_server(
 
 pub(super) async fn update_server(
     State(state): State<ServersState>,
-    context: ServerEditContext,
+    context: CanUpdateServerContext,
     multipart: JsonOrMultipartFiles<ServerRequest>,
 ) -> AppResult<Json<ServerPayload>> {
     let (payload, images) = multipart.into_payload_and_files();
@@ -184,25 +185,20 @@ pub(super) async fn get_server_image(
 }
 
 // Deleting a server is instance-wide state, so this deliberately does not use
-// `ServerEditContext`: a server's own admins must not be able to destroy it.
+// `CanUpdateServerContext`: a server's own admins must not be able to destroy it.
 pub(super) async fn delete_server(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    _: CanManageServersContext,
 ) -> AppResult<Json<EmptyResponse>> {
-    service::delete_server(
-        &state.database,
-        &state.upload_root,
-        path.server_id,
-        user_id,
-    )
-    .await?;
+    service::delete_server(&state.database, &state.upload_root, path.server_id)
+        .await?;
     Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn get_server_members(
     State(state): State<ServersState>,
-    context: ServerViewContext,
+    context: CanReadServerContext,
 ) -> AppResult<Json<UsersPayload>> {
     let users =
         service::get_server_members(&state.database, context.path.server_id)
@@ -213,9 +209,8 @@ pub(super) async fn get_server_members(
 pub(super) async fn get_users_eligible_for_server(
     State(state): State<ServersState>,
     Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    _: CanManageServersContext,
 ) -> AppResult<Json<UsersPayload>> {
-    service::can_manage_servers(&state.database, user_id).await?;
     let users =
         service::get_users_eligible_for_server(&state.database, path.server_id)
             .await?;
@@ -224,7 +219,7 @@ pub(super) async fn get_users_eligible_for_server(
 
 pub(super) async fn add_server_members(
     State(state): State<ServersState>,
-    context: ServerEditContext,
+    context: CanUpdateServerContext,
     Json(payload): Json<ServerMembersRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
@@ -239,7 +234,7 @@ pub(super) async fn add_server_members(
 
 pub(super) async fn remove_server_members(
     State(state): State<ServersState>,
-    context: ServerEditContext,
+    context: CanUpdateServerContext,
     Json(payload): Json<ServerMembersRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
@@ -270,7 +265,7 @@ pub(super) async fn join_server(
 
 pub(super) async fn get_server_config(
     State(state): State<ServersState>,
-    context: ServerViewContext,
+    context: CanReadServerContext,
 ) -> AppResult<Json<ServerConfigPayload>> {
     let server_config =
         service::get_server_config(&state.database, context.path.server_id)
@@ -292,7 +287,7 @@ pub(super) async fn is_anonymous_users_enabled(
 
 pub(super) async fn update_server_config(
     State(state): State<ServersState>,
-    context: ServerEditContext,
+    context: CanUpdateServerContext,
     Json(payload): Json<ServerConfigRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     service::update_server_config(

@@ -1,27 +1,23 @@
-use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::Json,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use sea_orm::{prelude::Uuid, DatabaseConnection};
 use std::sync::Arc;
 
 use super::{
     extractors::{
-        ServerRoleContext, ServerRoleManagerContext, ServerRoleMemberContext,
+        CanManageServerRoleContext, CanManageServerRoleMemberContext,
+        CanManageServerRolesContext, CanReadServerRoleContext,
+        CanReadServerRoleMembersContext, IsServerAudienceContext,
     },
     service,
     types::{
-        RoleMembersRequest, RoleRequest, ServerRolePath, ServerRolePayload,
-        ServerRolesPayload, UpdatePermissionsRequest,
+        RoleMembersRequest, RoleRequest, ServerRolePayload, ServerRolesPayload,
+        UpdatePermissionsRequest,
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
+    auth::HasJwtSecret,
     common::{response::EmptyResponse, ApiError, AppResult},
-    invites::InviteAccessToken,
     servers::types::UsersPayload,
-    servers::{self, types::ServerPath},
 };
 
 #[derive(Clone, Debug)]
@@ -50,21 +46,12 @@ impl HasJwtSecret for ServerRolesState {
 
 pub(super) async fn get_server_role(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerRolePath>,
-    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
-    InviteAccessToken(invite_token): InviteAccessToken,
+    context: CanReadServerRoleContext,
 ) -> AppResult<Json<ServerRolePayload>> {
-    servers::is_server_audience(
-        &state.database,
-        path.server_id,
-        user_id,
-        invite_token.as_deref(),
-    )
-    .await?;
     let server_role = service::get_server_role(
         &state.database,
-        path.server_id,
-        path.server_role_id,
+        context.server_id,
+        context.server_role_id,
     )
     .await?;
     Ok(Json(ServerRolePayload { server_role }))
@@ -72,46 +59,21 @@ pub(super) async fn get_server_role(
 
 pub(super) async fn get_server_roles(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: IsServerAudienceContext,
 ) -> AppResult<Json<ServerRolesPayload>> {
-    // Readable without `ServerRole: manage` because the proposal flow needs
-    // current role permissions and members in order to propose changes, but
-    // only by someone who can read the server. Role mutations remain
-    // independently permission-gated.
-    servers::is_server_audience(
-        &state.database,
-        path.server_id,
-        Some(user_id),
-        None,
-    )
-    .await?;
     let server_roles =
-        service::get_server_roles(&state.database, path.server_id).await?;
+        service::get_server_roles(&state.database, context.server_id).await?;
     Ok(Json(ServerRolesPayload { server_roles }))
 }
 
 pub(super) async fn get_users_eligible_for_server_role(
     State(state): State<ServerRolesState>,
-    Path(path): Path<ServerRolePath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: CanReadServerRoleMembersContext,
 ) -> AppResult<Json<UsersPayload>> {
-    // Readable without `ServerRole: manage` because proposing a membership
-    // change requires selecting users who do not yet hold the role. It still
-    // takes read access to the server, and the candidates are that server's
-    // members, so this discloses no more than the roster already does.
-    // Direct membership mutations remain independently permission-gated.
-    servers::is_server_audience(
-        &state.database,
-        path.server_id,
-        Some(user_id),
-        None,
-    )
-    .await?;
     let users = service::get_users_eligible_for_server_role(
         &state.database,
-        path.server_id,
-        path.server_role_id,
+        context.server_id,
+        context.server_role_id,
     )
     .await?;
     Ok(Json(UsersPayload { users }))
@@ -119,7 +81,7 @@ pub(super) async fn get_users_eligible_for_server_role(
 
 pub(super) async fn create_server_role(
     State(state): State<ServerRolesState>,
-    context: ServerRoleManagerContext,
+    context: CanManageServerRolesContext,
     Json(payload): Json<RoleRequest>,
 ) -> AppResult<Json<ServerRolePayload>> {
     let server_role = service::create_server_role(
@@ -133,7 +95,7 @@ pub(super) async fn create_server_role(
 
 pub(super) async fn update_server_role(
     State(state): State<ServerRolesState>,
-    context: ServerRoleContext,
+    context: CanManageServerRoleContext,
     Json(payload): Json<RoleRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     service::update_server_role(
@@ -148,7 +110,7 @@ pub(super) async fn update_server_role(
 
 pub(super) async fn update_server_role_permissions(
     State(state): State<ServerRolesState>,
-    context: ServerRoleContext,
+    context: CanManageServerRoleContext,
     Json(payload): Json<UpdatePermissionsRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     service::update_server_role_permissions(
@@ -163,7 +125,7 @@ pub(super) async fn update_server_role_permissions(
 
 pub(super) async fn add_server_role_members(
     State(state): State<ServerRolesState>,
-    context: ServerRoleContext,
+    context: CanManageServerRoleContext,
     Json(payload): Json<RoleMembersRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
@@ -179,7 +141,7 @@ pub(super) async fn add_server_role_members(
 
 pub(super) async fn remove_server_role_member(
     State(state): State<ServerRolesState>,
-    context: ServerRoleMemberContext,
+    context: CanManageServerRoleMemberContext,
 ) -> AppResult<Json<EmptyResponse>> {
     service::remove_server_role_member(
         &state.database,
@@ -193,7 +155,7 @@ pub(super) async fn remove_server_role_member(
 
 pub(super) async fn delete_server_role(
     State(state): State<ServerRolesState>,
-    context: ServerRoleContext,
+    context: CanManageServerRoleContext,
 ) -> AppResult<Json<EmptyResponse>> {
     service::delete_server_role(
         &state.database,

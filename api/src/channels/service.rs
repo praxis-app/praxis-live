@@ -23,17 +23,7 @@ use crate::{
 pub(super) async fn get_channels(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: Option<Uuid>,
-    invite_token: Option<&str>,
 ) -> AppResult<Vec<ChannelResponse>> {
-    servers_service::is_server_audience(
-        database,
-        server_id,
-        user_id,
-        invite_token,
-    )
-    .await?;
-
     let server = servers_service::load_server(database, server_id).await?;
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
@@ -91,12 +81,7 @@ pub(super) async fn get_channel_with_server(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    user_id: Option<Uuid>,
-    invite_token: Option<&str>,
 ) -> AppResult<ChannelResponse> {
-    can_read_channel(database, server_id, channel_id, user_id, invite_token)
-        .await?;
-
     let server = servers_service::load_server(database, server_id).await?;
     let channel = get_channel(database, server_id, channel_id).await?;
     Ok(shape_channel(channel, &server))
@@ -105,11 +90,8 @@ pub(super) async fn get_channel_with_server(
 pub(super) async fn create_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: Uuid,
     request: ChannelRequest,
 ) -> AppResult<ChannelResponse> {
-    can_manage_channels(database, user_id, server_id).await?;
-
     let server = servers_service::load_server(database, server_id).await?;
     let (name, description, channel_type) = validate_channel_request(request)?;
     let sort_order = next_sort_order(database, server_id).await?;
@@ -151,11 +133,8 @@ pub(super) async fn create_channel(
 pub(super) async fn update_channel_order(
     database: &DatabaseConnection,
     server_id: Uuid,
-    user_id: Uuid,
     request: ChannelOrderRequest,
 ) -> AppResult<()> {
-    can_manage_channels(database, user_id, server_id).await?;
-
     let channels = channels::Entity::find()
         .filter(channels::Column::ServerId.eq(server_id))
         .all(database)
@@ -203,11 +182,8 @@ pub(super) async fn update_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    user_id: Uuid,
     request: ChannelRequest,
 ) -> AppResult<()> {
-    can_manage_channels(database, user_id, server_id).await?;
-
     let (name, description, _) = validate_channel_request(request)?;
     let channel = get_channel(database, server_id, channel_id).await?;
     let mut active = channel.into_active_model();
@@ -221,10 +197,7 @@ pub(super) async fn delete_channel(
     database: &DatabaseConnection,
     server_id: Uuid,
     channel_id: Uuid,
-    user_id: Uuid,
 ) -> AppResult<()> {
-    can_manage_channels(database, user_id, server_id).await?;
-
     let channel = get_channel(database, server_id, channel_id).await?;
     channel.delete(database).await.map_err(internal_error)?;
     Ok(())
@@ -443,7 +416,7 @@ where
     Ok(last_channel.map_or(0, |channel| channel.sort_order + 1))
 }
 
-async fn can_manage_channels(
+pub(super) async fn can_manage_channels(
     database: &DatabaseConnection,
     user_id: Uuid,
     server_id: Uuid,

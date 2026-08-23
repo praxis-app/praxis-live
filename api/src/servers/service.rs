@@ -262,7 +262,7 @@ pub(super) async fn get_server_by_id(
     .await
 }
 
-// Unlike its `ServerPath` siblings, this cannot be gated by `ServerViewContext`:
+// Unlike its `ServerPath` siblings, this cannot be gated by `CanReadServerContext`:
 // the server id is not known until the slug is resolved, so the access check
 // lives here, immediately after the lookup and before anything is shaped.
 pub(super) async fn get_server_by_slug(
@@ -313,8 +313,6 @@ pub(super) async fn create_server(
     current_user_id: Uuid,
     image: Option<Vec<u8>>,
 ) -> AppResult<ServerResponse> {
-    can_manage_servers(database, current_user_id).await?;
-
     if let Some(image) = image.as_deref() {
         crate::common::images::validate_raster(image, "Server image")?;
     }
@@ -395,10 +393,7 @@ pub(super) async fn delete_server(
     database: &DatabaseConnection,
     upload_root: &Path,
     server_id: Uuid,
-    user_id: Uuid,
 ) -> AppResult<()> {
-    can_manage_servers(database, user_id).await?;
-
     let server = get_server(database, server_id).await?;
     let server_count = servers::Entity::find()
         .count(database)

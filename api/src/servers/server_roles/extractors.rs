@@ -1,9 +1,9 @@
-//! Resolves server-role routes and enforces the `ServerRole` manage
-//! permission before handlers execute.
+//! Resolves server-role routes and enforces their access rules before
+//! handlers execute.
 //!
-//! Only the mutating routes use these. The read routes stay deliberately open
-//! to any authenticated user, because the proposal flow needs current role
-//! definitions and eligible members in order to propose changes to them.
+//! The mutating routes require `ServerRole: manage`. The read routes require
+//! only read access to the server, because the proposal flow needs current
+//! role definitions and eligible members in order to propose changes to them.
 
 use axum::{
     extract::{FromRequestParts, Path},
@@ -16,34 +16,29 @@ use super::{
     types::{ServerRoleMemberPath, ServerRolePath},
 };
 use crate::{
-    auth::AuthenticatedUser,
+    auth::{AuthenticatedUser, AuthenticatedUserOptional},
     authz::{self, PermissionScope},
     common::ApiError,
-    servers::types::ServerPath,
+    invites::InviteAccessToken,
+    servers::{self, types::ServerPath},
 };
 
-/// Caller may manage roles in the server named in the path.
-pub(super) struct ServerRoleManagerContext {
+pub(super) struct CanManageServerRolesContext {
     pub(super) server_id: Uuid,
 }
 
-/// Caller may manage roles in the server named in the path, for the role also
-/// named there.
-pub(super) struct ServerRoleContext {
+pub(super) struct CanManageServerRoleContext {
     pub(super) server_id: Uuid,
     pub(super) server_role_id: Uuid,
 }
 
-/// Caller may manage roles in the server named in the path, for the role and
-/// member also named there. `member_user_id` is the target of the change,
-/// never the caller.
-pub(super) struct ServerRoleMemberContext {
+pub(super) struct CanManageServerRoleMemberContext {
     pub(super) server_id: Uuid,
     pub(super) server_role_id: Uuid,
     pub(super) member_user_id: Uuid,
 }
 
-impl FromRequestParts<ServerRolesState> for ServerRoleManagerContext {
+impl FromRequestParts<ServerRolesState> for CanManageServerRolesContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(
@@ -61,7 +56,7 @@ impl FromRequestParts<ServerRolesState> for ServerRoleManagerContext {
     }
 }
 
-impl FromRequestParts<ServerRolesState> for ServerRoleContext {
+impl FromRequestParts<ServerRolesState> for CanManageServerRoleContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(
@@ -81,7 +76,7 @@ impl FromRequestParts<ServerRolesState> for ServerRoleContext {
     }
 }
 
-impl FromRequestParts<ServerRolesState> for ServerRoleMemberContext {
+impl FromRequestParts<ServerRolesState> for CanManageServerRoleMemberContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(
@@ -122,4 +117,105 @@ async fn can_manage_server_roles(
 
 fn invalid_route_path() -> ApiError {
     ApiError::new(StatusCode::BAD_REQUEST, "Invalid route path.")
+}
+
+pub(super) struct IsServerAudienceContext {
+    pub(super) server_id: Uuid,
+}
+
+impl FromRequestParts<ServerRolesState> for IsServerAudienceContext {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServerRolesState,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) = Path::<ServerPath>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| invalid_route_path())?;
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        servers::is_server_audience(
+            &state.database,
+            path.server_id,
+            Some(user_id),
+            None,
+        )
+        .await?;
+
+        Ok(Self {
+            server_id: path.server_id,
+        })
+    }
+}
+
+pub(super) struct CanReadServerRoleContext {
+    pub(super) server_id: Uuid,
+    pub(super) server_role_id: Uuid,
+}
+
+impl FromRequestParts<ServerRolesState> for CanReadServerRoleContext {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServerRolesState,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) =
+            Path::<ServerRolePath>::from_request_parts(parts, state)
+                .await
+                .map_err(|_| invalid_route_path())?;
+        let AuthenticatedUserOptional(user_id) =
+            AuthenticatedUserOptional::from_request_parts(parts, state).await?;
+        let InviteAccessToken(invite_token) =
+            InviteAccessToken::from_request_parts(parts, state).await?;
+
+        servers::is_server_audience(
+            &state.database,
+            path.server_id,
+            user_id,
+            invite_token.as_deref(),
+        )
+        .await?;
+
+        Ok(Self {
+            server_id: path.server_id,
+            server_role_id: path.server_role_id,
+        })
+    }
+}
+
+pub(super) struct CanReadServerRoleMembersContext {
+    pub(super) server_id: Uuid,
+    pub(super) server_role_id: Uuid,
+}
+
+impl FromRequestParts<ServerRolesState> for CanReadServerRoleMembersContext {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServerRolesState,
+    ) -> Result<Self, Self::Rejection> {
+        let Path(path) =
+            Path::<ServerRolePath>::from_request_parts(parts, state)
+                .await
+                .map_err(|_| invalid_route_path())?;
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        servers::is_server_audience(
+            &state.database,
+            path.server_id,
+            Some(user_id),
+            None,
+        )
+        .await?;
+
+        Ok(Self {
+            server_id: path.server_id,
+            server_role_id: path.server_role_id,
+        })
+    }
 }

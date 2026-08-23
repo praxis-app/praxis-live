@@ -7,16 +7,19 @@ use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 use super::{
+    extractors::{
+        CanManageChannelContext, CanManageContext, CanReadChannelContext,
+        HasDatabase, IsServerAudienceContext,
+    },
     service,
     types::{
-        ChannelOrderRequest, ChannelPath, ChannelPayload, ChannelRequest,
-        ChannelsPayload, ServerPath,
+        ChannelOrderRequest, ChannelPayload, ChannelRequest, ChannelsPayload,
+        ServerPath,
     },
 };
 use crate::{
-    auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
+    auth::{AuthenticatedUser, HasJwtSecret},
     common::{response::EmptyResponse, AppResult},
-    invites::InviteAccessToken,
 };
 
 #[derive(Clone, Debug)]
@@ -43,33 +46,32 @@ impl HasJwtSecret for ChannelsState {
     }
 }
 
+impl HasDatabase for ChannelsState {
+    fn database(&self) -> &DatabaseConnection {
+        &self.database
+    }
+}
+
 pub(super) async fn create_channel(
     State(state): State<ChannelsState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: CanManageContext,
     Json(payload): Json<ChannelRequest>,
 ) -> AppResult<Json<ChannelPayload>> {
-    let channel = service::create_channel(
-        &state.database,
-        path.server_id,
-        user_id,
-        payload,
-    )
-    .await?;
+    let channel =
+        service::create_channel(&state.database, context.server_id, payload)
+            .await?;
     Ok(Json(ChannelPayload { channel }))
 }
 
 pub(super) async fn update_channel(
     State(state): State<ChannelsState>,
-    Path(path): Path<ChannelPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: CanManageChannelContext,
     Json(payload): Json<ChannelRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     service::update_channel(
         &state.database,
-        path.server_id,
-        path.channel_id,
-        user_id,
+        context.server_id,
+        context.channel_id,
         payload,
     )
     .await?;
@@ -78,30 +80,22 @@ pub(super) async fn update_channel(
 
 pub(super) async fn update_channel_order(
     State(state): State<ChannelsState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: CanManageContext,
     Json(payload): Json<ChannelOrderRequest>,
 ) -> AppResult<StatusCode> {
-    service::update_channel_order(
-        &state.database,
-        path.server_id,
-        user_id,
-        payload,
-    )
-    .await?;
+    service::update_channel_order(&state.database, context.server_id, payload)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 pub(super) async fn delete_channel(
     State(state): State<ChannelsState>,
-    Path(path): Path<ChannelPath>,
-    AuthenticatedUser(user_id): AuthenticatedUser,
+    context: CanManageChannelContext,
 ) -> AppResult<Json<EmptyResponse>> {
     service::delete_channel(
         &state.database,
-        path.server_id,
-        path.channel_id,
-        user_id,
+        context.server_id,
+        context.channel_id,
     )
     .await?;
     Ok(Json(EmptyResponse {}))
@@ -109,17 +103,10 @@ pub(super) async fn delete_channel(
 
 pub(super) async fn get_channels(
     State(state): State<ChannelsState>,
-    Path(path): Path<ServerPath>,
-    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
-    InviteAccessToken(invite_token): InviteAccessToken,
+    context: IsServerAudienceContext,
 ) -> AppResult<Json<ChannelsPayload>> {
-    let channels = service::get_channels(
-        &state.database,
-        path.server_id,
-        user_id,
-        invite_token.as_deref(),
-    )
-    .await?;
+    let channels =
+        service::get_channels(&state.database, context.server_id).await?;
     Ok(Json(ChannelsPayload { channels }))
 }
 
@@ -136,16 +123,12 @@ pub(super) async fn get_joined_channels(
 
 pub(super) async fn get_channel(
     State(state): State<ChannelsState>,
-    Path(path): Path<ChannelPath>,
-    AuthenticatedUserOptional(user_id): AuthenticatedUserOptional,
-    InviteAccessToken(invite_token): InviteAccessToken,
+    context: CanReadChannelContext,
 ) -> AppResult<Json<ChannelPayload>> {
     let channel = service::get_channel_with_server(
         &state.database,
-        path.server_id,
-        path.channel_id,
-        user_id,
-        invite_token.as_deref(),
+        context.server_id,
+        context.channel_id,
     )
     .await?;
     Ok(Json(ChannelPayload { channel }))

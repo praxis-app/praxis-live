@@ -6,7 +6,7 @@ use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 use super::{
-    extractors::{InviteAccessContext, InviteManageContext},
+    extractors::{CanCreateInviteContext, CanManageInviteContext},
     service,
     types::{
         InvitePayload, InviteRequest, InviteValidityResponse, InvitesPayload,
@@ -52,7 +52,7 @@ pub(super) async fn is_valid_invite(
 
 pub(super) async fn get_invites(
     State(state): State<InvitesState>,
-    context: InviteAccessContext,
+    context: CanCreateInviteContext,
 ) -> AppResult<Json<InvitesPayload>> {
     let invites =
         service::get_valid_invites(&state.database, context.server_id).await?;
@@ -61,7 +61,7 @@ pub(super) async fn get_invites(
 
 pub(super) async fn create_invite(
     State(state): State<InvitesState>,
-    context: InviteAccessContext,
+    context: CanCreateInviteContext,
     Json(payload): Json<InviteRequest>,
 ) -> AppResult<Json<InvitePayload>> {
     let invite = service::create_invite(
@@ -76,7 +76,7 @@ pub(super) async fn create_invite(
 
 pub(super) async fn delete_invite(
     State(state): State<InvitesState>,
-    context: InviteManageContext,
+    context: CanManageInviteContext,
 ) -> AppResult<Json<EmptyResponse>> {
     service::delete_invite(
         &state.database,

@@ -33,23 +33,18 @@ struct InstanceRoleMemberPath {
     user_id: Uuid,
 }
 
-/// Caller may manage instance roles. Carries no ids; used by the routes that
-/// take no path parameters.
-pub(super) struct InstanceRoleManagerContext;
+pub(super) struct CanManageInstanceRolesContext;
 
-/// Caller may manage instance roles, for the role named in the path.
-pub(super) struct InstanceRoleContext {
+pub(super) struct CanManageInstanceRoleContext {
     pub(super) instance_role_id: Uuid,
 }
 
-/// Caller may manage instance roles, for the role and member named in the
-/// path. `member_user_id` is the target of the change, never the caller.
-pub(super) struct InstanceRoleMemberContext {
+pub(super) struct CanManageInstanceRoleMemberContext {
     pub(super) instance_role_id: Uuid,
     pub(super) member_user_id: Uuid,
 }
 
-impl FromRequestParts<InstanceRolesState> for InstanceRoleManagerContext {
+impl FromRequestParts<InstanceRolesState> for CanManageInstanceRolesContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(
@@ -61,7 +56,7 @@ impl FromRequestParts<InstanceRolesState> for InstanceRoleManagerContext {
     }
 }
 
-impl FromRequestParts<InstanceRolesState> for InstanceRoleContext {
+impl FromRequestParts<InstanceRolesState> for CanManageInstanceRoleContext {
     type Rejection = ApiError;
 
     async fn from_request_parts(
@@ -80,7 +75,9 @@ impl FromRequestParts<InstanceRolesState> for InstanceRoleContext {
     }
 }
 
-impl FromRequestParts<InstanceRolesState> for InstanceRoleMemberContext {
+impl FromRequestParts<InstanceRolesState>
+    for CanManageInstanceRoleMemberContext
+{
     type Rejection = ApiError;
 
     async fn from_request_parts(
