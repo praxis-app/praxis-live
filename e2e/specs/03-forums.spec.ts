@@ -24,6 +24,10 @@ type ForumPostResponse = {
 const forumPostsPageSize = 20;
 const totalForumPosts = 41;
 
+test.beforeAll(async ({ request }) => {
+  await getOrCreateInstanceAdmin(request);
+});
+
 test('forum post list loads every page when scrolled to the bottom', async ({
   context,
   page,

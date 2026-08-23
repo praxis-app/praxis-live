@@ -41,6 +41,10 @@ type JoinCallResponse = {
 const feedPageSize = 20;
 const totalFeedMessages = 41;
 
+test.beforeAll(async ({ request }) => {
+  await getOrCreateInstanceAdmin(request);
+});
+
 test('authenticated user can send a basic chat message', async ({
   context,
   page,
