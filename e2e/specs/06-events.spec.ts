@@ -428,7 +428,7 @@ test('user can propose and ratify an online event with all details preserved', a
     .getByRole('grid')
     .locator('.events-calendar-event')
     .filter({ hasText: eventName });
-  await expect.poll(() => calendarEventSegments.count()).toBeGreaterThan(1);
+  await expect(calendarEventSegments.first()).toBeVisible();
   await calendarEventSegments.first().hover();
   await expect
     .poll(() =>

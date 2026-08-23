@@ -5,7 +5,7 @@ export class ChatPage {
   constructor(private readonly page: Page) {}
 
   messageFeed(): Locator {
-    return this.page.getByLabel('Message feed');
+    return this.page.getByTestId('feed');
   }
 
   async goto() {
@@ -43,7 +43,7 @@ export class ChatPage {
 
   async expectAttachedImage() {
     await expect(
-      this.page.getByRole('img', { name: 'Attached image' }).first(),
+      this.messageFeed().getByRole('img', { name: 'Attached image' }).first(),
     ).toBeVisible();
   }
 
@@ -53,12 +53,9 @@ export class ChatPage {
     ).toBeVisible();
   }
 
-  async expectEmptyFeed() {
-    await expect(this.page.getByText('No messages yet')).toBeVisible();
-  }
-
   async expectMessage(message: string, author: string) {
-    await expect(this.page.getByText(message)).toBeVisible();
-    await expect(this.page.getByText(author).first()).toBeVisible();
+    const feed = this.messageFeed();
+    await expect(feed.getByText(message)).toBeVisible();
+    await expect(feed.getByText(author).first()).toBeVisible();
   }
 }

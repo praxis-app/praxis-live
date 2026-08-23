@@ -677,7 +677,7 @@ test('anonymous user can send messages with an image attached', async ({
   await page.getByRole('button', { name: 'Send anonymously' }).click();
   await anonSessionResponse;
   await messageResponse;
-  await expect(page.getByText(message)).toBeVisible();
+  await expect(chat.messageFeed().getByText(message)).toBeVisible();
   await chat.expectAttachedImage();
 });
 
