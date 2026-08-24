@@ -34,8 +34,8 @@ export const VoteProgressDialog = ({
 }: Props) => {
   const { t } = useTranslation();
   const status = getProposalRuleStatus(votes, config, memberCount);
-  const showAgreement = config.decisionMakingModel !== 'consent';
-  const showLimits = config.decisionMakingModel !== 'majority-vote';
+  const showAgreement = status.agreementApplies;
+  const showLimits = status.limitsApply;
   const requiredAgreements = Math.max(1, status.requiredAgreements);
   const agreementsPercentage = getProgressPercentage(
     status.agreements,
@@ -70,6 +70,12 @@ export const VoteProgressDialog = ({
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
+          {config.decisionMakingModel === 'consent' && (
+            <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+              {t('proposals.descriptions.consentRules')}
+            </p>
+          )}
+
           {closedReason === 'event-start-elapsed' && (
             <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
               {t('proposals.outcomes.eventStartElapsed')}
@@ -111,7 +117,7 @@ export const VoteProgressDialog = ({
             </div>
           )}
 
-          {config.quorumEnabled && (
+          {status.quorumApplies && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">

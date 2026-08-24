@@ -30,7 +30,9 @@ export const ProposalSettingsDialog = ({
 }: Props) => {
   const { t, i18n } = useTranslation();
   const decisionMakingModel = config.decisionMakingModel ?? 'consensus';
-  const showAgreementThreshold = decisionMakingModel !== 'consent';
+  const isConsent = decisionMakingModel === 'consent';
+  const showAgreementThreshold = !isConsent;
+  const showQuorum = !isConsent;
   const showVoteLimits = decisionMakingModel !== 'majority-vote';
 
   const modelLabel = t(MODEL_TRANSLATION_KEYS[decisionMakingModel]);
@@ -44,7 +46,9 @@ export const ProposalSettingsDialog = ({
     },
     {
       name: t('settings.names.decisionMakingModel'),
-      description: t('settings.explanations.decisionMakingModel'),
+      description: isConsent
+        ? t('proposals.descriptions.consentRules')
+        : t('settings.explanations.decisionMakingModel'),
       value: modelLabel,
       visible: true,
     },
@@ -70,13 +74,13 @@ export const ProposalSettingsDialog = ({
       name: t('settings.names.quorumEnabled'),
       description: t('settings.explanations.quorumEnabled'),
       value: t(config.quorumEnabled ? 'actions.enabled' : 'actions.disabled'),
-      visible: true,
+      visible: showQuorum,
     },
     {
       name: t('settings.names.quorumThreshold'),
       description: t('settings.explanations.quorumThreshold'),
       value: `${config.quorumThreshold ?? 0}%`,
-      visible: config.quorumEnabled === true,
+      visible: showQuorum && config.quorumEnabled === true,
     },
     {
       name: t('proposals.labels.votingDeadline'),

@@ -119,11 +119,38 @@ export const PollSettingsForm = ({
 
   const decisionMakingModel = form.watch('decisionMakingModel');
   const majorityVoteSelected = decisionMakingModel === 'majority-vote';
+  const consentSelected = decisionMakingModel === 'consent';
   const quorumEnabled = form.watch('quorumEnabled');
+  const quorumDisabled = !quorumEnabled || consentSelected;
   const showMajorityVoteLimitsExplanation = () => {
     if (majorityVoteSelected) {
       toast.info(t('settings.descriptions.majorityVoteLimitsDisabled'), {
         id: 'majority-vote-limits-disabled',
+      });
+    }
+  };
+  const showConsentThresholdsExplanation = () => {
+    if (consentSelected) {
+      toast.info(t('settings.descriptions.consentThresholdsDisabled'), {
+        id: 'consent-thresholds-disabled',
+      });
+    }
+  };
+
+  // Consent is only ever ratifiable at a finite deadline, so steer the form
+  // off Unlimited instead of waiting for a submit-time error.
+  const handleDecisionMakingModelChange = (
+    value: string,
+    onChange: (value: string) => void,
+  ) => {
+    onChange(value);
+    if (
+      value === 'consent' &&
+      form.getValues('votingTimeLimit') === VotingTimeLimit.Unlimited
+    ) {
+      form.setValue('votingTimeLimit', VotingTimeLimit.OneDay, {
+        shouldDirty: true,
+        shouldValidate: true,
       });
     }
   };
@@ -156,7 +183,12 @@ export const PollSettingsForm = ({
               <FormDescription>
                 {t('settings.descriptions.decisionMakingModel')}
               </FormDescription>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select
+                onValueChange={(value) =>
+                  handleDecisionMakingModelChange(value, field.onChange)
+                }
+                value={field.value}
+              >
                 <FormControl>
                   <SelectTrigger className="w-full">
                     <SelectValue
@@ -279,9 +311,13 @@ export const PollSettingsForm = ({
           control={form.control}
           name="agreementThreshold"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('settings.names.agreementThreshold')}</FormLabel>
-              <FormDescription>
+            <FormItem onPointerDownCapture={showConsentThresholdsExplanation}>
+              <FormLabel className={consentSelected ? 'opacity-50' : undefined}>
+                {t('settings.names.agreementThreshold')}
+              </FormLabel>
+              <FormDescription
+                className={consentSelected ? 'opacity-50' : undefined}
+              >
                 {t('settings.descriptions.agreementThreshold')}
               </FormDescription>
               <div className="flex gap-3">
@@ -293,6 +329,8 @@ export const PollSettingsForm = ({
                     max={100}
                     step={1}
                     className="mb-0 w-full"
+                    disabled={consentSelected}
+                    aria-label={t('settings.names.agreementThreshold')}
                   />
                 </FormControl>
                 <div className="flex items-center space-x-2">
@@ -311,6 +349,8 @@ export const PollSettingsForm = ({
                         )
                       }
                       className="w-20"
+                      disabled={consentSelected}
+                      aria-label={t('settings.names.agreementThreshold')}
                     />
                   </FormControl>
                   <span className="text-muted-foreground text-sm">%</span>
@@ -333,10 +373,19 @@ export const PollSettingsForm = ({
           control={form.control}
           name="quorumEnabled"
           render={({ field }) => (
-            <FormItem className="flex items-center justify-between gap-4 md:gap-16">
+            <FormItem
+              className="flex items-center justify-between gap-4 md:gap-16"
+              onPointerDownCapture={showConsentThresholdsExplanation}
+            >
               <div className="space-y-1">
-                <FormLabel>{t('settings.names.quorumEnabled')}</FormLabel>
-                <FormDescription>
+                <FormLabel
+                  className={consentSelected ? 'opacity-50' : undefined}
+                >
+                  {t('settings.names.quorumEnabled')}
+                </FormLabel>
+                <FormDescription
+                  className={consentSelected ? 'opacity-50' : undefined}
+                >
                   {t('settings.descriptions.quorumEnabled')}
                 </FormDescription>
               </div>
@@ -344,6 +393,7 @@ export const PollSettingsForm = ({
                 <Switch
                   checked={field.value}
                   onCheckedChange={field.onChange}
+                  disabled={consentSelected}
                 />
               </FormControl>
             </FormItem>
@@ -357,7 +407,8 @@ export const PollSettingsForm = ({
           name="quorumThreshold"
           render={({ field }) => (
             <FormItem
-              className={!quorumEnabled ? 'cursor-not-allowed opacity-50' : ''}
+              className={quorumDisabled ? 'cursor-not-allowed opacity-50' : ''}
+              onPointerDownCapture={showConsentThresholdsExplanation}
             >
               <FormLabel>{t('settings.names.quorumThreshold')}</FormLabel>
               <FormDescription>
@@ -372,7 +423,8 @@ export const PollSettingsForm = ({
                     max={100}
                     step={1}
                     className="mb-0 w-full"
-                    disabled={!quorumEnabled}
+                    disabled={quorumDisabled}
+                    aria-label={t('settings.names.quorumThreshold')}
                   />
                 </FormControl>
                 <div className="flex items-center space-x-2">
@@ -387,7 +439,8 @@ export const PollSettingsForm = ({
                         handleSliderInputBlur('quorumThreshold', field.value)
                       }
                       className="w-20"
-                      disabled={!quorumEnabled}
+                      disabled={quorumDisabled}
+                      aria-label={t('settings.names.quorumThreshold')}
                     />
                   </FormControl>
                   <span className="text-muted-foreground text-sm">%</span>
@@ -442,9 +495,11 @@ export const PollSettingsForm = ({
                   <SelectItem value={VotingTimeLimit.TwoWeeks.toString()}>
                     {t('time.weeks', { count: 2 })}
                   </SelectItem>
-                  <SelectItem value={VotingTimeLimit.Unlimited.toString()}>
-                    {t('time.unlimited')}
-                  </SelectItem>
+                  {!consentSelected && (
+                    <SelectItem value={VotingTimeLimit.Unlimited.toString()}>
+                      {t('time.unlimited')}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               <FormMessage

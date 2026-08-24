@@ -42,7 +42,6 @@ export const ProposalStatusBadge = ({ poll, onClick }: Props) => {
   );
   const limitReached =
     stage === 'voting' &&
-    poll.config.decisionMakingModel !== 'majority-vote' &&
     (!status.disagreementsMet || !status.abstainsMet || !status.blocksMet);
   const Icon = limitReached ? LuOctagonAlert : stageIcons[stage];
 

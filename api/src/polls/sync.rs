@@ -410,11 +410,17 @@ async fn synchronize_proposal(
         return Ok(ProposalSyncAction::None);
     }
 
+    let now = Utc::now().fixed_offset();
     let action = proposal_sync_action(
         config.closing_at,
-        is_poll_ratifiable_with_context(&transaction, &locked_poll, config)
-            .await?,
-        Utc::now().fixed_offset(),
+        is_poll_ratifiable_with_context(
+            &transaction,
+            &locked_poll,
+            config,
+            now,
+        )
+        .await?,
+        now,
     );
 
     match action {
@@ -422,12 +428,9 @@ async fn synchronize_proposal(
             transaction.commit().await.map_err(internal_error)?;
         }
         ProposalSyncAction::Ratify => {
-            let finalization = finalize_ratifiable_proposal(
-                &transaction,
-                poll.id,
-                Utc::now().fixed_offset(),
-            )
-            .await?;
+            let finalization =
+                finalize_ratifiable_proposal(&transaction, poll.id, now)
+                    .await?;
             transaction.commit().await.map_err(internal_error)?;
             return Ok(match finalization {
                 ProposalFinalization::Ratified => ProposalSyncAction::Ratify,

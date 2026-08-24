@@ -188,6 +188,7 @@
       "createdInAnotherCall": "Created in another call",
       "createdInChannel": "Created in channel",
       "votingDeadline": "Voting deadline",
+      "deadline": "voting deadline",
       "plannedEvent": "Planned event: {{name}}",
       "eventProposal": "Event proposal"
     },
@@ -246,6 +247,7 @@
       "selectRoleDescription": "Choose the role you want to modify",
       "proposalSettings": "The decision rules captured when this proposal was created.",
       "votingDeadline": "The date and time when voting ends.",
+      "consentRules": "Consent is decided when voting closes. Agree is supportive, disagreements and abstentions are limited objections bounded by their limits, and a single block prevents the proposal from passing.",
       "planEvent": "Set the event details and choose at least one host. The event will be automatically created if this proposal passes."
     },
     "actionTypes": {
@@ -799,6 +801,7 @@
       "disagreementsLimit": "Set a limit for the acceptable number of disagreements allowed for a proposal to still be able to pass.",
       "abstainsLimit": "Set a limit for the acceptable number of abstains allowed for a proposal to still be able to pass.",
       "majorityVoteLimitsDisabled": "Disagreement and abstention limits do not apply to majority vote, which is determined by the agreement threshold and quorum.",
+      "consentThresholdsDisabled": "Quorum and agreement threshold do not apply to consent, which passes at the voting deadline when disagreements and abstentions stay within their limits and nobody blocks.",
       "votingTimeLimit": "Set a time limit for how long proposals can be voted on before they're closed or ratified.",
       "anonymousUsersEnabled": "Allow users to participate without creating an account or providing personal information."
     },

@@ -16,6 +16,8 @@ export const ProposalOutcome = ({ poll }: Props) => {
     poll.config,
     poll.memberCount,
   );
+  const missingRequiredDeadline =
+    status.deadlineRequired && !poll.config.closingAt;
 
   if (poll.stage === 'ratified') {
     return null;
@@ -26,21 +28,15 @@ export const ProposalOutcome = ({ poll }: Props) => {
       return null;
     }
 
+    // Rules that do not apply to this model already report as met, so only
+    // the conditions that actually failed are named here.
     const failedRules = [
-      !status.agreementMet && poll.config.decisionMakingModel !== 'consent'
-        ? t('proposals.labels.approval')
-        : null,
-      !status.quorumMet ? t('proposals.labels.quorum') : null,
-      !status.disagreementsMet &&
-      poll.config.decisionMakingModel !== 'majority-vote'
-        ? t('proposals.labels.disagreements')
-        : null,
-      !status.abstainsMet && poll.config.decisionMakingModel !== 'majority-vote'
-        ? t('proposals.labels.abstentions')
-        : null,
-      !status.blocksMet && poll.config.decisionMakingModel !== 'majority-vote'
-        ? t('proposals.labels.blocks')
-        : null,
+      status.agreementMet ? null : t('proposals.labels.approval'),
+      status.quorumMet ? null : t('proposals.labels.quorum'),
+      status.disagreementsMet ? null : t('proposals.labels.disagreements'),
+      status.abstainsMet ? null : t('proposals.labels.abstentions'),
+      status.blocksMet ? null : t('proposals.labels.blocks'),
+      missingRequiredDeadline ? t('proposals.labels.deadline') : null,
     ].filter((rule): rule is string => !!rule);
 
     return (
@@ -66,7 +62,7 @@ export const ProposalOutcome = ({ poll }: Props) => {
     );
   }
 
-  if (status.passes) {
+  if (status.passes && !missingRequiredDeadline) {
     return (
       <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
         <LuTrendingUp className="size-4 shrink-0" aria-hidden="true" />

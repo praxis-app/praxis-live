@@ -34,8 +34,8 @@ pub(crate) async fn update_server_config(
     server_id: Uuid,
     request: ServerConfigRequest,
 ) -> AppResult<()> {
-    validate_server_config_request(&request)?;
     let config = ensure_server_config(database, server_id).await?;
+    validate_server_config_request(&request, &config)?;
     let mut active = config.into_active_model();
 
     if let Some(value) = request.anonymous_users_enabled {
@@ -73,7 +73,7 @@ pub(crate) async fn apply_server_config<C: ConnectionTrait>(
     config: server_configs::Model,
     request: &ServerConfigRequest,
 ) -> AppResult<()> {
-    validate_server_config_request(request)?;
+    validate_server_config_request(request, &config)?;
     let mut active = config.into_active_model();
     if let Some(value) = request.anonymous_users_enabled {
         active.anonymous_users_enabled = Set(value);
@@ -153,23 +153,32 @@ fn parse_decision_making_model(
     })
 }
 
+/// Validates the config the server would end up with, not just the fields the
+/// request happens to carry, so a partial update cannot leave an invalid pair
+/// of stored settings behind.
 pub(crate) fn validate_server_config_request(
     request: &ServerConfigRequest,
+    current: &server_configs::Model,
 ) -> AppResult<()> {
-    if let Some(model) = request.decision_making_model.as_deref() {
-        parse_decision_making_model(model)?;
-    }
+    let decision_making_model = match request.decision_making_model.as_deref() {
+        Some(model) => parse_decision_making_model(model)?,
+        None => current.decision_making_model,
+    };
 
     validate_range(request.disagreements_limit, 0, 10, "disagreementsLimit")?;
     validate_range(request.abstains_limit, 0, 10, "abstainsLimit")?;
     validate_range(request.agreement_threshold, 1, 100, "agreementThreshold")?;
     validate_range(request.quorum_threshold, 1, 100, "quorumThreshold")?;
 
-    if request.decision_making_model.as_deref() == Some("majority-vote")
-        && request
-            .agreement_threshold
-            .map(|value| value <= 50)
-            .unwrap_or(false)
+    let agreement_threshold = request
+        .agreement_threshold
+        .unwrap_or(current.agreement_threshold);
+    let voting_time_limit = request
+        .voting_time_limit
+        .unwrap_or(current.voting_time_limit);
+
+    if decision_making_model == ServerDecisionMakingModel::MajorityVote
+        && agreement_threshold <= 50
     {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -177,8 +186,8 @@ pub(crate) fn validate_server_config_request(
         ));
     }
 
-    if request.decision_making_model.as_deref() == Some("consent")
-        && request.voting_time_limit == Some(0)
+    if decision_making_model == ServerDecisionMakingModel::Consent
+        && voting_time_limit <= 0
     {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,

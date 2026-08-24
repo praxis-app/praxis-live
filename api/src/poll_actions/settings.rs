@@ -89,7 +89,9 @@ pub(crate) fn validate_server_config_change(
     request: &crate::servers::types::ServerConfigRequest,
     current: &server_configs::Model,
 ) -> AppResult<()> {
-    servers::server_configs::service::validate_server_config_request(request)?;
+    servers::server_configs::service::validate_server_config_request(
+        request, current,
+    )?;
     let has_real_change = request
         .anonymous_users_enabled
         .map(|value| value != current.anonymous_users_enabled)

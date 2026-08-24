@@ -38,6 +38,7 @@ impl TestApp {
             "CHANNEL_KEY_MASTER",
             "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
         );
+        env::set_var("PROPOSAL_SYNC_INTERVAL_SECONDS", "1");
         env::set_var("LIVEKIT_URL", "ws://livekit.test:7880");
         env::set_var("LIVEKIT_HOST", "livekit.test");
         env::set_var("LIVEKIT_PORT", "7880");
