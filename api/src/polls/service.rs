@@ -15,11 +15,13 @@ use sea_orm::{
     ColumnTrait, Condition, DatabaseConnection, DeleteResult, EntityTrait,
     QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
 };
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use super::{
     creation::prepare_poll_creation,
-    outcome::get_poll_member_count,
     types::{
         ActiveDecisionResponse, ActiveDecisionsResponse, CallDecisionResponse,
         CreatePollRequest, PollConfigResponse, PollImageResponse,
@@ -214,11 +216,7 @@ pub(crate) async fn get_inline_polls(
         .await
         .map_err(internal_error)?;
 
-    let mut responses = Vec::with_capacity(polls.len());
-    for poll in polls {
-        responses.push(shape_poll(database, poll, current_user_id).await?);
-    }
-    Ok(responses)
+    shape_polls(database, polls, current_user_id).await
 }
 
 pub(super) async fn get_call_decision(
@@ -573,8 +571,15 @@ pub(super) async fn get_active_decisions(
         .filter_map(|post| post.poll_id.map(|poll_id| (poll_id, post.id)))
         .collect::<HashMap<_, _>>();
 
+    let decision_polls: Vec<polls::Model> = polls_with_configs
+        .iter()
+        .map(|(poll, _)| poll.clone())
+        .collect();
+    let responses =
+        shape_polls(database, decision_polls, response_user_id).await?;
+
     let mut decisions = Vec::with_capacity(polls_with_configs.len());
-    for (poll, _) in polls_with_configs {
+    for ((poll, _), response) in polls_with_configs.iter().zip(responses) {
         let channel =
             channels_by_id.get(&poll.channel_id).ok_or_else(|| {
                 ApiError::new(
@@ -582,8 +587,6 @@ pub(super) async fn get_active_decisions(
                     "Decision channel not found.",
                 )
             })?;
-        let response =
-            shape_poll(database, poll.clone(), response_user_id).await?;
 
         decisions.push(ActiveDecisionResponse {
             id: response.id,
@@ -698,28 +701,41 @@ async fn shape_poll(
     poll: polls::Model,
     current_user_id: Option<Uuid>,
 ) -> AppResult<PollResponse> {
-    let user = users::Entity::find_by_id(poll.user_id)
-        .one(database)
+    shape_polls(database, vec![poll], current_user_id)
+        .await?
+        .pop()
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Poll not found."))
+}
+
+/// Shapes a page of polls with a fixed number of queries. Every related table
+/// is loaded once for the whole batch rather than once per poll.
+async fn shape_polls(
+    database: &DatabaseConnection,
+    polls: Vec<polls::Model>,
+    current_user_id: Option<Uuid>,
+) -> AppResult<Vec<PollResponse>> {
+    if polls.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let poll_ids: Vec<Uuid> = polls.iter().map(|poll| poll.id).collect();
+    let user_ids: Vec<Uuid> = polls.iter().map(|poll| poll.user_id).collect();
+
+    let users = users::Entity::find()
+        .filter(users::Column::Id.is_in(user_ids.iter().copied()))
+        .all(database)
         .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "User not found.")
-        })?;
-    let profile_picture =
-        users_service::get_user_profile_picture(database, poll.user_id).await?;
-    let config = poll_configs::Entity::find()
-        .filter(poll_configs::Column::PollId.eq(poll.id))
-        .one(database)
+        .map_err(internal_error)?;
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
+    let configs = poll_configs::Entity::find()
+        .filter(poll_configs::Column::PollId.is_in(poll_ids.iter().copied()))
+        .all(database)
         .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Poll config not found.",
-            )
-        })?;
+        .map_err(internal_error)?;
     let votes = votes::Entity::find()
-        .filter(votes::Column::PollId.eq(poll.id))
+        .filter(votes::Column::PollId.is_in(poll_ids.iter().copied()))
         .order_by_asc(votes::Column::CreatedAt)
         .all(database)
         .await
@@ -735,85 +751,168 @@ async fn shape_poll(
             .map_err(internal_error)?
     };
     let options = poll_options::Entity::find()
-        .filter(poll_options::Column::PollId.eq(poll.id))
+        .filter(poll_options::Column::PollId.is_in(poll_ids.iter().copied()))
         .order_by_asc(poll_options::Column::CreatedAt)
         .all(database)
         .await
         .map_err(internal_error)?;
     let images = poll_images::Entity::find()
-        .filter(poll_images::Column::PollId.eq(poll.id))
+        .filter(poll_images::Column::PollId.is_in(poll_ids.iter().copied()))
         .order_by_asc(poll_images::Column::CreatedAt)
         .all(database)
         .await
         .map_err(internal_error)?;
-    let shaped_votes = votes
-        .iter()
-        .map(|vote| vote_service::shape_vote(vote, &selections))
-        .collect::<Vec<_>>();
-    let my_vote = current_user_id.and_then(|user_id| {
-        votes
+    let key_ids: Vec<Uuid> =
+        polls.iter().filter_map(|poll| poll.key_id).collect();
+    let key_map =
+        channels::get_unwrapped_channel_key_map(database, key_ids).await?;
+    let mut actions =
+        poll_actions::service::shape_poll_actions(database, &poll_ids).await?;
+    let member_counts = get_channel_member_counts(
+        database,
+        polls.iter().map(|poll| poll.channel_id),
+    )
+    .await?;
+
+    let mut votes_by_poll: HashMap<Uuid, Vec<votes::Model>> = HashMap::new();
+    for vote in votes {
+        votes_by_poll.entry(vote.poll_id).or_default().push(vote);
+    }
+    let mut options_by_poll: HashMap<Uuid, Vec<poll_options::Model>> =
+        HashMap::new();
+    for option in options {
+        options_by_poll
+            .entry(option.poll_id)
+            .or_default()
+            .push(option);
+    }
+    let mut images_by_poll: HashMap<Uuid, Vec<poll_images::Model>> =
+        HashMap::new();
+    for image in images {
+        images_by_poll.entry(image.poll_id).or_default().push(image);
+    }
+    let configs_by_poll: HashMap<Uuid, poll_configs::Model> = configs
+        .into_iter()
+        .map(|config| (config.poll_id, config))
+        .collect();
+
+    let mut responses = Vec::with_capacity(polls.len());
+    for poll in polls {
+        let user = users
             .iter()
-            .find(|vote| vote.user_id == user_id)
+            .find(|user| user.id == poll.user_id)
+            .ok_or_else(|| {
+                ApiError::new(StatusCode::NOT_FOUND, "User not found.")
+            })?;
+        let config = configs_by_poll.get(&poll.id).ok_or_else(|| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Poll config not found.",
+            )
+        })?;
+        let poll_votes = votes_by_poll.remove(&poll.id).unwrap_or_default();
+        let poll_options = options_by_poll.remove(&poll.id).unwrap_or_default();
+        let poll_images = images_by_poll.remove(&poll.id).unwrap_or_default();
+        let is_proposal = poll.poll_type == PollType::Proposal;
+
+        let shaped_votes = poll_votes
+            .iter()
             .map(|vote| vote_service::shape_vote(vote, &selections))
-    });
-
-    let is_proposal = poll.poll_type == PollType::Proposal;
-
-    Ok(PollResponse {
-        id: poll.id.to_string(),
-        body: decrypt_poll_body(database, &poll).await?,
-        poll_type: poll.poll_type,
-        stage: poll.stage.to_string(),
-        closed_reason: poll.closed_reason.map(|reason| reason.to_string()),
-        action: if is_proposal {
-            poll_actions::service::shape_poll_action(database, poll.id).await?
-        } else {
-            None
-        },
-        config: shape_poll_config(config),
-        options: if is_proposal {
-            vec![]
-        } else {
-            options
-                .into_iter()
-                .map(|option| PollOptionResponse {
-                    id: option.id.to_string(),
-                    vote_count: selections
-                        .iter()
-                        .filter(|selection| {
-                            selection.poll_option_id == option.id
-                        })
-                        .count(),
-                    text: option.text,
-                })
-                .collect()
-        },
-        user: PollUserResponse {
-            id: user.id.to_string(),
-            name: user.name,
-            display_name: user.display_name,
-            profile_picture,
-        },
-        agreement_vote_count: if is_proposal {
-            votes
+            .collect::<Vec<_>>();
+        let my_vote = current_user_id.and_then(|user_id| {
+            poll_votes
                 .iter()
-                .filter(|vote| vote.vote_type == Some(VoteType::Agree))
-                .count()
-        } else {
-            0
-        },
-        votes: shaped_votes,
-        images: images
-            .into_iter()
-            .map(|image| PollImageResponse {
-                id: image.id.to_string(),
-            })
-            .collect(),
-        my_vote,
-        member_count: get_poll_member_count(database, poll.id).await?,
-        source_call_id: poll.call_id.map(|call_id| call_id.to_string()),
-        created_at: serialize_timestamp(poll.created_at),
-    })
+                .find(|vote| vote.user_id == user_id)
+                .map(|vote| vote_service::shape_vote(vote, &selections))
+        });
+
+        responses.push(PollResponse {
+            id: poll.id.to_string(),
+            body: decrypt_poll_body(&poll, &key_map),
+            poll_type: poll.poll_type,
+            stage: poll.stage.to_string(),
+            closed_reason: poll.closed_reason.map(|reason| reason.to_string()),
+            action: if is_proposal {
+                actions.remove(&poll.id)
+            } else {
+                None
+            },
+            config: shape_poll_config(config.clone()),
+            options: if is_proposal {
+                vec![]
+            } else {
+                poll_options
+                    .into_iter()
+                    .map(|option| PollOptionResponse {
+                        id: option.id.to_string(),
+                        vote_count: selections
+                            .iter()
+                            .filter(|selection| {
+                                selection.poll_option_id == option.id
+                            })
+                            .count(),
+                        text: option.text,
+                    })
+                    .collect()
+            },
+            user: PollUserResponse {
+                id: user.id.to_string(),
+                name: user.name.clone(),
+                display_name: user.display_name.clone(),
+                profile_picture: profile_pictures.get(&user.id).cloned(),
+            },
+            agreement_vote_count: if is_proposal {
+                poll_votes
+                    .iter()
+                    .filter(|vote| vote.vote_type == Some(VoteType::Agree))
+                    .count()
+            } else {
+                0
+            },
+            votes: shaped_votes,
+            images: poll_images
+                .into_iter()
+                .map(|image| PollImageResponse {
+                    id: image.id.to_string(),
+                })
+                .collect(),
+            my_vote,
+            member_count: member_counts
+                .get(&poll.channel_id)
+                .copied()
+                .unwrap_or(0),
+            source_call_id: poll.call_id.map(|call_id| call_id.to_string()),
+            created_at: serialize_timestamp(poll.created_at),
+        });
+    }
+
+    Ok(responses)
+}
+
+async fn get_channel_member_counts(
+    database: &DatabaseConnection,
+    channel_ids: impl Iterator<Item = Uuid>,
+) -> AppResult<HashMap<Uuid, usize>> {
+    let channel_ids: HashSet<Uuid> = channel_ids.collect();
+    if channel_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let counts = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.is_in(channel_ids))
+        .select_only()
+        .column(channel_members::Column::ChannelId)
+        .column_as(channel_members::Column::Id.count(), "member_count")
+        .group_by(channel_members::Column::ChannelId)
+        .into_tuple::<(Uuid, i64)>()
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(counts
+        .into_iter()
+        .map(|(channel_id, count)| (channel_id, count as usize))
+        .collect())
 }
 
 fn shape_poll_config(config: poll_configs::Model) -> PollConfigResponse {
@@ -831,23 +930,21 @@ fn shape_poll_config(config: poll_configs::Model) -> PollConfigResponse {
     }
 }
 
-async fn decrypt_poll_body(
-    database: &DatabaseConnection,
+fn decrypt_poll_body(
     poll: &polls::Model,
-) -> AppResult<Option<String>> {
+    key_map: &HashMap<Uuid, Vec<u8>>,
+) -> Option<String> {
     let (Some(ciphertext), Some(iv), Some(tag), Some(key_id)) = (
         poll.ciphertext.as_ref(),
         poll.iv.as_ref(),
         poll.tag.as_ref(),
         poll.key_id,
     ) else {
-        return Ok(None);
+        return None;
     };
-    let key_map =
-        channels::get_unwrapped_channel_key_map(database, vec![key_id]).await?;
-    Ok(key_map.get(&key_id).and_then(|key| {
-        encryption::decrypt_text(ciphertext, iv, tag, key).ok()
-    }))
+    key_map
+        .get(&key_id)
+        .and_then(|key| encryption::decrypt_text(ciphertext, iv, tag, key).ok())
 }
 
 pub(super) async fn broadcast_stored_poll_update(

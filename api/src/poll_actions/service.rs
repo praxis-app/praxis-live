@@ -9,6 +9,7 @@ use sea_orm::{
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
     IntoActiveModel, QueryFilter, QuerySelect, Set,
 };
+use std::collections::HashMap;
 use uuid::Uuid as NativeUuid;
 
 use super::{
@@ -190,33 +191,48 @@ pub(crate) async fn implement_poll_action_in_transaction(
     Ok(true)
 }
 
-pub(crate) async fn shape_poll_action(
+/// Shapes the actions for many polls at once, keyed by poll id. Query count is
+/// fixed rather than growing with the number of polls.
+pub(crate) async fn shape_poll_actions(
     database: &DatabaseConnection,
-    poll_id: Uuid,
-) -> AppResult<Option<PollActionResponse>> {
-    let action = match poll_actions::Entity::find()
-        .filter(poll_actions::Column::PollId.eq(poll_id))
-        .one(database)
+    poll_ids: &[Uuid],
+) -> AppResult<HashMap<Uuid, PollActionResponse>> {
+    if poll_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let actions = poll_actions::Entity::find()
+        .filter(poll_actions::Column::PollId.is_in(poll_ids.iter().copied()))
+        .all(database)
         .await
-        .map_err(internal_error)?
-    {
-        Some(action) => action,
-        None => return Ok(None),
-    };
+        .map_err(internal_error)?;
+    if actions.is_empty() {
+        return Ok(HashMap::new());
+    }
 
-    let server_role =
-        roles::shape_poll_action_role(database, action.id).await?;
-    let server_config =
-        settings::shape_poll_action_settings(database, action.id).await?;
-    let event = events::shape_poll_action_event(database, action.id).await?;
+    let action_ids: Vec<Uuid> =
+        actions.iter().map(|action| action.id).collect();
+    let mut server_roles =
+        roles::shape_poll_action_roles(database, &action_ids).await?;
+    let mut server_configs =
+        settings::shape_poll_action_settings_map(database, &action_ids).await?;
+    let mut proposed_events =
+        events::shape_poll_action_events(database, &action_ids).await?;
 
-    Ok(Some(PollActionResponse {
-        id: action.id.to_string(),
-        action_type: action.action_type,
-        server_role,
-        server_config,
-        event,
-    }))
+    Ok(actions
+        .into_iter()
+        .map(|action| {
+            (
+                action.poll_id,
+                PollActionResponse {
+                    server_role: server_roles.remove(&action.id),
+                    server_config: server_configs.remove(&action.id),
+                    event: proposed_events.remove(&action.id),
+                    id: action.id.to_string(),
+                    action_type: action.action_type,
+                },
+            )
+        })
+        .collect())
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

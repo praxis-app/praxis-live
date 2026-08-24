@@ -16,7 +16,7 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QueryOrder, Set,
 };
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 use uuid::Uuid as NativeUuid;
@@ -569,88 +569,135 @@ async fn sync_event_cover_photo<C: ConnectionTrait>(
     Ok(())
 }
 
-pub(super) async fn shape_poll_action_event(
+/// Shapes the proposed event for many actions at once. Query count is fixed
+/// rather than growing with the number of actions.
+pub(super) async fn shape_poll_action_events(
     database: &DatabaseConnection,
-    poll_action_id: Uuid,
-) -> AppResult<Option<PollActionEventResponse>> {
-    let proposed = match poll_action_events::Entity::find()
-        .filter(poll_action_events::Column::PollActionId.eq(poll_action_id))
-        .one(database)
+    poll_action_ids: &[Uuid],
+) -> AppResult<HashMap<Uuid, PollActionEventResponse>> {
+    if poll_action_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let proposed_events = poll_action_events::Entity::find()
+        .filter(
+            poll_action_events::Column::PollActionId
+                .is_in(poll_action_ids.iter().copied()),
+        )
+        .all(database)
         .await
-        .map_err(internal_error)?
-    {
-        Some(event) => event,
-        None => return Ok(None),
-    };
+        .map_err(internal_error)?;
+    if proposed_events.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let event_ids: Vec<Uuid> =
+        proposed_events.iter().map(|event| event.id).collect();
     let hosts = poll_action_event_hosts::Entity::find()
         .filter(
-            poll_action_event_hosts::Column::PollActionEventId.eq(proposed.id),
+            poll_action_event_hosts::Column::PollActionEventId
+                .is_in(event_ids.clone()),
         )
         .order_by_asc(poll_action_event_hosts::Column::CreatedAt)
         .all(database)
         .await
         .map_err(internal_error)?;
     let host_ids: Vec<Uuid> = hosts.iter().map(|host| host.user_id).collect();
-    let users = users::Entity::find()
+    let users_by_id: HashMap<Uuid, users::Model> = users::Entity::find()
         .filter(users::Column::Id.is_in(host_ids.iter().copied()))
         .all(database)
         .await
-        .map_err(internal_error)?;
-    let users_by_id: std::collections::HashMap<Uuid, users::Model> =
-        users.into_iter().map(|user| (user.id, user)).collect();
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|user| (user.id, user))
+        .collect();
     let profile_pictures =
         users_service::get_user_profile_pictures_map(database, &host_ids)
             .await?;
-    let created_event_id = events::Entity::find()
-        .filter(events::Column::SourcePollActionId.eq(poll_action_id))
-        .one(database)
+    let created_event_ids: HashMap<Uuid, String> = events::Entity::find()
+        .filter(
+            events::Column::SourcePollActionId
+                .is_in(poll_action_ids.iter().copied()),
+        )
+        .all(database)
         .await
         .map_err(internal_error)?
-        .map(|event| event.id.to_string());
-    let cover_photo = poll_action_event_cover_photos::Entity::find()
-        .filter(
-            poll_action_event_cover_photos::Column::PollActionEventId
-                .eq(proposed.id),
-        )
-        .filter(
-            poll_action_event_cover_photos::Column::StorageKey.is_not_null(),
-        )
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .map(|image| PollActionEventCoverPhotoResponse {
-            id: image.id.to_string(),
-            created_at: crate::messages::types::serialize_timestamp(
-                image.created_at,
-            ),
-        });
-
-    Ok(Some(PollActionEventResponse {
-        id: proposed.id.to_string(),
-        name: proposed.name,
-        description: proposed.description,
-        starts_at: crate::messages::types::serialize_timestamp(
-            proposed.starts_at,
-        ),
-        ends_at: proposed
-            .ends_at
-            .map(crate::messages::types::serialize_timestamp),
-        online: proposed.online,
-        location: proposed.location,
-        external_link: proposed.external_link,
-        hosts: hosts
+        .into_iter()
+        .filter_map(|event| {
+            event
+                .source_poll_action_id
+                .map(|action_id| (action_id, event.id.to_string()))
+        })
+        .collect();
+    let mut cover_photos: HashMap<Uuid, PollActionEventCoverPhotoResponse> =
+        poll_action_event_cover_photos::Entity::find()
+            .filter(
+                poll_action_event_cover_photos::Column::PollActionEventId
+                    .is_in(event_ids),
+            )
+            .filter(
+                poll_action_event_cover_photos::Column::StorageKey
+                    .is_not_null(),
+            )
+            .all(database)
+            .await
+            .map_err(internal_error)?
             .into_iter()
-            .filter_map(|host| users_by_id.get(&host.user_id))
-            .map(|user| PollActionUserResponse {
+            .map(|image| {
+                (
+                    image.poll_action_event_id,
+                    PollActionEventCoverPhotoResponse {
+                        id: image.id.to_string(),
+                        created_at: crate::messages::types::serialize_timestamp(
+                            image.created_at,
+                        ),
+                    },
+                )
+            })
+            .collect();
+
+    let mut hosts_by_event: HashMap<Uuid, Vec<PollActionUserResponse>> =
+        HashMap::new();
+    for host in hosts {
+        let Some(user) = users_by_id.get(&host.user_id) else {
+            continue;
+        };
+        hosts_by_event
+            .entry(host.poll_action_event_id)
+            .or_default()
+            .push(PollActionUserResponse {
                 id: user.id.to_string(),
                 name: user.name.clone(),
                 display_name: user.display_name.clone(),
                 profile_picture: profile_pictures.get(&user.id).cloned(),
-            })
-            .collect(),
-        cover_photo,
-        created_event_id,
-    }))
+            });
+    }
+
+    Ok(proposed_events
+        .into_iter()
+        .map(|proposed| {
+            let poll_action_id = proposed.poll_action_id;
+            let response = PollActionEventResponse {
+                hosts: hosts_by_event.remove(&proposed.id).unwrap_or_default(),
+                cover_photo: cover_photos.remove(&proposed.id),
+                created_event_id: created_event_ids
+                    .get(&poll_action_id)
+                    .cloned(),
+                id: proposed.id.to_string(),
+                name: proposed.name,
+                description: proposed.description,
+                starts_at: crate::messages::types::serialize_timestamp(
+                    proposed.starts_at,
+                ),
+                ends_at: proposed
+                    .ends_at
+                    .map(crate::messages::types::serialize_timestamp),
+                online: proposed.online,
+                location: proposed.location,
+                external_link: proposed.external_link,
+            };
+            (poll_action_id, response)
+        })
+        .collect())
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
