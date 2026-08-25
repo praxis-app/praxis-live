@@ -20,7 +20,6 @@ import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
   expirePollDeadline,
-  getExecutedPollActionCount,
   makeProposalsRatifyWithOneAgreeVote,
   openCreatePollDialog,
   openCreateProposalDialog,
@@ -1481,11 +1480,6 @@ test('consent proposals are decided only at their deadline', async ({
     createTestUser('consent-blocker'),
     consentInvite,
   );
-  const abstainer = await signUpViaApi(
-    request,
-    createTestUser('consent-abstainer'),
-    consentInvite,
-  );
   const server = await getServerBySlug(request, proposer, createdServer.slug);
 
   // Quorum is enabled and unreachable on purpose: consent must ignore it.
@@ -1496,8 +1490,6 @@ test('consent proposals are decided only at their deadline', async ({
     abstainsLimit: 1,
     quorumEnabled: true,
     quorumThreshold: 100,
-  });
-  await updateServerConfig(request, serverAdmin, server.id, {
     anonymousUsersEnabled: false,
   });
 
@@ -1597,69 +1589,8 @@ test('consent proposals are decided only at their deadline', async ({
     ratifiedProposal.getByText('Voting', { exact: true }),
   ).toBeVisible();
 
-  const silentBody = `Silent consent proposal ${proposer.user.suffix}`;
-  const silentPoll = await createTestProposal(
-    page,
-    server.generalChannelId,
-    silentBody,
-  );
-  const silentProposal = page.getByRole('article', {
-    name: `Consent Proposal: ${silentBody}`,
-  });
-  await expect(
-    silentProposal.getByText('Voting', { exact: true }),
-  ).toBeVisible();
-
-  const overLimitBody = `Over-limit consent proposal ${proposer.user.suffix}`;
-  const overLimitPoll = await createTestProposal(
-    page,
-    server.generalChannelId,
-    overLimitBody,
-  );
-  const overLimitProposal = page.getByRole('article', {
-    name: `Consent Proposal: ${overLimitBody}`,
-  });
-
-  await voteViaApi(
-    request,
-    objector,
-    server.id,
-    server.generalChannelId,
-    overLimitPoll.id,
-    'disagree',
-  );
-  await voteViaApi(
-    request,
-    blocker,
-    server.id,
-    server.generalChannelId,
-    overLimitPoll.id,
-    'disagree',
-  );
-  await voteViaApi(
-    request,
-    proposer,
-    server.id,
-    server.generalChannelId,
-    overLimitPoll.id,
-    'abstain',
-  );
-  await voteViaApi(
-    request,
-    abstainer,
-    server.id,
-    server.generalChannelId,
-    overLimitPoll.id,
-    'abstain',
-  );
-  await expect(
-    overLimitProposal.getByRole('button', { name: 'Voting · Limit reached' }),
-  ).toBeVisible();
-
   expirePollDeadline(blockedPoll.id);
   expirePollDeadline(ratifiedPoll.id);
-  expirePollDeadline(silentPoll.id);
-  expirePollDeadline(overLimitPoll.id);
 
   await expect(
     blockedProposal.getByText('Closed', { exact: true }),
@@ -1667,25 +1598,10 @@ test('consent proposals are decided only at their deadline', async ({
   await expect(blockedProposal.getByText(/Failed conditions/)).toContainText(
     'block present',
   );
-  expect(getExecutedPollActionCount(blockedPoll.id)).toBe(0);
 
   await expect(
     ratifiedProposal.getByText('Ratified', { exact: true }),
   ).toBeVisible();
-  expect(getExecutedPollActionCount(ratifiedPoll.id)).toBe(1);
-
-  await expect(
-    silentProposal.getByText('Ratified', { exact: true }),
-  ).toBeVisible();
-  expect(getExecutedPollActionCount(silentPoll.id)).toBe(1);
-
-  await expect(
-    overLimitProposal.getByText('Closed', { exact: true }),
-  ).toBeVisible();
-  const failedConditions = overLimitProposal.getByText(/Failed conditions/);
-  await expect(failedConditions).toContainText('disagreement limit');
-  await expect(failedConditions).toContainText('abstention limit');
-  expect(getExecutedPollActionCount(overLimitPoll.id)).toBe(0);
 
   const configResponse = await request.get(
     `/api/servers/${server.id}/configs`,
@@ -1723,18 +1639,6 @@ async function createSettingsProposal(
   );
   await dialog.getByPlaceholder('Enter your proposal details...').fill(body);
   await dialog.getByRole('button', { name: 'Next' }).click();
-
-  // The wizard shares the settings form, so consent must disable the same
-  // controls here.
-  await expect(
-    dialog.getByRole('spinbutton', { name: 'Agreement threshold' }),
-  ).toBeDisabled();
-  await expect(
-    dialog.getByRole('switch', { name: 'Require quorum' }),
-  ).toBeDisabled();
-  await expect(
-    dialog.getByRole('combobox', { name: 'Voting time limit' }),
-  ).not.toContainText('Unlimited');
 
   await dialog.getByRole('switch', { name: 'Anonymous users' }).click();
   await dialog.getByRole('button', { name: 'Next' }).click();

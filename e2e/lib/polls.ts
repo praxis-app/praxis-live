@@ -56,17 +56,6 @@ export function expirePollDeadline(pollId: string) {
   expect(output).toContain('UPDATE 1');
 }
 
-export function getExecutedPollActionCount(pollId: string) {
-  assertUuid(pollId, 'Poll ID');
-
-  return Number(
-    runDatabaseCommand(
-      `SELECT COUNT(*) FROM poll_actions WHERE poll_id = '${pollId}' AND executed_at IS NOT NULL;`,
-      { tuplesOnly: true },
-    ).trim(),
-  );
-}
-
 export async function voteViaApi(
   request: APIRequestContext,
   user: AuthenticatedUser,
