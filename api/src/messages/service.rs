@@ -5,7 +5,10 @@ use sea_orm::{
     DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
     TransactionTrait,
 };
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
@@ -280,20 +283,31 @@ pub(crate) async fn shape_messages(
     let message_ids: Vec<Uuid> =
         messages.iter().map(|message| message.id).collect();
 
-    let users = users::Entity::find()
+    let users_by_id: HashMap<Uuid, users::Model> = users::Entity::find()
         .filter(users::Column::Id.is_in(user_ids.clone()))
         .all(database)
         .await
-        .map_err(internal_error)?;
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|user| (user.id, user))
+        .collect();
     let profile_pictures =
         users_service::get_user_profile_pictures_map(database, &user_ids)
             .await?;
-    let images = message_images::Entity::find()
+    let mut images_by_message: HashMap<Uuid, Vec<message_images::Model>> =
+        HashMap::new();
+    for image in message_images::Entity::find()
         .filter(message_images::Column::MessageId.is_in(message_ids))
         .order_by_asc(message_images::Column::CreatedAt)
         .all(database)
         .await
-        .map_err(internal_error)?;
+        .map_err(internal_error)?
+    {
+        images_by_message
+            .entry(image.message_id)
+            .or_default()
+            .push(image);
+    }
     let key_ids = messages
         .iter()
         .filter_map(|message| message.key_id)
@@ -306,9 +320,13 @@ pub(crate) async fn shape_messages(
         .map(|message| {
             shape_message(
                 &message,
-                users.iter().find(|user| user.id == message.user_id),
+                users_by_id.get(&message.user_id),
                 &profile_pictures,
-                images.iter().filter(|image| image.message_id == message.id),
+                images_by_message
+                    .get(&message.id)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default()
+                    .iter(),
                 decrypt_message_body(&message, &key_map),
             )
         })

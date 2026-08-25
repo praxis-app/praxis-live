@@ -17,6 +17,7 @@ use sea_orm::{
     DatabaseConnection, DatabaseTransaction, EntityTrait, IntoActiveModel,
     QueryFilter, Set,
 };
+use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
@@ -421,36 +422,14 @@ async fn apply_member_changes(
     Ok(())
 }
 
-async fn shape_role(
-    database: &DatabaseConnection,
+fn shape_role(
     role: poll_action_roles::Model,
-) -> AppResult<PollActionServerRoleResponse> {
-    let members = poll_action_role_members::Entity::find()
-        .filter(poll_action_role_members::Column::PollActionRoleId.eq(role.id))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    let user_ids: Vec<Uuid> =
-        members.iter().map(|member| member.user_id).collect();
-    let users = if user_ids.is_empty() {
-        vec![]
-    } else {
-        users::Entity::find()
-            .filter(users::Column::Id.is_in(user_ids.clone()))
-            .all(database)
-            .await
-            .map_err(internal_error)?
-    };
-    let profile_pictures =
-        users_service::get_user_profile_pictures_map(database, &user_ids)
-            .await?;
-    let permissions = poll_action_permissions::Entity::find()
-        .filter(poll_action_permissions::Column::PollActionRoleId.eq(role.id))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(PollActionServerRoleResponse {
+    members: Vec<poll_action_role_members::Model>,
+    users_by_id: &HashMap<Uuid, users::Model>,
+    profile_pictures: &BTreeMap<Uuid, users_service::UserImageRef>,
+    permissions: Vec<poll_action_permissions::Model>,
+) -> PollActionServerRoleResponse {
+    PollActionServerRoleResponse {
         id: role.id.to_string(),
         name: role.name,
         color: role.color,
@@ -463,8 +442,8 @@ async fn shape_role(
         members: members
             .into_iter()
             .filter_map(|member| {
-                users.iter().find(|user| user.id == member.user_id).map(
-                    |user| PollActionServerRoleMemberResponse {
+                users_by_id.get(&member.user_id).map(|user| {
+                    PollActionServerRoleMemberResponse {
                         change_type: member.change_type,
                         user: PollActionUserResponse {
                             id: user.id.to_string(),
@@ -474,8 +453,8 @@ async fn shape_role(
                                 .get(&user.id)
                                 .cloned(),
                         },
-                    },
-                )
+                    }
+                })
             })
             .collect(),
         permissions: permissions
@@ -486,7 +465,7 @@ async fn shape_role(
                 change_type: permission.change_type,
             })
             .collect(),
-    })
+    }
 }
 
 fn parse_poll_action_permission_subject(
@@ -505,19 +484,95 @@ fn parse_poll_action_permission_action(
     })
 }
 
-pub(super) async fn shape_poll_action_role(
+pub(super) async fn shape_poll_action_roles(
     database: &DatabaseConnection,
-    poll_action_id: Uuid,
-) -> AppResult<Option<PollActionServerRoleResponse>> {
-    let role = poll_action_roles::Entity::find()
-        .filter(poll_action_roles::Column::PollActionId.eq(poll_action_id))
-        .one(database)
+    poll_action_ids: &[Uuid],
+) -> AppResult<HashMap<Uuid, PollActionServerRoleResponse>> {
+    if poll_action_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let roles = poll_action_roles::Entity::find()
+        .filter(
+            poll_action_roles::Column::PollActionId
+                .is_in(poll_action_ids.iter().copied()),
+        )
+        .all(database)
         .await
         .map_err(internal_error)?;
-    match role {
-        Some(role) => Ok(Some(shape_role(database, role).await?)),
-        None => Ok(None),
+    if roles.is_empty() {
+        return Ok(HashMap::new());
     }
+
+    let role_ids: Vec<Uuid> = roles.iter().map(|role| role.id).collect();
+    let members = poll_action_role_members::Entity::find()
+        .filter(
+            poll_action_role_members::Column::PollActionRoleId
+                .is_in(role_ids.clone()),
+        )
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    let user_ids: Vec<Uuid> =
+        members.iter().map(|member| member.user_id).collect();
+    let users_by_id: HashMap<Uuid, users::Model> = if user_ids.is_empty() {
+        HashMap::new()
+    } else {
+        users::Entity::find()
+            .filter(users::Column::Id.is_in(user_ids.clone()))
+            .all(database)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|user| (user.id, user))
+            .collect()
+    };
+    let profile_pictures =
+        users_service::get_user_profile_pictures_map(database, &user_ids)
+            .await?;
+    let permissions = poll_action_permissions::Entity::find()
+        .filter(
+            poll_action_permissions::Column::PollActionRoleId.is_in(role_ids),
+        )
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+
+    let mut members_by_role =
+        group_by(members, |member| member.poll_action_role_id);
+    let mut permissions_by_role =
+        group_by(permissions, |permission| permission.poll_action_role_id);
+
+    Ok(roles
+        .into_iter()
+        .map(|role| {
+            let poll_action_id = role.poll_action_id;
+            let role_members =
+                members_by_role.remove(&role.id).unwrap_or_default();
+            let role_permissions =
+                permissions_by_role.remove(&role.id).unwrap_or_default();
+            (
+                poll_action_id,
+                shape_role(
+                    role,
+                    role_members,
+                    &users_by_id,
+                    &profile_pictures,
+                    role_permissions,
+                ),
+            )
+        })
+        .collect())
+}
+
+fn group_by<T, F>(items: Vec<T>, key: F) -> HashMap<Uuid, Vec<T>>
+where
+    F: Fn(&T) -> Uuid,
+{
+    let mut grouped: HashMap<Uuid, Vec<T>> = HashMap::new();
+    for item in items {
+        grouped.entry(key(&item)).or_default().push(item);
+    }
+    grouped
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {
