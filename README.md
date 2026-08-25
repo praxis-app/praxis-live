@@ -1,8 +1,8 @@
 # Praxis Live - Chat-Based CDM
 
-Praxis Live is a chat-based collaborative decision-making (CDM) app with first-class support for video calling. Groups can transition smoothly between messaging, live conversation, and structured decision-making without breaking flow or losing context.
+Praxis Live is a chat-based collaborative decision-making (CDM) app with support for video calling. Groups can transition smoothly between messaging, live conversation, and structured decision-making without breaking flow or losing context.
 
-Designed for organizations, teams, and communities that need robust group decision-making capabilities, it combines the familiarity of chat and video calls with flexible decision-making tools, multiple voting models, and forum-style organization when needed.
+Designed for organizations, teams, and communities that need robust group decision-making capabilities, it combines the familiarity of chat and video calls with flexible decision-making tools, multiple voting models, and forum style organization when needed.
 
 **Tech Stack**:
 
