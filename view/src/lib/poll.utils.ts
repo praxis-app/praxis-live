@@ -1,3 +1,5 @@
+import { VotingTimeLimit } from '@/constants/vote.constants';
+import { t } from '@/lib/shared.utils';
 import { sortConsensusVotesByType, type WithVoteType } from '@/lib/vote.utils';
 import { type PollConfigRes } from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
@@ -119,4 +121,24 @@ export const getProposalRuleStatus = (
     passes,
     eligible: deadlineReached && passes,
   };
+};
+
+/** Render a voting time limit, stored in minutes, as readable copy */
+export const formatVotingTimeLimit = (minutes: number) => {
+  if (minutes === VotingTimeLimit.Unlimited) {
+    return t('time.unlimited');
+  }
+  if (minutes % VotingTimeLimit.OneWeek === 0) {
+    const weeks = minutes / VotingTimeLimit.OneWeek;
+    return t('time.weeks', { count: weeks });
+  }
+  if (minutes % VotingTimeLimit.OneDay === 0) {
+    const days = minutes / VotingTimeLimit.OneDay;
+    return t('time.daysFull', { count: days });
+  }
+  if (minutes % VotingTimeLimit.OneHour === 0) {
+    const hours = minutes / VotingTimeLimit.OneHour;
+    return t('time.hoursFull', { count: hours });
+  }
+  return t('time.minutesFull', { count: minutes });
 };
