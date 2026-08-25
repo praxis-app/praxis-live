@@ -1585,14 +1585,14 @@ test('consent proposals are decided only at their deadline', async ({
   await expect(progressDialog.getByText('Threshold (approval)')).toHaveCount(0);
   await expect(progressDialog.getByText('Disagreement limit')).toBeVisible();
   await expect(progressDialog.getByText('Abstention limit')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(progressDialog).toBeHidden();
-
   await expect(
-    ratifiedProposal.getByText(
+    progressDialog.getByText(
       'All conditions are met. Eligible to pass when voting closes.',
     ),
   ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(progressDialog).toBeHidden();
+
   await expect(
     ratifiedProposal.getByText('Voting', { exact: true }),
   ).toBeVisible();

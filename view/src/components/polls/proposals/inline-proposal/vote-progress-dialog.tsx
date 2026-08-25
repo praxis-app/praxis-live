@@ -13,6 +13,7 @@ import { type PollClosedReason, type PollConfigRes } from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useTranslation } from 'react-i18next';
+import { LuClock3, LuTrendingUp } from 'react-icons/lu';
 import { MdHowToVote } from 'react-icons/md';
 
 interface Props {
@@ -75,6 +76,25 @@ export const VoteProgressDialog = ({
               {t('proposals.descriptions.consentRules')}
             </p>
           )}
+
+          {status.passes && config.closingAt && !status.deadlineReached && (
+            <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+              <LuClock3 className="size-4 shrink-0" aria-hidden="true" />
+              <p>{t('proposals.outcomes.eligibleAtDeadline')}</p>
+            </div>
+          )}
+
+          {status.passes &&
+            !config.closingAt &&
+            !status.deadlineRequired && (
+              <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+                <LuTrendingUp
+                  className="size-4 shrink-0"
+                  aria-hidden="true"
+                />
+                <p>{t('proposals.outcomes.eligibleNow')}</p>
+              </div>
+            )}
 
           {closedReason === 'event-start-elapsed' && (
             <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
