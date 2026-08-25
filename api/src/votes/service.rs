@@ -491,18 +491,15 @@ async fn synchronize_ratification_after_vote(
     database: &DatabaseTransaction,
     poll: &polls::Model,
 ) -> AppResult<Option<polls_service::ProposalFinalization>> {
+    let now = Utc::now().fixed_offset();
     if poll.poll_type != "proposal"
-        || !polls_service::is_poll_ratifiable(database, poll.id).await?
+        || !polls_service::is_poll_ratifiable(database, poll.id, now).await?
     {
         return Ok(None);
     }
-    polls_service::finalize_ratifiable_proposal(
-        database,
-        poll.id,
-        Utc::now().fixed_offset(),
-    )
-    .await
-    .map(Some)
+    polls_service::finalize_ratifiable_proposal(database, poll.id, now)
+        .await
+        .map(Some)
 }
 
 fn validate_vote_type(vote_type: Option<&str>) -> AppResult<()> {

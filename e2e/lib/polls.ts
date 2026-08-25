@@ -4,7 +4,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
-import { type AuthenticatedUser } from './auth';
+import { authorizationHeaders, type AuthenticatedUser } from './auth';
 import { assertUuid, runDatabaseCommand } from './db';
 import { updateServerConfig } from './servers';
 
@@ -54,6 +54,22 @@ export function expirePollDeadline(pollId: string) {
   );
 
   expect(output).toContain('UPDATE 1');
+}
+
+export async function voteViaApi(
+  request: APIRequestContext,
+  user: AuthenticatedUser,
+  serverId: string,
+  channelId: string,
+  pollId: string,
+  voteType: 'agree' | 'disagree' | 'abstain' | 'block',
+) {
+  const response = await request.post(
+    `/api/servers/${serverId}/channels/${channelId}/polls/${pollId}/votes`,
+    { headers: authorizationHeaders(user), data: { voteType } },
+  );
+
+  await expect(response).toBeOK();
 }
 
 export function getPollVoteSummary(pollId: string) {

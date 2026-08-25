@@ -1,9 +1,16 @@
 import { readFile } from 'node:fs/promises';
-import { expect, test, type Response } from '@playwright/test';
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Response,
+} from '@playwright/test';
 import {
   authorizationHeaders,
   createAuthenticatedUser,
   getOrCreateInstanceAdmin,
+  seedAuthenticatedSession,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
@@ -19,6 +26,7 @@ import {
   pollCard,
   selectRadixOption,
   shortenNextPollDuration,
+  voteViaApi,
 } from '../lib/polls';
 import { createMessages } from '../lib/messages';
 import { getAdminServerRole, getServerRole } from '../lib/server-roles';
@@ -1368,3 +1376,287 @@ test('server-controlled proposal deadline finalizes an eligible consensus propos
 
   await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
 });
+
+test('consent settings disable quorum and agreement threshold and require a deadline', async ({
+  context,
+  page,
+  request,
+}) => {
+  const serverAdmin = await createServerAdmin(request, 'consent-settings');
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Consent settings ${serverAdmin.user.suffix}`,
+    slug: `consent-settings-${serverAdmin.user.suffix}`,
+  });
+  await seedAuthenticatedSession(context, serverAdmin.accessToken);
+  await updateServerConfig(request, serverAdmin, createdServer.id, {
+    decisionMakingModel: 'consensus',
+    agreementThreshold: 51,
+    quorumEnabled: true,
+    quorumThreshold: 25,
+    votingTimeLimit: 0,
+  });
+
+  await page.goto(`/s/${createdServer.slug}/settings/proposals`);
+  const durationSelect = page.getByRole('combobox', {
+    name: 'Voting time limit',
+  });
+  await expect(durationSelect).toContainText('Unlimited');
+
+  await page.getByRole('combobox', { name: 'Decision making model' }).click();
+  await page.getByRole('option', { name: 'Consent', exact: true }).click();
+
+  // Consent is only decided at a deadline, so the form must steer off
+  // Unlimited and stop offering it.
+  await expect(durationSelect).not.toContainText('Unlimited');
+  await durationSelect.click();
+  await expect(page.getByRole('option', { name: 'Unlimited' })).toHaveCount(0);
+  await page.getByRole('option', { name: '1 day', exact: true }).click();
+
+  await expect(
+    page.getByRole('spinbutton', { name: 'Agreement threshold' }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('switch', { name: 'Require quorum' }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('spinbutton', { name: 'Quorum threshold' }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('combobox', { name: 'Disagreements limit' }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole('combobox', { name: 'Abstains limit' }),
+  ).toBeEnabled();
+
+  const saveResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PUT' &&
+      response.url().includes(`/servers/${createdServer.id}/configs`) &&
+      response.status() === 200,
+  );
+  await page.getByRole('button', { name: 'Save' }).click();
+  await saveResponse;
+
+  const configResponse = await request.get(
+    `/api/servers/${createdServer.id}/configs`,
+    { headers: authorizationHeaders(serverAdmin) },
+  );
+  await expect(configResponse).toBeOK();
+  const { serverConfig } = (await configResponse.json()) as {
+    serverConfig: { decisionMakingModel: string; votingTimeLimit: number };
+  };
+  expect(serverConfig.decisionMakingModel).toBe('consent');
+  expect(serverConfig.votingTimeLimit).toBe(60 * 24);
+});
+
+test('consent proposals are decided only at their deadline', async ({
+  context,
+  page,
+  request,
+}) => {
+  const serverAdmin = await createServerAdmin(request, 'consent-admin');
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Consent decisions ${serverAdmin.user.suffix}`,
+    slug: `consent-decisions-${serverAdmin.user.suffix}`,
+  });
+  const consentInvite = await createInvite(
+    request,
+    serverAdmin,
+    createdServer.id,
+  );
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('consent-proposer'),
+    consentInvite,
+  );
+  const objector = await signUpViaApi(
+    request,
+    createTestUser('consent-objector'),
+    consentInvite,
+  );
+  const blocker = await signUpViaApi(
+    request,
+    createTestUser('consent-blocker'),
+    consentInvite,
+  );
+  const server = await getServerBySlug(request, proposer, createdServer.slug);
+
+  // Quorum is enabled and unreachable on purpose: consent must ignore it.
+  await updateServerConfig(request, serverAdmin, server.id, {
+    decisionMakingModel: 'consent',
+    votingTimeLimit: 30,
+    disagreementsLimit: 1,
+    abstainsLimit: 1,
+    quorumEnabled: true,
+    quorumThreshold: 100,
+    anonymousUsersEnabled: false,
+  });
+
+  const chat = new ChatPage(page);
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await chat.expectChannel('general');
+
+  const blockedBody = `Blocked consent proposal ${proposer.user.suffix}`;
+  const blockedPoll = await createTestProposal(
+    page,
+    server.generalChannelId,
+    blockedBody,
+  );
+  expect(blockedPoll.config.closingAt).toBeTruthy();
+  expect(minutesUntil(blockedPoll.config.closingAt!)).toBeGreaterThanOrEqual(
+    29,
+  );
+
+  const blockedProposal = page.getByRole('article', {
+    name: `Consent Proposal: ${blockedBody}`,
+  });
+  await expect(blockedProposal).toBeVisible();
+  await expect(
+    blockedProposal.getByText('Voting', { exact: true }),
+  ).toBeVisible();
+
+  await voteViaApi(
+    request,
+    objector,
+    server.id,
+    server.generalChannelId,
+    blockedPoll.id,
+    'agree',
+  );
+  await voteViaApi(
+    request,
+    blocker,
+    server.id,
+    server.generalChannelId,
+    blockedPoll.id,
+    'block',
+  );
+  // The block is visible immediately, but nothing finalizes before the
+  // deadline.
+  await expect(
+    blockedProposal.getByRole('button', { name: 'Voting · Limit reached' }),
+  ).toBeVisible();
+
+  const ratifiedBody = `Consented settings change ${proposer.user.suffix}`;
+  const ratifiedPoll = await createSettingsProposal(
+    page,
+    server.generalChannelId,
+    ratifiedBody,
+  );
+  const ratifiedProposal = page.getByRole('article', {
+    name: `Consent Proposal: ${ratifiedBody}`,
+  });
+  await expect(ratifiedProposal).toBeVisible();
+
+  // One disagreement and one abstention, each exactly at its limit.
+  await voteViaApi(
+    request,
+    objector,
+    server.id,
+    server.generalChannelId,
+    ratifiedPoll.id,
+    'disagree',
+  );
+  await voteViaApi(
+    request,
+    blocker,
+    server.id,
+    server.generalChannelId,
+    ratifiedPoll.id,
+    'abstain',
+  );
+
+  // Quorum is unmet, but consent ignores it entirely.
+  await ratifiedProposal.getByRole('button', { name: /^\d+ votes?$/ }).click();
+  const progressDialog = page.getByRole('dialog', { name: 'Vote Progress' });
+  await expect(progressDialog).toBeVisible();
+  await expect(progressDialog.getByText('Quorum (participation)')).toHaveCount(
+    0,
+  );
+  await expect(progressDialog.getByText('Threshold (approval)')).toHaveCount(0);
+  await expect(progressDialog.getByText('Disagreement limit')).toBeVisible();
+  await expect(progressDialog.getByText('Abstention limit')).toBeVisible();
+  await expect(
+    progressDialog.getByText(
+      'All conditions are met. Eligible to pass when voting closes.',
+    ),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(progressDialog).toBeHidden();
+
+  await expect(
+    ratifiedProposal.getByText('Voting', { exact: true }),
+  ).toBeVisible();
+
+  expirePollDeadline(blockedPoll.id);
+  expirePollDeadline(ratifiedPoll.id);
+
+  await expect(
+    blockedProposal.getByText('Closed', { exact: true }),
+  ).toBeVisible();
+  await expect(blockedProposal.getByText(/Failed conditions/)).toContainText(
+    'block present',
+  );
+
+  await expect(
+    ratifiedProposal.getByText('Ratified', { exact: true }),
+  ).toBeVisible();
+
+  const configResponse = await request.get(
+    `/api/servers/${server.id}/configs`,
+    { headers: authorizationHeaders(proposer) },
+  );
+  await expect(configResponse).toBeOK();
+  const { serverConfig } = (await configResponse.json()) as {
+    serverConfig: { anonymousUsersEnabled: boolean };
+  };
+  expect(serverConfig.anonymousUsersEnabled).toBe(true);
+});
+
+async function createTestProposal(page: Page, channelId: string, body: string) {
+  await openCreateProposalDialog(page);
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(dialog, page, 'Select an action type', 'Test');
+  await dialog.getByPlaceholder('Enter your proposal details...').fill(body);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  return submitProposal(page, dialog, channelId);
+}
+
+async function createSettingsProposal(
+  page: Page,
+  channelId: string,
+  body: string,
+) {
+  await openCreateProposalDialog(page);
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(
+    dialog,
+    page,
+    'Select an action type',
+    'Change settings',
+  );
+  await dialog.getByPlaceholder('Enter your proposal details...').fill(body);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await dialog.getByRole('switch', { name: 'Anonymous users' }).click();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  return submitProposal(page, dialog, channelId);
+}
+
+async function submitProposal(page: Page, dialog: Locator, channelId: string) {
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${channelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  const response = await createProposalResponse;
+  await expect(dialog).toBeHidden();
+
+  const { poll } = (await response.json()) as PollResponse;
+  return poll;
+}

@@ -4,7 +4,7 @@
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use entity::{
-    enums::{PollActionType, PollType},
+    enums::{PollActionType, PollType, ServerDecisionMakingModel},
     poll_configs, poll_images, poll_options, polls,
     server_configs as server_config_entities,
 };
@@ -104,6 +104,16 @@ pub(super) async fn prepare_poll_creation(
         request.closing_at,
         Utc::now().fixed_offset(),
     );
+    if is_proposal
+        && server_config.decision_making_model
+            == ServerDecisionMakingModel::Consent
+        && closing_at.is_none()
+    {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Consent proposals require a voting time limit.",
+        ));
+    }
 
     let encrypted = match body.as_deref() {
         Some(body) => {

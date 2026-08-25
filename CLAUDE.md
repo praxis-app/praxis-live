@@ -41,6 +41,11 @@ The Rust backend under `api/src` is organized into modules divided by domain or 
 - When a comment is warranted, keep it minimal and compact — a short line, not a block.
 - Only add a comment where the code's intent is genuinely unclear and cannot reasonably be made obvious through better naming or structure alone.
 
+## Local-only documentation
+
+- `.docs` is local only and is not committed. Never reference `.docs`, or any file inside it, from anywhere in the codebase — including code comments, documentation, commit messages, and test fixtures.
+- When a note is worth keeping alongside the code, write it in the code itself or in a committed document instead.
+
 ## Required verifications
 
 - After frontend changes, run `npm run lint` and fix any reported issues with code edits.

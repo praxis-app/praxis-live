@@ -2,7 +2,7 @@
 //! ratification and closure. Periodic discovery remains in `sync.rs`.
 
 use axum::http::StatusCode;
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset};
 use entity::{
     channel_members,
     enums::{PollClosedReason, PollDecisionMakingModel, PollStage, VoteType},
@@ -27,6 +27,7 @@ pub(crate) enum ProposalFinalization {
 pub(crate) async fn is_poll_ratifiable<C>(
     database: &C,
     poll_id: Uuid,
+    now: DateTime<FixedOffset>,
 ) -> AppResult<bool>
 where
     C: ConnectionTrait,
@@ -53,13 +54,14 @@ where
             )
         })?;
 
-    is_poll_ratifiable_with_context(database, &poll, &config).await
+    is_poll_ratifiable_with_context(database, &poll, &config, now).await
 }
 
 pub(super) async fn is_poll_ratifiable_with_context<C>(
     database: &C,
     poll: &polls::Model,
     config: &poll_configs::Model,
+    now: DateTime<FixedOffset>,
 ) -> AppResult<bool>
 where
     C: ConnectionTrait,
@@ -77,13 +79,15 @@ where
         Some(PollDecisionMakingModel::Consensus) => {
             let member_count =
                 get_channel_member_count(database, poll.channel_id).await?;
-            has_consensus(&votes, config, member_count)
+            has_consensus(&votes, config, member_count, now)
         }
-        Some(PollDecisionMakingModel::Consent) => has_consent(&votes, config),
+        Some(PollDecisionMakingModel::Consent) => {
+            has_consent(&votes, config, now)
+        }
         Some(PollDecisionMakingModel::MajorityVote) => {
             let member_count =
                 get_channel_member_count(database, poll.channel_id).await?;
-            has_majority_vote(&votes, config, member_count)
+            has_majority_vote(&votes, config, member_count, now)
         }
         None => Ok(false),
     }
@@ -151,10 +155,11 @@ fn has_consensus(
     votes: &[votes::Model],
     config: &poll_configs::Model,
     member_count: usize,
+    now: DateTime<FixedOffset>,
 ) -> AppResult<bool> {
     if config
         .closing_at
-        .map(|closing_at| Utc::now().fixed_offset() < closing_at)
+        .map(|closing_at| now < closing_at)
         .unwrap_or(false)
     {
         return Ok(false);
@@ -179,10 +184,11 @@ fn has_majority_vote(
     votes: &[votes::Model],
     config: &poll_configs::Model,
     member_count: usize,
+    now: DateTime<FixedOffset>,
 ) -> AppResult<bool> {
     if config
         .closing_at
-        .map(|closing_at| Utc::now().fixed_offset() < closing_at)
+        .map(|closing_at| now < closing_at)
         .unwrap_or(false)
     {
         return Ok(false);
@@ -200,15 +206,17 @@ fn has_majority_vote(
             ))
 }
 
+/// Consent evaluates only at a finite deadline, so a missing `closing_at`
+/// is never ratifiable.
 fn has_consent(
     votes: &[votes::Model],
     config: &poll_configs::Model,
+    now: DateTime<FixedOffset>,
 ) -> AppResult<bool> {
-    if config
-        .closing_at
-        .map(|closing_at| Utc::now().fixed_offset() < closing_at)
-        .unwrap_or(false)
-    {
+    let Some(closing_at) = config.closing_at else {
+        return Ok(false);
+    };
+    if now < closing_at {
         return Ok(false);
     }
     let (_, disagreements, abstains, blocks) = count_votes(votes);

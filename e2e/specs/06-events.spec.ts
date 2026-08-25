@@ -78,17 +78,21 @@ const selectEventDate = async (
   label: string,
   date: Date,
 ) => {
-  await dialog.getByRole('button', { name: label }).click();
-  const today = new Date();
+  const trigger = dialog.getByRole('button', { name: label });
+  const displayedDate = new Date((await trigger.textContent())?.trim() || '');
+  const visibleDate = Number.isNaN(displayedDate.getTime())
+    ? new Date()
+    : displayedDate;
+  await trigger.click();
   const monthOffset =
-    (date.getFullYear() - today.getFullYear()) * 12 +
+    (date.getFullYear() - visibleDate.getFullYear()) * 12 +
     date.getMonth() -
-    today.getMonth();
+    visibleDate.getMonth();
   const monthButton = page.getByRole('button', {
     name: monthOffset < 0 ? 'Previous month' : 'Next month',
   });
   for (let offset = 0; offset < Math.abs(monthOffset); offset += 1) {
-    await monthButton.click();
+    await monthButton.press('Enter');
   }
   await page
     .getByRole('button', {
@@ -97,7 +101,7 @@ const selectEventDate = async (
       }).format(date),
       exact: true,
     })
-    .click();
+    .press('Enter');
 };
 
 const selectEventTime = async (

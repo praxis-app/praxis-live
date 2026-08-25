@@ -33,18 +33,30 @@ export interface ProposalRuleStatus {
   blocks: number;
   requiredAgreements: number;
   requiredQuorum: number;
+  agreementApplies: boolean;
+  quorumApplies: boolean;
+  limitsApply: boolean;
   agreementMet: boolean;
   quorumMet: boolean;
   disagreementsMet: boolean;
   abstainsMet: boolean;
   blocksMet: boolean;
+  deadlineRequired: boolean;
+  deadlineReached: boolean;
   passes: boolean;
+  eligible: boolean;
 }
 
+/**
+ * Mirror of the server's decision-model evaluation. Rules that do not apply to
+ * the proposal's model are reported as met so they can never be shown as a
+ * blocker, and `eligible` matches what the server would ratify at `now`.
+ */
 export const getProposalRuleStatus = (
   votes: VoteRes[],
   config: PollConfigRes,
   memberCount: number,
+  now = Date.now(),
 ): ProposalRuleStatus => {
   const typedVotes = votes.filter(
     (vote): vote is VoteRes & WithVoteType => !!vote.voteType,
@@ -60,25 +72,31 @@ export const getProposalRuleStatus = (
     memberCount,
     config.quorumThreshold ?? 0,
   );
-  const agreementMet =
-    participants > 0 && agreements.length >= requiredAgreements;
-  const quorumMet =
-    !config.quorumEnabled || typedVotes.length >= requiredQuorum;
-  const disagreementsMet =
-    disagreements.length <= (config.disagreementsLimit ?? 0);
-  const abstainsMet = abstains.length <= (config.abstainsLimit ?? 0);
-  const blocksMet = blocks.length === 0;
 
+  const isConsent = config.decisionMakingModel === 'consent';
+  const isMajorityVote = config.decisionMakingModel === 'majority-vote';
+  const agreementApplies = !isConsent;
+  const quorumApplies = !isConsent && !!config.quorumEnabled;
+  const limitsApply = !isMajorityVote;
+
+  const agreementMet =
+    !agreementApplies ||
+    (participants > 0 && agreements.length >= requiredAgreements);
+  const quorumMet = !quorumApplies || typedVotes.length >= requiredQuorum;
+  const disagreementsMet =
+    !limitsApply || disagreements.length <= (config.disagreementsLimit ?? 0);
+  const abstainsMet =
+    !limitsApply || abstains.length <= (config.abstainsLimit ?? 0);
+  const blocksMet = !limitsApply || blocks.length === 0;
   const passes =
-    config.decisionMakingModel === 'consent'
-      ? disagreementsMet && abstainsMet && blocksMet
-      : config.decisionMakingModel === 'majority-vote'
-        ? agreementMet && quorumMet
-        : agreementMet &&
-          quorumMet &&
-          disagreementsMet &&
-          abstainsMet &&
-          blocksMet;
+    agreementMet && quorumMet && disagreementsMet && abstainsMet && blocksMet;
+
+  // Consent only evaluates at a finite deadline; the other models evaluate
+  // immediately when they have none.
+  const closingAt = config.closingAt
+    ? new Date(config.closingAt).getTime()
+    : null;
+  const deadlineReached = closingAt === null ? !isConsent : now >= closingAt;
 
   return {
     totalVotes: typedVotes.length,
@@ -88,11 +106,17 @@ export const getProposalRuleStatus = (
     blocks: blocks.length,
     requiredAgreements,
     requiredQuorum,
+    agreementApplies,
+    quorumApplies,
+    limitsApply,
     agreementMet,
     quorumMet,
     disagreementsMet,
     abstainsMet,
     blocksMet,
+    deadlineRequired: isConsent,
+    deadlineReached,
     passes,
+    eligible: deadlineReached && passes,
   };
 };
