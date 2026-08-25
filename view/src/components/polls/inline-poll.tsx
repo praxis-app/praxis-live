@@ -16,7 +16,8 @@ import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
-import { timeAgo, timeFromNow } from '@/lib/time.utils';
+import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline';
+import { timeAgo } from '@/lib/time.utils';
 import {
   type ChannelRes,
   type FeedItemRes,
@@ -70,6 +71,9 @@ export const InlinePoll = ({
 
   const [showResults, setShowResults] = useState(hasVoted || isClosed);
   const [showVoteBreakdown, setShowVoteBreakdown] = useState(false);
+
+  const { hasEnded: deadlineHasEnded, label: deadlineLabel } =
+    useVotingDeadlineLabel(config?.closingAt, !isClosed);
 
   const name = user.displayName || user.name;
   const truncatedName = truncate(name, 18);
@@ -463,7 +467,7 @@ export const InlinePoll = ({
             >
               {t('polls.labels.totalVotes', { count: totalVotes })}
             </button>
-            {isClosed ? (
+            {isClosed || deadlineHasEnded ? (
               <>
                 {MIDDOT_WITH_SPACES}
                 <span
@@ -492,7 +496,7 @@ export const InlinePoll = ({
                         { dateStyle: 'medium', timeStyle: 'short' },
                       )}
                     >
-                      {timeFromNow(config.closingAt, true)}
+                      {deadlineLabel}
                     </span>
                   </>
                 )}

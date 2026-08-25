@@ -11,8 +11,8 @@ import { FormattedText } from '@/components/shared/formatted-text';
 import { CardAction } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
+import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline';
 import { cn } from '@/lib/shared.utils';
-import { timeFromNow } from '@/lib/time.utils';
 import { type CallArtifactRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';
 import { type PollRes } from '@/types/poll.types';
@@ -72,6 +72,11 @@ export const ProposalContent = ({
   }[sourceCallContext];
 
   const { id, body, myVote, config, action, stage, votes, memberCount } = poll;
+
+  const { label: deadlineLabel } = useVotingDeadlineLabel(
+    config.closingAt,
+    stage === 'voting',
+  );
 
   return (
     <>
@@ -157,9 +162,7 @@ export const ProposalContent = ({
               className="focus-visible:ring-ring cursor-pointer rounded-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
               onClick={() => setIsSettingsDialogOpen(true)}
             >
-              {config.closingAt
-                ? timeFromNow(config.closingAt, true)
-                : t('time.infinity')}
+              {deadlineLabel ?? t('time.infinity')}
             </button>
           </div>
         </div>

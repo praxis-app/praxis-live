@@ -1072,6 +1072,7 @@
     "daysEndsIn_other": "Ends in {{days}} days",
     "daysFull_one": "{{count}} day",
     "daysFull_other": "{{count}} days",
+    "ended": "Ended",
     "hours": "{{hours}}h",
     "hoursEndsIn_one": "Ends in {{hours}} hour",
     "hoursEndsIn_other": "Ends in {{hours}} hours",
