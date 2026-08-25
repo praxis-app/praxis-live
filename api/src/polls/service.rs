@@ -719,6 +719,7 @@ async fn shape_polls(
     let poll_ids: Vec<Uuid> = polls.iter().map(|poll| poll.id).collect();
     let user_ids: Vec<Uuid> = polls.iter().map(|poll| poll.user_id).collect();
 
+    // Load everything the batch needs, one query per relation
     let users = users::Entity::find()
         .filter(users::Column::Id.is_in(user_ids.iter().copied()))
         .all(database)
@@ -772,6 +773,7 @@ async fn shape_polls(
     )
     .await?;
 
+    // Group the loaded rows by poll so each response is an in-memory lookup
     let mut votes_by_poll: HashMap<Uuid, Vec<votes::Model>> = HashMap::new();
     for vote in votes {
         votes_by_poll.entry(vote.poll_id).or_default().push(vote);
@@ -789,13 +791,14 @@ async fn shape_polls(
     for image in images {
         images_by_poll.entry(image.poll_id).or_default().push(image);
     }
-    let configs_by_poll: HashMap<Uuid, poll_configs::Model> = configs
+    let mut configs_by_poll: HashMap<Uuid, poll_configs::Model> = configs
         .into_iter()
         .map(|config| (config.poll_id, config))
         .collect();
     let users_by_id: HashMap<Uuid, users::Model> =
         users.into_iter().map(|user| (user.id, user)).collect();
 
+    // Selections drive both a vote's chosen options and each option's tally
     let mut option_ids_by_vote: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
     let mut vote_counts_by_option: HashMap<Uuid, usize> = HashMap::new();
     for selection in &selections {
@@ -808,12 +811,13 @@ async fn shape_polls(
             .or_default() += 1;
     }
 
+    // Shape each poll from the grouped data, preserving the input order
     let mut responses = Vec::with_capacity(polls.len());
     for poll in polls {
         let user = users_by_id.get(&poll.user_id).ok_or_else(|| {
             ApiError::new(StatusCode::NOT_FOUND, "User not found.")
         })?;
-        let config = configs_by_poll.get(&poll.id).ok_or_else(|| {
+        let config = configs_by_poll.remove(&poll.id).ok_or_else(|| {
             ApiError::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Poll config not found.",
@@ -835,59 +839,61 @@ async fn shape_polls(
                 .map(|vote| vote_service::shape_vote(vote, &option_ids_by_vote))
         });
 
+        // Proposals carry an action and no options; polls are the reverse
+        let action = is_proposal.then(|| actions.remove(&poll.id)).flatten();
+        let options = if is_proposal {
+            vec![]
+        } else {
+            poll_options
+                .into_iter()
+                .map(|option| PollOptionResponse {
+                    id: option.id.to_string(),
+                    vote_count: vote_counts_by_option
+                        .get(&option.id)
+                        .copied()
+                        .unwrap_or(0),
+                    text: option.text,
+                })
+                .collect()
+        };
+        let agreement_vote_count = if is_proposal {
+            poll_votes
+                .iter()
+                .filter(|vote| vote.vote_type == Some(VoteType::Agree))
+                .count()
+        } else {
+            0
+        };
+        let shaped_user = PollUserResponse {
+            id: user.id.to_string(),
+            name: user.name.clone(),
+            display_name: user.display_name.clone(),
+            profile_picture: profile_pictures.get(&user.id).cloned(),
+        };
+        let shaped_images = poll_images
+            .into_iter()
+            .map(|image| PollImageResponse {
+                id: image.id.to_string(),
+            })
+            .collect();
+        let member_count =
+            member_counts.get(&poll.channel_id).copied().unwrap_or(0);
+
         responses.push(PollResponse {
             id: poll.id.to_string(),
             body: decrypt_poll_body(&poll, &key_map),
             poll_type: poll.poll_type,
             stage: poll.stage.to_string(),
             closed_reason: poll.closed_reason.map(|reason| reason.to_string()),
-            action: if is_proposal {
-                actions.remove(&poll.id)
-            } else {
-                None
-            },
-            config: shape_poll_config(config.clone()),
-            options: if is_proposal {
-                vec![]
-            } else {
-                poll_options
-                    .into_iter()
-                    .map(|option| PollOptionResponse {
-                        id: option.id.to_string(),
-                        vote_count: vote_counts_by_option
-                            .get(&option.id)
-                            .copied()
-                            .unwrap_or(0),
-                        text: option.text,
-                    })
-                    .collect()
-            },
-            user: PollUserResponse {
-                id: user.id.to_string(),
-                name: user.name.clone(),
-                display_name: user.display_name.clone(),
-                profile_picture: profile_pictures.get(&user.id).cloned(),
-            },
-            agreement_vote_count: if is_proposal {
-                poll_votes
-                    .iter()
-                    .filter(|vote| vote.vote_type == Some(VoteType::Agree))
-                    .count()
-            } else {
-                0
-            },
+            action,
+            config: shape_poll_config(config),
+            options,
+            user: shaped_user,
+            agreement_vote_count,
             votes: shaped_votes,
-            images: poll_images
-                .into_iter()
-                .map(|image| PollImageResponse {
-                    id: image.id.to_string(),
-                })
-                .collect(),
+            images: shaped_images,
             my_vote,
-            member_count: member_counts
-                .get(&poll.channel_id)
-                .copied()
-                .unwrap_or(0),
+            member_count,
             source_call_id: poll.call_id.map(|call_id| call_id.to_string()),
             created_at: serialize_timestamp(poll.created_at),
         });
