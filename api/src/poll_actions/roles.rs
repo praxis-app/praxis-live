@@ -425,7 +425,7 @@ async fn apply_member_changes(
 fn shape_role(
     role: poll_action_roles::Model,
     members: Vec<poll_action_role_members::Model>,
-    users: &[users::Model],
+    users_by_id: &HashMap<Uuid, users::Model>,
     profile_pictures: &BTreeMap<Uuid, users_service::UserImageRef>,
     permissions: Vec<poll_action_permissions::Model>,
 ) -> PollActionServerRoleResponse {
@@ -442,8 +442,8 @@ fn shape_role(
         members: members
             .into_iter()
             .filter_map(|member| {
-                users.iter().find(|user| user.id == member.user_id).map(
-                    |user| PollActionServerRoleMemberResponse {
+                users_by_id.get(&member.user_id).map(|user| {
+                    PollActionServerRoleMemberResponse {
                         change_type: member.change_type,
                         user: PollActionUserResponse {
                             id: user.id.to_string(),
@@ -453,8 +453,8 @@ fn shape_role(
                                 .get(&user.id)
                                 .cloned(),
                         },
-                    },
-                )
+                    }
+                })
             })
             .collect(),
         permissions: permissions
@@ -514,14 +514,17 @@ pub(super) async fn shape_poll_action_roles(
         .map_err(internal_error)?;
     let user_ids: Vec<Uuid> =
         members.iter().map(|member| member.user_id).collect();
-    let users = if user_ids.is_empty() {
-        vec![]
+    let users_by_id: HashMap<Uuid, users::Model> = if user_ids.is_empty() {
+        HashMap::new()
     } else {
         users::Entity::find()
             .filter(users::Column::Id.is_in(user_ids.clone()))
             .all(database)
             .await
             .map_err(internal_error)?
+            .into_iter()
+            .map(|user| (user.id, user))
+            .collect()
     };
     let profile_pictures =
         users_service::get_user_profile_pictures_map(database, &user_ids)
@@ -552,7 +555,7 @@ pub(super) async fn shape_poll_action_roles(
                 shape_role(
                     role,
                     role_members,
-                    &users,
+                    &users_by_id,
                     &profile_pictures,
                     role_permissions,
                 ),

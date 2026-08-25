@@ -793,15 +793,26 @@ async fn shape_polls(
         .into_iter()
         .map(|config| (config.poll_id, config))
         .collect();
+    let users_by_id: HashMap<Uuid, users::Model> =
+        users.into_iter().map(|user| (user.id, user)).collect();
+
+    let mut option_ids_by_vote: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+    let mut vote_counts_by_option: HashMap<Uuid, usize> = HashMap::new();
+    for selection in &selections {
+        option_ids_by_vote
+            .entry(selection.vote_id)
+            .or_default()
+            .push(selection.poll_option_id);
+        *vote_counts_by_option
+            .entry(selection.poll_option_id)
+            .or_default() += 1;
+    }
 
     let mut responses = Vec::with_capacity(polls.len());
     for poll in polls {
-        let user = users
-            .iter()
-            .find(|user| user.id == poll.user_id)
-            .ok_or_else(|| {
-                ApiError::new(StatusCode::NOT_FOUND, "User not found.")
-            })?;
+        let user = users_by_id.get(&poll.user_id).ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "User not found.")
+        })?;
         let config = configs_by_poll.get(&poll.id).ok_or_else(|| {
             ApiError::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -815,13 +826,13 @@ async fn shape_polls(
 
         let shaped_votes = poll_votes
             .iter()
-            .map(|vote| vote_service::shape_vote(vote, &selections))
+            .map(|vote| vote_service::shape_vote(vote, &option_ids_by_vote))
             .collect::<Vec<_>>();
         let my_vote = current_user_id.and_then(|user_id| {
             poll_votes
                 .iter()
                 .find(|vote| vote.user_id == user_id)
-                .map(|vote| vote_service::shape_vote(vote, &selections))
+                .map(|vote| vote_service::shape_vote(vote, &option_ids_by_vote))
         });
 
         responses.push(PollResponse {
@@ -843,12 +854,10 @@ async fn shape_polls(
                     .into_iter()
                     .map(|option| PollOptionResponse {
                         id: option.id.to_string(),
-                        vote_count: selections
-                            .iter()
-                            .filter(|selection| {
-                                selection.poll_option_id == option.id
-                            })
-                            .count(),
+                        vote_count: vote_counts_by_option
+                            .get(&option.id)
+                            .copied()
+                            .unwrap_or(0),
                         text: option.text,
                     })
                     .collect()
