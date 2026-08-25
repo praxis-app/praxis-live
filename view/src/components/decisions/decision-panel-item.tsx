@@ -55,8 +55,8 @@ export const DecisionPanelItem = ({ decision, serverPath }: Props) => {
         )}
       </div>
 
-      <p className="mt-2 line-clamp-3 text-sm leading-5 font-medium">
-        {truncate(decision.body || t('decisions.labels.untitled'), 180)}
+      <p className="mt-2 line-clamp-2 text-sm leading-5 font-medium">
+        {truncate(decision.body || t('decisions.labels.untitled'), 60)}
       </p>
 
       <div className="text-muted-foreground mt-2 flex items-center gap-1 text-xs">
