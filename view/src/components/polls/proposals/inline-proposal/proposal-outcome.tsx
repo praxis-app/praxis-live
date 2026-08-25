@@ -2,7 +2,7 @@ import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { getProposalRuleStatus } from '@/lib/poll.utils';
 import { type PollRes } from '@/types/poll.types';
 import { useTranslation } from 'react-i18next';
-import { LuLoaderCircle, LuTrendingUp } from 'react-icons/lu';
+import { LuClock3, LuLoaderCircle, LuTrendingUp } from 'react-icons/lu';
 
 interface Props {
   poll: PollRes;
@@ -63,9 +63,11 @@ export const ProposalOutcome = ({ poll }: Props) => {
   }
 
   if (status.passes && !missingRequiredDeadline) {
+    const EligibilityIcon = poll.config.closingAt ? LuClock3 : LuTrendingUp;
+
     return (
       <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
-        <LuTrendingUp className="size-4 shrink-0" aria-hidden="true" />
+        <EligibilityIcon className="size-4 shrink-0" aria-hidden="true" />
         <p>
           {poll.config.closingAt
             ? t('proposals.outcomes.eligibleAtDeadline')
