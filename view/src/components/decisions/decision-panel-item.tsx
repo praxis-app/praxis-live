@@ -1,6 +1,6 @@
 import { Progress } from '@/components/ui/progress';
 import { truncate } from '@/lib/text.utils';
-import { timeFromNow } from '@/lib/time.utils';
+import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline-label';
 import { type ActiveDecisionRes } from '@/types/decision.types';
 import { useTranslation } from 'react-i18next';
 import { LuCheck, LuClock3, LuListTodo } from 'react-icons/lu';
@@ -14,6 +14,7 @@ interface Props {
 
 export const DecisionPanelItem = ({ decision, serverPath }: Props) => {
   const { t } = useTranslation();
+  const { label: deadlineLabel } = useVotingDeadlineLabel(decision.closingAt);
 
   const ChannelIcon = decision.channelType === 'forum' ? MdForum : MdTag;
   const DecisionTypeIcon =
@@ -54,8 +55,8 @@ export const DecisionPanelItem = ({ decision, serverPath }: Props) => {
         )}
       </div>
 
-      <p className="mt-2 line-clamp-3 text-sm leading-5 font-medium">
-        {truncate(decision.body || t('decisions.labels.untitled'), 180)}
+      <p className="mt-2 line-clamp-2 text-sm leading-5 font-medium">
+        {truncate(decision.body || t('decisions.labels.untitled'), 60)}
       </p>
 
       <div className="text-muted-foreground mt-2 flex items-center gap-1 text-xs">
@@ -75,11 +76,7 @@ export const DecisionPanelItem = ({ decision, serverPath }: Props) => {
 
       <div className="text-muted-foreground mt-3 flex items-center gap-1 text-xs">
         <LuClock3 className="size-3.5 shrink-0" />
-        <span>
-          {decision.closingAt
-            ? timeFromNow(decision.closingAt, true)
-            : t('decisions.labels.noDeadline')}
-        </span>
+        <span>{deadlineLabel ?? t('decisions.labels.noDeadline')}</span>
       </div>
     </Link>
   );

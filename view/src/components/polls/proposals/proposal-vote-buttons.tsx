@@ -34,6 +34,7 @@ interface Props {
   decisionMakingModel: DecisionMakingModel;
   closingAt?: string;
   disabled?: boolean;
+  disabledReason?: string;
   onVoteSuccess?: () => void;
   updateCachedProposal?: (update: (proposal: PollRes) => PollRes) => void;
 }
@@ -47,6 +48,7 @@ export const ProposalVoteButtons = ({
   decisionMakingModel,
   closingAt,
   disabled = false,
+  disabledReason,
   onVoteSuccess,
   updateCachedProposal,
 }: Props) => {
@@ -228,6 +230,9 @@ export const ProposalVoteButtons = ({
   });
 
   const handleVoteBtnClick = (voteType: VoteType) => {
+    if (isPending) {
+      return;
+    }
     if (!isLoggedIn) {
       toast(t('proposals.prompts.signInToVote'));
       return;
@@ -242,6 +247,14 @@ export const ProposalVoteButtons = ({
     }
     if (deadlineHasPassed) {
       toast(t('proposals.prompts.noVotingAfterDeadline'));
+      return;
+    }
+    if (stage === 'revision') {
+      toast(t('proposals.prompts.noVotingDuringRevision'));
+      return;
+    }
+    if (disabled) {
+      toast(disabledReason ?? t('proposals.prompts.votingUnavailable'));
       return;
     }
     castVote(voteType);
@@ -260,9 +273,12 @@ export const ProposalVoteButtons = ({
           className={cn(
             'col-span-1',
             myVote?.voteType === vote && 'bg-primary/15!',
+            isVotingDisabled &&
+              'hover:bg-background dark:hover:bg-input/30 opacity-50',
           )}
           onClick={() => handleVoteBtnClick(vote)}
-          disabled={isVotingDisabled}
+          aria-disabled={isVotingDisabled}
+          disabled={isPending}
         >
           {t(`proposals.actions.${vote}`)}
         </Button>

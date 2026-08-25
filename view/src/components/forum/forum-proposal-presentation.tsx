@@ -12,6 +12,7 @@ interface Props {
   postQueryKey: QueryKey;
   me?: CurrentUser;
   votingDisabled?: boolean;
+  votingDisabledReason?: string;
 }
 
 export const ForumProposalPresentation = ({
@@ -20,6 +21,7 @@ export const ForumProposalPresentation = ({
   postQueryKey,
   me,
   votingDisabled = false,
+  votingDisabledReason,
 }: Props) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -51,6 +53,7 @@ export const ForumProposalPresentation = ({
         me={me}
         variant="forum"
         votingDisabled={votingDisabled}
+        votingDisabledReason={votingDisabledReason}
         updateCachedProposal={updateCachedProposal}
       />
     </section>

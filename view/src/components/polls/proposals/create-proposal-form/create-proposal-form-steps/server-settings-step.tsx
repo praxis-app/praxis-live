@@ -46,7 +46,14 @@ export const ServerSettingsStep = ({ isLoading }: WizardStepProps) => {
         showAnonymousUsers
         renderFooter={(settingsForm) => (
           <div className="flex justify-between">
-            <Button variant="outline" onClick={onPrevious}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Keep edits in progress so they survive a trip back
+                proposalForm.setValue('serverConfig', settingsForm.getValues());
+                onPrevious();
+              }}
+            >
               {t('actions.previous')}
             </Button>
             <Button

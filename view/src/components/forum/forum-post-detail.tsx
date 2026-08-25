@@ -186,6 +186,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
               proposal={post.proposal}
               postQueryKey={postQueryKey}
               votingDisabled={post.status === 'closed'}
+              votingDisabledReason={t('forums.prompts.closedPost')}
             />
           </div>
         )}

@@ -1,3 +1,4 @@
+import { formatVotingTimeLimit } from '@/lib/poll.utils';
 import { type PollActionServerConfigRes } from '@/types/poll-action.types';
 import { useTranslation } from 'react-i18next';
 import { ProposalActionChange } from './proposal-actions/proposal-action-change';
@@ -12,6 +13,9 @@ const formatValue = (
 ) => {
   if (typeof value === 'boolean') {
     return t(value ? 'actions.enabled' : 'actions.disabled');
+  }
+  if (field === 'votingTimeLimit') {
+    return formatVotingTimeLimit(Number(value));
   }
   if (field === 'agreementThreshold' || field === 'quorumThreshold') {
     return `${String(value)}%`;
