@@ -11,7 +11,7 @@ import { FormattedText } from '@/components/shared/formatted-text';
 import { CardAction } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
-import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline';
+import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline-label';
 import { cn } from '@/lib/shared.utils';
 import { type CallArtifactRes } from '@/types/call.types';
 import { type ChannelRes } from '@/types/channel.types';

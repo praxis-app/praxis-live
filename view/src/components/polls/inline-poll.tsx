@@ -16,7 +16,7 @@ import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
-import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline';
+import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline-label';
 import { timeAgo } from '@/lib/time.utils';
 import {
   type ChannelRes,

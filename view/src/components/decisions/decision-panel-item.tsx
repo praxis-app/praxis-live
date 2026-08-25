@@ -1,6 +1,6 @@
 import { Progress } from '@/components/ui/progress';
 import { truncate } from '@/lib/text.utils';
-import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline';
+import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline-label';
 import { type ActiveDecisionRes } from '@/types/decision.types';
 import { useTranslation } from 'react-i18next';
 import { LuCheck, LuClock3, LuListTodo } from 'react-icons/lu';
