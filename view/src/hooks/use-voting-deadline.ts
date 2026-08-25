@@ -31,4 +31,3 @@ export const useVotingDeadline = (closingAt?: string) => {
 
   return hasPassed;
 };
-
