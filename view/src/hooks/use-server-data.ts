@@ -5,10 +5,8 @@ import {
 } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useAuthStore } from '@/store/auth.store';
-import { type CurrentUser } from '@/types/user.types';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 export const useServerData = () => {
@@ -16,7 +14,6 @@ export const useServerData = () => {
 
   const { serverSlug } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const { me, isMeLoading, isMeSuccess, isMeError, isAuthError } = useAuthData({
     isMeQueryEnabled: !serverSlug,
@@ -94,26 +91,6 @@ export const useServerData = () => {
     serverByInviteTokenData?.server ||
     (!serverSlug ? me?.currentServer : undefined) ||
     defaultServerData?.server;
-
-  // Record the visit and keep the cached `me.currentServer` in sync whenever
-  // the resolved server changes. `me` is long lived (30 minute stale time, no
-  // refetch on mount) and is the only source of the current server on
-  // slug-less routes such as `/`, so without this it keeps pointing at
-  // whichever server the session started on.
-  useEffect(() => {
-    if (!server || !isMeSuccess) {
-      return;
-    }
-    api.setCurrentServer(server.id).catch(() => {
-      // Best-effort: a failed write here should not block viewing the server.
-    });
-    queryClient.setQueryData<{ user: CurrentUser }>(['me'], (oldData) => {
-      if (!oldData || oldData.user.currentServer?.id === server.id) {
-        return oldData;
-      }
-      return { user: { ...oldData.user, currentServer: server } };
-    });
-  }, [queryClient, server, isMeSuccess]);
 
   const resolvedServerSlug = server?.slug || serverSlug;
   const resolvedServerPath = resolvedServerSlug
