@@ -484,8 +484,6 @@ fn parse_poll_action_permission_action(
     })
 }
 
-/// Shapes the proposed role for many actions at once. Query count is fixed
-/// rather than growing with the number of actions.
 pub(super) async fn shape_poll_action_roles(
     database: &DatabaseConnection,
     poll_action_ids: &[Uuid],

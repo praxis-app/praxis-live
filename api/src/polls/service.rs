@@ -707,8 +707,6 @@ async fn shape_poll(
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Poll not found."))
 }
 
-/// Shapes a page of polls with a fixed number of queries. Every related table
-/// is loaded once for the whole batch rather than once per poll.
 async fn shape_polls(
     database: &DatabaseConnection,
     polls: Vec<polls::Model>,

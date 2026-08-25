@@ -1,6 +1,4 @@
-//! Guards the channel feed against N+1 query growth. Shaping a feed page may
-//! cost a fixed number of queries, but that cost must not grow with the number
-//! of decisions the page happens to hold.
+//! Guards the channel feed against N+1 query growth.
 
 #[path = "support/mod.rs"]
 #[allow(dead_code)]
@@ -16,22 +14,17 @@ use tracing_subscriber::{layer::SubscriberExt, Layer};
 
 use crate::support::{json_body, TestApp};
 
-/// Decisions on the smaller page. The larger page holds every seeded decision.
 const SMALL_PAGE: usize = 4;
 const SEEDED_DECISIONS: usize = 20;
 const LARGE_PAGE: usize = SEEDED_DECISIONS;
 
-/// Queries the larger page may cost beyond the smaller one. Batched shaping
-/// adds a fixed number of statements per page, so widening a page by 16
-/// decisions should cost roughly nothing extra.
+/// Fixed per-page cost the wider page is allowed on top of the narrower one.
 const SCALING_ALLOWANCE: usize = 10;
 
 static EXECUTED_QUERIES: AtomicUsize = AtomicUsize::new(0);
 static QUERY_COUNTER: OnceLock<()> = OnceLock::new();
 
-/// Counts every statement sqlx executes. sqlx emits one `sqlx::query` event per
-/// statement, so this is an exact count of database round trips rather than a
-/// timing measurement.
+/// sqlx emits one `sqlx::query` event per statement, making this an exact count.
 struct QueryCounter;
 
 impl<S: tracing::Subscriber> Layer<S> for QueryCounter {
@@ -95,7 +88,6 @@ async fn channel_feed_queries_do_not_scale_with_decision_count() {
     );
 }
 
-/// Returns the number of items the page returned and the queries it cost.
 async fn measure_feed(app: &TestApp, uri: &str, token: &str) -> (usize, usize) {
     let before = executed_queries();
     let response = app.get_with_bearer(uri, token).await;
@@ -106,8 +98,7 @@ async fn measure_feed(app: &TestApp, uri: &str, token: &str) -> (usize, usize) {
     (body["feed"].as_array().unwrap().len(), queries)
 }
 
-/// Seeds a mix of decision shapes so the measurement covers the expensive
-/// proposal action paths, not just bare polls.
+/// Mixes decision shapes so the measurement covers the proposal action paths.
 async fn seed_decisions(
     app: &TestApp,
     server_id: &str,

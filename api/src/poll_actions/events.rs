@@ -569,8 +569,6 @@ async fn sync_event_cover_photo<C: ConnectionTrait>(
     Ok(())
 }
 
-/// Shapes the proposed event for many actions at once. Query count is fixed
-/// rather than growing with the number of actions.
 pub(super) async fn shape_poll_action_events(
     database: &DatabaseConnection,
     poll_action_ids: &[Uuid],

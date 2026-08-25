@@ -191,8 +191,6 @@ pub(crate) async fn implement_poll_action_in_transaction(
     Ok(true)
 }
 
-/// Shapes the actions for many polls at once, keyed by poll id. Query count is
-/// fixed rather than growing with the number of polls.
 pub(crate) async fn shape_poll_actions(
     database: &DatabaseConnection,
     poll_ids: &[Uuid],
