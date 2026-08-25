@@ -1,5 +1,5 @@
 import { Time } from '@/constants/shared.constants';
-import { timeFromNow } from '@/lib/time.utils';
+import { timeFromNow, timeSinceEnded } from '@/lib/time.utils';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -36,17 +36,23 @@ export const useVotingDeadline = (closingAt?: string) => {
 };
 
 const getRefreshDelay = (closingAt: string) => {
-  const remaining = (new Date(closingAt).getTime() - Date.now()) / 1000;
-  if (remaining < Time.Hour) {
+  const distance = Math.abs(new Date(closingAt).getTime() - Date.now()) / 1000;
+  if (distance < Time.Hour) {
     return 10 * 1000;
   }
-  if (remaining < Time.Day) {
+  if (distance < Time.Day) {
     return 60 * 1000;
   }
   return 5 * 60 * 1000;
 };
 
-/** Live countdown label for a deadline. `label` is null when there's no deadline. */
+const isWithinRelativeRange = (closingAt: string) =>
+  Math.abs(new Date(closingAt).getTime() - Date.now()) / 1000 < Time.Month;
+
+/**
+ * Live label for a deadline: counts down while voting is open, then reports how
+ * long ago it ended. `label` is null when there is no deadline.
+ */
 export const useVotingDeadlineLabel = (
   closingAt?: string,
   isActive = true,
@@ -57,25 +63,32 @@ export const useVotingDeadlineLabel = (
   const { t } = useTranslation();
 
   const hasEnded = !isActive || hasPassed;
-  const isCountingDown = !hasEnded && !!closingAt;
 
   useEffect(() => {
-    if (!isCountingDown || !closingAt) {
+    if (!closingAt || !isWithinRelativeRange(closingAt)) {
       return;
     }
     let timeout: number | undefined;
     const scheduleRefresh = () => {
       timeout = window.setTimeout(() => {
+        if (!isWithinRelativeRange(closingAt)) {
+          return;
+        }
         setTick((tick) => tick + 1);
         scheduleRefresh();
       }, getRefreshDelay(closingAt));
     };
     scheduleRefresh();
     return () => window.clearTimeout(timeout);
-  }, [isCountingDown, closingAt]);
+  }, [closingAt]);
 
   if (hasEnded) {
-    return { hasEnded, label: t('time.ended') };
+    // A deadline that has not elapsed says nothing about when voting ended
+    return {
+      hasEnded,
+      label:
+        hasPassed && closingAt ? timeSinceEnded(closingAt) : t('time.ended'),
+    };
   }
   return {
     hasEnded,

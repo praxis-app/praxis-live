@@ -263,8 +263,10 @@
       "noVotingAfterClose": "This proposal has been closed and can no longer be voted on.",
       "noVotingAfterRatification": "This proposal has been ratified and can no longer be voted on.",
       "noVotingAfterDeadline": "The voting deadline has passed.",
+      "noVotingDuringRevision": "This proposal is in revision and cannot be voted on.",
       "ratifiedSuccess": "This proposal has been ratified! 🎉",
-      "signInToVote": "Sign in to vote on proposals"
+      "signInToVote": "Sign in to vote on proposals",
+      "votingUnavailable": "Voting is not available for this proposal right now."
     },
     "outcomes": {
       "ratified": "Ratified — the proposal passed.",
@@ -1068,12 +1070,17 @@
 
   "time": {
     "days": "{{days}}d",
+    "daysEnded_one": "Ended {{days}} day ago",
+    "daysEnded_other": "Ended {{days}} days ago",
     "daysEndsIn_one": "Ends in {{days}} day",
     "daysEndsIn_other": "Ends in {{days}} days",
     "daysFull_one": "{{count}} day",
     "daysFull_other": "{{count}} days",
     "ended": "Ended",
+    "endedOn": "Ended on {{date}}",
     "hours": "{{hours}}h",
+    "hoursEnded_one": "Ended {{hours}} hour ago",
+    "hoursEnded_other": "Ended {{hours}} hours ago",
     "hoursEndsIn_one": "Ends in {{hours}} hour",
     "hoursEndsIn_other": "Ends in {{hours}} hours",
     "hoursFull_one": "{{count}} hour",
@@ -1082,6 +1089,8 @@
     "infinity": "∞",
     "min": "min",
     "minutes": "{{minutes}}m",
+    "minutesEnded_one": "Ended {{minutes}} minute ago",
+    "minutesEnded_other": "Ended {{minutes}} minutes ago",
     "minutesEndsIn_one": "Ends in {{minutes}} minute",
     "minutesEndsIn_other": "Ends in {{minutes}} minutes",
     "minutesFull_one": "{{count}} minute",

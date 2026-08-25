@@ -7,6 +7,7 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('@/lib/time.utils', () => ({
   timeFromNow: vi.fn(() => 'Ends in 1 minute'),
+  timeSinceEnded: vi.fn(() => 'Ended 1 minute ago'),
 }));
 
 describe('useVotingDeadlineLabel', () => {
@@ -29,7 +30,7 @@ describe('useVotingDeadlineLabel', () => {
     });
   });
 
-  it('reports the deadline as ended once it passes', () => {
+  it('reports how long ago the deadline passed', () => {
     const closingAt = new Date('2026-01-01T00:01:00Z').toISOString();
     const { result } = renderHook(() => useVotingDeadlineLabel(closingAt));
 
@@ -37,10 +38,13 @@ describe('useVotingDeadlineLabel', () => {
       vi.advanceTimersByTime(61_000);
     });
 
-    expect(result.current).toEqual({ hasEnded: true, label: 'time.ended' });
+    expect(result.current).toEqual({
+      hasEnded: true,
+      label: 'Ended 1 minute ago',
+    });
   });
 
-  it('reports the deadline as ended when voting is no longer active', () => {
+  it('reports a plain ended label when voting stopped before the deadline', () => {
     const closingAt = new Date('2026-01-01T00:05:00Z').toISOString();
     const { result } = renderHook(() =>
       useVotingDeadlineLabel(closingAt, false),

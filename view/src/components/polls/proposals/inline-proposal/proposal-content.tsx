@@ -37,6 +37,7 @@ interface Props {
   canMoveToForum?: boolean;
   variant?: 'inline' | 'forum';
   votingDisabled?: boolean;
+  votingDisabledReason?: string;
   updateCachedProposal?: (update: (proposal: PollRes) => PollRes) => void;
 }
 
@@ -54,6 +55,7 @@ export const ProposalContent = ({
   canMoveToForum = false,
   variant = 'inline',
   votingDisabled = false,
+  votingDisabledReason,
   updateCachedProposal,
 }: Props) => {
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
@@ -73,10 +75,8 @@ export const ProposalContent = ({
 
   const { id, body, myVote, config, action, stage, votes, memberCount } = poll;
 
-  const { label: deadlineLabel } = useVotingDeadlineLabel(
-    config.closingAt,
-    stage === 'voting',
-  );
+  const { hasEnded: votingHasEnded, label: deadlineLabel } =
+    useVotingDeadlineLabel(config.closingAt, stage === 'voting');
 
   return (
     <>
@@ -129,6 +129,7 @@ export const ProposalContent = ({
           decisionMakingModel={config.decisionMakingModel ?? 'consensus'}
           closingAt={config.closingAt}
           disabled={votingDisabled}
+          disabledReason={votingDisabledReason}
           onVoteSuccess={onPollChange}
           updateCachedProposal={updateCachedProposal}
         />
@@ -162,7 +163,14 @@ export const ProposalContent = ({
               className="focus-visible:ring-ring cursor-pointer rounded-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
               onClick={() => setIsSettingsDialogOpen(true)}
             >
-              {deadlineLabel ?? t('time.infinity')}
+              {votingHasEnded ? (
+                <>
+                  <span className="hidden @sm:inline">{deadlineLabel}</span>
+                  <span className="@sm:hidden">{t('time.ended')}</span>
+                </>
+              ) : (
+                (deadlineLabel ?? t('time.infinity'))
+              )}
             </button>
           </div>
         </div>

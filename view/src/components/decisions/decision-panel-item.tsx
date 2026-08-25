@@ -76,9 +76,7 @@ export const DecisionPanelItem = ({ decision, serverPath }: Props) => {
 
       <div className="text-muted-foreground mt-3 flex items-center gap-1 text-xs">
         <LuClock3 className="size-3.5 shrink-0" />
-        <span>
-          {deadlineLabel ?? t('decisions.labels.noDeadline')}
-        </span>
+        <span>{deadlineLabel ?? t('decisions.labels.noDeadline')}</span>
       </div>
     </Link>
   );
