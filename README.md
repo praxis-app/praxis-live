@@ -11,8 +11,6 @@ Designed for organizations, teams, and communities that need robust group decisi
 - React/Vite
 - TypeScript
 - PostgreSQL
-- WebSockets
-- WebRTC
 
 Praxis is free and open source software, as specified by the GNU General Public License.
 
