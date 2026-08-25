@@ -12,6 +12,7 @@ use sea_orm::{
     IntoActiveModel, PaginatorTrait, QueryFilter, QuerySelect, Set,
     TransactionTrait,
 };
+use std::collections::HashMap;
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
@@ -299,18 +300,21 @@ pub(super) async fn ensure_poll_option_exists(
 
 pub(crate) fn shape_vote(
     vote: &vote_entities::Model,
-    selections: &[poll_option_selections::Model],
+    option_ids_by_vote: &HashMap<Uuid, Vec<Uuid>>,
 ) -> VoteResponse {
-    let poll_option_ids = selections
-        .iter()
-        .filter(|selection| selection.vote_id == vote.id)
-        .map(|selection| selection.poll_option_id.to_string())
-        .collect::<Vec<_>>();
+    let poll_option_ids = option_ids_by_vote
+        .get(&vote.id)
+        .map(|option_ids| {
+            option_ids
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        })
+        .filter(|option_ids| !option_ids.is_empty());
     VoteResponse {
         id: vote.id.to_string(),
         vote_type: vote.vote_type.map(|value| value.to_string()),
-        poll_option_ids: (!poll_option_ids.is_empty())
-            .then_some(poll_option_ids),
+        poll_option_ids,
     }
 }
 

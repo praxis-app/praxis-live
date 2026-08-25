@@ -8,6 +8,7 @@ use sea_orm::{
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
     QueryFilter, QuerySelect, Set,
 };
+use std::collections::HashMap;
 use uuid::Uuid as NativeUuid;
 
 use super::types::PollActionServerConfigResponse;
@@ -189,35 +190,49 @@ pub(super) async fn implement_change_server_config(
     .await
 }
 
-pub(super) async fn shape_poll_action_settings(
+pub(super) async fn shape_poll_action_settings_map(
     database: &DatabaseConnection,
-    poll_action_id: Uuid,
-) -> AppResult<Option<PollActionServerConfigResponse>> {
+    poll_action_ids: &[Uuid],
+) -> AppResult<HashMap<Uuid, PollActionServerConfigResponse>> {
+    if poll_action_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
     Ok(poll_action_server_configs::Entity::find()
         .filter(
-            poll_action_server_configs::Column::PollActionId.eq(poll_action_id),
+            poll_action_server_configs::Column::PollActionId
+                .is_in(poll_action_ids.iter().copied()),
         )
-        .one(database)
+        .all(database)
         .await
         .map_err(internal_error)?
-        .map(|config| PollActionServerConfigResponse {
-            anonymous_users_enabled: config.anonymous_users_enabled,
-            prev_anonymous_users_enabled: config.prev_anonymous_users_enabled,
-            decision_making_model: config.decision_making_model,
-            prev_decision_making_model: config.prev_decision_making_model,
-            disagreements_limit: config.disagreements_limit,
-            prev_disagreements_limit: config.prev_disagreements_limit,
-            abstains_limit: config.abstains_limit,
-            prev_abstains_limit: config.prev_abstains_limit,
-            agreement_threshold: config.agreement_threshold,
-            prev_agreement_threshold: config.prev_agreement_threshold,
-            quorum_enabled: config.quorum_enabled,
-            prev_quorum_enabled: config.prev_quorum_enabled,
-            quorum_threshold: config.quorum_threshold,
-            prev_quorum_threshold: config.prev_quorum_threshold,
-            voting_time_limit: config.voting_time_limit,
-            prev_voting_time_limit: config.prev_voting_time_limit,
-        }))
+        .into_iter()
+        .map(|config| {
+            let poll_action_id = config.poll_action_id;
+            (
+                poll_action_id,
+                PollActionServerConfigResponse {
+                    anonymous_users_enabled: config.anonymous_users_enabled,
+                    prev_anonymous_users_enabled: config
+                        .prev_anonymous_users_enabled,
+                    decision_making_model: config.decision_making_model,
+                    prev_decision_making_model: config
+                        .prev_decision_making_model,
+                    disagreements_limit: config.disagreements_limit,
+                    prev_disagreements_limit: config.prev_disagreements_limit,
+                    abstains_limit: config.abstains_limit,
+                    prev_abstains_limit: config.prev_abstains_limit,
+                    agreement_threshold: config.agreement_threshold,
+                    prev_agreement_threshold: config.prev_agreement_threshold,
+                    quorum_enabled: config.quorum_enabled,
+                    prev_quorum_enabled: config.prev_quorum_enabled,
+                    quorum_threshold: config.quorum_threshold,
+                    prev_quorum_threshold: config.prev_quorum_threshold,
+                    voting_time_limit: config.voting_time_limit,
+                    prev_voting_time_limit: config.prev_voting_time_limit,
+                },
+            )
+        })
+        .collect())
 }
 
 fn internal_error(error: impl std::fmt::Display) -> ApiError {

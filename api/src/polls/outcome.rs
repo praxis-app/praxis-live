@@ -132,23 +132,6 @@ pub(crate) async fn finalize_ratifiable_proposal(
     Ok(ProposalFinalization::Ratified)
 }
 
-pub(super) async fn get_poll_member_count<C>(
-    database: &C,
-    poll_id: Uuid,
-) -> AppResult<usize>
-where
-    C: ConnectionTrait,
-{
-    let poll = polls::Entity::find_by_id(poll_id)
-        .one(database)
-        .await
-        .map_err(internal_error)?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::NOT_FOUND, "Poll not found.")
-        })?;
-    get_channel_member_count(database, poll.channel_id).await
-}
-
 async fn get_channel_member_count<C>(
     database: &C,
     channel_id: Uuid,
