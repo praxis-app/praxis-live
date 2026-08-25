@@ -5,37 +5,34 @@ import { type CurrentUser } from '@/types/user.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
-// Records the visit and keeps the cached `me.currentServer` in sync whenever
-// the resolved server changes. `me` is long lived (30 minute stale time, no
-// refetch on mount) and is the only source of the current server on slug-less
-// routes such as `/`, so without this it keeps pointing at whichever server
-// the session started on.
-//
-// Mount this once, from `AuthWrapper`. It must not live in `useServerData`:
-// that hook is a read used by dozens of components, so a write there fires one
-// request per mounted consumer instead of one per visit.
+// Mount once, from `AuthWrapper`. In `useServerData` this would fire one
+// request per mounted consumer.
 export const useRecordServerVisit = () => {
   const queryClient = useQueryClient();
 
-  const { server } = useServerData();
-  const { isMeSuccess } = useAuthData();
+  const { server, isLoading } = useServerData();
+  const { me, isMeSuccess } = useAuthData();
 
-  const recordedServerId = useRef<string | null>(null);
+  const recordedVisit = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!server || !isMeSuccess || recordedServerId.current === server.id) {
+    // Mid-load, `server` falls back to the stale cached default server.
+    if (!server || !isMeSuccess || isLoading) {
       return;
     }
-    recordedServerId.current = server.id;
+    const visit = `${me?.id}:${server.id}`;
+    if (recordedVisit.current === visit) {
+      return;
+    }
+    recordedVisit.current = visit;
 
-    api.setCurrentServer(server.id).catch(() => {
-      // Best-effort: a failed write here should not block viewing the server.
-    });
+    // Best-effort: a failed write should not block viewing the server.
+    api.setCurrentServer(server.id).catch(() => {});
     queryClient.setQueryData<{ user: CurrentUser }>(['me'], (oldData) => {
       if (!oldData || oldData.user.currentServer?.id === server.id) {
         return oldData;
       }
       return { user: { ...oldData.user, currentServer: server } };
     });
-  }, [queryClient, server, isMeSuccess]);
+  }, [queryClient, server, isMeSuccess, isLoading, me?.id]);
 };
