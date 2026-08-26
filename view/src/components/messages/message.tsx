@@ -1,12 +1,12 @@
 import { AttachedImageList } from '@/components/images/attached-image-list';
 import { FormattedText } from '@/components/shared/formatted-text';
+import { MessageReplyButton } from '@/components/messages/message-reply-button';
+import { MessageThreadSummary } from '@/components/messages/message-thread-summary';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
-import { Button } from '@/components/ui/button';
 import { timeAgo } from '@/lib/time.utils';
 import { type MessageRes } from '@/types/message.types';
 import { useTranslation } from 'react-i18next';
-import { LuMessageCircle } from 'react-icons/lu';
 import { truncate } from '../../lib/text.utils';
 import { type CurrentUser } from '../../types/user.types';
 
@@ -19,7 +19,7 @@ interface Props {
 }
 
 export const Message = ({
-  message: { id, body, images, user, createdAt, replyCount },
+  message: { id, body, images, user, createdAt, replyCount, replyUsers },
   serverId,
   channelId,
   me,
@@ -38,7 +38,12 @@ export const Message = ({
   const truncatedUsername = truncate(name, 18);
 
   return (
-    <div data-message-id={id} className="flex max-w-full min-w-0 gap-4 pt-1">
+    <div
+      data-message-id={id}
+      className="group/message relative flex max-w-full min-w-0 gap-4 pt-1"
+    >
+      {onOpenThread && <MessageReplyButton onReply={() => onOpenThread(id)} />}
+
       <UserProfileDrawer
         name={truncatedUsername}
         userId={user.id}
@@ -93,19 +98,12 @@ export const Message = ({
           </div>
         )}
 
-        {onOpenThread && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground mt-1.5 -ml-2 h-7 gap-1.5 px-2 text-xs"
-            onClick={() => onOpenThread(id)}
-          >
-            <LuMessageCircle className="size-3.5" />
-            {replyCount > 0
-              ? t('messages.labels.replyCount', { count: replyCount })
-              : t('messages.actions.reply')}
-          </Button>
+        {onOpenThread && replyCount > 0 && (
+          <MessageThreadSummary
+            replyCount={replyCount}
+            replyUsers={replyUsers || []}
+            onOpen={() => onOpenThread(id)}
+          />
         )}
       </div>
     </div>

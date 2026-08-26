@@ -104,6 +104,7 @@ test('members can use a durable reply thread without replies entering the channe
       .locator('[data-message-id]')
       .filter({ hasText: rootMessage });
     await expect(authorRoot).toBeVisible();
+    await authorRoot.hover();
     await authorRoot.getByRole('button', { name: 'Reply' }).click();
     const authorThread = page.getByTestId('thread-panel');
     await expect(authorThread.getByText(rootMessage)).toBeVisible();
@@ -114,9 +115,29 @@ test('members can use a durable reply thread without replies entering the channe
       .locator('[data-message-id]')
       .filter({ hasText: rootMessage });
     await expect(memberRoot).toBeVisible();
+    await memberRoot.hover();
     await memberRoot.getByRole('button', { name: 'Reply' }).click();
     const memberThread = memberPage.getByTestId('thread-panel');
     await expect(memberThread.getByText(rootMessage)).toBeVisible();
+
+    let releaseReplyRequest = () => {};
+    const heldReplyRequest = new Promise<void>((resolve) => {
+      releaseReplyRequest = resolve;
+    });
+    let markReplyRequestObserved = () => {};
+    const replyRequestObserved = new Promise<void>((resolve) => {
+      markReplyRequestObserved = resolve;
+    });
+    const replyRoute = /\/messages\/[^/]+\/replies$/;
+    await memberPage.route(replyRoute, async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      markReplyRequestObserved();
+      await heldReplyRequest;
+      await route.continue();
+    });
 
     const createReplyResponse = memberPage.waitForResponse((response) => {
       const url = new URL(response.url());
@@ -129,15 +150,31 @@ test('members can use a durable reply thread without replies entering the channe
     const replyInput = memberThread.getByPlaceholder('Reply to thread...');
     await replyInput.fill(replyMessage);
     await replyInput.press('Enter');
+    await replyRequestObserved;
+    const memberReply = memberThread.locator('[data-message-id]').filter({
+      hasText: replyMessage,
+    });
+    await expect(memberReply).toHaveCount(0);
+    releaseReplyRequest();
     await createReplyResponse;
+    await memberPage.unroute(replyRoute);
 
-    await expect(memberThread.getByText(replyMessage)).toBeVisible();
-    await expect(authorThread.getByText(replyMessage)).toBeVisible();
+    await expect(memberReply).toBeVisible();
+    await expect(
+      authorThread.locator('[data-message-id]').filter({
+        hasText: replyMessage,
+      }),
+    ).toBeVisible();
     await expect(
       authorRoot.getByRole('button', { name: '1 reply' }),
     ).toBeVisible();
     await expect(
       memberRoot.getByRole('button', { name: '1 reply' }),
+    ).toBeVisible();
+    await expect(
+      memberRoot
+        .getByRole('button', { name: '1 reply' })
+        .getByTitle(member.user.name),
     ).toBeVisible();
     await expect(page.getByTestId('feed').getByText(replyMessage)).toHaveCount(
       0,
@@ -148,7 +185,11 @@ test('members can use a durable reply thread without replies entering the channe
     await expect(memberPage).toHaveURL(/\?thread=[0-9a-f-]+$/);
     const reloadedThread = memberPage.getByTestId('thread-panel');
     await expect(reloadedThread.getByText(rootMessage)).toBeVisible();
-    await expect(reloadedThread.getByText(replyMessage)).toBeVisible();
+    await expect(
+      reloadedThread.locator('[data-message-id]').filter({
+        hasText: replyMessage,
+      }),
+    ).toBeVisible();
   } finally {
     await memberContext.close();
   }

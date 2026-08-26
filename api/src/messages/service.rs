@@ -48,6 +48,13 @@ struct ReplySummary {
     latest_reply_at: Option<DateTimeWithTimeZone>,
 }
 
+#[derive(FromQueryResult)]
+struct ReplyParticipant {
+    thread_root_id: Option<Uuid>,
+    user_id: Uuid,
+    latest_reply_at: DateTimeWithTimeZone,
+}
+
 pub(crate) async fn get_channel_message_feed(
     database: &DatabaseConnection,
     server_id: Uuid,
@@ -469,10 +476,28 @@ pub(crate) async fn shape_messages(
     database: &DatabaseConnection,
     messages: Vec<messages::Model>,
 ) -> AppResult<Vec<MessageResponse>> {
-    let user_ids: Vec<Uuid> =
-        messages.iter().map(|message| message.user_id).collect();
     let message_ids: Vec<Uuid> =
         messages.iter().map(|message| message.id).collect();
+
+    let root_ids = messages
+        .iter()
+        .filter(|message| message.thread_root_id.is_none())
+        .map(|message| message.id)
+        .collect::<Vec<_>>();
+    let reply_summaries =
+        load_reply_summaries(database, root_ids.clone()).await?;
+    let reply_participants =
+        load_reply_participants(database, root_ids).await?;
+
+    let mut user_ids: Vec<Uuid> =
+        messages.iter().map(|message| message.user_id).collect();
+    user_ids.extend(
+        reply_participants
+            .values()
+            .flat_map(|participant_ids| participant_ids.iter().copied()),
+    );
+    user_ids.sort_unstable();
+    user_ids.dedup();
 
     let users_by_id: HashMap<Uuid, users::Model> = users::Entity::find()
         .filter(users::Column::Id.is_in(user_ids.clone()))
@@ -505,19 +530,12 @@ pub(crate) async fn shape_messages(
         .collect::<Vec<_>>();
     let key_map =
         channels::get_unwrapped_channel_key_map(database, key_ids).await?;
-    let root_ids = messages
-        .iter()
-        .filter(|message| message.thread_root_id.is_none())
-        .map(|message| message.id)
-        .collect::<Vec<_>>();
-    let reply_summaries = load_reply_summaries(database, root_ids).await?;
-
     Ok(messages
         .into_iter()
         .map(|message| {
             shape_message(
                 &message,
-                users_by_id.get(&message.user_id),
+                &users_by_id,
                 &profile_pictures,
                 images_by_message
                     .get(&message.id)
@@ -526,6 +544,10 @@ pub(crate) async fn shape_messages(
                     .iter(),
                 decrypt_message_body(&message, &key_map),
                 reply_summaries.get(&message.id),
+                reply_participants
+                    .get(&message.id)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
             )
         })
         .collect())
@@ -747,7 +769,7 @@ fn resolve_upload_path(upload_root: &Path, storage_key: &str) -> PathBuf {
 
 fn shape_message<'a>(
     message: &messages::Model,
-    user: Option<&users::Model>,
+    users_by_id: &HashMap<Uuid, users::Model>,
     profile_pictures: &std::collections::BTreeMap<
         Uuid,
         crate::users::UserImageRef,
@@ -755,6 +777,7 @@ fn shape_message<'a>(
     images: impl Iterator<Item = &'a message_images::Model>,
     body: Option<String>,
     reply_summary: Option<&(usize, DateTimeWithTimeZone)>,
+    reply_participant_ids: &[Uuid],
 ) -> MessageResponse {
     MessageResponse {
         id: message.id.to_string(),
@@ -762,12 +785,9 @@ fn shape_message<'a>(
         images: images
             .map(|image| shape_image(image, image.storage_key.is_none()))
             .collect(),
-        user: user.map(|user| MessageUser {
-            id: user.id.to_string(),
-            name: user.name.clone(),
-            display_name: user.display_name.clone(),
-            profile_picture: profile_pictures.get(&user.id).cloned(),
-        }),
+        user: users_by_id
+            .get(&message.user_id)
+            .map(|user| shape_message_user(user, profile_pictures)),
         user_id: Some(message.user_id.to_string()),
         bot_id: None,
         bot: None,
@@ -775,9 +795,32 @@ fn shape_message<'a>(
         thread_root_id: message.thread_root_id.map(|id| id.to_string()),
         parent_message_id: message.parent_message_id.map(|id| id.to_string()),
         reply_count: reply_summary.map(|(count, _)| *count).unwrap_or_default(),
+        reply_users: reply_participant_ids
+            .iter()
+            .filter_map(|user_id| {
+                users_by_id
+                    .get(user_id)
+                    .map(|user| shape_message_user(user, profile_pictures))
+            })
+            .collect(),
         latest_reply_at: reply_summary
             .map(|(_, created_at)| serialize_timestamp(*created_at)),
         created_at: serialize_timestamp(message.created_at),
+    }
+}
+
+fn shape_message_user(
+    user: &users::Model,
+    profile_pictures: &std::collections::BTreeMap<
+        Uuid,
+        crate::users::UserImageRef,
+    >,
+) -> MessageUser {
+    MessageUser {
+        id: user.id.to_string(),
+        name: user.name.clone(),
+        display_name: user.display_name.clone(),
+        profile_picture: profile_pictures.get(&user.id).cloned(),
     }
 }
 
@@ -888,6 +931,47 @@ async fn load_reply_summaries(
             ))
         })
         .collect())
+}
+
+async fn load_reply_participants(
+    database: &DatabaseConnection,
+    root_ids: Vec<Uuid>,
+) -> AppResult<HashMap<Uuid, Vec<Uuid>>> {
+    if root_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let mut participants = messages::Entity::find()
+        .select_only()
+        .column(messages::Column::ThreadRootId)
+        .column(messages::Column::UserId)
+        .column_as(
+            Expr::col(messages::Column::CreatedAt).max(),
+            "latest_reply_at",
+        )
+        .filter(messages::Column::ThreadRootId.is_in(root_ids))
+        .group_by(messages::Column::ThreadRootId)
+        .group_by(messages::Column::UserId)
+        .into_model::<ReplyParticipant>()
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    participants.sort_by(|left, right| {
+        right.latest_reply_at.cmp(&left.latest_reply_at)
+    });
+
+    let mut participants_by_root: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+    for participant in participants {
+        let Some(root_id) = participant.thread_root_id else {
+            continue;
+        };
+        let root_participants =
+            participants_by_root.entry(root_id).or_default();
+        if root_participants.len() < 3 {
+            root_participants.push(participant.user_id);
+        }
+    }
+    Ok(participants_by_root)
 }
 
 fn message_cursor(message: &messages::Model) -> String {

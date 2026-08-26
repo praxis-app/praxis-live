@@ -134,6 +134,14 @@ async fn thread_replies_are_paginated_summarized_and_excluded_from_feed() {
     let latest_page = json_body(latest_page_response).await;
     assert_eq!(latest_page["root"]["id"], root);
     assert_eq!(latest_page["root"]["replyCount"], 2);
+    assert_eq!(
+        latest_page["root"]["replyUsers"].as_array().unwrap().len(),
+        1
+    );
+    assert_eq!(
+        latest_page["root"]["replyUsers"][0]["name"],
+        "Person Example"
+    );
     assert!(latest_page["root"]["latestReplyAt"].is_string());
     assert_eq!(latest_page["replies"][0]["body"], "Second reply");
     assert_eq!(latest_page["replies"][0]["threadRootId"], root);
@@ -168,6 +176,8 @@ async fn thread_replies_are_paginated_summarized_and_excluded_from_feed() {
     assert_eq!(feed["feed"].as_array().unwrap().len(), 1);
     assert_eq!(feed["feed"][0]["id"], root);
     assert_eq!(feed["feed"][0]["replyCount"], 2);
+    assert_eq!(feed["feed"][0]["replyUsers"].as_array().unwrap().len(), 1);
+    assert_eq!(feed["feed"][0]["replyUsers"][0]["name"], "Person Example");
     assert!(feed["feed"][0]["latestReplyAt"].is_string());
 }
 

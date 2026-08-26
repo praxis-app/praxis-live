@@ -20,6 +20,7 @@ export interface MessageRes {
   threadRootId?: string;
   parentMessageId?: string;
   replyCount: number;
+  replyUsers?: UserRes[];
   latestReplyAt: string | null;
   createdAt: string;
 }

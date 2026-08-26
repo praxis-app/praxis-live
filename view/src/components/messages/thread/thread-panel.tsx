@@ -129,27 +129,35 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
       )}
     >
       <header className="flex h-13.75 shrink-0 items-center gap-2 border-b px-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={
-            isDesktop ? t('messages.threads.close') : t('messages.threads.back')
-          }
-          onClick={onClose}
-        >
-          {isDesktop ? (
-            <MdClose className="size-5" />
-          ) : (
+        {!isDesktop && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t('messages.threads.back')}
+            onClick={onClose}
+          >
             <MdArrowBack className="size-5" />
-          )}
-        </Button>
+          </Button>
+        )}
         <div className="min-w-0">
           <h2 className="font-semibold">{t('messages.threads.title')}</h2>
           <p className="text-muted-foreground truncate text-xs">
             {t('messages.threads.channel', { channel: channel.name })}
           </p>
         </div>
+        {isDesktop && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="ml-auto"
+            aria-label={t('messages.threads.close')}
+            onClick={onClose}
+          >
+            <MdClose className="size-5" />
+          </Button>
+        )}
       </header>
 
       <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto">
@@ -175,9 +183,6 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
 
         {root && (
           <div className="flex min-h-full flex-col px-4 py-4">
-            <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
-              {t('messages.threads.originalMessage')}
-            </p>
             <Message
               message={root}
               me={me}

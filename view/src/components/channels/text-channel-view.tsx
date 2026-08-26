@@ -76,6 +76,19 @@ interface Props {
   onCloseThread: () => void;
 }
 
+const addReplyUser = (
+  replyUsers: MessageRes['replyUsers'],
+  replyUser: MessageRes['user'],
+) => {
+  if (!replyUser) {
+    return replyUsers;
+  }
+  return [
+    replyUser,
+    ...(replyUsers || []).filter((user) => user.id !== replyUser.id),
+  ].slice(0, 3);
+};
+
 export const TextChannelView = ({
   channel,
   rightPanel,
@@ -239,6 +252,10 @@ export const TextChannelView = ({
                     ? {
                         ...item,
                         replyCount: body.replyCount,
+                        replyUsers: addReplyUser(
+                          item.replyUsers,
+                          body.reply.user,
+                        ),
                         latestReplyAt: body.latestReplyAt,
                       }
                     : item,
@@ -267,6 +284,10 @@ export const TextChannelView = ({
                 root: {
                   ...page.root,
                   replyCount: body.replyCount,
+                  replyUsers: addReplyUser(
+                    page.root.replyUsers,
+                    body.reply.user,
+                  ),
                   latestReplyAt: body.latestReplyAt,
                 },
                 replies:

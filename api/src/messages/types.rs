@@ -89,6 +89,8 @@ pub(crate) struct MessageResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) parent_message_id: Option<String>,
     pub(crate) reply_count: usize,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) reply_users: Vec<MessageUser>,
     pub(crate) latest_reply_at: Option<String>,
     pub(crate) created_at: String,
 }

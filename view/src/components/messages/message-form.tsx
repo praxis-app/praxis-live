@@ -12,7 +12,7 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
 import { validateImageInput } from '@/lib/image.utilts';
-import { cn, debounce, t } from '@/lib/shared.utils';
+import { cn, t } from '@/lib/shared.utils';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
 import { type MessageRes, type ThreadQuery } from '@/types/message.types';
@@ -87,6 +87,14 @@ export const MessageForm = ({
       : callId
         ? `message-draft-${serverId}-${channelId}-call-${callId}`
         : `message-draft-${serverId}-${channelId}`;
+
+  const saveDraft = (draft: string) => {
+    if (draft.trim()) {
+      localStorage.setItem(draftKey, draft);
+    } else {
+      localStorage.removeItem(draftKey);
+    }
+  };
 
   const threadQueryKey = getThreadQueryKey(
     serverId,
@@ -216,28 +224,9 @@ export const MessageForm = ({
       }
 
       if (threadRootId) {
-        await queryClient.cancelQueries({ queryKey: threadQueryKey });
-        const previousThread =
-          queryClient.getQueryData<ThreadQuery>(threadQueryKey);
-        queryClient.setQueryData<ThreadQuery>(threadQueryKey, (oldData) => {
-          if (!oldData?.pages[0]) {
-            return oldData;
-          }
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page, index) =>
-              index === 0
-                ? {
-                    ...page,
-                    replies: [...page.replies, optimisticMessage],
-                  }
-                : page,
-            ),
-          };
-        });
         return {
           previousFeed: undefined,
-          previousThread,
+          previousThread: undefined,
           optimisticImages,
         };
       }
@@ -489,14 +478,6 @@ export const MessageForm = ({
       textarea.removeEventListener('input', resizeTextarea);
     };
   }, []);
-
-  const saveDraft = debounce((draft: string) => {
-    if (draft && draft.trim() !== '') {
-      localStorage.setItem(draftKey, draft);
-    } else {
-      localStorage.removeItem(draftKey);
-    }
-  }, 100);
 
   const isDisabled = () => {
     if (disabled || isMessageSending) {
