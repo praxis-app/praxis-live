@@ -19,7 +19,7 @@ vi.mock('@/components/ui/resizable', () => ({
     children,
     defaultSize,
     ...props
-  }: ComponentProps<'div'> & { defaultSize?: number }) => (
+  }: ComponentProps<'div'> & { defaultSize?: number | string }) => (
     <div data-default-size={defaultSize} {...props}>
       {children}
     </div>
@@ -30,7 +30,7 @@ describe('ResizableRightPanelLayout', () => {
   it.each<{
     name: string;
     panelType: ResizableRightPanelType;
-    defaultSize: number;
+    defaultSize: number | string;
   }>([
     {
       name: 'active decisions',
@@ -54,9 +54,15 @@ describe('ResizableRightPanelLayout', () => {
         </ResizableRightPanelLayout>,
       );
 
-      expect(
-        screen.getByRole('separator', { name: 'Resize right panel' }),
-      ).toHaveClass('cursor-col-resize');
+      const resizeHandle = screen.getByRole('separator', {
+        name: 'Resize right panel',
+      });
+      expect(resizeHandle).toHaveClass(
+        'cursor-col-resize',
+        'before:transition-[width]',
+        'hover:before:w-0.75',
+        'data-[separator=active]:before:w-0.75',
+      );
       expect(document.querySelector('[data-default-size]')).toHaveAttribute(
         'data-default-size',
         String(defaultSize),
