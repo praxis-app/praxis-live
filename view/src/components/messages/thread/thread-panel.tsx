@@ -2,6 +2,7 @@ import { api } from '@/client/api-client';
 import { Message } from '@/components/messages/message';
 import { MessageForm } from '@/components/messages/message-form';
 import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
+import { ThreadPanelSkeleton } from '@/components/messages/thread/thread-panel-skeleton';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuthData } from '@/hooks/use-auth-data';
@@ -161,11 +162,7 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
       </header>
 
       <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto">
-        {threadQuery.isLoading && (
-          <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-            {t('messages.threads.loading')}
-          </div>
-        )}
+        {threadQuery.isLoading && <ThreadPanelSkeleton />}
 
         {threadQuery.isError && (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
