@@ -1,5 +1,6 @@
 import { UserAvatar } from '@/components/users/user-avatar';
 import { Button } from '@/components/ui/button';
+import { lastReplyTime } from '@/lib/time.utils';
 import { type UserRes } from '@/types/user.types';
 import { useTranslation } from 'react-i18next';
 import { LuMessageCircle } from 'react-icons/lu';
@@ -7,12 +8,14 @@ import { LuMessageCircle } from 'react-icons/lu';
 interface Props {
   replyCount: number;
   replyUsers: UserRes[];
+  latestReplyAt: string | null;
   onOpen: () => void;
 }
 
 export const MessageThreadSummary = ({
   replyCount,
   replyUsers,
+  latestReplyAt,
   onOpen,
 }: Props) => {
   const { t } = useTranslation();
@@ -22,7 +25,7 @@ export const MessageThreadSummary = ({
       type="button"
       variant="ghost"
       size="sm"
-      className="text-primary hover:text-primary mt-1.5 -ml-2 h-8 gap-2 px-2 text-xs font-medium"
+      className="text-primary hover:text-primary mt-1.5 -ml-2 h-auto min-h-8 flex-wrap gap-x-2 gap-y-0.5 px-2 text-xs font-medium"
       onClick={onOpen}
     >
       {replyUsers.length ? (
@@ -43,6 +46,11 @@ export const MessageThreadSummary = ({
         <LuMessageCircle className="size-4" />
       )}
       <span>{t('messages.labels.replyCount', { count: replyCount })}</span>
+      {latestReplyAt && (
+        <span className="text-muted-foreground text-xs">
+          {lastReplyTime(latestReplyAt)}
+        </span>
+      )}
     </Button>
   );
 };

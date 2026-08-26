@@ -425,7 +425,10 @@
     },
     "labels": {
       "replyCount_one": "{{count}} reply",
-      "replyCount_other": "{{count}} replies"
+      "replyCount_other": "{{count}} replies",
+      "lastReplyToday": "Last reply today at {{time}}",
+      "lastReplyYesterday": "Last reply yesterday at {{time}}",
+      "lastReplyOn": "Last reply {{date}} at {{time}}"
     },
     "placeholders": {
       "sendMessage": "Send a message...",
@@ -453,7 +456,6 @@
       "loading": "Loading thread...",
       "loadOlder": "Load older replies",
       "loadingOlder": "Loading older replies...",
-      "replies": "Replies",
       "empty": "No replies yet. Start the conversation here.",
       "notFoundTitle": "Thread not available",
       "notFoundDescription": "This message may have moved, or you may not have access to it."

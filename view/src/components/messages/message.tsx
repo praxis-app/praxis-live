@@ -19,7 +19,16 @@ interface Props {
 }
 
 export const Message = ({
-  message: { id, body, images, user, createdAt, replyCount, replyUsers },
+  message: {
+    id,
+    body,
+    images,
+    user,
+    createdAt,
+    replyCount,
+    replyUsers,
+    latestReplyAt,
+  },
   serverId,
   channelId,
   me,
@@ -102,6 +111,7 @@ export const Message = ({
           <MessageThreadSummary
             replyCount={replyCount}
             replyUsers={replyUsers || []}
+            latestReplyAt={latestReplyAt}
             onOpen={() => onOpenThread(id)}
           />
         )}

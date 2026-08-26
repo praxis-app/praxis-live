@@ -182,7 +182,7 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
         )}
 
         {root && (
-          <div className="flex min-h-full flex-col px-4 py-4">
+          <div className="flex min-h-full flex-col px-4 pt-5 pb-4">
             <Message
               message={root}
               me={me}
@@ -193,10 +193,15 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
             <div
               className="text-muted-foreground my-5 flex items-center gap-3 text-xs font-medium"
               role="separator"
-              aria-label={t('messages.threads.replies')}
+              aria-label={t('messages.labels.replyCount', {
+                count: root.replyCount,
+              })}
             >
-              <Separator className="flex-1" />
-              <span>{t('messages.threads.replies')}</span>
+              <span>
+                {t('messages.labels.replyCount', {
+                  count: root.replyCount,
+                })}
+              </span>
               <Separator className="flex-1" />
             </div>
 

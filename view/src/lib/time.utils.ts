@@ -62,6 +62,29 @@ export const timeAgo = (timeStamp: string) => {
   return timeMessage(timeStamp, secondsPast);
 };
 
+export const lastReplyTime = (timeStamp: string) => {
+  const replyDate = dayjs(timeStamp);
+  const now = dayjs();
+  const time = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(replyDate.toDate());
+
+  if (replyDate.isSame(now, 'day')) {
+    return t('messages.labels.lastReplyToday', { time });
+  }
+  if (replyDate.isSame(now.subtract(1, 'day'), 'day')) {
+    return t('messages.labels.lastReplyYesterday', { time });
+  }
+
+  const date = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(replyDate.year() !== now.year() && { year: 'numeric' }),
+  }).format(replyDate.toDate());
+  return t('messages.labels.lastReplyOn', { date, time });
+};
+
 export const timeFromNow = (timeStamp: string, endsIn = false) => {
   const now = new Date().getTime();
   const time = new Date(timeStamp).getTime();
