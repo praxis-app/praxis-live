@@ -22,8 +22,36 @@ pub(super) struct CallMessageImagePath {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(super) struct ThreadPath {
+    pub(super) root_message_id: Uuid,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub(super) struct ListRepliesQuery {
+    pub(super) before: Option<String>,
+    pub(super) after: Option<String>,
+    pub(super) limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct CreateMessageRequest {
     pub(crate) body: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct CreateReplyRequest {
+    pub(super) body: Option<String>,
+    pub(super) parent_message_id: Option<Uuid>,
+}
+
+#[derive(Debug)]
+pub(super) struct CreateReplyContext {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) root_message_id: Uuid,
+    pub(super) user_id: Uuid,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -60,7 +88,19 @@ pub(crate) struct MessageResponse {
     pub(super) thread_root_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) parent_message_id: Option<String>,
+    pub(crate) reply_count: usize,
+    pub(crate) latest_reply_at: Option<String>,
     pub(crate) created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ThreadResponse {
+    pub(super) root: MessageResponse,
+    pub(super) replies: Vec<MessageResponse>,
+    pub(super) start_cursor: Option<String>,
+    pub(super) next_cursor: Option<String>,
+    pub(super) has_more: bool,
 }
 
 #[derive(Debug, Serialize)]
