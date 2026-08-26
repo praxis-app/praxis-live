@@ -12,6 +12,7 @@ import {
 } from '../lib/calls';
 import { createTestMessage, createTestUser } from '../lib/data';
 import { createInvite } from '../lib/invites';
+import { expectRightPanelToResize } from '../lib/right-panel';
 import { getDefaultServer } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
@@ -553,6 +554,7 @@ test('in-call chat messages are delivered realtime between participants', async 
     });
     await expect(starterCallChatPanel).toBeVisible();
     await expect(joinerCallChatPanel).toBeVisible();
+    await expectRightPanelToResize(page, starterCallChatPanel, 'callChat');
 
     const messageResponse = page.waitForResponse(
       (response) =>

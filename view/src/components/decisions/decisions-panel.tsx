@@ -123,7 +123,7 @@ export const DecisionsPanel = ({ isOpen, onClose }: Props) => {
         <aside
           id="active-decisions-panel"
           aria-label={t('decisions.headers.active')}
-          className="bg-background flex h-full w-80 shrink-0 flex-col border-l"
+          className="bg-background flex h-full min-w-0 flex-1 flex-col"
         >
           <div className="flex h-13.75 shrink-0 items-center justify-between border-b px-4">
             <h2 className="font-semibold">{t('decisions.headers.active')}</h2>

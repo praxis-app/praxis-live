@@ -126,7 +126,7 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
       aria-label={t('messages.threads.title')}
       className={cn(
         'bg-background flex min-h-0 min-w-0 flex-1 flex-col',
-        isDesktop && 'max-w-120 border-l',
+        isDesktop && 'h-full',
       )}
     >
       <header className="flex h-13.75 shrink-0 items-center gap-2 border-b px-3">

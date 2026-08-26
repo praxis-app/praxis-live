@@ -53,4 +53,5 @@ export enum LocalStorageKeys {
   DecisionsPanelOpen = 'decisions-panel-open',
   InviteToken = 'invite-token',
   HideWelcomeMessage = 'hide-welcome-message',
+  RightPanelWidths = 'right-panel-widths',
 }

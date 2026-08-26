@@ -108,7 +108,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
 
   if (!post) {
     return isPane ? (
-      <aside className="bg-background min-w-0 flex-1 border-l md:max-w-180" />
+      <aside className="bg-background min-w-0 flex-1" />
     ) : (
       <main className="min-h-0 flex-1" />
     );
@@ -231,7 +231,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
 
   if (isPane) {
     return (
-      <aside className="bg-background flex min-w-0 flex-1 flex-col border-l md:max-w-180">
+      <aside className="bg-background flex h-full min-w-0 flex-1 flex-col">
         <header className="flex h-13.75 shrink-0 items-center justify-between gap-3 border-b px-4">
           <h2 className="truncate font-medium">{post.title}</h2>
           <Button variant="ghost" size="icon" asChild>

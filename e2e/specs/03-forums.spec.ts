@@ -6,6 +6,7 @@ import {
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { createForumChannel, createForumPosts } from '../lib/forums';
+import { expectRightPanelToResize } from '../lib/right-panel';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
   makeProposalsRatifyWithOneAgreeVote,
@@ -300,6 +301,11 @@ test('user can turn a forum discussion into a ratified proposal', async ({
     page.getByRole('article').getByRole('heading', { name: postTitle }),
   ).toBeVisible();
   await expect(page.getByText(postBody)).toBeVisible();
+  await expectRightPanelToResize(
+    page,
+    page.getByRole('heading', { name: postTitle }).last(),
+    'forumPost',
+  );
 
   const replyResponse = page.waitForResponse(
     (response) =>

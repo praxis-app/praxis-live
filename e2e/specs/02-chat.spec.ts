@@ -20,6 +20,7 @@ import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import { createMessages } from '../lib/messages';
+import { expectRightPanelToResize } from '../lib/right-panel';
 import {
   createServer,
   createServerAdmin,
@@ -108,6 +109,7 @@ test('members can use a durable reply thread without replies entering the channe
     await authorRoot.getByRole('button', { name: 'Reply' }).click();
     const authorThread = page.getByTestId('thread-panel');
     await expect(authorThread.getByText(rootMessage)).toBeVisible();
+    await expectRightPanelToResize(page, authorThread, 'thread');
 
     await memberPage.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
     const memberFeed = memberPage.getByTestId('feed');
@@ -686,6 +688,7 @@ test('authenticated user can create and vote on an in-call proposal', async ({
     await expect(
       activeDecisionPanel.getByText('No active decision'),
     ).toBeVisible();
+    await expectRightPanelToResize(page, activeDecisionPanel, 'callDecisions');
 
     await activeDecisionPanel
       .getByRole('button', { name: 'Create proposal' })
