@@ -39,7 +39,11 @@ import {
   type InstanceConfigRes,
 } from '@/types/instance.types';
 import { type CreateInviteReq, type InviteRes } from '@/types/invite.types';
-import { type MessageRes } from '@/types/message.types';
+import {
+  type CreateReplyReq,
+  type MessageRes,
+  type ThreadPageRes,
+} from '@/types/message.types';
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
 import { type ActiveDecisionsRes } from '@/types/decision.types';
 import {
@@ -387,6 +391,32 @@ class ApiClient {
     const path = `/servers/${serverId}/channels/${channelId}/messages`;
     return this.executeRequest<{ message: MessageRes }>('post', path, {
       data: getJsonOrFormData({ body }, { files: images }),
+    });
+  };
+
+  getThreadReplies = async (
+    serverId: string,
+    channelId: string,
+    rootMessageId: string,
+    before?: string,
+    limit = 50,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/messages/${rootMessageId}/replies`;
+    return this.executeRequest<ThreadPageRes>('get', path, {
+      params: { before, limit },
+    });
+  };
+
+  sendThreadReply = async (
+    serverId: string,
+    channelId: string,
+    rootMessageId: string,
+    data: CreateReplyReq,
+    images: File[] = [],
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/messages/${rootMessageId}/replies`;
+    return this.executeRequest<{ message: MessageRes }>('post', path, {
+      data: getJsonOrFormData(data, { files: images }),
     });
   };
 

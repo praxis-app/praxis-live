@@ -8,4 +8,8 @@ export type RightPanel =
       type: 'forumPost';
       postId: string;
     }
+  | {
+      type: 'thread';
+      rootMessageId: string;
+    }
   | null;

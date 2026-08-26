@@ -10,6 +10,8 @@ import {
   authorizationHeaders,
   createAuthenticatedUser,
   getOrCreateInstanceAdmin,
+  seedAuthenticatedSession,
+  signUpViaApi,
   setupAnonymousInvite,
 } from '../lib/auth';
 import { startCallFromTopNav } from '../lib/calls';
@@ -65,6 +67,91 @@ test('authenticated user can send a basic chat message', async ({
   await navigation.expectSignedInUser(authenticatedUser.user);
   await chat.sendMessage(message);
   await chat.expectMessage(message, authenticatedUser.user.name);
+});
+
+test('members can use a durable reply thread without replies entering the channel feed', async ({
+  browser,
+  context,
+  page,
+  request,
+}) => {
+  const author = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('thread-author'),
+  );
+  const server = await getDefaultServer(request, author);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const inviteToken = await createInvite(request, instanceAdmin, server.id);
+  const member = await signUpViaApi(
+    request,
+    createTestUser('thread-member'),
+    inviteToken,
+  );
+  const memberContext = await browser.newContext();
+
+  try {
+    await seedAuthenticatedSession(memberContext, member.accessToken);
+    const memberPage = await memberContext.newPage();
+    const authorChat = new ChatPage(page);
+    const rootMessage = `Thread root ${author.user.suffix}`;
+    const replyMessage = `Thread reply ${member.user.suffix}`;
+
+    await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+    await authorChat.sendMessage(rootMessage);
+    const authorRoot = page
+      .getByTestId('feed')
+      .locator('[data-message-id]')
+      .filter({ hasText: rootMessage });
+    await expect(authorRoot).toBeVisible();
+    await authorRoot.getByRole('button', { name: 'Reply' }).click();
+    const authorThread = page.getByTestId('thread-panel');
+    await expect(authorThread.getByText(rootMessage)).toBeVisible();
+
+    await memberPage.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+    const memberFeed = memberPage.getByTestId('feed');
+    const memberRoot = memberFeed
+      .locator('[data-message-id]')
+      .filter({ hasText: rootMessage });
+    await expect(memberRoot).toBeVisible();
+    await memberRoot.getByRole('button', { name: 'Reply' }).click();
+    const memberThread = memberPage.getByTestId('thread-panel');
+    await expect(memberThread.getByText(rootMessage)).toBeVisible();
+
+    const createReplyResponse = memberPage.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === 'POST' &&
+        /\/messages\/[^/]+\/replies$/.test(url.pathname) &&
+        response.status() === 200
+      );
+    });
+    const replyInput = memberThread.getByPlaceholder('Reply to thread...');
+    await replyInput.fill(replyMessage);
+    await replyInput.press('Enter');
+    await createReplyResponse;
+
+    await expect(memberThread.getByText(replyMessage)).toBeVisible();
+    await expect(authorThread.getByText(replyMessage)).toBeVisible();
+    await expect(
+      authorRoot.getByRole('button', { name: '1 reply' }),
+    ).toBeVisible();
+    await expect(
+      memberRoot.getByRole('button', { name: '1 reply' }),
+    ).toBeVisible();
+    await expect(page.getByTestId('feed').getByText(replyMessage)).toHaveCount(
+      0,
+    );
+    await expect(memberFeed.getByText(replyMessage)).toHaveCount(0);
+
+    await memberPage.reload();
+    await expect(memberPage).toHaveURL(/\?thread=[0-9a-f-]+$/);
+    const reloadedThread = memberPage.getByTestId('thread-panel');
+    await expect(reloadedThread.getByText(rootMessage)).toBeVisible();
+    await expect(reloadedThread.getByText(replyMessage)).toBeVisible();
+  } finally {
+    await memberContext.close();
+  }
 });
 
 test('sending a message snaps a scrolled channel feed to the bottom', async ({

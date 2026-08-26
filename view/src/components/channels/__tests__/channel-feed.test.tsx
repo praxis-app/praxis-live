@@ -71,6 +71,8 @@ describe('Feed', () => {
       botId: null,
       bot: null,
       commandStatus: null,
+      replyCount: 0,
+      latestReplyAt: null,
       createdAt: '2023-12-01T12:00:00Z',
     },
     {
@@ -86,6 +88,8 @@ describe('Feed', () => {
       botId: null,
       bot: null,
       commandStatus: null,
+      replyCount: 0,
+      latestReplyAt: null,
       createdAt: '2023-12-01T12:05:00Z',
     },
   ];

@@ -13,7 +13,12 @@ import {
 } from '@/types/right-panel.types';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 
 const LARGE_DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
 
@@ -38,10 +43,14 @@ export const ChannelPage = () => {
 
   const { channelId, postId, serverSlug } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const threadRootId = searchParams.get('thread');
 
   const rightPanel: RightPanel = postId
     ? { type: 'forumPost', postId }
-    : standaloneRightPanel;
+    : threadRootId
+      ? { type: 'thread', rootMessageId: threadRootId }
+      : standaloneRightPanel;
 
   const channelPath =
     serverSlug && channelId ? `/s/${serverSlug}/c/${channelId}` : undefined;
@@ -67,8 +76,25 @@ export const ChannelPage = () => {
     if (postId && channelPath) {
       void navigate(channelPath);
     }
+    if (threadRootId) {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('thread');
+      setSearchParams(nextSearchParams, { replace: true });
+    }
     localStorage.setItem(LocalStorageKeys.DecisionsPanelOpen, 'true');
     setStandaloneRightPanel(panel);
+  };
+
+  const openThread = (rootMessageId: string) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('thread', rootMessageId);
+    setSearchParams(nextSearchParams);
+  };
+
+  const closeThread = () => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('thread');
+    setSearchParams(nextSearchParams, { replace: true });
   };
 
   const toggleDecisionsPanel = () => {
@@ -124,9 +150,11 @@ export const ChannelPage = () => {
   return (
     <TextChannelView
       channel={channel}
-      isDecisionsPanelOpen={rightPanel?.type === 'activeDecisions'}
+      rightPanel={rightPanel}
       onCloseDecisionsPanel={closeDecisionsPanel}
       onToggleDecisionsPanel={toggleDecisionsPanel}
+      onOpenThread={openThread}
+      onCloseThread={closeThread}
     />
   );
 };

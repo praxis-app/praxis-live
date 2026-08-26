@@ -3,6 +3,8 @@ import { Feed } from '@/components/feeds/feed';
 import { ChannelTopNav } from '@/components/channels/channel-top-nav';
 import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { MessageForm } from '@/components/messages/message-form';
+import { ThreadPanel } from '@/components/messages/thread/thread-panel';
+import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
@@ -20,10 +22,11 @@ import {
   type FeedQueryPage,
 } from '@/types/channel.types';
 import { type CallArtifactRes } from '@/types/call.types';
-import { type MessageRes } from '@/types/message.types';
+import { type MessageRes, type ThreadQuery } from '@/types/message.types';
 import { type PollRes } from '@/types/poll.types';
 import { type ProposalForumReferenceRes } from '@/types/forum.types';
 import { type PubSubMessage } from '@/types/shared.types';
+import { type RightPanel } from '@/types/right-panel.types';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
 import {
   preserveFeedImages,
@@ -31,6 +34,7 @@ import {
   replaceProposalWithForumReference,
 } from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
+import { cn } from '@/lib/shared.utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -38,6 +42,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 interface NewMessagePayload {
   type: PubSubMessageType.MESSAGE;
   message: MessageRes;
+}
+
+interface ThreadReplyPayload {
+  type: PubSubMessageType.THREAD_REPLY;
+  rootMessageId: string;
+  reply: MessageRes;
+  replyCount: number;
+  latestReplyAt: string;
 }
 
 interface NewPollPayload {
@@ -57,16 +69,20 @@ interface NewCallPayload {
 
 interface Props {
   channel?: ChannelRes;
-  isDecisionsPanelOpen: boolean;
+  rightPanel: RightPanel;
   onCloseDecisionsPanel: () => void;
   onToggleDecisionsPanel: () => void;
+  onOpenThread: (rootMessageId: string) => void;
+  onCloseThread: () => void;
 }
 
 export const TextChannelView = ({
   channel,
-  isDecisionsPanelOpen,
+  rightPanel,
   onCloseDecisionsPanel,
   onToggleDecisionsPanel,
+  onOpenThread,
+  onCloseThread,
 }: Props) => {
   const { inviteToken } = useAuthStore();
 
@@ -81,6 +97,9 @@ export const TextChannelView = ({
   const { me, isMeSuccess, isAuthError } = useAuthData();
   const { data: capabilities } = useInstanceCapabilitiesQuery();
   const { server, serverId } = useServerData();
+  const isDecisionsPanelOpen = rightPanel?.type === 'activeDecisions';
+  const threadRootId =
+    rightPanel?.type === 'thread' ? rightPanel.rootMessageId : undefined;
 
   const {
     callConfig,
@@ -200,10 +219,65 @@ export const TextChannelView = ({
     channelPubSubTopic('new-message', serverId, channel?.id, me?.id),
     {
       onMessage: (event) => {
-        const { body }: PubSubMessage<NewMessagePayload> = JSON.parse(
-          event.data,
-        );
+        const { body }: PubSubMessage<NewMessagePayload | ThreadReplyPayload> =
+          JSON.parse(event.data);
         if (!body) {
+          return;
+        }
+
+        if (body.type === PubSubMessageType.THREAD_REPLY) {
+          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
+            if (!oldData) {
+              return oldData;
+            }
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => ({
+                ...page,
+                feed: page.feed.map((item) =>
+                  item.type === 'message' && item.id === body.rootMessageId
+                    ? {
+                        ...item,
+                        replyCount: body.replyCount,
+                        latestReplyAt: body.latestReplyAt,
+                      }
+                    : item,
+                ),
+              })),
+            };
+          });
+
+          const threadQueryKey = getThreadQueryKey(
+            serverId,
+            channel?.id,
+            body.rootMessageId,
+            inviteToken,
+          );
+          queryClient.setQueryData<ThreadQuery>(threadQueryKey, (oldData) => {
+            if (!oldData?.pages[0]) {
+              return oldData;
+            }
+            const alreadyExists = oldData.pages.some((page) =>
+              page.replies.some((reply) => reply.id === body.reply.id),
+            );
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page, index) => ({
+                ...page,
+                root: {
+                  ...page.root,
+                  replyCount: body.replyCount,
+                  latestReplyAt: body.latestReplyAt,
+                },
+                replies:
+                  index === 0 && !alreadyExists
+                    ? [...page.replies, body.reply]
+                    : page.replies.map((reply) =>
+                        reply.id === body.reply.id ? body.reply : reply,
+                      ),
+              })),
+            };
+          });
           return;
         }
 
@@ -389,7 +463,12 @@ export const TextChannelView = ({
     <div className="fixed top-0 right-0 bottom-0 left-0 flex">
       {isDesktop && <LeftNavDesktop me={me} />}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        className={cn(
+          'flex min-w-0 flex-1 flex-col',
+          !isDesktop && threadRootId && 'hidden',
+        )}
+      >
         <ChannelTopNav
           channel={channel}
           callConfig={callConfig}
@@ -419,6 +498,7 @@ export const TextChannelView = ({
           onFocusedDecisionHandled={clearFocusedDecisionRequest}
           onJoinCall={videoCallsEnabled ? joinCall : undefined}
           onLoadMore={() => void fetchNextPage({ cancelRefetch: false })}
+          onOpenThread={onOpenThread}
         />
 
         <MessageForm
@@ -429,6 +509,14 @@ export const TextChannelView = ({
           }}
         />
       </div>
+
+      {channel && threadRootId && (
+        <ThreadPanel
+          channel={channel}
+          rootMessageId={threadRootId}
+          onClose={onCloseThread}
+        />
+      )}
 
       {isDesktop && (
         <DecisionsPanel

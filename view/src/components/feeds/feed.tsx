@@ -33,6 +33,7 @@ interface Props {
   isJoiningCall?: boolean;
   onJoinCall?: (callId: string) => void;
   scrollMode?: FeedScrollMode;
+  onOpenThread?: (rootMessageId: string) => void;
 }
 
 export const Feed = ({
@@ -49,6 +50,7 @@ export const Feed = ({
   isJoiningCall,
   onJoinCall,
   scrollMode = 'bottom-anchored',
+  onOpenThread,
 }: Props) => {
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
   const [openCallDetailsId, setOpenCallDetailsId] = useState<string | null>(
@@ -245,6 +247,7 @@ export const Feed = ({
             serverId={serverId}
             message={item}
             me={me}
+            onOpenThread={onOpenThread}
           />
         );
       })}

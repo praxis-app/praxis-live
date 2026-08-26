@@ -420,10 +420,16 @@
     "actions": {
       "sendAnonymous": "Send anonymously",
       "dismissMessage": "Dismiss message",
-      "openMessageActions": "Open message actions"
+      "openMessageActions": "Open message actions",
+      "reply": "Reply"
+    },
+    "labels": {
+      "replyCount_one": "{{count}} reply",
+      "replyCount_other": "{{count}} replies"
     },
     "placeholders": {
-      "sendMessage": "Send a message..."
+      "sendMessage": "Send a message...",
+      "sendThreadReply": "Reply to thread..."
     },
     "prompts": {
       "sendAMessage": "Send a message...",
@@ -438,6 +444,20 @@
     },
     "names": {
       "praxisBot": "praxis-bot"
+    },
+    "threads": {
+      "title": "Thread",
+      "channel": "In #{{channel}}",
+      "back": "Back to channel",
+      "close": "Close thread",
+      "loading": "Loading thread...",
+      "loadOlder": "Load older replies",
+      "loadingOlder": "Loading older replies...",
+      "originalMessage": "Original message",
+      "replies": "Replies",
+      "empty": "No replies yet. Start the conversation here.",
+      "notFoundTitle": "Thread not available",
+      "notFoundDescription": "This message may have moved, or you may not have access to it."
     }
   },
 

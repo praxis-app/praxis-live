@@ -19,5 +19,25 @@ export interface MessageRes {
   commandStatus?: CommandStatus | null;
   threadRootId?: string;
   parentMessageId?: string;
+  replyCount: number;
+  latestReplyAt: string | null;
   createdAt: string;
+}
+
+export interface CreateReplyReq {
+  body?: string;
+  parentMessageId?: string;
+}
+
+export interface ThreadPageRes {
+  root: MessageRes;
+  replies: MessageRes[];
+  startCursor: string | null;
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface ThreadQuery {
+  pages: ThreadPageRes[];
+  pageParams: (string | null)[];
 }
