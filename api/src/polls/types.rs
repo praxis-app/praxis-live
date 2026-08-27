@@ -97,6 +97,20 @@ pub(super) struct PollThreadResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MovedPollThreadResponse {
+    pub(super) error: &'static str,
+    pub(super) moved_to: MovedPollThreadDestination,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MovedPollThreadDestination {
+    pub(super) destination_channel_id: String,
+    pub(super) forum_post_id: String,
+}
+
+#[derive(Debug, Serialize)]
 pub(super) struct PollPayload {
     pub(super) poll: PollResponse,
 }

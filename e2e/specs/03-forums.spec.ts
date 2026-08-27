@@ -6,6 +6,7 @@ import {
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { createForumChannel, createForumPosts } from '../lib/forums';
+import { createMessages } from '../lib/messages';
 import { expectRightPanelToResize } from '../lib/right-panel';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
@@ -22,7 +23,14 @@ type ForumPostResponse = {
   };
 };
 
+type ProposalResponse = {
+  poll: {
+    id: string;
+  };
+};
+
 const forumPostsPageSize = 20;
+const channelFeedPageSize = 20;
 const totalForumPosts = 41;
 
 test.beforeAll(async ({ request }) => {
@@ -157,9 +165,11 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
   await createProposalResponse;
   await expect(createProposalDialog).toBeHidden();
 
-  const textProposal = page.getByRole('article', {
-    name: `Majority Vote Proposal: ${proposalBody}`,
-  }).first();
+  const textProposal = page
+    .getByRole('article', {
+      name: `Majority Vote Proposal: ${proposalBody}`,
+    })
+    .first();
   await expect(textProposal).toBeVisible();
   await textProposal
     .getByRole('button', { name: 'Open proposal menu' })
@@ -272,6 +282,105 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
   await expect(
     page.getByRole('menuitem', { name: 'Close post' }),
   ).toBeVisible();
+});
+
+test('an old moved-proposal thread link opens the canonical forum post', async ({
+  context,
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('forum-old-thread-link'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const forumChannelName = `forum-old-link-${proposer.user.suffix}`;
+  const forumChannel = await createForumChannel(
+    request,
+    instanceAdmin,
+    server.id,
+    forumChannelName,
+  );
+  const proposalBody = `Old moved proposal ${proposer.user.suffix}`;
+
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+  await openCreateProposalDialog(page);
+
+  const createProposalDialog = page.getByRole('dialog', {
+    name: 'Create a New Proposal',
+  });
+  await selectRadixOption(
+    createProposalDialog,
+    page,
+    'Select an action type',
+    'Test',
+  );
+  await createProposalDialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await createProposalDialog.getByRole('button', { name: 'Next' }).click();
+
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await createProposalDialog
+    .getByRole('button', { name: 'Create proposal' })
+    .click();
+  const { poll } = (await (
+    await createProposalResponse
+  ).json()) as ProposalResponse;
+  await expect(createProposalDialog).toBeHidden();
+
+  const oldThreadUrl = `/s/${server.slug}/c/${server.generalChannelId}?thread=${poll.id}&threadKind=poll`;
+  const proposal = page
+    .getByTestId('feed')
+    .locator(`[data-decision-id="${poll.id}"]`);
+  await expect(proposal).toBeVisible();
+  await proposal.getByRole('button', { name: 'Open proposal menu' }).click();
+  await page.getByRole('menuitem', { name: 'Move to forum' }).click();
+
+  const moveDialog = page.getByRole('dialog', { name: 'Move to forum' });
+  await moveDialog.getByRole('combobox').click();
+  await page.getByRole('option', { name: forumChannelName }).click();
+  const moveProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/move-to-forum') &&
+      response.status() === 200,
+  );
+  await moveDialog.getByRole('button', { name: 'Move proposal' }).click();
+  const { post } = (await (
+    await moveProposalResponse
+  ).json()) as ForumPostResponse;
+  await expect(page).toHaveURL(
+    new RegExp(`/c/${forumChannel.id}/posts/${post.id}$`),
+  );
+
+  await createMessages({
+    request,
+    user: proposer,
+    serverId: server.id,
+    channelId: server.generalChannelId,
+    bodies: Array.from(
+      { length: channelFeedPageSize },
+      (_, index) => `Newer message ${index + 1} ${proposer.user.suffix}`,
+    ),
+  });
+
+  await page.goto(oldThreadUrl);
+
+  await expect(page).toHaveURL(
+    new RegExp(`/c/${forumChannel.id}/posts/${post.id}$`),
+  );
 });
 
 test('user can turn a forum discussion into a ratified proposal', async ({

@@ -40,6 +40,14 @@ export interface ThreadPageRes {
   hasMore: boolean;
 }
 
+export interface MovedThreadErrorRes {
+  error: string;
+  movedTo: {
+    destinationChannelId: string;
+    forumPostId: string;
+  };
+}
+
 export type ThreadRootKind = 'message' | 'poll';
 
 export interface ThreadIdentity {

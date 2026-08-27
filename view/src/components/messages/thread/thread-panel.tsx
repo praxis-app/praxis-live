@@ -15,6 +15,7 @@ import { cn } from '@/lib/shared.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import {
   type MessageRes,
+  type MovedThreadErrorRes,
   type ThreadIdentity,
   type ThreadQuery,
 } from '@/types/message.types';
@@ -24,9 +25,11 @@ import {
   useQueryClient,
   type QueryKey,
 } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdArrowBack, MdClose, MdErrorOutline } from 'react-icons/md';
+import { useNavigate } from 'react-router-dom';
 
 const THREAD_PAGE_SIZE = 50;
 
@@ -58,9 +61,10 @@ export const ThreadPanel = ({
   const previousReplyCountRef = useRef<number | undefined>(undefined);
 
   const { inviteToken, me } = useAuthData();
-  const { serverId } = useServerData();
+  const { server, serverId } = useServerData();
   const isDesktop = useIsDesktop();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { t } = useTranslation();
 
   const queryKey = getThreadQueryKey(
@@ -112,6 +116,12 @@ export const ThreadPanel = ({
   });
 
   const queriedRoot = threadQuery.data?.pages[0]?.root;
+  const movedTo =
+    thread.rootKind === 'poll' &&
+    isAxiosError<MovedThreadErrorRes>(threadQuery.error) &&
+    threadQuery.error.response?.status === 410
+      ? threadQuery.error.response.data?.movedTo
+      : undefined;
 
   // Votes only update the feed cache, so read a poll root from there instead of
   // from the thread query to keep the panel in sync.
@@ -138,6 +148,16 @@ export const ThreadPanel = ({
     previousReplyCountRef.current = undefined;
     shouldScrollAfterReplyRef.current = false;
   }, [thread.rootId, thread.rootKind]);
+
+  useEffect(() => {
+    if (!movedTo || !server?.slug) {
+      return;
+    }
+    void navigate(
+      `/s/${server.slug}/c/${movedTo.destinationChannelId}/posts/${movedTo.forumPostId}`,
+      { replace: true },
+    );
+  }, [movedTo, navigate, server?.slug]);
 
   useEffect(() => {
     const previousReplyCount = previousReplyCountRef.current;
@@ -199,7 +219,7 @@ export const ThreadPanel = ({
       <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto">
         {threadQuery.isLoading && <ThreadPanelSkeleton />}
 
-        {threadQuery.isError && (
+        {threadQuery.isError && !movedTo && (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
             <MdErrorOutline className="text-muted-foreground size-8" />
             <div>

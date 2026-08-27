@@ -3,8 +3,8 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::Response,
-    response::Json,
+    http::{Response, StatusCode},
+    response::{IntoResponse, Json},
 };
 use sea_orm::DatabaseConnection;
 use std::{path::PathBuf, sync::Arc};
@@ -16,7 +16,6 @@ use super::{
         ActiveDecisionsResponse, CallDecisionResponse, CreatePollRequest,
         DeletePollResponse, ListActiveDecisionsQuery,
         PollActionEventCoverPhotoPath, PollImagePath, PollPath, PollPayload,
-        PollThreadResponse,
     },
 };
 use crate::{
@@ -110,8 +109,8 @@ pub(super) async fn list_replies(
     context: CanReadChannelContext,
     Path(path): Path<PollPath>,
     Query(query): Query<ListRepliesQuery>,
-) -> AppResult<Json<PollThreadResponse>> {
-    let thread = super::replies::list_replies(
+) -> AppResult<Response<axum::body::Body>> {
+    let result = super::replies::list_replies(
         &state.database,
         super::replies::ListRepliesContext {
             server_id: context.server_id,
@@ -124,7 +123,14 @@ pub(super) async fn list_replies(
         query.limit.unwrap_or(50).min(100),
     )
     .await?;
-    Ok(Json(thread))
+    Ok(match result {
+        super::replies::PollThreadLookup::Thread(thread) => {
+            Json(thread).into_response()
+        }
+        super::replies::PollThreadLookup::Moved(moved) => {
+            (StatusCode::GONE, Json(moved)).into_response()
+        }
+    })
 }
 
 pub(super) async fn create_reply(

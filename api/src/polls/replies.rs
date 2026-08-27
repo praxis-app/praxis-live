@@ -8,7 +8,12 @@ use sea_orm::{
 use std::path::Path;
 use uuid::Uuid as NativeUuid;
 
-use super::{service, types::PollThreadResponse};
+use super::{
+    service,
+    types::{
+        MovedPollThreadDestination, MovedPollThreadResponse, PollThreadResponse,
+    },
+};
 use crate::{
     channels,
     common::{
@@ -35,15 +40,32 @@ pub(super) struct CreateReplyContext {
     pub(super) user_id: Uuid,
 }
 
+pub(super) enum PollThreadLookup {
+    Thread(Box<PollThreadResponse>),
+    Moved(MovedPollThreadResponse),
+}
+
 pub(super) async fn list_replies(
     database: &DatabaseConnection,
     context: ListRepliesContext,
     before: Option<&str>,
     after: Option<&str>,
     limit: u64,
-) -> AppResult<PollThreadResponse> {
+) -> AppResult<PollThreadLookup> {
     ensure_text_channel(database, context.server_id, context.channel_id)
         .await?;
+    if let Some(moved_to) = load_moved_poll_thread_destination(
+        database,
+        context.channel_id,
+        context.poll_id,
+    )
+    .await?
+    {
+        return Ok(PollThreadLookup::Moved(MovedPollThreadResponse {
+            error: "Proposal moved to forum.",
+            moved_to,
+        }));
+    }
     load_poll_thread_root(database, context.channel_id, context.poll_id, false)
         .await?;
     if after.is_some() {
@@ -84,13 +106,13 @@ pub(super) async fn list_replies(
     )
     .await?;
 
-    Ok(PollThreadResponse {
+    Ok(PollThreadLookup::Thread(Box::new(PollThreadResponse {
         root,
         replies,
         start_cursor,
         next_cursor,
         has_more,
-    })
+    })))
 }
 
 pub(super) async fn create_reply(
@@ -262,6 +284,26 @@ where
         return Err(ApiError::new(StatusCode::NOT_FOUND, "Poll not found."));
     }
     Ok(poll)
+}
+
+async fn load_moved_poll_thread_destination<C>(
+    database: &C,
+    source_channel_id: Uuid,
+    poll_id: Uuid,
+) -> AppResult<Option<MovedPollThreadDestination>>
+where
+    C: ConnectionTrait,
+{
+    Ok(forum_posts::Entity::find()
+        .filter(forum_posts::Column::PollId.eq(poll_id))
+        .filter(forum_posts::Column::SourceChannelId.eq(source_channel_id))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .map(|post| MovedPollThreadDestination {
+            destination_channel_id: post.channel_id.to_string(),
+            forum_post_id: post.id.to_string(),
+        }))
 }
 
 async fn validate_reply_parent<C>(

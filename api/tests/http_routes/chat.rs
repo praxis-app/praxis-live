@@ -490,6 +490,7 @@ async fn moving_a_proposal_rehomes_and_reencrypts_its_complete_thread() {
     );
     assert_eq!(moved["post"]["replies"][1]["id"], second_reply);
     assert_eq!(moved["post"]["replies"][1]["parentMessageId"], first_reply);
+    let forum_post_id = moved["post"]["id"].as_str().unwrap();
 
     let old_thread = app
         .get_with_bearer(
@@ -499,7 +500,14 @@ async fn moving_a_proposal_rehomes_and_reencrypts_its_complete_thread() {
             &token,
         )
         .await;
-    assert_eq!(old_thread.status(), StatusCode::NOT_FOUND);
+    assert_eq!(old_thread.status(), StatusCode::GONE);
+    let old_thread = json_body(old_thread).await;
+    assert_eq!(old_thread["error"], "Proposal moved to forum.");
+    assert_eq!(
+        old_thread["movedTo"]["destinationChannelId"],
+        forum_channel_id
+    );
+    assert_eq!(old_thread["movedTo"]["forumPostId"], forum_post_id);
 
     for reply_id in [first_reply, second_reply] {
         let reply = messages::Entity::find_by_id(
