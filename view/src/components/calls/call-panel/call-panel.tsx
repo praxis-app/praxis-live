@@ -4,7 +4,7 @@ import { CallDecisionPanel } from '@/components/calls/call-decision-panel/call-d
 import { CallControls } from '@/components/calls/call-controls';
 import { api } from '@/client/api-client';
 import { TopNav } from '@/components/nav/top-nav';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import {
   Drawer,
   DrawerContent,
@@ -202,7 +202,7 @@ export const CallPanel = ({
       />
 
       <main className="min-h-0 flex-1">
-        <ResizablePanelLayout
+        <ResizablePanel
           panel={
             isDesktop && sidePanel ? (
               <aside className="h-full min-w-0">
@@ -225,6 +225,10 @@ export const CallPanel = ({
           }
           panelType={isChatOpen ? 'callChat' : 'callDecisions'}
           resizeHandleLabel={t('actions.resizeRightPanel')}
+          defaultSize={380}
+          minSize="18rem"
+          maxSize="70%"
+          position="right"
         >
           <div className="flex h-full min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-hidden p-3">
@@ -278,7 +282,7 @@ export const CallPanel = ({
               </div>
             </div>
           </div>
-        </ResizablePanelLayout>
+        </ResizablePanel>
       </main>
 
       {!isDesktop && (

@@ -5,7 +5,7 @@ import {
 } from '@/components/events/events-calendar';
 import { EventsList } from '@/components/events/events-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import { TopNav } from '@/components/nav/top-nav';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -142,12 +142,17 @@ export const EventsPage = () => {
 
   return (
     <div className="fixed inset-0 flex">
-      <ResizablePanelLayout
+      <ResizablePanel
         panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
         panelType="channelsList"
         resizeHandleLabel={t('actions.resizeChannelsPanel')}
+        defaultSize={240}
+        minSize="12rem"
+        maxSize={400}
+        position="left"
+        groupResizeBehavior="preserve-pixel-size"
       >
-        <ResizablePanelLayout
+        <ResizablePanel
           panel={
             isDesktop && isDecisionsPanelOpen ? (
               <DecisionsPanel isOpen onClose={closeDecisionsPanel} />
@@ -155,6 +160,10 @@ export const EventsPage = () => {
           }
           panelType="activeDecisions"
           resizeHandleLabel={t('actions.resizeRightPanel')}
+          defaultSize={320}
+          minSize="18rem"
+          maxSize="70%"
+          position="right"
         >
           <div className="flex h-full min-w-0 flex-1 flex-col">
             <TopNav
@@ -298,8 +307,8 @@ export const EventsPage = () => {
               </div>
             </main>
           </div>
-        </ResizablePanelLayout>
-      </ResizablePanelLayout>
+        </ResizablePanel>
+      </ResizablePanel>
     </div>
   );
 };

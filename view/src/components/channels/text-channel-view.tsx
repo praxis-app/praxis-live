@@ -6,7 +6,7 @@ import { MessageForm } from '@/components/messages/message-form';
 import { ThreadPanel } from '@/components/messages/thread/thread-panel';
 import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
@@ -496,15 +496,24 @@ export const TextChannelView = ({
 
   return (
     <div className="fixed top-0 right-0 bottom-0 left-0 flex">
-      <ResizablePanelLayout
+      <ResizablePanel
         panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
         panelType="channelsList"
         resizeHandleLabel={t('actions.resizeChannelsPanel')}
+        groupResizeBehavior="preserve-pixel-size"
+        defaultSize={240}
+        minSize="12rem"
+        maxSize={400}
+        position="left"
       >
-        <ResizablePanelLayout
+        <ResizablePanel
           panel={desktopRightPanel}
           panelType={threadRootId ? 'thread' : 'activeDecisions'}
           resizeHandleLabel={t('actions.resizeRightPanel')}
+          defaultSize={threadRootId ? 480 : 320}
+          minSize="18rem"
+          maxSize="70%"
+          position="right"
         >
           <div
             className={cn(
@@ -552,7 +561,7 @@ export const TextChannelView = ({
               }}
             />
           </div>
-        </ResizablePanelLayout>
+        </ResizablePanel>
 
         {!isDesktop && channel && threadRootId && (
           <ThreadPanel
@@ -561,7 +570,7 @@ export const TextChannelView = ({
             onClose={onCloseThread}
           />
         )}
-      </ResizablePanelLayout>
+      </ResizablePanel>
     </div>
   );
 };

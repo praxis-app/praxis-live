@@ -3,7 +3,7 @@ import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { ForumPostDetail } from '@/components/forum/forum-post-detail';
 import { ForumPostList } from '@/components/forum/forum-post-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
@@ -117,15 +117,24 @@ export const ForumChannelView = ({
 
   return (
     <div className="fixed inset-0 flex">
-      <ResizablePanelLayout
+      <ResizablePanel
         panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
         panelType="channelsList"
         resizeHandleLabel={t('actions.resizeChannelsPanel')}
+        defaultSize={240}
+        minSize="12rem"
+        maxSize={400}
+        position="left"
+        groupResizeBehavior="preserve-pixel-size"
       >
-        <ResizablePanelLayout
+        <ResizablePanel
           panel={desktopRightPanel}
           panelType={isForumPostPanelOpen ? 'forumPost' : 'activeDecisions'}
           resizeHandleLabel={t('actions.resizeRightPanel')}
+          defaultSize={isForumPostPanelOpen ? 720 : 320}
+          minSize="18rem"
+          maxSize="70%"
+          position="right"
         >
           <div className="flex h-full min-w-0 flex-1 flex-col">
             <ChannelTopNav
@@ -150,8 +159,8 @@ export const ForumChannelView = ({
               <ForumPostDetail channel={channel} postId={postId} />
             )}
           </div>
-        </ResizablePanelLayout>
-      </ResizablePanelLayout>
+        </ResizablePanel>
+      </ResizablePanel>
     </div>
   );
 };

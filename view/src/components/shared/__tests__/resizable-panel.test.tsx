@@ -1,4 +1,4 @@
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import { type ResizablePanelType } from '@/lib/panel-width.utils';
 import { render, screen } from '@testing-library/react';
 import { type ReactNode } from 'react';
@@ -28,7 +28,7 @@ vi.mock('@/components/ui/resizable', () => ({
   ),
 }));
 
-describe('ResizablePanelLayout', () => {
+describe('ResizablePanel', () => {
   it.each<{
     name: string;
     panelType: ResizablePanelType;
@@ -75,13 +75,17 @@ describe('ResizablePanelLayout', () => {
     'renders the $name panel on the $position with its default width',
     ({ panelType, defaultSize, position }) => {
       render(
-        <ResizablePanelLayout
+        <ResizablePanel
           panelType={panelType}
           panel={<aside>Panel content</aside>}
           resizeHandleLabel="Resize panel"
+          defaultSize={defaultSize}
+          minSize="12rem"
+          maxSize="70%"
+          position={position}
         >
           <main>Main content</main>
-        </ResizablePanelLayout>,
+        </ResizablePanel>,
       );
 
       const panels = screen.getAllByTestId('panel');
@@ -96,13 +100,18 @@ describe('ResizablePanelLayout', () => {
 
   it('uses the same animated resize control for panels on either side', () => {
     render(
-      <ResizablePanelLayout
+      <ResizablePanel
         panelType="channelsList"
         panel={<nav>Channels</nav>}
         resizeHandleLabel="Resize channels panel"
+        defaultSize={240}
+        minSize="12rem"
+        maxSize={400}
+        position="left"
+        groupResizeBehavior="preserve-pixel-size"
       >
         <main>Main content</main>
-      </ResizablePanelLayout>,
+      </ResizablePanel>,
     );
 
     expect(
@@ -121,13 +130,17 @@ describe('ResizablePanelLayout', () => {
     );
 
     render(
-      <ResizablePanelLayout
+      <ResizablePanel
         panelType="thread"
         panel={<aside>Thread</aside>}
         resizeHandleLabel="Resize right panel"
+        defaultSize={480}
+        minSize="18rem"
+        maxSize="70%"
+        position="right"
       >
         <main>Main content</main>
-      </ResizablePanelLayout>,
+      </ResizablePanel>,
     );
 
     expect(screen.getAllByTestId('panel').at(-1)).toHaveAttribute(
@@ -138,12 +151,16 @@ describe('ResizablePanelLayout', () => {
 
   it('renders content without a resize control when the panel is absent', () => {
     render(
-      <ResizablePanelLayout
+      <ResizablePanel
         panelType="activeDecisions"
         resizeHandleLabel="Resize right panel"
+        defaultSize={320}
+        minSize="18rem"
+        maxSize="70%"
+        position="right"
       >
         <main>Main content</main>
-      </ResizablePanelLayout>,
+      </ResizablePanel>,
     );
 
     expect(screen.queryByRole('separator')).not.toBeInTheDocument();

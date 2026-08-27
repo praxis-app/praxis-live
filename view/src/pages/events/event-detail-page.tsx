@@ -2,7 +2,7 @@ import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { EventRsvpControls } from '@/components/events/event-rsvp-controls';
 import { EventSummary } from '@/components/events/event-summary';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import { TopNav } from '@/components/nav/top-nav';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LocalStorageKeys } from '@/constants/shared.constants';
@@ -74,12 +74,17 @@ export const EventDetailPage = () => {
 
   return (
     <div className="fixed inset-0 flex">
-      <ResizablePanelLayout
+      <ResizablePanel
         panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
         panelType="channelsList"
         resizeHandleLabel={t('actions.resizeChannelsPanel')}
+        defaultSize={240}
+        minSize="12rem"
+        maxSize={400}
+        position="left"
+        groupResizeBehavior="preserve-pixel-size"
       >
-        <ResizablePanelLayout
+        <ResizablePanel
           panel={
             isDesktop && isDecisionsPanelOpen ? (
               <DecisionsPanel isOpen onClose={closeDecisionsPanel} />
@@ -87,6 +92,10 @@ export const EventDetailPage = () => {
           }
           panelType="activeDecisions"
           resizeHandleLabel={t('actions.resizeRightPanel')}
+          defaultSize={320}
+          minSize="18rem"
+          maxSize="70%"
+          position="right"
         >
           <div className="flex h-full min-w-0 flex-1 flex-col">
             <TopNav
@@ -117,8 +126,8 @@ export const EventDetailPage = () => {
               </div>
             </main>
           </div>
-        </ResizablePanelLayout>
-      </ResizablePanelLayout>
+        </ResizablePanel>
+      </ResizablePanel>
     </div>
   );
 };
