@@ -52,6 +52,7 @@ interface Props {
   me?: CurrentUser;
   onPollChange?: () => void;
   onOpenThread?: () => void;
+  onCopyThreadLink?: () => void;
 }
 
 export const InlinePoll = ({
@@ -60,6 +61,7 @@ export const InlinePoll = ({
   feedQueryKey,
   onPollChange,
   onOpenThread,
+  onCopyThreadLink,
   me,
 }: Props) => {
   const { t } = useTranslation();
@@ -298,7 +300,12 @@ export const InlinePoll = ({
         </div>
 
         <Card className="before:border-l-border relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 pt-2.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
-          {onOpenThread && <PollMenu onOpenThread={onOpenThread} />}
+          {onOpenThread && onCopyThreadLink && (
+            <PollMenu
+              onOpenThread={onOpenThread}
+              onCopyThreadLink={onCopyThreadLink}
+            />
+          )}
 
           {body && (
             <FormattedText

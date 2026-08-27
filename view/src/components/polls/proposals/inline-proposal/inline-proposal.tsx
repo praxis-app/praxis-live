@@ -30,6 +30,7 @@ interface Props {
   isJoiningSourceCall?: boolean;
   canMoveToForum?: boolean;
   onOpenThread?: () => void;
+  onCopyThreadLink?: () => void;
 }
 
 export const InlineProposal = ({
@@ -45,6 +46,7 @@ export const InlineProposal = ({
   isJoiningSourceCall = false,
   canMoveToForum = false,
   onOpenThread,
+  onCopyThreadLink,
 }: Props) => {
   const { t } = useTranslation();
   const { body, user, config, createdAt } = poll;
@@ -115,6 +117,7 @@ export const InlineProposal = ({
             isJoiningSourceCall={isJoiningSourceCall}
             canMoveToForum={canMoveToForum}
             onOpenThread={onOpenThread}
+            onCopyThreadLink={onCopyThreadLink}
           />
         </Card>
         {onOpenThread && poll.replyCount > 0 && (

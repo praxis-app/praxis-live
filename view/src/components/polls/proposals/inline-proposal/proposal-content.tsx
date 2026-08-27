@@ -36,6 +36,7 @@ interface Props {
   isJoiningSourceCall?: boolean;
   canMoveToForum?: boolean;
   onOpenThread?: () => void;
+  onCopyThreadLink?: () => void;
   variant?: 'inline' | 'forum';
   votingDisabled?: boolean;
   votingDisabledReason?: string;
@@ -55,6 +56,7 @@ export const ProposalContent = ({
   isJoiningSourceCall = false,
   canMoveToForum = false,
   onOpenThread,
+  onCopyThreadLink,
   variant = 'inline',
   votingDisabled = false,
   votingDisabledReason,
@@ -90,6 +92,7 @@ export const ProposalContent = ({
           canMoveToForum={canMoveToForum}
           feedQueryKey={feedQueryKey}
           onOpenThread={onOpenThread}
+          onCopyThreadLink={onCopyThreadLink}
           onViewSettings={() => setIsSettingsDialogOpen(true)}
         />
       )}

@@ -9,11 +9,12 @@ import {
 import { type ChannelRes } from '@/types/channel.types';
 import { type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
+import { useDeferredMenuAction } from '@/hooks/use-deferred-menu-action';
 import { type QueryKey } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuReply } from 'react-icons/lu';
-import { MdForum, MdMoreHoriz, MdSettings } from 'react-icons/md';
+import { MdForum, MdLink, MdMoreHoriz, MdSettings } from 'react-icons/md';
 
 interface Props {
   poll: PollRes;
@@ -22,6 +23,7 @@ interface Props {
   me?: CurrentUser;
   canMoveToForum?: boolean;
   onOpenThread?: () => void;
+  onCopyThreadLink?: () => void;
   onViewSettings: () => void;
 }
 
@@ -32,23 +34,13 @@ export const ProposalMenu = ({
   feedQueryKey,
   canMoveToForum = false,
   onOpenThread,
+  onCopyThreadLink,
   onViewSettings,
 }: Props) => {
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
-  const pendingActionRef = useRef<(() => void) | null>(null);
+  const { deferUntilClosed, runPendingAction } = useDeferredMenuAction();
 
   const { t } = useTranslation();
-
-  // Defer menu actions until the close animation ends to avoid a visible flicker
-  const deferUntilClosed = (action: () => void) => () => {
-    pendingActionRef.current = action;
-  };
-
-  const runPendingAction = () => {
-    const action = pendingActionRef.current;
-    pendingActionRef.current = null;
-    action?.();
-  };
 
   const canMove =
     canMoveToForum &&
@@ -76,6 +68,12 @@ export const ProposalMenu = ({
             <DropdownMenuItem onSelect={deferUntilClosed(onOpenThread)}>
               <LuReply />
               {t('messages.actions.reply')}
+            </DropdownMenuItem>
+          )}
+          {onCopyThreadLink && (
+            <DropdownMenuItem onSelect={onCopyThreadLink}>
+              <MdLink />
+              {t('messages.actions.copyLink')}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={deferUntilClosed(onViewSettings)}>

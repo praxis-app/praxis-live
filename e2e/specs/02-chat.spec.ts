@@ -106,7 +106,10 @@ test('members can use a durable reply thread without replies entering the channe
       .filter({ hasText: rootMessage });
     await expect(authorRoot).toBeVisible();
     await authorRoot.hover();
-    await authorRoot.getByRole('button', { name: 'Reply' }).click();
+    await authorRoot
+      .getByRole('button', { name: 'Open message menu' })
+      .click();
+    await page.getByRole('menuitem', { name: 'Reply' }).click();
     const authorThread = page.getByTestId('thread-panel');
     await expect(authorThread.getByText(rootMessage)).toBeVisible();
     await expectRightPanelToResize(page, authorThread, 'thread');
@@ -118,7 +121,10 @@ test('members can use a durable reply thread without replies entering the channe
       .filter({ hasText: rootMessage });
     await expect(memberRoot).toBeVisible();
     await memberRoot.hover();
-    await memberRoot.getByRole('button', { name: 'Reply' }).click();
+    await memberRoot
+      .getByRole('button', { name: 'Open message menu' })
+      .click();
+    await memberPage.getByRole('menuitem', { name: 'Reply' }).click();
     const memberThread = memberPage.getByTestId('thread-panel');
     await expect(memberThread.getByText(rootMessage)).toBeVisible();
 

@@ -1,6 +1,6 @@
 import { AttachedImageList } from '@/components/images/attached-image-list';
 import { FormattedText } from '@/components/shared/formatted-text';
-import { MessageReplyButton } from '@/components/messages/message-reply-button';
+import { MessageMenu } from '@/components/messages/message-menu';
 import { MessageThreadSummary } from '@/components/messages/message-thread-summary';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
@@ -16,6 +16,7 @@ interface Props {
   serverId?: string;
   channelId?: string;
   onOpenThread?: (rootMessageId: string) => void;
+  onCopyThreadLink?: (rootMessageId: string) => void;
 }
 
 export const Message = ({
@@ -33,6 +34,7 @@ export const Message = ({
   channelId,
   me,
   onOpenThread,
+  onCopyThreadLink,
 }: Props) => {
   const { t } = useTranslation();
 
@@ -51,7 +53,12 @@ export const Message = ({
       data-message-id={id}
       className="group/message relative flex max-w-full min-w-0 gap-4 pt-1"
     >
-      {onOpenThread && <MessageReplyButton onReply={() => onOpenThread(id)} />}
+      {onOpenThread && onCopyThreadLink && (
+        <MessageMenu
+          onOpenThread={() => onOpenThread(id)}
+          onCopyThreadLink={() => onCopyThreadLink(id)}
+        />
+      )}
 
       <UserProfileDrawer
         name={truncatedUsername}
