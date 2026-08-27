@@ -133,8 +133,8 @@ test('authenticated user can create and vote in a poll', async ({
   await expect(createdPoll.getByText('Ends in 30 minutes')).toBeVisible();
 
   const threadReply = `Poll reply ${authenticatedUser.user.suffix}`;
-  await createdPoll.hover();
-  await createdPoll.getByRole('button', { name: 'Reply' }).click();
+  await createdPoll.getByRole('button', { name: 'Open poll menu' }).click();
+  await page.getByRole('menuitem', { name: 'Reply' }).click();
   const threadPanel = page.getByTestId('thread-panel');
   await expect(threadPanel.getByText(question)).toBeVisible();
   await expect(page).toHaveURL(

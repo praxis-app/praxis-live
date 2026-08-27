@@ -407,6 +407,7 @@
     "actions": {
       "addAnswer": "Add another answer",
       "createPoll": "Create poll",
+      "openMenu": "Open poll menu",
       "vote": "Vote",
       "removeVote": "Remove vote"
     },
