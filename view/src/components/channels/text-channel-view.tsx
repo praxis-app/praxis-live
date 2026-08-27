@@ -6,7 +6,7 @@ import { MessageForm } from '@/components/messages/message-form';
 import { ThreadPanel } from '@/components/messages/thread/thread-panel';
 import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizableRightPanelLayout } from '@/components/shared/resizable-right-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
@@ -496,68 +496,72 @@ export const TextChannelView = ({
 
   return (
     <div className="fixed top-0 right-0 bottom-0 left-0 flex">
-      {isDesktop && <LeftNavDesktop me={me} />}
-
-      <ResizableRightPanelLayout
-        panel={desktopRightPanel}
-        panelType={threadRootId ? 'thread' : 'activeDecisions'}
-        resizeHandleLabel={t('actions.resizeRightPanel')}
+      <ResizablePanelLayout
+        panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
+        panelType="channelsList"
+        resizeHandleLabel={t('actions.resizeChannelsPanel')}
       >
-        <div
-          className={cn(
-            'flex h-full min-w-0 flex-1 flex-col',
-            !isDesktop && threadRootId && 'hidden',
-          )}
+        <ResizablePanelLayout
+          panel={desktopRightPanel}
+          panelType={threadRootId ? 'thread' : 'activeDecisions'}
+          resizeHandleLabel={t('actions.resizeRightPanel')}
         >
-          <ChannelTopNav
+          <div
+            className={cn(
+              'flex h-full min-w-0 flex-1 flex-col',
+              !isDesktop && threadRootId && 'hidden',
+            )}
+          >
+            <ChannelTopNav
+              channel={channel}
+              callConfig={callConfig}
+              callPreferences={callPreferences}
+              serverName={server?.name}
+              isJoiningCall={isJoining}
+              isPreJoinOpen={isPreJoinOpen}
+              videoCallsEnabled={videoCallsEnabled}
+              onCancelPreJoin={cancelPreJoin}
+              onConfirmJoinCall={confirmJoinCall}
+              onJoinCall={joinCall}
+              onLeaveCall={leaveCall}
+              isDecisionsPanelOpen={isDecisionsPanelOpen}
+              onToggleDecisionsPanel={onToggleDecisionsPanel}
+            />
+
+            <Feed
+              feed={feed}
+              channel={channel}
+              feedBoxRef={feedBoxRef}
+              isLastPage={!hasNextPage}
+              isJoiningCall={isJoining}
+              feedQueryKey={feedQueryKey}
+              isLoadingMore={isFetchingNextPage}
+              focusedDecisionId={focusedDecisionId}
+              focusedDecisionRequestKey={location.key}
+              onFocusedDecisionHandled={clearFocusedDecisionRequest}
+              onJoinCall={videoCallsEnabled ? joinCall : undefined}
+              onLoadMore={() => void fetchNextPage({ cancelRefetch: false })}
+              onOpenThread={onOpenThread}
+            />
+
+            <MessageForm
+              channelId={channel?.id}
+              focusOnTyping={!callConfig}
+              onSend={() => {
+                shouldScrollAfterSendRef.current = true;
+              }}
+            />
+          </div>
+        </ResizablePanelLayout>
+
+        {!isDesktop && channel && threadRootId && (
+          <ThreadPanel
             channel={channel}
-            callConfig={callConfig}
-            callPreferences={callPreferences}
-            serverName={server?.name}
-            isJoiningCall={isJoining}
-            isPreJoinOpen={isPreJoinOpen}
-            videoCallsEnabled={videoCallsEnabled}
-            onCancelPreJoin={cancelPreJoin}
-            onConfirmJoinCall={confirmJoinCall}
-            onJoinCall={joinCall}
-            onLeaveCall={leaveCall}
-            isDecisionsPanelOpen={isDecisionsPanelOpen}
-            onToggleDecisionsPanel={onToggleDecisionsPanel}
+            rootMessageId={threadRootId}
+            onClose={onCloseThread}
           />
-
-          <Feed
-            feed={feed}
-            channel={channel}
-            feedBoxRef={feedBoxRef}
-            isLastPage={!hasNextPage}
-            isJoiningCall={isJoining}
-            feedQueryKey={feedQueryKey}
-            isLoadingMore={isFetchingNextPage}
-            focusedDecisionId={focusedDecisionId}
-            focusedDecisionRequestKey={location.key}
-            onFocusedDecisionHandled={clearFocusedDecisionRequest}
-            onJoinCall={videoCallsEnabled ? joinCall : undefined}
-            onLoadMore={() => void fetchNextPage({ cancelRefetch: false })}
-            onOpenThread={onOpenThread}
-          />
-
-          <MessageForm
-            channelId={channel?.id}
-            focusOnTyping={!callConfig}
-            onSend={() => {
-              shouldScrollAfterSendRef.current = true;
-            }}
-          />
-        </div>
-      </ResizableRightPanelLayout>
-
-      {!isDesktop && channel && threadRootId && (
-        <ThreadPanel
-          channel={channel}
-          rootMessageId={threadRootId}
-          onClose={onCloseThread}
-        />
-      )}
+        )}
+      </ResizablePanelLayout>
     </div>
   );
 };

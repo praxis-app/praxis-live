@@ -3,7 +3,7 @@ import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { ForumPostDetail } from '@/components/forum/forum-post-detail';
 import { ForumPostList } from '@/components/forum/forum-post-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizableRightPanelLayout } from '@/components/shared/resizable-right-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
@@ -117,37 +117,41 @@ export const ForumChannelView = ({
 
   return (
     <div className="fixed inset-0 flex">
-      {isDesktop && <LeftNavDesktop me={me} />}
-
-      <ResizableRightPanelLayout
-        panel={desktopRightPanel}
-        panelType={isForumPostPanelOpen ? 'forumPost' : 'activeDecisions'}
-        resizeHandleLabel={t('actions.resizeRightPanel')}
+      <ResizablePanelLayout
+        panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
+        panelType="channelsList"
+        resizeHandleLabel={t('actions.resizeChannelsPanel')}
       >
-        <div className="flex min-w-0 flex-1 flex-col">
-          <ChannelTopNav
-            channel={channel}
-            callConfig={callConfig}
-            callPreferences={callPreferences}
-            isDecisionsPanelOpen={isDecisionsPanelOpen}
-            isJoiningCall={isJoining}
-            isPreJoinOpen={isPreJoinOpen}
-            onCancelPreJoin={cancelPreJoin}
-            onConfirmJoinCall={confirmJoinCall}
-            onJoinCall={joinCall}
-            onLeaveCall={leaveCall}
-            videoCallsEnabled={capabilities?.videoCallsEnabled === true}
-            onToggleDecisionsPanel={onToggleDecisionsPanel}
-            serverName={server?.name}
-          />
+        <ResizablePanelLayout
+          panel={desktopRightPanel}
+          panelType={isForumPostPanelOpen ? 'forumPost' : 'activeDecisions'}
+          resizeHandleLabel={t('actions.resizeRightPanel')}
+        >
+          <div className="flex h-full min-w-0 flex-1 flex-col">
+            <ChannelTopNav
+              channel={channel}
+              callConfig={callConfig}
+              callPreferences={callPreferences}
+              isDecisionsPanelOpen={isDecisionsPanelOpen}
+              isJoiningCall={isJoining}
+              isPreJoinOpen={isPreJoinOpen}
+              onCancelPreJoin={cancelPreJoin}
+              onConfirmJoinCall={confirmJoinCall}
+              onJoinCall={joinCall}
+              onLeaveCall={leaveCall}
+              videoCallsEnabled={capabilities?.videoCallsEnabled === true}
+              onToggleDecisionsPanel={onToggleDecisionsPanel}
+              serverName={server?.name}
+            />
 
-          {isDesktop || !postId ? (
-            <ForumPostList channel={channel} selectedPostId={postId} />
-          ) : (
-            <ForumPostDetail channel={channel} postId={postId} />
-          )}
-        </div>
-      </ResizableRightPanelLayout>
+            {isDesktop || !postId ? (
+              <ForumPostList channel={channel} selectedPostId={postId} />
+            ) : (
+              <ForumPostDetail channel={channel} postId={postId} />
+            )}
+          </div>
+        </ResizablePanelLayout>
+      </ResizablePanelLayout>
     </div>
   );
 };

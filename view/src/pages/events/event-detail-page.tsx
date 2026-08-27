@@ -2,7 +2,7 @@ import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { EventRsvpControls } from '@/components/events/event-rsvp-controls';
 import { EventSummary } from '@/components/events/event-summary';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizableRightPanelLayout } from '@/components/shared/resizable-right-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
 import { TopNav } from '@/components/nav/top-nav';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LocalStorageKeys } from '@/constants/shared.constants';
@@ -74,46 +74,51 @@ export const EventDetailPage = () => {
 
   return (
     <div className="fixed inset-0 flex">
-      {isDesktop && <LeftNavDesktop me={me} />}
-      <ResizableRightPanelLayout
-        panel={
-          isDesktop && isDecisionsPanelOpen ? (
-            <DecisionsPanel isOpen onClose={closeDecisionsPanel} />
-          ) : null
-        }
-        panelType="activeDecisions"
-        resizeHandleLabel={t('actions.resizeRightPanel')}
+      <ResizablePanelLayout
+        panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
+        panelType="channelsList"
+        resizeHandleLabel={t('actions.resizeChannelsPanel')}
       >
-        <div className="flex h-full min-w-0 flex-1 flex-col">
-          <TopNav
-            header={event?.name || t('events.title')}
-            onBackClick={() => navigate(`${serverPath}/events`)}
-            showSearch={isDesktop}
-            isDecisionsPanelOpen={isDecisionsPanelOpen}
-            onToggleDecisionsPanel={toggleDecisionsPanel}
-          />
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-            <div className="mx-auto max-w-3xl space-y-4">
-              {query.isLoading && <Skeleton className="h-80 w-full" />}
-              {query.isError && (
-                <p className="text-destructive">
-                  {t('events.errors.loadDetail')}
-                </p>
-              )}
-              {event && (
-                <EventSummary {...event} eventId={event.id}>
-                  <EventRsvpControls
-                    currentUserStatus={event.currentUserStatus}
-                    isError={rsvp.isError}
-                    isPending={rsvp.isPending}
-                    onChange={setRsvp}
-                  />
-                </EventSummary>
-              )}
-            </div>
-          </main>
-        </div>
-      </ResizableRightPanelLayout>
+        <ResizablePanelLayout
+          panel={
+            isDesktop && isDecisionsPanelOpen ? (
+              <DecisionsPanel isOpen onClose={closeDecisionsPanel} />
+            ) : null
+          }
+          panelType="activeDecisions"
+          resizeHandleLabel={t('actions.resizeRightPanel')}
+        >
+          <div className="flex h-full min-w-0 flex-1 flex-col">
+            <TopNav
+              header={event?.name || t('events.title')}
+              onBackClick={() => navigate(`${serverPath}/events`)}
+              showSearch={isDesktop}
+              isDecisionsPanelOpen={isDecisionsPanelOpen}
+              onToggleDecisionsPanel={toggleDecisionsPanel}
+            />
+            <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="mx-auto max-w-3xl space-y-4">
+                {query.isLoading && <Skeleton className="h-80 w-full" />}
+                {query.isError && (
+                  <p className="text-destructive">
+                    {t('events.errors.loadDetail')}
+                  </p>
+                )}
+                {event && (
+                  <EventSummary {...event} eventId={event.id}>
+                    <EventRsvpControls
+                      currentUserStatus={event.currentUserStatus}
+                      isError={rsvp.isError}
+                      isPending={rsvp.isPending}
+                      onChange={setRsvp}
+                    />
+                  </EventSummary>
+                )}
+              </div>
+            </main>
+          </div>
+        </ResizablePanelLayout>
+      </ResizablePanelLayout>
     </div>
   );
 };

@@ -4,7 +4,7 @@ import { CallDecisionPanel } from '@/components/calls/call-decision-panel/call-d
 import { CallControls } from '@/components/calls/call-controls';
 import { api } from '@/client/api-client';
 import { TopNav } from '@/components/nav/top-nav';
-import { ResizableRightPanelLayout } from '@/components/shared/resizable-right-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
 import {
   Drawer,
   DrawerContent,
@@ -202,7 +202,7 @@ export const CallPanel = ({
       />
 
       <main className="min-h-0 flex-1">
-        <ResizableRightPanelLayout
+        <ResizablePanelLayout
           panel={
             isDesktop && sidePanel ? (
               <aside className="h-full min-w-0">
@@ -278,7 +278,7 @@ export const CallPanel = ({
               </div>
             </div>
           </div>
-        </ResizableRightPanelLayout>
+        </ResizablePanelLayout>
       </main>
 
       {!isDesktop && (

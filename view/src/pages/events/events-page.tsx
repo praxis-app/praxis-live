@@ -5,7 +5,7 @@ import {
 } from '@/components/events/events-calendar';
 import { EventsList } from '@/components/events/events-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizableRightPanelLayout } from '@/components/shared/resizable-right-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
 import { TopNav } from '@/components/nav/top-nav';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -142,68 +142,42 @@ export const EventsPage = () => {
 
   return (
     <div className="fixed inset-0 flex">
-      {isDesktop && <LeftNavDesktop me={me} />}
-
-      <ResizableRightPanelLayout
-        panel={
-          isDesktop && isDecisionsPanelOpen ? (
-            <DecisionsPanel isOpen onClose={closeDecisionsPanel} />
-          ) : null
-        }
-        panelType="activeDecisions"
-        resizeHandleLabel={t('actions.resizeRightPanel')}
+      <ResizablePanelLayout
+        panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
+        panelType="channelsList"
+        resizeHandleLabel={t('actions.resizeChannelsPanel')}
       >
-        <div className="flex h-full min-w-0 flex-1 flex-col">
-          <TopNav
-            header={t('events.title')}
-            subheader={isDesktop ? undefined : dateLabel}
-            showSearch={isDesktop}
-            hideBackButtonOnDesktop
-            isDecisionsPanelOpen={isDecisionsPanelOpen}
-            onToggleDecisionsPanel={toggleDecisionsPanel}
-          />
+        <ResizablePanelLayout
+          panel={
+            isDesktop && isDecisionsPanelOpen ? (
+              <DecisionsPanel isOpen onClose={closeDecisionsPanel} />
+            ) : null
+          }
+          panelType="activeDecisions"
+          resizeHandleLabel={t('actions.resizeRightPanel')}
+        >
+          <div className="flex h-full min-w-0 flex-1 flex-col">
+            <TopNav
+              header={t('events.title')}
+              subheader={isDesktop ? undefined : dateLabel}
+              showSearch={isDesktop}
+              hideBackButtonOnDesktop
+              isDecisionsPanelOpen={isDecisionsPanelOpen}
+              onToggleDecisionsPanel={toggleDecisionsPanel}
+            />
 
-          <main className="flex-1 overflow-y-auto p-3 sm:p-6">
-            <div className="mx-auto max-w-7xl space-y-6">
-              <div
-                className={cn(
-                  'mt-1 space-y-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3 sm:space-y-0 sm:border-b sm:pb-6.5',
-                  view === 'list' && 'mx-auto w-full max-w-3xl',
-                )}
-              >
-                <div className="grid grid-cols-[auto_1fr_auto] gap-2 sm:hidden">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label={t('events.actions.previous')}
-                    onClick={() => navigateDate(-1)}
-                  >
-                    <LuChevronLeft className="size-5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="min-w-0"
-                    onClick={() => setEventState(view, new Date())}
-                  >
-                    <LuCalendarDays className="size-4 sm:hidden" />
-                    {t('events.actions.today')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label={t('events.actions.next')}
-                    onClick={() => navigateDate(1)}
-                  >
-                    <LuChevronRight className="size-5" />
-                  </Button>
-                </div>
-
-                <div className="hidden items-center gap-2 sm:flex">
-                  <div className="flex">
+            <main className="flex-1 overflow-y-auto p-3 sm:p-6">
+              <div className="mx-auto max-w-7xl space-y-6">
+                <div
+                  className={cn(
+                    'mt-1 space-y-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3 sm:space-y-0 sm:border-b sm:pb-6.5',
+                    view === 'list' && 'mx-auto w-full max-w-3xl',
+                  )}
+                >
+                  <div className="grid grid-cols-[auto_1fr_auto] gap-2 sm:hidden">
                     <Button
                       variant="outline"
                       size="icon"
-                      className="rounded-r-none"
                       aria-label={t('events.actions.previous')}
                       onClick={() => navigateDate(-1)}
                     >
@@ -211,91 +185,121 @@ export const EventsPage = () => {
                     </Button>
                     <Button
                       variant="outline"
+                      className="min-w-0"
+                      onClick={() => setEventState(view, new Date())}
+                    >
+                      <LuCalendarDays className="size-4 sm:hidden" />
+                      {t('events.actions.today')}
+                    </Button>
+                    <Button
+                      variant="outline"
                       size="icon"
-                      className="-ml-px rounded-l-none"
                       aria-label={t('events.actions.next')}
                       onClick={() => navigateDate(1)}
                     >
                       <LuChevronRight className="size-5" />
                     </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setEventState(view, new Date())}
-                  >
-                    {t('events.actions.today')}
-                  </Button>
-                </div>
 
-                {isDesktop && (
-                  <div className="text-muted-foreground text-center text-sm font-medium whitespace-nowrap">
-                    {dateLabel}
+                  <div className="hidden items-center gap-2 sm:flex">
+                    <div className="flex">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="rounded-r-none"
+                        aria-label={t('events.actions.previous')}
+                        onClick={() => navigateDate(-1)}
+                      >
+                        <LuChevronLeft className="size-5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="-ml-px rounded-l-none"
+                        aria-label={t('events.actions.next')}
+                        onClick={() => navigateDate(1)}
+                      >
+                        <LuChevronRight className="size-5" />
+                      </Button>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setEventState(view, new Date())}
+                    >
+                      {t('events.actions.today')}
+                    </Button>
+                  </div>
+
+                  {isDesktop && (
+                    <div className="text-muted-foreground text-center text-sm font-medium whitespace-nowrap">
+                      {dateLabel}
+                    </div>
+                  )}
+
+                  <div className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1 sm:col-start-3 sm:flex sm:justify-self-end sm:bg-transparent sm:p-0">
+                    {EVENT_VIEWS.map((value) => (
+                      <Button
+                        key={value}
+                        size="sm"
+                        variant={view === value ? 'secondary' : 'ghost'}
+                        className={
+                          view === value
+                            ? 'bg-background hover:bg-background sm:bg-foreground sm:text-background sm:hover:bg-foreground/90 shadow-xs'
+                            : 'text-muted-foreground'
+                        }
+                        aria-pressed={view === value}
+                        onClick={() => setEventState(value, date)}
+                      >
+                        {t(`events.views.${value}`)}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {eventsQuery.isPending && (
+                  <div
+                    className={cn(
+                      'space-y-3',
+                      view === 'list' && 'mx-auto w-full max-w-3xl',
+                    )}
+                  >
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-64 w-full" />
                   </div>
                 )}
-
-                <div className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1 sm:col-start-3 sm:flex sm:justify-self-end sm:bg-transparent sm:p-0">
-                  {EVENT_VIEWS.map((value) => (
-                    <Button
-                      key={value}
-                      size="sm"
-                      variant={view === value ? 'secondary' : 'ghost'}
-                      className={
-                        view === value
-                          ? 'bg-background hover:bg-background sm:bg-foreground sm:text-background sm:hover:bg-foreground/90 shadow-xs'
-                          : 'text-muted-foreground'
-                      }
-                      aria-pressed={view === value}
-                      onClick={() => setEventState(value, date)}
-                    >
-                      {t(`events.views.${value}`)}
-                    </Button>
+                {eventsQuery.isError && (
+                  <p className="text-destructive">{t('events.errors.load')}</p>
+                )}
+                {showEventsEmptyMessage && (
+                  <div
+                    className={cn(
+                      'rounded-xl border border-dashed p-12 text-center',
+                      view === 'list' && 'mx-auto w-full max-w-3xl',
+                    )}
+                  >
+                    <h2 className="font-semibold">{t('events.empty.title')}</h2>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      {t('events.empty.description')}
+                    </p>
+                  </div>
+                )}
+                {eventsQuery.isSuccess &&
+                  (view === 'list' ? (
+                    events.length > 0 && (
+                      <EventsList events={events} serverPath={serverPath} />
+                    )
+                  ) : (
+                    <EventsCalendar
+                      events={events}
+                      date={date}
+                      view={view}
+                      serverPath={serverPath}
+                    />
                   ))}
-                </div>
               </div>
-              {eventsQuery.isPending && (
-                <div
-                  className={cn(
-                    'space-y-3',
-                    view === 'list' && 'mx-auto w-full max-w-3xl',
-                  )}
-                >
-                  <Skeleton className="h-24 w-full" />
-                  <Skeleton className="h-64 w-full" />
-                </div>
-              )}
-              {eventsQuery.isError && (
-                <p className="text-destructive">{t('events.errors.load')}</p>
-              )}
-              {showEventsEmptyMessage && (
-                <div
-                  className={cn(
-                    'rounded-xl border border-dashed p-12 text-center',
-                    view === 'list' && 'mx-auto w-full max-w-3xl',
-                  )}
-                >
-                  <h2 className="font-semibold">{t('events.empty.title')}</h2>
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    {t('events.empty.description')}
-                  </p>
-                </div>
-              )}
-              {eventsQuery.isSuccess &&
-                (view === 'list' ? (
-                  events.length > 0 && (
-                    <EventsList events={events} serverPath={serverPath} />
-                  )
-                ) : (
-                  <EventsCalendar
-                    events={events}
-                    date={date}
-                    view={view}
-                    serverPath={serverPath}
-                  />
-                ))}
-            </div>
-          </main>
-        </div>
-      </ResizableRightPanelLayout>
+            </main>
+          </div>
+        </ResizablePanelLayout>
+      </ResizablePanelLayout>
     </div>
   );
 };

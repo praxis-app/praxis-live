@@ -48,7 +48,7 @@ export const expectRightPanelToResize = async (
     .poll(async () => {
       const savedWidth = await page.evaluate((type) => {
         const widths = JSON.parse(
-          localStorage.getItem('right-panel-widths') || '{}',
+          localStorage.getItem('panel-widths') || '{}',
         ) as Record<string, number>;
         return widths[type];
       }, panelType);
