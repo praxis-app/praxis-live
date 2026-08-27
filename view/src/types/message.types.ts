@@ -1,6 +1,7 @@
 import { type CommandStatus } from '@/types/command.types';
 import { type ImageRes } from './image.types';
 import { type UserRes } from './user.types';
+import { type PollRes } from './poll.types';
 
 export interface BotRes {
   id: string;
@@ -18,6 +19,7 @@ export interface MessageRes {
   bot: BotRes | null;
   commandStatus?: CommandStatus | null;
   threadRootId?: string;
+  threadPollId?: string;
   parentMessageId?: string;
   replyCount: number;
   replyUsers?: UserRes[];
@@ -31,11 +33,18 @@ export interface CreateReplyReq {
 }
 
 export interface ThreadPageRes {
-  root: MessageRes;
+  root: MessageRes | PollRes;
   replies: MessageRes[];
   startCursor: string | null;
   nextCursor: string | null;
   hasMore: boolean;
+}
+
+export type ThreadRootKind = 'message' | 'poll';
+
+export interface ThreadIdentity {
+  rootKind: ThreadRootKind;
+  rootId: string;
 }
 
 export interface ThreadQuery {

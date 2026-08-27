@@ -62,6 +62,8 @@ export const LandingProposalVisual = () => {
     images: [],
     agreementVoteCount: 6,
     memberCount: 8,
+    replyCount: 0,
+    latestReplyAt: null,
     createdAt: new Date(0).toISOString(),
   } satisfies PollRes;
 

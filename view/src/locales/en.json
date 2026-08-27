@@ -426,6 +426,7 @@
       "reply": "Reply"
     },
     "labels": {
+      "replies": "Replies",
       "replyCount_one": "{{count}} reply",
       "replyCount_other": "{{count}} replies",
       "lastReplyToday": "Last reply today at {{time}}",

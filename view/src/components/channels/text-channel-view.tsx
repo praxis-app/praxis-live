@@ -23,7 +23,12 @@ import {
   type FeedQueryPage,
 } from '@/types/channel.types';
 import { type CallArtifactRes } from '@/types/call.types';
-import { type MessageRes, type ThreadQuery } from '@/types/message.types';
+import {
+  type MessageRes,
+  type ThreadIdentity,
+  type ThreadQuery,
+  type ThreadRootKind,
+} from '@/types/message.types';
 import { type PollRes } from '@/types/poll.types';
 import { type ProposalForumReferenceRes } from '@/types/forum.types';
 import { type PubSubMessage } from '@/types/shared.types';
@@ -48,7 +53,9 @@ interface NewMessagePayload {
 
 interface ThreadReplyPayload {
   type: PubSubMessageType.THREAD_REPLY;
-  rootMessageId: string;
+  rootKind?: ThreadRootKind;
+  rootId?: string;
+  rootMessageId?: string;
   reply: MessageRes;
   replyCount: number;
   latestReplyAt: string;
@@ -74,7 +81,7 @@ interface Props {
   rightPanel: RightPanel;
   onCloseDecisionsPanel: () => void;
   onToggleDecisionsPanel: () => void;
-  onOpenThread: (rootMessageId: string) => void;
+  onOpenThread: (thread: ThreadIdentity) => void;
   onCloseThread: () => void;
 }
 
@@ -114,8 +121,7 @@ export const TextChannelView = ({
   const { data: capabilities } = useInstanceCapabilitiesQuery();
   const { server, serverId } = useServerData();
   const isDecisionsPanelOpen = rightPanel?.type === 'activeDecisions';
-  const threadRootId =
-    rightPanel?.type === 'thread' ? rightPanel.rootMessageId : undefined;
+  const thread = rightPanel?.type === 'thread' ? rightPanel : undefined;
 
   const {
     callConfig,
@@ -206,6 +212,32 @@ export const TextChannelView = ({
   const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
   const focusedDecisionId = navigationDecisionId;
 
+  // Keep the thread panel root in sync with live feed updates such as votes.
+  const threadPoll = useMemo(() => {
+    if (thread?.rootKind !== 'poll') {
+      return undefined;
+    }
+    return feed.find(
+      (item) => item.type === 'poll' && item.id === thread.rootId,
+    ) as PollRes | undefined;
+  }, [feed, thread]);
+
+  useEffect(() => {
+    if (thread?.rootKind !== 'poll' || !server?.slug) {
+      return;
+    }
+    const movedReference = feed.find(
+      (item) => item.type === 'proposalMoved' && item.proposalId === thread.rootId,
+    );
+    if (!movedReference || movedReference.type !== 'proposalMoved') {
+      return;
+    }
+    void navigate(
+      `/s/${server.slug}/c/${movedReference.destinationChannelId}/posts/${movedReference.forumPostId}`,
+      { replace: true },
+    );
+  }, [feed, navigate, server?.slug, thread]);
+
   // Load more of the feed until the selected decision is found.
   useEffect(() => {
     const isDecisionLoaded = feed.some(
@@ -242,6 +274,11 @@ export const TextChannelView = ({
         }
 
         if (body.type === PubSubMessageType.THREAD_REPLY) {
+          const rootKind = body.rootKind || 'message';
+          const rootId = body.rootId || body.rootMessageId;
+          if (!rootId) {
+            return;
+          }
           queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
             if (!oldData) {
               return oldData;
@@ -251,7 +288,9 @@ export const TextChannelView = ({
               pages: oldData.pages.map((page) => ({
                 ...page,
                 feed: page.feed.map((item) =>
-                  item.type === 'message' && item.id === body.rootMessageId
+                  ((rootKind === 'message' && item.type === 'message') ||
+                    (rootKind === 'poll' && item.type === 'poll')) &&
+                  item.id === rootId
                     ? {
                         ...item,
                         replyCount: body.replyCount,
@@ -270,7 +309,8 @@ export const TextChannelView = ({
           const threadQueryKey = getThreadQueryKey(
             serverId,
             channel?.id,
-            body.rootMessageId,
+            rootKind,
+            rootId,
             inviteToken,
           );
           queryClient.setQueryData<ThreadQuery>(threadQueryKey, (oldData) => {
@@ -420,6 +460,15 @@ export const TextChannelView = ({
           queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) =>
             replaceProposalWithForumReference(oldData, body.reference),
           );
+          if (
+            thread?.rootKind === 'poll' &&
+            thread.rootId === body.reference.proposalId &&
+            server?.slug
+          ) {
+            void navigate(
+              `/s/${server.slug}/c/${body.reference.destinationChannelId}/posts/${body.reference.forumPostId}`,
+            );
+          }
           return;
         }
         scrollToBottom();
@@ -484,10 +533,12 @@ export const TextChannelView = ({
   };
 
   const desktopRightPanel =
-    isDesktop && channel && threadRootId ? (
+    isDesktop && channel && thread ? (
       <ThreadPanel
         channel={channel}
-        rootMessageId={threadRootId}
+        thread={thread}
+        rootPoll={threadPoll}
+        feedQueryKey={feedQueryKey}
         onClose={onCloseThread}
       />
     ) : isDesktop && isDecisionsPanelOpen ? (
@@ -508,9 +559,9 @@ export const TextChannelView = ({
       >
         <ResizablePanel
           panel={desktopRightPanel}
-          panelType={threadRootId ? 'thread' : 'activeDecisions'}
+          panelType={thread ? 'thread' : 'activeDecisions'}
           resizeHandleLabel={t('actions.resizeRightPanel')}
-          defaultSize={threadRootId ? 480 : 320}
+          defaultSize={thread ? 480 : 320}
           minSize="18rem"
           maxSize="70%"
           position="right"
@@ -518,7 +569,7 @@ export const TextChannelView = ({
           <div
             className={cn(
               'flex h-full min-w-0 flex-1 flex-col',
-              !isDesktop && threadRootId && 'hidden',
+              !isDesktop && thread && 'hidden',
             )}
           >
             <ChannelTopNav
@@ -563,10 +614,12 @@ export const TextChannelView = ({
           </div>
         </ResizablePanel>
 
-        {!isDesktop && channel && threadRootId && (
+        {!isDesktop && channel && thread && (
           <ThreadPanel
             channel={channel}
-            rootMessageId={threadRootId}
+            thread={thread}
+            rootPoll={threadPoll}
+            feedQueryKey={feedQueryKey}
             onClose={onCloseThread}
           />
         )}

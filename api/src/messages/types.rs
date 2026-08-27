@@ -27,10 +27,10 @@ pub(super) struct ThreadPath {
 }
 
 #[derive(Debug, Default, Deserialize)]
-pub(super) struct ListRepliesQuery {
-    pub(super) before: Option<String>,
-    pub(super) after: Option<String>,
-    pub(super) limit: Option<u64>,
+pub(crate) struct ListRepliesQuery {
+    pub(crate) before: Option<String>,
+    pub(crate) after: Option<String>,
+    pub(crate) limit: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -41,9 +41,9 @@ pub(super) struct CreateMessageRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(super) struct CreateReplyRequest {
-    pub(super) body: Option<String>,
-    pub(super) parent_message_id: Option<Uuid>,
+pub(crate) struct CreateReplyRequest {
+    pub(crate) body: Option<String>,
+    pub(crate) parent_message_id: Option<Uuid>,
 }
 
 #[derive(Debug)]
@@ -87,6 +87,8 @@ pub(crate) struct MessageResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) thread_root_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) thread_poll_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) parent_message_id: Option<String>,
     pub(crate) reply_count: usize,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -106,8 +108,8 @@ pub(super) struct ThreadResponse {
 }
 
 #[derive(Debug, Serialize)]
-pub(super) struct MessagePayload {
-    pub(super) message: MessageResponse,
+pub(crate) struct MessagePayload {
+    pub(crate) message: MessageResponse,
 }
 
 #[derive(Debug, Clone)]

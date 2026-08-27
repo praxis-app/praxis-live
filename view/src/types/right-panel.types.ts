@@ -10,6 +10,7 @@ export type RightPanel =
     }
   | {
       type: 'thread';
-      rootMessageId: string;
+      rootKind: 'message' | 'poll';
+      rootId: string;
     }
   | null;

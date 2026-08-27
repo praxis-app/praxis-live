@@ -3,6 +3,8 @@ import { Message } from '@/components/messages/message';
 import { MessageForm } from '@/components/messages/message-form';
 import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { ThreadPanelSkeleton } from '@/components/messages/thread/thread-panel-skeleton';
+import { InlinePoll } from '@/components/polls/inline-poll';
+import { InlineProposal } from '@/components/polls/proposals/inline-proposal/inline-proposal';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuthData } from '@/hooks/use-auth-data';
@@ -11,8 +13,17 @@ import { useServerData } from '@/hooks/use-server-data';
 import { preserveMessageImages } from '@/lib/feed.utils';
 import { cn } from '@/lib/shared.utils';
 import { type ChannelRes } from '@/types/channel.types';
-import { type MessageRes, type ThreadQuery } from '@/types/message.types';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type MessageRes,
+  type ThreadIdentity,
+  type ThreadQuery,
+} from '@/types/message.types';
+import { type PollRes } from '@/types/poll.types';
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdArrowBack, MdClose, MdErrorOutline } from 'react-icons/md';
@@ -21,7 +32,9 @@ const THREAD_PAGE_SIZE = 50;
 
 interface Props {
   channel: ChannelRes;
-  rootMessageId: string;
+  thread: ThreadIdentity;
+  rootPoll?: PollRes;
+  feedQueryKey: QueryKey;
   onClose: () => void;
 }
 
@@ -33,7 +46,13 @@ const mergeMessageImages = (
   images: preserveMessageImages(existing?.images, incoming.images),
 });
 
-export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
+export const ThreadPanel = ({
+  channel,
+  thread,
+  rootPoll,
+  feedQueryKey,
+  onClose,
+}: Props) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldScrollAfterReplyRef = useRef(false);
   const previousReplyCountRef = useRef<number | undefined>(undefined);
@@ -47,7 +66,8 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
   const queryKey = getThreadQueryKey(
     serverId,
     channel.id,
-    rootMessageId,
+    thread.rootKind,
+    thread.rootId,
     inviteToken,
   );
   const threadQuery = useInfiniteQuery({
@@ -59,22 +79,26 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
       const result = await api.getThreadReplies(
         serverId,
         channel.id,
-        rootMessageId,
+        thread.rootKind,
+        thread.rootId,
         pageParam || undefined,
         THREAD_PAGE_SIZE,
       );
       const existing = queryClient.getQueryData<ThreadQuery>(queryKey);
       const existingMessages = new Map(
         existing?.pages
-          .flatMap((page) => [page.root, ...page.replies])
+          .flatMap((page) => page.replies)
           .map((message) => [message.id, message]),
       );
       return {
         ...result,
-        root: mergeMessageImages(
-          existingMessages.get(result.root.id),
-          result.root,
-        ),
+        root:
+          thread.rootKind === 'message'
+            ? mergeMessageImages(
+                existing?.pages[0]?.root as MessageRes | undefined,
+                result.root as MessageRes,
+              )
+            : result.root,
         replies: result.replies.map((reply) =>
           mergeMessageImages(existingMessages.get(reply.id), reply),
         ),
@@ -87,7 +111,18 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
     refetchOnMount: 'always',
   });
 
-  const root = threadQuery.data?.pages[0]?.root;
+  const queriedRoot = threadQuery.data?.pages[0]?.root;
+
+  // Votes only update the feed cache, so read a poll root from there instead of
+  // from the thread query to keep the panel in sync.
+  const root =
+    thread.rootKind === 'poll' && rootPoll && queriedRoot
+      ? rootPoll
+      : queriedRoot;
+  const replyCountLabel = root?.replyCount
+    ? t('messages.labels.replyCount', { count: root.replyCount })
+    : t('messages.labels.replies');
+
   const replies = useMemo(() => {
     const chronologicalReplies = [...(threadQuery.data?.pages || [])]
       .reverse()
@@ -102,7 +137,7 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
   useEffect(() => {
     previousReplyCountRef.current = undefined;
     shouldScrollAfterReplyRef.current = false;
-  }, [rootMessageId]);
+  }, [thread.rootId, thread.rootKind]);
 
   useEffect(() => {
     const previousReplyCount = previousReplyCountRef.current;
@@ -180,25 +215,36 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
 
         {root && (
           <div className="flex min-h-full flex-col px-4 pt-5 pb-4">
-            <Message
-              message={root}
-              me={me}
-              serverId={serverId}
-              channelId={channel.id}
-            />
+            {thread.rootKind === 'message' ? (
+              <Message
+                message={root as MessageRes}
+                me={me}
+                serverId={serverId}
+                channelId={channel.id}
+              />
+            ) : (root as PollRes).pollType === 'proposal' ? (
+              <InlineProposal
+                poll={root as PollRes}
+                channel={channel}
+                feedQueryKey={feedQueryKey}
+                me={me}
+                canMoveToForum
+              />
+            ) : (
+              <InlinePoll
+                poll={root as PollRes}
+                channel={channel}
+                feedQueryKey={feedQueryKey}
+                me={me}
+              />
+            )}
 
             <div
               className="text-muted-foreground my-5 flex items-center gap-3 text-xs font-medium"
               role="separator"
-              aria-label={t('messages.labels.replyCount', {
-                count: root.replyCount,
-              })}
+              aria-label={replyCountLabel}
             >
-              <span>
-                {t('messages.labels.replyCount', {
-                  count: root.replyCount,
-                })}
-              </span>
+              <span>{replyCountLabel}</span>
               <Separator className="flex-1" />
             </div>
 
@@ -240,9 +286,9 @@ export const ThreadPanel = ({ channel, rootMessageId, onClose }: Props) => {
       {root && (
         <div className="shrink-0">
           <MessageForm
-            key={rootMessageId}
+            key={`${thread.rootKind}-${thread.rootId}`}
             channelId={channel.id}
-            threadRootId={rootMessageId}
+            thread={thread}
             showActions={false}
             focusOnTyping={false}
             onSend={() => {

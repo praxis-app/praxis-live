@@ -35,6 +35,7 @@ interface Props {
   sourceCallContext?: SourceCallContext;
   isJoiningSourceCall?: boolean;
   canMoveToForum?: boolean;
+  onOpenThread?: () => void;
   variant?: 'inline' | 'forum';
   votingDisabled?: boolean;
   votingDisabledReason?: string;
@@ -53,6 +54,7 @@ export const ProposalContent = ({
   sourceCallContext = 'in-call',
   isJoiningSourceCall = false,
   canMoveToForum = false,
+  onOpenThread,
   variant = 'inline',
   votingDisabled = false,
   votingDisabledReason,
@@ -87,6 +89,7 @@ export const ProposalContent = ({
           channel={channel}
           canMoveToForum={canMoveToForum}
           feedQueryKey={feedQueryKey}
+          onOpenThread={onOpenThread}
           onViewSettings={() => setIsSettingsDialogOpen(true)}
         />
       )}

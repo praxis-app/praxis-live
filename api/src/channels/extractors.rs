@@ -163,6 +163,7 @@ where
 pub(crate) struct CanReadChannelContext {
     pub(crate) server_id: Uuid,
     pub(crate) channel_id: Uuid,
+    pub(crate) user_id: Option<Uuid>,
 }
 
 impl<S> FromRequestParts<S> for CanReadChannelContext
@@ -195,6 +196,7 @@ where
         Ok(Self {
             server_id: path.server_id,
             channel_id: path.channel_id,
+            user_id,
         })
     }
 }

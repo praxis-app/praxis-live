@@ -1,6 +1,8 @@
 import { api } from '@/client/api-client';
 import { updateActiveDecisionCache } from '@/components/decisions/decisions-panel.utils';
 import { PollVoteBreakdown } from '@/components/polls/poll-vote-breakdown';
+import { MessageReplyButton } from '@/components/messages/message-reply-button';
+import { MessageThreadSummary } from '@/components/messages/message-thread-summary';
 import { AttachedImageList } from '@/components/images/attached-image-list';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { Button } from '@/components/ui/button';
@@ -49,6 +51,7 @@ interface Props {
   feedQueryKey: QueryKey;
   me?: CurrentUser;
   onPollChange?: () => void;
+  onOpenThread?: () => void;
 }
 
 export const InlinePoll = ({
@@ -56,6 +59,7 @@ export const InlinePoll = ({
   channel,
   feedQueryKey,
   onPollChange,
+  onOpenThread,
   me,
 }: Props) => {
   const { t } = useTranslation();
@@ -259,7 +263,7 @@ export const InlinePoll = ({
       tabIndex={-1}
       className={cn(
         DECISION_FOCUS_TARGET_CLASS_NAME,
-        'flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none',
+        'group/message flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none',
       )}
     >
       <UserProfileDrawer
@@ -294,6 +298,7 @@ export const InlinePoll = ({
         </div>
 
         <Card className="before:border-l-border relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 pt-2.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
+          {onOpenThread && <MessageReplyButton onReply={onOpenThread} />}
           {body && <FormattedText text={body} className="pt-1 pb-2" />}
 
           {poll.images.length > 0 && (
@@ -517,6 +522,15 @@ export const InlinePoll = ({
             onOpenChange={setShowVoteBreakdown}
           />
         </Card>
+
+        {onOpenThread && poll.replyCount > 0 && (
+          <MessageThreadSummary
+            replyCount={poll.replyCount}
+            replyUsers={poll.replyUsers || []}
+            latestReplyAt={poll.latestReplyAt}
+            onOpen={onOpenThread}
+          />
+        )}
       </div>
     </div>
   );

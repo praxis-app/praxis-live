@@ -15,6 +15,7 @@ pub struct Model {
     pub command_status: Option<String>,
     pub key_id: Option<Uuid>,
     pub thread_root_id: Option<Uuid>,
+    pub thread_poll_id: Option<Uuid>,
     pub parent_message_id: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
@@ -56,6 +57,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     ThreadRoot,
+    #[sea_orm(
+        belongs_to = "super::polls::Entity",
+        from = "Column::ThreadPollId",
+        to = "super::polls::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    ThreadPoll,
     #[sea_orm(
         belongs_to = "Entity",
         from = "Column::ParentMessageId",

@@ -717,7 +717,23 @@ async fn shape_polls(
     }
 
     let poll_ids: Vec<Uuid> = polls.iter().map(|poll| poll.id).collect();
-    let user_ids: Vec<Uuid> = polls.iter().map(|poll| poll.user_id).collect();
+    let reply_summaries =
+        crate::messages::load_poll_reply_summaries(database, poll_ids.clone())
+            .await?;
+    let reply_participants = crate::messages::load_poll_reply_participants(
+        database,
+        poll_ids.clone(),
+    )
+    .await?;
+    let mut user_ids: Vec<Uuid> =
+        polls.iter().map(|poll| poll.user_id).collect();
+    user_ids.extend(
+        reply_participants
+            .values()
+            .flat_map(|participant_ids| participant_ids.iter().copied()),
+    );
+    user_ids.sort_unstable();
+    user_ids.dedup();
 
     // Load everything the batch needs, one query per relation
     let users = users::Entity::find()
@@ -878,6 +894,19 @@ async fn shape_polls(
             .collect();
         let member_count =
             member_counts.get(&poll.channel_id).copied().unwrap_or(0);
+        let reply_users = reply_participants
+            .get(&poll.id)
+            .into_iter()
+            .flatten()
+            .filter_map(|user_id| users_by_id.get(user_id))
+            .map(|user| crate::messages::types::MessageUser {
+                id: user.id.to_string(),
+                name: user.name.clone(),
+                display_name: user.display_name.clone(),
+                profile_picture: profile_pictures.get(&user.id).cloned(),
+            })
+            .collect();
+        let reply_summary = reply_summaries.get(&poll.id);
 
         responses.push(PollResponse {
             id: poll.id.to_string(),
@@ -895,6 +924,12 @@ async fn shape_polls(
             my_vote,
             member_count,
             source_call_id: poll.call_id.map(|call_id| call_id.to_string()),
+            reply_count: reply_summary
+                .map(|(count, _)| *count)
+                .unwrap_or_default(),
+            reply_users,
+            latest_reply_at: reply_summary
+                .map(|(_, created_at)| serialize_timestamp(*created_at)),
             created_at: serialize_timestamp(poll.created_at),
         });
     }

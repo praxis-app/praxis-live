@@ -10,7 +10,7 @@ use sea_orm::{
     DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
     QuerySelect, Set, TransactionTrait,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid as NativeUuid;
 
 use super::{
@@ -221,6 +221,59 @@ pub(crate) async fn move_proposal_to_forum(
         ));
     }
 
+    let thread_replies = messages::Entity::find()
+        .filter(messages::Column::ThreadPollId.eq(poll_id))
+        .order_by_asc(messages::Column::CreatedAt)
+        .order_by_asc(messages::Column::Id)
+        .all(&transaction)
+        .await
+        .map_err(internal_error)?;
+    if !thread_replies.is_empty() {
+        ensure_destination_audience_not_broader(
+            &transaction,
+            source_channel_id,
+            destination_channel_id,
+        )
+        .await?;
+    }
+    let reply_key_ids = thread_replies
+        .iter()
+        .filter_map(|reply| reply.key_id)
+        .collect::<Vec<_>>();
+    let reply_keys =
+        channels::get_unwrapped_channel_key_map(&transaction, reply_key_ids)
+            .await?;
+    let mut moved_reply_bodies = HashMap::new();
+    for reply in &thread_replies {
+        let encrypted = match (
+            reply.ciphertext.as_deref(),
+            reply.iv.as_deref(),
+            reply.tag.as_deref(),
+            reply.key_id,
+        ) {
+            (Some(ciphertext), Some(iv), Some(tag), Some(key_id)) => {
+                let key = reply_keys.get(&key_id).ok_or_else(|| {
+                    internal_consistency_error(
+                        "Proposal reply encryption key not found.",
+                    )
+                })?;
+                let plaintext =
+                    encryption::decrypt_text(ciphertext, iv, tag, key)?;
+                Some(encryption::encrypt_text(
+                    &plaintext,
+                    &destination_unwrapped_key,
+                )?)
+            }
+            (None, None, None, None) => None,
+            _ => {
+                return Err(internal_consistency_error(
+                    "Proposal reply encryption data is incomplete.",
+                ));
+            }
+        };
+        moved_reply_bodies.insert(reply.id, encrypted);
+    }
+
     messages::ActiveModel {
         id: Set(root_message_id),
         channel_id: Set(destination_channel_id),
@@ -256,6 +309,29 @@ pub(crate) async fn move_proposal_to_forum(
     .insert(&transaction)
     .await
     .map_err(internal_error)?;
+
+    for reply in thread_replies {
+        let was_direct_reply = reply.parent_message_id.is_none();
+        let encrypted =
+            moved_reply_bodies.remove(&reply.id).ok_or_else(|| {
+                internal_consistency_error(
+                    "Moved proposal reply body not found.",
+                )
+            })?;
+        let mut active = reply.into_active_model();
+        active.channel_id = Set(destination_channel_id);
+        active.key_id = Set(encrypted.as_ref().map(|_| destination_key.id));
+        active.ciphertext =
+            Set(encrypted.as_ref().map(|value| value.ciphertext.clone()));
+        active.iv = Set(encrypted.as_ref().map(|value| value.iv.clone()));
+        active.tag = Set(encrypted.as_ref().map(|value| value.tag.clone()));
+        active.thread_poll_id = Set(None);
+        active.thread_root_id = Set(Some(root_message_id));
+        if was_direct_reply {
+            active.parent_message_id = Set(Some(root_message_id));
+        }
+        active.update(&transaction).await.map_err(internal_error)?;
+    }
 
     let proposal_created_at = proposal.created_at;
     let mut proposal = proposal.into_active_model();
@@ -472,6 +548,35 @@ fn ensure_move_channel_type(
         Ok(())
     } else {
         Err(ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, message))
+    }
+}
+
+async fn ensure_destination_audience_not_broader<C>(
+    database: &C,
+    source_channel_id: Uuid,
+    destination_channel_id: Uuid,
+) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let source_members =
+        channels::get_channel_member_user_ids(database, source_channel_id)
+            .await?
+            .into_iter()
+            .collect::<HashSet<_>>();
+    let destination_members =
+        channels::get_channel_member_user_ids(database, destination_channel_id)
+            .await?;
+    if destination_members
+        .iter()
+        .all(|user_id| source_members.contains(user_id))
+    {
+        Ok(())
+    } else {
+        Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Destination forum audience cannot be broader than the source channel.",
+        ))
     }
 }
 

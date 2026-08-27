@@ -14,6 +14,7 @@ import { useAppStore } from '@/store/app.store';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
 import { type QueryKey } from '@tanstack/react-query';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { type ThreadIdentity } from '@/types/message.types';
 
 const DECISION_HIGHLIGHT_DURATION_MS = 2000;
 
@@ -33,7 +34,7 @@ interface Props {
   isJoiningCall?: boolean;
   onJoinCall?: (callId: string) => void;
   scrollMode?: FeedScrollMode;
-  onOpenThread?: (rootMessageId: string) => void;
+  onOpenThread?: (thread: ThreadIdentity) => void;
 }
 
 export const Feed = ({
@@ -197,6 +198,10 @@ export const Feed = ({
                 onJoinCall={onJoinCall}
                 onViewCall={setOpenCallDetailsId}
                 canMoveToForum
+                onOpenThread={
+                  onOpenThread &&
+                  (() => onOpenThread({ rootKind: 'poll', rootId: item.id }))
+                }
               />
             );
           }
@@ -208,6 +213,10 @@ export const Feed = ({
               channel={channel}
               feedQueryKey={feedQueryKey}
               me={me}
+              onOpenThread={
+                onOpenThread &&
+                (() => onOpenThread({ rootKind: 'poll', rootId: item.id }))
+              }
             />
           );
         }
@@ -247,7 +256,10 @@ export const Feed = ({
             serverId={serverId}
             message={item}
             me={me}
-            onOpenThread={onOpenThread}
+            onOpenThread={
+              onOpenThread &&
+              ((rootId: string) => onOpenThread({ rootKind: 'message', rootId }))
+            }
           />
         );
       })}

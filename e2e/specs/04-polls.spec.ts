@@ -132,6 +132,28 @@ test('authenticated user can create and vote in a poll', async ({
   }
   await expect(createdPoll.getByText('Ends in 30 minutes')).toBeVisible();
 
+  const threadReply = `Poll reply ${authenticatedUser.user.suffix}`;
+  await createdPoll.hover();
+  await createdPoll.getByRole('button', { name: 'Reply' }).click();
+  const threadPanel = page.getByTestId('thread-panel');
+  await expect(threadPanel.getByText(question)).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`thread=${poll.id}.*threadKind=poll`),
+  );
+  const replyResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/polls/${poll.id}/replies`) &&
+      response.status() === 200,
+  );
+  await threadPanel.getByPlaceholder('Reply to thread...').fill(threadReply);
+  await threadPanel.getByPlaceholder('Reply to thread...').press('Enter');
+  await replyResponse;
+  await expect(threadPanel.getByText(threadReply)).toBeVisible();
+  await expect(createdPoll.getByText('1 reply')).toBeVisible();
+  await threadPanel.getByRole('button', { name: 'Close thread' }).click();
+  await expect(threadPanel).toBeHidden();
+
   const activeDecision = page
     .getByRole('complementary', { name: 'Active decisions' })
     .getByRole('link', { name: 'Open poll in general' })

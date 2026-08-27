@@ -35,6 +35,9 @@ export interface PollRes {
   agreementVoteCount: number;
   memberCount: number;
   sourceCallId?: string;
+  replyCount: number;
+  replyUsers?: UserRes[];
+  latestReplyAt: string | null;
   createdAt: string;
 }
 

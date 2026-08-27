@@ -1,4 +1,9 @@
 use axum::http::StatusCode;
+use entity::{forum_posts, messages, polls};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel,
+    PaginatorTrait, QueryFilter, Set,
+};
 use serde_json::json;
 use std::{collections::HashMap, io::Cursor};
 
@@ -297,6 +302,332 @@ async fn thread_replies_support_image_only_content() {
 }
 
 #[tokio::test]
+async fn poll_and_proposal_threads_validate_roots_parents_summaries_and_cascade(
+) {
+    let app = TestApp::new().await;
+    let token = signup_and_get_token(&app).await;
+    let server_id = default_server_id(&app).await;
+    let channel_id = first_channel_id(&app, &server_id, Some(&token)).await;
+    let poll_id = create_poll(
+        &app,
+        &token,
+        &server_id,
+        &channel_id,
+        "poll",
+        "Ordinary poll thread",
+    )
+    .await;
+    let proposal_id = create_poll(
+        &app,
+        &token,
+        &server_id,
+        &channel_id,
+        "proposal",
+        "Proposal thread",
+    )
+    .await;
+
+    let poll_reply_response = app
+        .post_json_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{channel_id}/polls/{poll_id}/replies"
+            ),
+            &json!({ "body": "Poll reply" }),
+            &token,
+        )
+        .await;
+    assert_eq!(poll_reply_response.status(), StatusCode::OK);
+    let poll_reply = json_body(poll_reply_response).await;
+    let poll_reply_id =
+        poll_reply["message"]["id"].as_str().unwrap().to_owned();
+    assert_eq!(poll_reply["message"]["threadPollId"], poll_id);
+    assert!(poll_reply["message"]["parentMessageId"].is_null());
+
+    let proposal_reply_response = app
+        .post_json_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{channel_id}/polls/{proposal_id}/replies"
+            ),
+            &json!({ "body": "Proposal reply" }),
+            &token,
+        )
+        .await;
+    assert_eq!(proposal_reply_response.status(), StatusCode::OK);
+
+    let cross_thread_parent = app
+        .post_json_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{channel_id}/polls/{proposal_id}/replies"
+            ),
+            &json!({
+                "body": "Wrong parent",
+                "parentMessageId": poll_reply_id,
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(
+        cross_thread_parent.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+
+    let thread_response = app
+        .get_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{channel_id}/polls/{poll_id}/replies"
+            ),
+            &token,
+        )
+        .await;
+    assert_eq!(thread_response.status(), StatusCode::OK);
+    let thread = json_body(thread_response).await;
+    assert_eq!(thread["root"]["id"], poll_id);
+    assert_eq!(thread["root"]["replyCount"], 1);
+    assert_eq!(thread["root"]["replyUsers"][0]["name"], "Person Example");
+    assert!(thread["root"]["latestReplyAt"].is_string());
+    assert_eq!(thread["replies"][0]["id"], poll_reply_id);
+
+    let feed = json_body(
+        app.get_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{channel_id}/feed?limit=20"
+            ),
+            &token,
+        )
+        .await,
+    )
+    .await;
+    let poll = feed["feed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["id"] == poll_id)
+        .unwrap();
+    assert_eq!(poll["replyCount"], 1);
+
+    let delete_response = app
+        .delete_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{channel_id}/polls/{poll_id}"
+            ),
+            &token,
+        )
+        .await;
+    assert_eq!(delete_response.status(), StatusCode::OK);
+    let poll_id = uuid::Uuid::parse_str(&poll_id).unwrap();
+    assert_eq!(
+        messages::Entity::find()
+            .filter(messages::Column::ThreadPollId.eq(poll_id))
+            .count(app.database())
+            .await
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn moving_a_proposal_rehomes_and_reencrypts_its_complete_thread() {
+    let app = TestApp::new().await;
+    let token = signup_and_get_token(&app).await;
+    let server_id = default_server_id(&app).await;
+    let source_channel_id =
+        first_channel_id(&app, &server_id, Some(&token)).await;
+    let forum_channel_id =
+        create_forum_channel(&app, &token, &server_id, "Moved discussion")
+            .await;
+    let proposal_id = create_poll(
+        &app,
+        &token,
+        &server_id,
+        &source_channel_id,
+        "proposal",
+        "Move this proposal",
+    )
+    .await;
+    let first_reply = create_poll_reply(
+        &app,
+        &token,
+        &server_id,
+        &source_channel_id,
+        &proposal_id,
+        "First moved reply",
+        None,
+    )
+    .await;
+    let second_reply = create_poll_reply(
+        &app,
+        &token,
+        &server_id,
+        &source_channel_id,
+        &proposal_id,
+        "Nested moved reply",
+        Some(&first_reply),
+    )
+    .await;
+
+    let move_response = app
+        .post_json_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{source_channel_id}/polls/{proposal_id}/move-to-forum"
+            ),
+            &json!({
+                "destinationChannelId": forum_channel_id,
+                "title": "Moved proposal",
+                "body": "Canonical discussion",
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(move_response.status(), StatusCode::OK);
+    let moved = json_body(move_response).await;
+    let root_message_id = moved["post"]["rootMessageId"].as_str().unwrap();
+    assert_eq!(moved["post"]["replyCount"], 2);
+    assert_eq!(moved["post"]["replies"][0]["id"], first_reply);
+    assert_eq!(moved["post"]["replies"][0]["body"], "First moved reply");
+    assert_eq!(
+        moved["post"]["replies"][0]["parentMessageId"],
+        root_message_id
+    );
+    assert_eq!(moved["post"]["replies"][1]["id"], second_reply);
+    assert_eq!(moved["post"]["replies"][1]["parentMessageId"], first_reply);
+
+    let old_thread = app
+        .get_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{source_channel_id}/polls/{proposal_id}/replies"
+            ),
+            &token,
+        )
+        .await;
+    assert_eq!(old_thread.status(), StatusCode::NOT_FOUND);
+
+    for reply_id in [first_reply, second_reply] {
+        let reply = messages::Entity::find_by_id(
+            uuid::Uuid::parse_str(&reply_id).unwrap(),
+        )
+        .one(app.database())
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(reply.channel_id.to_string(), forum_channel_id);
+        assert_eq!(reply.thread_root_id.unwrap().to_string(), root_message_id);
+        assert!(reply.thread_poll_id.is_none());
+    }
+}
+
+#[tokio::test]
+async fn proposal_move_rolls_back_and_serializes_with_reply_creation() {
+    let app = TestApp::new().await;
+    let token = signup_and_get_token(&app).await;
+    let server_id = default_server_id(&app).await;
+    let source_channel_id =
+        first_channel_id(&app, &server_id, Some(&token)).await;
+    let forum_channel_id =
+        create_forum_channel(&app, &token, &server_id, "Atomic move").await;
+    let proposal_id = create_poll(
+        &app,
+        &token,
+        &server_id,
+        &source_channel_id,
+        "proposal",
+        "Atomic proposal",
+    )
+    .await;
+    let corrupt_reply_id = create_poll_reply(
+        &app,
+        &token,
+        &server_id,
+        &source_channel_id,
+        &proposal_id,
+        "Corrupt me",
+        None,
+    )
+    .await;
+    let mut corrupt_reply = messages::Entity::find_by_id(
+        uuid::Uuid::parse_str(&corrupt_reply_id).unwrap(),
+    )
+    .one(app.database())
+    .await
+    .unwrap()
+    .unwrap()
+    .into_active_model();
+    corrupt_reply.tag = Set(None);
+    corrupt_reply.update(app.database()).await.unwrap();
+
+    let failed_move = app
+        .post_json_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{source_channel_id}/polls/{proposal_id}/move-to-forum"
+            ),
+            &json!({
+                "destinationChannelId": forum_channel_id,
+                "title": "Must roll back",
+                "body": "Must roll back",
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(failed_move.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let proposal_uuid = uuid::Uuid::parse_str(&proposal_id).unwrap();
+    assert_eq!(
+        polls::Entity::find_by_id(proposal_uuid)
+            .one(app.database())
+            .await
+            .unwrap()
+            .unwrap()
+            .channel_id
+            .to_string(),
+        source_channel_id
+    );
+    assert!(forum_posts::Entity::find()
+        .filter(forum_posts::Column::PollId.eq(proposal_uuid))
+        .one(app.database())
+        .await
+        .unwrap()
+        .is_none());
+
+    let repaired_reply = messages::Entity::find_by_id(
+        uuid::Uuid::parse_str(&corrupt_reply_id).unwrap(),
+    )
+    .one(app.database())
+    .await
+    .unwrap()
+    .unwrap()
+    .into_active_model();
+    repaired_reply.delete(app.database()).await.unwrap();
+
+    let move_uri = format!(
+        "/api/servers/{server_id}/channels/{source_channel_id}/polls/{proposal_id}/move-to-forum"
+    );
+    let reply_uri = format!(
+        "/api/servers/{server_id}/channels/{source_channel_id}/polls/{proposal_id}/replies"
+    );
+    let move_payload = json!({
+        "destinationChannelId": forum_channel_id,
+        "title": "Serialized move",
+        "body": "Serialized move",
+    });
+    let reply_payload = json!({ "body": "Racing reply" });
+    let (move_response, reply_response) = tokio::join!(
+        app.post_json_with_bearer(&move_uri, &move_payload, &token),
+        app.post_json_with_bearer(&reply_uri, &reply_payload, &token),
+    );
+    assert_eq!(move_response.status(), StatusCode::OK);
+    assert!(matches!(
+        reply_response.status(),
+        StatusCode::OK | StatusCode::NOT_FOUND
+    ));
+    assert_eq!(
+        messages::Entity::find()
+            .filter(messages::Column::ThreadPollId.eq(proposal_uuid))
+            .count(app.database())
+            .await
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
 async fn logged_out_users_cannot_read_non_default_server_channel_feeds() {
     let app = TestApp::new().await;
     let token = signup_and_get_token(&app).await;
@@ -373,6 +704,94 @@ async fn create_message(
         .await;
     assert_eq!(response.status(), StatusCode::OK);
     json_body(response).await["message"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn create_poll(
+    app: &TestApp,
+    token: &str,
+    server_id: &str,
+    channel_id: &str,
+    poll_type: &str,
+    body: &str,
+) -> String {
+    let payload = if poll_type == "proposal" {
+        json!({
+            "body": body,
+            "pollType": "proposal",
+            "action": { "actionType": "test" },
+        })
+    } else {
+        json!({
+            "body": body,
+            "pollType": "poll",
+            "options": ["First", "Second"],
+            "multipleChoice": false,
+        })
+    };
+    let response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/channels/{channel_id}/polls"),
+            &payload,
+            token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    json_body(response).await["poll"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn create_poll_reply(
+    app: &TestApp,
+    token: &str,
+    server_id: &str,
+    channel_id: &str,
+    poll_id: &str,
+    body: &str,
+    parent_message_id: Option<&str>,
+) -> String {
+    let response = app
+        .post_json_with_bearer(
+            &format!(
+                "/api/servers/{server_id}/channels/{channel_id}/polls/{poll_id}/replies"
+            ),
+            &json!({
+                "body": body,
+                "parentMessageId": parent_message_id,
+            }),
+            token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    json_body(response).await["message"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn create_forum_channel(
+    app: &TestApp,
+    token: &str,
+    server_id: &str,
+    name: &str,
+) -> String {
+    let response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/channels"),
+            &json!({
+                "name": name,
+                "description": null,
+                "channelType": "forum",
+            }),
+            token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    json_body(response).await["channel"]["id"]
         .as_str()
         .unwrap()
         .to_owned()

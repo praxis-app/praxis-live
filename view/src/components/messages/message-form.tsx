@@ -15,7 +15,11 @@ import { validateImageInput } from '@/lib/image.utilts';
 import { cn, t } from '@/lib/shared.utils';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
-import { type MessageRes, type ThreadQuery } from '@/types/message.types';
+import {
+  type MessageRes,
+  type ThreadIdentity,
+  type ThreadQuery,
+} from '@/types/message.types';
 import { MESSAGE_BODY_MAX } from '@/constants/message.constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -38,7 +42,7 @@ interface Props {
   channelId?: string;
   callId?: string;
   forumPostId?: string;
-  threadRootId?: string;
+  thread?: ThreadIdentity;
   focusOnTyping?: boolean;
   showActions?: boolean;
   disabled?: boolean;
@@ -49,7 +53,7 @@ export const MessageForm = ({
   channelId,
   callId,
   forumPostId,
-  threadRootId,
+  thread,
   focusOnTyping = true,
   showActions = true,
   disabled = false,
@@ -80,8 +84,8 @@ export const MessageForm = ({
   const isEmptyBody = !getValues('body') && !formState.dirtyFields.body;
   const isEmpty = isEmptyBody && !images.length;
 
-  const draftKey = threadRootId
-    ? `message-draft-${serverId}-${channelId}-thread-${threadRootId}`
+  const draftKey = thread
+    ? `message-draft-${serverId}-${channelId}-thread-${thread.rootKind}-${thread.rootId}`
     : forumPostId
       ? `message-draft-${serverId}-${channelId}-forum-post-${forumPostId}`
       : callId
@@ -99,7 +103,8 @@ export const MessageForm = ({
   const threadQueryKey = getThreadQueryKey(
     serverId,
     channelId,
-    threadRootId,
+    thread?.rootKind,
+    thread?.rootId,
     inviteToken,
   );
 
@@ -126,11 +131,12 @@ export const MessageForm = ({
       validateImageInput(currentImages);
 
       let message: MessageRes;
-      if (threadRootId) {
+      if (thread) {
         const response = await api.sendThreadReply(
           serverId,
           channelId,
-          threadRootId,
+          thread.rootKind,
+          thread.rootId,
           { body: body || undefined },
           currentImages,
         );
@@ -203,8 +209,10 @@ export const MessageForm = ({
         bot: null,
         createdAt: new Date().toISOString(),
         commandStatus: null,
-        threadRootId,
-        parentMessageId: threadRootId,
+        threadRootId: thread?.rootKind === 'message' ? thread.rootId : undefined,
+        threadPollId: thread?.rootKind === 'poll' ? thread.rootId : undefined,
+        parentMessageId:
+          thread?.rootKind === 'message' ? thread.rootId : undefined,
         replyCount: 0,
         latestReplyAt: null,
         images: optimisticImages.length ? optimisticImages : undefined,
@@ -223,7 +231,7 @@ export const MessageForm = ({
         };
       }
 
-      if (threadRootId) {
+      if (thread) {
         return {
           previousFeed: undefined,
           previousThread: undefined,
@@ -282,7 +290,7 @@ export const MessageForm = ({
         type: 'message',
       };
 
-      if (threadRootId) {
+      if (thread) {
         queryClient.setQueryData<ThreadQuery>(threadQueryKey, (oldData) => {
           if (!oldData) {
             return oldData;
@@ -548,7 +556,7 @@ export const MessageForm = ({
                 <Textarea
                   {...field}
                   placeholder={t(
-                    threadRootId
+                    thread
                       ? 'messages.placeholders.sendThreadReply'
                       : 'messages.placeholders.sendMessage',
                   )}

@@ -123,6 +123,7 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
   await makeProposalsRatifyWithOneAgreeVote(request, instanceAdmin, server.id);
 
   const proposalBody = `Move proposal ${proposer.user.suffix}`;
+  const existingThreadReply = `Existing proposal reply ${proposer.user.suffix}`;
   const reply = `Moved proposal reply ${proposer.user.suffix}`;
   const chat = new ChatPage(page);
 
@@ -158,9 +159,36 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
 
   const textProposal = page.getByRole('article', {
     name: `Majority Vote Proposal: ${proposalBody}`,
-  });
+  }).first();
   await expect(textProposal).toBeVisible();
   await textProposal
+    .getByRole('button', { name: 'Open proposal menu' })
+    .click();
+  await page.getByRole('menuitem', { name: 'Reply' }).click();
+  const threadPanel = page.getByTestId('thread-panel');
+  await expect(threadPanel.getByText(proposalBody)).toBeVisible();
+  const threadReplyResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      /\/polls\/[^/]+\/replies$/.test(new URL(response.url()).pathname) &&
+      response.status() === 200,
+  );
+  await threadPanel
+    .getByPlaceholder('Reply to thread...')
+    .fill(existingThreadReply);
+  await threadPanel.getByPlaceholder('Reply to thread...').press('Enter');
+  await threadReplyResponse;
+  await expect(threadPanel.getByText(existingThreadReply)).toBeVisible();
+  await expect(textProposal.getByText('1 reply')).toBeVisible();
+  await expect(
+    textProposal.locator('[data-slot="card"]').getByText('1 reply'),
+  ).toHaveCount(0);
+  await expectRightPanelToResize(page, threadPanel, 'thread');
+
+  const threadProposal = threadPanel.getByRole('article', {
+    name: `Majority Vote Proposal: ${proposalBody}`,
+  });
+  await threadProposal
     .getByRole('button', { name: 'Open proposal menu' })
     .click();
   await page.getByRole('menuitem', { name: 'Move to forum' }).click();
@@ -185,6 +213,7 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
   await expect(
     page.getByRole('article').getByRole('heading', { name: proposalBody }),
   ).toBeVisible();
+  await expect(page.getByText(existingThreadReply)).toBeVisible();
 
   const forumProposal = page.getByRole('region', { name: 'Proposal' });
   await expect(forumProposal.getByText(proposalBody)).toBeVisible();

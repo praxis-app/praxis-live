@@ -35,20 +35,19 @@ export const ResizablePanel = ({
 }: Props) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  if (!panel) {
-    return children;
-  }
-
+  // The group and the content panel stay mounted whether or not a side panel is
+  // present, so toggling one never remounts the main content.
   const contentPanel = (
     <ResizablePanelPrimitive
       className="h-full min-h-0 min-w-0"
-      minSize="20rem"
+      minSize={panel ? '20rem' : undefined}
     >
       {children}
     </ResizablePanelPrimitive>
   );
-  const resizablePanel = (
+  const resizablePanel = panel ? (
     <ResizablePanelPrimitive
+      key={panelType}
       className="h-full min-h-0 min-w-0"
       elementRef={panelRef}
       defaultSize={getStoredPanelWidth(panelType) ?? defaultSize}
@@ -58,12 +57,13 @@ export const ResizablePanel = ({
     >
       {panel}
     </ResizablePanelPrimitive>
-  );
-  const resizeHandle = <ResizablePanelHandle label={resizeHandleLabel} />;
+  ) : null;
+  const resizeHandle = panel ? (
+    <ResizablePanelHandle label={resizeHandleLabel} />
+  ) : null;
 
   return (
     <ResizablePanelGroup
-      key={panelType}
       orientation="horizontal"
       onLayoutChanged={(_, { isUserInteraction }) => {
         if (isUserInteraction && panelRef.current) {

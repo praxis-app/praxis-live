@@ -464,10 +464,13 @@ pub(crate) async fn get_unwrapped_channel_key(
     Ok((key, unwrapped))
 }
 
-pub(crate) async fn get_unwrapped_channel_key_map(
-    database: &DatabaseConnection,
+pub(crate) async fn get_unwrapped_channel_key_map<C>(
+    database: &C,
     key_ids: Vec<Uuid>,
-) -> AppResult<HashMap<Uuid, Vec<u8>>> {
+) -> AppResult<HashMap<Uuid, Vec<u8>>>
+where
+    C: ConnectionTrait,
+{
     if key_ids.is_empty() {
         return Ok(HashMap::new());
     }

@@ -35,10 +35,10 @@ use crate::{
 const MAX_IMAGE_COUNT: usize = 8;
 
 #[derive(Debug)]
-pub(super) struct CreatedReply {
-    pub(super) reply: MessageResponse,
-    reply_count: usize,
-    latest_reply_at: String,
+pub(crate) struct CreatedReply {
+    pub(crate) reply: MessageResponse,
+    pub(crate) reply_count: usize,
+    pub(crate) latest_reply_at: String,
 }
 
 #[derive(FromQueryResult)]
@@ -51,6 +51,20 @@ struct ReplySummary {
 #[derive(FromQueryResult)]
 struct ReplyParticipant {
     thread_root_id: Option<Uuid>,
+    user_id: Uuid,
+    latest_reply_at: DateTimeWithTimeZone,
+}
+
+#[derive(FromQueryResult)]
+struct PollReplySummary {
+    thread_poll_id: Option<Uuid>,
+    reply_count: i64,
+    latest_reply_at: Option<DateTimeWithTimeZone>,
+}
+
+#[derive(FromQueryResult)]
+struct PollReplyParticipant {
+    thread_poll_id: Option<Uuid>,
     user_id: Uuid,
     latest_reply_at: DateTimeWithTimeZone,
 }
@@ -68,7 +82,8 @@ pub(crate) async fn get_channel_message_feed(
     let mut query = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
         .filter(messages::Column::CallId.is_null())
-        .filter(messages::Column::ThreadRootId.is_null());
+        .filter(messages::Column::ThreadRootId.is_null())
+        .filter(messages::Column::ThreadPollId.is_null());
     if let Some(cursor) = cursor {
         query = query.filter(cursor_condition(cursor, direction));
     }
@@ -104,7 +119,8 @@ pub(crate) async fn get_call_message_feed(
     let mut query = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
         .filter(messages::Column::CallId.eq(call_id))
-        .filter(messages::Column::ThreadRootId.is_null());
+        .filter(messages::Column::ThreadRootId.is_null())
+        .filter(messages::Column::ThreadPollId.is_null());
     if let Some(cursor) = cursor {
         query = query.filter(cursor_condition(cursor, direction));
     }
@@ -348,6 +364,8 @@ pub(super) async fn broadcast_reply(
 ) -> AppResult<()> {
     let body = serde_json::json!({
         "type": "threadReply",
+        "rootKind": "message",
+        "rootId": created.reply.thread_root_id,
         "rootMessageId": created.reply.thread_root_id,
         "reply": created.reply,
         "replyCount": created.reply_count,
@@ -481,7 +499,9 @@ pub(crate) async fn shape_messages(
 
     let root_ids = messages
         .iter()
-        .filter(|message| message.thread_root_id.is_none())
+        .filter(|message| {
+            message.thread_root_id.is_none() && message.thread_poll_id.is_none()
+        })
         .map(|message| message.id)
         .collect::<Vec<_>>();
     let reply_summaries =
@@ -793,6 +813,7 @@ fn shape_message<'a>(
         bot: None,
         command_status: None,
         thread_root_id: message.thread_root_id.map(|id| id.to_string()),
+        thread_poll_id: message.thread_poll_id.map(|id| id.to_string()),
         parent_message_id: message.parent_message_id.map(|id| id.to_string()),
         reply_count: reply_summary.map(|(count, _)| *count).unwrap_or_default(),
         reply_users: reply_participant_ids
@@ -972,6 +993,77 @@ async fn load_reply_participants(
         }
     }
     Ok(participants_by_root)
+}
+
+pub(crate) async fn load_poll_reply_summaries(
+    database: &DatabaseConnection,
+    poll_ids: Vec<Uuid>,
+) -> AppResult<HashMap<Uuid, (usize, DateTimeWithTimeZone)>> {
+    if poll_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    Ok(messages::Entity::find()
+        .select_only()
+        .column(messages::Column::ThreadPollId)
+        .column_as(Expr::col(messages::Column::Id).count(), "reply_count")
+        .column_as(
+            Expr::col(messages::Column::CreatedAt).max(),
+            "latest_reply_at",
+        )
+        .filter(messages::Column::ThreadPollId.is_in(poll_ids))
+        .group_by(messages::Column::ThreadPollId)
+        .into_model::<PollReplySummary>()
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .filter_map(|summary| {
+            Some((
+                summary.thread_poll_id?,
+                (summary.reply_count as usize, summary.latest_reply_at?),
+            ))
+        })
+        .collect())
+}
+
+pub(crate) async fn load_poll_reply_participants(
+    database: &DatabaseConnection,
+    poll_ids: Vec<Uuid>,
+) -> AppResult<HashMap<Uuid, Vec<Uuid>>> {
+    if poll_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let mut participants = messages::Entity::find()
+        .select_only()
+        .column(messages::Column::ThreadPollId)
+        .column(messages::Column::UserId)
+        .column_as(
+            Expr::col(messages::Column::CreatedAt).max(),
+            "latest_reply_at",
+        )
+        .filter(messages::Column::ThreadPollId.is_in(poll_ids))
+        .group_by(messages::Column::ThreadPollId)
+        .group_by(messages::Column::UserId)
+        .into_model::<PollReplyParticipant>()
+        .all(database)
+        .await
+        .map_err(internal_error)?;
+    participants.sort_by(|left, right| {
+        right.latest_reply_at.cmp(&left.latest_reply_at)
+    });
+
+    let mut participants_by_poll: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+    for participant in participants {
+        let Some(poll_id) = participant.thread_poll_id else {
+            continue;
+        };
+        let poll_participants =
+            participants_by_poll.entry(poll_id).or_default();
+        if poll_participants.len() < 3 {
+            poll_participants.push(participant.user_id);
+        }
+    }
+    Ok(participants_by_poll)
 }
 
 fn message_cursor(message: &messages::Model) -> String {

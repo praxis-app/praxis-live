@@ -11,6 +11,7 @@ import {
   type RightPanel,
   type StandaloneRightPanel,
 } from '@/types/right-panel.types';
+import { type ThreadIdentity } from '@/types/message.types';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import {
@@ -45,11 +46,17 @@ export const ChannelPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const threadRootId = searchParams.get('thread');
+  const threadRootKind =
+    searchParams.get('threadKind') === 'poll' ? 'poll' : 'message';
 
   const rightPanel: RightPanel = postId
     ? { type: 'forumPost', postId }
     : threadRootId
-      ? { type: 'thread', rootMessageId: threadRootId }
+      ? {
+          type: 'thread',
+          rootKind: threadRootKind,
+          rootId: threadRootId,
+        }
       : standaloneRightPanel;
 
   const channelPath =
@@ -79,21 +86,28 @@ export const ChannelPage = () => {
     if (threadRootId) {
       const nextSearchParams = new URLSearchParams(searchParams);
       nextSearchParams.delete('thread');
+      nextSearchParams.delete('threadKind');
       setSearchParams(nextSearchParams, { replace: true });
     }
     localStorage.setItem(LocalStorageKeys.DecisionsPanelOpen, 'true');
     setStandaloneRightPanel(panel);
   };
 
-  const openThread = (rootMessageId: string) => {
+  const openThread = (thread: ThreadIdentity) => {
     const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('thread', rootMessageId);
+    nextSearchParams.set('thread', thread.rootId);
+    if (thread.rootKind === 'poll') {
+      nextSearchParams.set('threadKind', 'poll');
+    } else {
+      nextSearchParams.delete('threadKind');
+    }
     setSearchParams(nextSearchParams);
   };
 
   const closeThread = () => {
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.delete('thread');
+    nextSearchParams.delete('threadKind');
     setSearchParams(nextSearchParams, { replace: true });
   };
 
