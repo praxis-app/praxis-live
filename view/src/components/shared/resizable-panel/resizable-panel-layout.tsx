@@ -1,4 +1,4 @@
-import { ResizablePanelHandle } from '@/components/shared/resizable-panel-handle';
+import { ResizablePanelHandle } from '@/components/shared/resizable-panel/resizable-panel-handle';
 import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
   getStoredPanelWidth,

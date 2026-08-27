@@ -5,7 +5,7 @@ import {
 } from '@/components/events/events-calendar';
 import { EventsList } from '@/components/events/events-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
 import { TopNav } from '@/components/nav/top-nav';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

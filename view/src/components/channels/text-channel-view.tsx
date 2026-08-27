@@ -6,7 +6,7 @@ import { MessageForm } from '@/components/messages/message-form';
 import { ThreadPanel } from '@/components/messages/thread/thread-panel';
 import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';

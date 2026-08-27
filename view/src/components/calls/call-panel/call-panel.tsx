@@ -4,7 +4,7 @@ import { CallDecisionPanel } from '@/components/calls/call-decision-panel/call-d
 import { CallControls } from '@/components/calls/call-controls';
 import { api } from '@/client/api-client';
 import { TopNav } from '@/components/nav/top-nav';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
 import {
   Drawer,
   DrawerContent,

@@ -3,7 +3,7 @@ import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { ForumPostDetail } from '@/components/forum/forum-post-detail';
 import { ForumPostList } from '@/components/forum/forum-post-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';

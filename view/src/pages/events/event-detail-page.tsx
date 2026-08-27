@@ -2,7 +2,7 @@ import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { EventRsvpControls } from '@/components/events/event-rsvp-controls';
 import { EventSummary } from '@/components/events/event-summary';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
 import { TopNav } from '@/components/nav/top-nav';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LocalStorageKeys } from '@/constants/shared.constants';

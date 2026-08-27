@@ -1,4 +1,4 @@
-import { ResizablePanelLayout } from '@/components/shared/resizable-panel-layout';
+import { ResizablePanelLayout } from '@/components/shared/resizable-panel/resizable-panel-layout';
 import { type ResizablePanelType } from '@/lib/panel-width.utils';
 import { render, screen } from '@testing-library/react';
 import { type ReactNode } from 'react';
