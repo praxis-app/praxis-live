@@ -444,6 +444,9 @@ test('user can turn a forum discussion into a ratified proposal', async ({
     page.getByRole('heading', { name: postTitle }).last(),
     'forumPost',
   );
+  await expect(
+    page.getByRole('separator', { name: '0 replies' }),
+  ).toBeVisible();
 
   const replyResponse = page.waitForResponse(
     (response) =>
@@ -455,6 +458,7 @@ test('user can turn a forum discussion into a ratified proposal', async ({
   await page.getByPlaceholder('Send a message...').press('Enter');
   await replyResponse;
   await expect(page.getByText(reply)).toBeVisible();
+  await expect(page.getByRole('separator', { name: '1 reply' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Open post menu' }).click();
   await page

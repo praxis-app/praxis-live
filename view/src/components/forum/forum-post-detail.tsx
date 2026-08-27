@@ -116,6 +116,9 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
 
   const author = post.user.displayName || post.user.name;
   const isAuthor = me?.id === post.user.id;
+  const replyCountLabel = t('forums.labels.replyCount', {
+    count: post.replies.length,
+  });
 
   const showForumPostMenu =
     post.proposal || (isAuthor && (post.status === 'open' || !post.proposal));
@@ -205,10 +208,9 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
         <div
           className="text-muted-foreground flex items-center gap-3 text-xs font-medium"
           role="separator"
-          aria-label={t('forums.labels.discussion')}
+          aria-label={replyCountLabel}
         >
-          <Separator className="flex-1" />
-          <span>{t('forums.labels.discussion')}</span>
+          <span>{replyCountLabel}</span>
           <Separator className="flex-1" />
         </div>
         {post.replies.map((reply) => (
