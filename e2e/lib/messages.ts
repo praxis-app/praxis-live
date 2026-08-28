@@ -50,9 +50,3 @@ export async function pressAndHold(target: Locator) {
 
   return () => target.dispatchEvent('pointerup', { pointerType: 'touch' });
 }
-
-export async function longPress(target: Locator) {
-  const release = await pressAndHold(target);
-  await target.page().waitForTimeout(900);
-  await release();
-}
