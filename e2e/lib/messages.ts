@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Locator } from '@playwright/test';
+import { expect, type APIRequestContext } from '@playwright/test';
 import { authorizationHeaders, type AuthenticatedUser } from './auth';
 
 interface CreateMessagesOptions {
@@ -29,24 +29,4 @@ export async function createMessages({
     });
     await expect(response).toBeOK();
   }
-}
-
-/**
- * Starts a touch press and returns a release callback. Radix opens its context
- * menu 700ms after a non-mouse `pointerdown`, and cancels on move, up, or
- * cancel, so the press must be held without moving.
- */
-export async function pressAndHold(target: Locator) {
-  const box = await target.boundingBox();
-  expect(box).not.toBeNull();
-
-  await target.dispatchEvent('pointerdown', {
-    pointerType: 'touch',
-    isPrimary: true,
-    button: 0,
-    clientX: box!.x + box!.width / 2,
-    clientY: box!.y + box!.height / 2,
-  });
-
-  return () => target.dispatchEvent('pointerup', { pointerType: 'touch' });
 }
