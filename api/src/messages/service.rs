@@ -1,3 +1,12 @@
+// TODO: Split into focused modules under `api/src/messages`, leaving message
+// creation and the shared validators here:
+//
+//   replies.rs     thread roots, replies, and reply summaries
+//   images.rs      attachment writes and image serving
+//   responses.rs   model-to-DTO shaping
+//   broadcasts.rs  pub/sub fan-out
+//   feed.rs        channel and call feeds, plus their cursors
+
 use axum::http::StatusCode;
 use entity::{
     enums::ChannelType, forum_posts, message_images, messages, users,
