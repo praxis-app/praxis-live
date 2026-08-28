@@ -1,9 +1,13 @@
 import { AttachedImageList } from '@/components/images/attached-image-list';
 import { FormattedText } from '@/components/shared/formatted-text';
+import { MessageContextMenu } from '@/components/messages/message-context-menu';
 import { MessageMenu } from '@/components/messages/message-menu';
 import { MessageThreadSummary } from '@/components/messages/message-thread-summary';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { usePressHighlight } from '@/hooks/use-press-highlight';
+import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type MessageRes } from '@/types/message.types';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +40,9 @@ export const Message = ({
   onOpenThread,
   onCopyThreadLink,
 }: Props) => {
+  const isDesktop = useIsDesktop();
+  const { isPressed, pressHandlers } = usePressHighlight();
+
   const { t } = useTranslation();
 
   if (!user) {
@@ -47,13 +54,18 @@ export const Message = ({
 
   const name = user.displayName || user.name;
   const truncatedUsername = truncate(name, 18);
+  const hasThreadActions = !!onOpenThread && !!onCopyThreadLink;
 
-  return (
+  const message = (
     <div
       data-message-id={id}
-      className="group/message relative flex max-w-full min-w-0 gap-4 pt-1"
+      {...pressHandlers}
+      className={cn(
+        'group/message data-[state=open]:bg-accent relative -mx-2 flex max-w-full min-w-0 gap-4 rounded-md px-2 pt-1 transition-colors duration-300 ease-out motion-reduce:transition-none',
+        isPressed && 'bg-accent',
+      )}
     >
-      {onOpenThread && onCopyThreadLink && (
+      {hasThreadActions && isDesktop && (
         <MessageMenu
           onOpenThread={() => onOpenThread(id)}
           onCopyThreadLink={() => onCopyThreadLink(id)}
@@ -124,5 +136,20 @@ export const Message = ({
         )}
       </div>
     </div>
+  );
+
+  // Touch devices get the same actions through a long press instead of a
+  // permanently visible trigger on every message.
+  if (!hasThreadActions || isDesktop) {
+    return message;
+  }
+
+  return (
+    <MessageContextMenu
+      onOpenThread={() => onOpenThread(id)}
+      onCopyThreadLink={() => onCopyThreadLink(id)}
+    >
+      {message}
+    </MessageContextMenu>
   );
 };

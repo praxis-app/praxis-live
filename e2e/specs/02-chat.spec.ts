@@ -19,7 +19,7 @@ import { createTestMessage, createTestUser } from '../lib/data';
 import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
-import { createMessages } from '../lib/messages';
+import { createMessages, pressAndHold } from '../lib/messages';
 import { expectRightPanelToResize } from '../lib/right-panel';
 import {
   createServer,
@@ -106,9 +106,7 @@ test('members can use a durable reply thread without replies entering the channe
       .filter({ hasText: rootMessage });
     await expect(authorRoot).toBeVisible();
     await authorRoot.hover();
-    await authorRoot
-      .getByRole('button', { name: 'Open message menu' })
-      .click();
+    await authorRoot.getByRole('button', { name: 'Open message menu' }).click();
     await page.getByRole('menuitem', { name: 'Reply' }).click();
     const authorThread = page.getByTestId('thread-panel');
     await expect(authorThread.getByText(rootMessage)).toBeVisible();
@@ -121,9 +119,7 @@ test('members can use a durable reply thread without replies entering the channe
       .filter({ hasText: rootMessage });
     await expect(memberRoot).toBeVisible();
     await memberRoot.hover();
-    await memberRoot
-      .getByRole('button', { name: 'Open message menu' })
-      .click();
+    await memberRoot.getByRole('button', { name: 'Open message menu' }).click();
     await memberPage.getByRole('menuitem', { name: 'Reply' }).click();
     const memberThread = memberPage.getByTestId('thread-panel');
     await expect(memberThread.getByText(rootMessage)).toBeVisible();
@@ -201,6 +197,91 @@ test('members can use a durable reply thread without replies entering the channe
   } finally {
     await memberContext.close();
   }
+});
+
+test('opening a message thread on mobile fills the viewport without scrolling', async ({
+  context,
+  page,
+  request,
+}) => {
+  const user = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('mobile-thread'),
+  );
+  const server = await getDefaultServer(request, user);
+  const chat = new ChatPage(page);
+  const rootMessage = `Mobile thread root ${user.user.suffix}`;
+
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await chat.sendMessage(rootMessage);
+
+  const root = page
+    .getByTestId('feed')
+    .locator('[data-message-id]')
+    .filter({ hasText: rootMessage });
+  await expect(root).toBeVisible();
+  await expect(
+    root.getByRole('button', { name: 'Open message menu' }),
+  ).toHaveCount(0);
+
+  const restingBackground = await backgroundColor(root);
+  const release = await pressAndHold(root);
+
+  // The highlight lands almost immediately, well inside the 700ms the menu
+  // takes to open, and then persists while the menu is up.
+  await expect
+    .poll(() => backgroundColor(root), { timeout: 500 })
+    .not.toBe(restingBackground);
+  await expect(root).toHaveAttribute('data-state', 'open');
+  await release();
+  await expect.poll(() => backgroundColor(root)).not.toBe(restingBackground);
+
+  // The highlight has to resolve to a real, distinct color in both themes.
+  const highlight = await root.evaluate((element) => {
+    const html = document.documentElement;
+    const previousTheme = html.className;
+    const previousTransition = element.style.transition;
+    element.style.transition = 'none';
+    const read = (theme: string) => {
+      html.classList.remove('light', 'dark');
+      html.classList.add(theme);
+      return window.getComputedStyle(element).backgroundColor;
+    };
+    const colors = { light: read('light'), dark: read('dark') };
+    html.className = previousTheme;
+    element.style.transition = previousTransition;
+    return colors;
+  });
+  expect(highlight.light).not.toBe('rgba(0, 0, 0, 0)');
+  expect(highlight.dark).not.toBe('rgba(0, 0, 0, 0)');
+  expect(highlight.light).not.toBe(highlight.dark);
+
+  await page.getByRole('menuitem', { name: 'Reply' }).click();
+
+  const threadPanel = page.getByTestId('thread-panel');
+  await expect(threadPanel.getByText(rootMessage)).toBeVisible();
+
+  // The panel replaces the channel view on mobile, so it must land on screen
+  // rather than below the channel view's full-height layout.
+  await expect(threadPanel).toBeInViewport({ ratio: 0.9 });
+  await expect(
+    threadPanel.getByRole('button', { name: 'Back to channel' }),
+  ).toBeInViewport();
+  await expect(
+    threadPanel.getByPlaceholder('Reply to thread...'),
+  ).toBeInViewport();
+
+  const layout = await threadPanel.evaluate((element) => ({
+    top: element.getBoundingClientRect().top,
+    height: element.getBoundingClientRect().height,
+    pageScrollY: window.scrollY,
+    viewportHeight: window.innerHeight,
+  }));
+  expect(layout.pageScrollY).toBe(0);
+  expect(layout.top).toBeLessThanOrEqual(1);
+  expect(layout.height).toBeGreaterThan(layout.viewportHeight * 0.9);
 });
 
 test('sending a message snaps a scrolled channel feed to the bottom', async ({

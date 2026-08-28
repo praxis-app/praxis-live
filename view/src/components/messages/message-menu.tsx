@@ -28,7 +28,7 @@ export const MessageMenu = ({ onOpenThread, onCopyThreadLink }: Props) => {
           variant="outline"
           size="icon"
           aria-label={t('messages.actions.openMenu')}
-          className="bg-background/95 absolute -top-1 right-0 z-10 hidden size-8 opacity-0 shadow-sm transition-opacity group-hover/message:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 motion-reduce:transition-none md:inline-flex"
+          className="bg-background/95 absolute -top-1 right-0 z-10 size-8 opacity-0 shadow-sm transition-opacity group-hover/message:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 motion-reduce:transition-none"
         >
           <MdMoreHoriz className="text-muted-foreground size-5" />
         </Button>

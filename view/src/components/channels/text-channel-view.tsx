@@ -612,17 +612,17 @@ export const TextChannelView = ({
               }}
             />
           </div>
-        </ResizablePanel>
 
-        {!isDesktop && channel && thread && (
-          <ThreadPanel
-            channel={channel}
-            thread={thread}
-            rootPoll={threadPoll}
-            feedQueryKey={feedQueryKey}
-            onClose={onCloseThread}
-          />
-        )}
+          {!isDesktop && channel && thread && (
+            <ThreadPanel
+              channel={channel}
+              thread={thread}
+              rootPoll={threadPoll}
+              feedQueryKey={feedQueryKey}
+              onClose={onCloseThread}
+            />
+          )}
+        </ResizablePanel>
       </ResizablePanel>
     </div>
   );

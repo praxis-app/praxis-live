@@ -132,14 +132,22 @@ export const MessageForm = ({
 
       let message: MessageRes;
       if (thread) {
-        const response = await api.sendThreadReply(
-          serverId,
-          channelId,
-          thread.rootKind,
-          thread.rootId,
-          { body: body || undefined },
-          currentImages,
-        );
+        const response =
+          thread.rootKind === 'message'
+            ? await api.sendMessageThreadReply(
+                serverId,
+                channelId,
+                thread.rootId,
+                { body: body || undefined },
+                currentImages,
+              )
+            : await api.sendPollThreadReply(
+                serverId,
+                channelId,
+                thread.rootId,
+                { body: body || undefined },
+                currentImages,
+              );
         message = response.message;
       } else if (forumPostId) {
         const response = await api.createForumReply(

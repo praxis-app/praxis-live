@@ -11,7 +11,6 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
 import { preserveMessageImages } from '@/lib/feed.utils';
-import { cn } from '@/lib/shared.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import {
   type MessageRes,
@@ -80,14 +79,22 @@ export const ThreadPanel = ({
       if (!serverId) {
         throw new Error('Server ID is required');
       }
-      const result = await api.getThreadReplies(
-        serverId,
-        channel.id,
-        thread.rootKind,
-        thread.rootId,
-        pageParam || undefined,
-        THREAD_PAGE_SIZE,
-      );
+      const result =
+        thread.rootKind === 'message'
+          ? await api.getMessageThreadReplies(
+              serverId,
+              channel.id,
+              thread.rootId,
+              pageParam || undefined,
+              THREAD_PAGE_SIZE,
+            )
+          : await api.getPollThreadReplies(
+              serverId,
+              channel.id,
+              thread.rootId,
+              pageParam || undefined,
+              THREAD_PAGE_SIZE,
+            );
       const existing = queryClient.getQueryData<ThreadQuery>(queryKey);
       const existingMessages = new Map(
         existing?.pages
@@ -179,10 +186,7 @@ export const ThreadPanel = ({
     <aside
       data-testid="thread-panel"
       aria-label={t('messages.threads.title')}
-      className={cn(
-        'bg-background flex min-h-0 min-w-0 flex-1 flex-col',
-        isDesktop && 'h-full',
-      )}
+      className="bg-background flex h-full min-h-0 min-w-0 flex-1 flex-col"
     >
       <header className="flex h-13.75 shrink-0 items-center gap-2 border-b px-3">
         {!isDesktop && (

@@ -42,7 +42,6 @@ import { type CreateInviteReq, type InviteRes } from '@/types/invite.types';
 import {
   type CreateReplyReq,
   type MessageRes,
-  type ThreadRootKind,
   type ThreadPageRes,
 } from '@/types/message.types';
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
@@ -395,29 +394,27 @@ class ApiClient {
     });
   };
 
-  getThreadReplies = async (
+  getMessageThreadReplies = async (
     serverId: string,
     channelId: string,
-    rootKind: ThreadRootKind,
-    rootId: string,
+    messageId: string,
     before?: string,
     limit = 50,
   ) => {
-    const path = `/servers/${serverId}/channels/${channelId}/${rootKind === 'message' ? 'messages' : 'polls'}/${rootId}/replies`;
+    const path = `/servers/${serverId}/channels/${channelId}/messages/${messageId}/replies`;
     return this.executeRequest<ThreadPageRes>('get', path, {
       params: { before, limit },
     });
   };
 
-  sendThreadReply = async (
+  sendMessageThreadReply = async (
     serverId: string,
     channelId: string,
-    rootKind: ThreadRootKind,
-    rootId: string,
+    messageId: string,
     data: CreateReplyReq,
     images: File[] = [],
   ) => {
-    const path = `/servers/${serverId}/channels/${channelId}/${rootKind === 'message' ? 'messages' : 'polls'}/${rootId}/replies`;
+    const path = `/servers/${serverId}/channels/${channelId}/messages/${messageId}/replies`;
     return this.executeRequest<{ message: MessageRes }>('post', path, {
       data: getJsonOrFormData(data, { files: images }),
     });
@@ -460,6 +457,32 @@ class ApiClient {
     const path = `/servers/${serverId}/decisions`;
     return this.executeRequest<ActiveDecisionsRes>('get', path, {
       params: { before, limit },
+    });
+  };
+
+  getPollThreadReplies = async (
+    serverId: string,
+    channelId: string,
+    pollId: string,
+    before?: string,
+    limit = 50,
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/replies`;
+    return this.executeRequest<ThreadPageRes>('get', path, {
+      params: { before, limit },
+    });
+  };
+
+  sendPollThreadReply = async (
+    serverId: string,
+    channelId: string,
+    pollId: string,
+    data: CreateReplyReq,
+    images: File[] = [],
+  ) => {
+    const path = `/servers/${serverId}/channels/${channelId}/polls/${pollId}/replies`;
+    return this.executeRequest<{ message: MessageRes }>('post', path, {
+      data: getJsonOrFormData(data, { files: images }),
     });
   };
 
