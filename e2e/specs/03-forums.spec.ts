@@ -376,11 +376,24 @@ test('an old moved-proposal thread link opens the canonical forum post', async (
     ),
   });
 
+  // The moved thread answers with a definitive 410, so the panel must redirect
+  // from that response rather than retrying it.
+  const goneRequests: string[] = [];
+  page.on('response', (response) => {
+    if (
+      response.status() === 410 &&
+      new URL(response.url()).pathname.endsWith(`/polls/${poll.id}/replies`)
+    ) {
+      goneRequests.push(response.url());
+    }
+  });
+
   await page.goto(oldThreadUrl);
 
   await expect(page).toHaveURL(
     new RegExp(`/c/${forumChannel.id}/posts/${post.id}$`),
   );
+  expect(goneRequests).toHaveLength(1);
 });
 
 test('user can turn a forum discussion into a ratified proposal', async ({

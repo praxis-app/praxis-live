@@ -61,10 +61,11 @@ export const ThreadPanel = ({
 
   const { inviteToken, me } = useAuthData();
   const { server, serverId } = useServerData();
-  const isDesktop = useIsDesktop();
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
+
   const { t } = useTranslation();
+  const isDesktop = useIsDesktop();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const queryKey = getThreadQueryKey(
     serverId,
@@ -120,6 +121,16 @@ export const ThreadPanel = ({
       lastPage.hasMore ? lastPage.nextCursor : undefined,
     enabled: !!serverId,
     refetchOnMount: 'always',
+
+    // A moved proposal answers with 410 and a redirect target, so retrying any
+    // client error only delays handling an answer the server already gave.
+    retry: (failureCount, error) => {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status && status >= 400 && status < 500) {
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
 
   const queriedRoot = threadQuery.data?.pages[0]?.root;
