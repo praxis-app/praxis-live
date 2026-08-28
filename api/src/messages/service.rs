@@ -872,6 +872,7 @@ where
     let root = messages::Entity::find_by_id(root_message_id)
         .filter(messages::Column::ChannelId.eq(channel_id))
         .filter(messages::Column::ThreadRootId.is_null())
+        .filter(messages::Column::ThreadPollId.is_null())
         .filter(messages::Column::CallId.is_null())
         .filter(messages::Column::BotId.is_null())
         .one(database)
