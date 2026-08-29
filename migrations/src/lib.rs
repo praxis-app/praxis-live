@@ -17,6 +17,7 @@ mod m20260811_000001_drop_unused_image_content_types;
 mod m20260814_000001_add_server_images;
 mod m20260817_000001_add_channel_sort_order;
 mod m20260827_000001_add_poll_reply_threads;
+mod m20260829_000001_add_notifications;
 
 pub struct Migrator;
 
@@ -45,6 +46,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260814_000001_add_server_images::Migration),
             Box::new(m20260817_000001_add_channel_sort_order::Migration),
             Box::new(m20260827_000001_add_poll_reply_threads::Migration),
+            Box::new(m20260829_000001_add_notifications::Migration),
         ]
     }
 }

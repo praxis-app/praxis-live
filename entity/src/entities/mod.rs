@@ -14,6 +14,7 @@ pub mod instance_roles;
 pub mod invites;
 pub mod message_images;
 pub mod messages;
+pub mod notifications;
 pub mod poll_action_event_cover_photos;
 pub mod poll_action_event_hosts;
 pub mod poll_action_events;
