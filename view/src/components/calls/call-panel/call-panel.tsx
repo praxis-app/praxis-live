@@ -4,6 +4,7 @@ import { CallDecisionPanel } from '@/components/calls/call-decision-panel/call-d
 import { CallControls } from '@/components/calls/call-controls';
 import { api } from '@/client/api-client';
 import { TopNav } from '@/components/nav/top-nav';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import {
   Drawer,
   DrawerContent,
@@ -200,76 +201,88 @@ export const CallPanel = ({
         showSearch={false}
       />
 
-      <main className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-hidden p-3">
-            <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-              <GridLayout
-                tracks={tracks}
-                className={cn(
-                  'min-h-0 w-full flex-1 grid-rows-[repeat(var(--lk-row-count),minmax(0,1fr))] p-0 [--lk-grid-gap:0.75rem]',
-                  shouldStackTiles &&
-                    '[&>*:first-child]:items-end [&>*:last-child]:items-start',
-                  shouldStackTiles && !isDesktop && '[--lk-grid-gap:0.375rem]',
-                  gridColumnCount === 2 &&
-                    '[&>*:nth-child(even)]:justify-start [&>*:nth-child(odd)]:justify-end',
-                  gridColumnCount === 3 &&
-                    '[&>*:nth-child(3n)]:justify-start [&>*:nth-child(3n+1)]:justify-end [&>*:nth-child(3n+2)]:justify-center',
-                  gridColumnCount === 4 &&
-                    '[&>*:nth-child(4n)]:justify-start [&>*:nth-child(4n+1)]:justify-end [&>*:nth-child(4n+2)]:justify-end [&>*:nth-child(4n+3)]:justify-start',
-                  gridColumnCount === 5 &&
-                    '[&>*:nth-child(5n)]:justify-start [&>*:nth-child(5n+1)]:justify-end [&>*:nth-child(5n+2)]:justify-end [&>*:nth-child(5n+3)]:justify-center [&>*:nth-child(5n+4)]:justify-start',
-                )}
-                style={gridLayoutStyle}
-              >
-                <CallParticipantTile layoutKey={tileLayoutKey} />
-              </GridLayout>
-              {!isDecisionOpen && (
-                <div className="pt-3">
-                  <CallDecisionBanner
-                    decision={decision?.activeItem}
-                    onOpen={() => setSidePanel('decisions')}
+      <main className="min-h-0 flex-1">
+        <ResizablePanel
+          panel={
+            isDesktop && sidePanel ? (
+              <aside className="h-full min-w-0">
+                {isChatOpen ? (
+                  <CallChatPanel
+                    serverId={serverId}
+                    channel={channel}
+                    callId={callConfig.call.id}
                   />
-                </div>
-              )}
+                ) : (
+                  <CallDecisionPanel
+                    serverId={serverId}
+                    channel={channel}
+                    callId={callConfig.call.id}
+                    onClose={() => setSidePanel(null)}
+                  />
+                )}
+              </aside>
+            ) : null
+          }
+          panelType={isChatOpen ? 'callChat' : 'callDecisions'}
+          resizeHandleLabel={t('actions.resizeRightPanel')}
+          defaultSize={380}
+          minSize="18rem"
+          maxSize="70%"
+          position="right"
+        >
+          <div className="flex h-full min-w-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-hidden p-3">
+              <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+                <GridLayout
+                  tracks={tracks}
+                  className={cn(
+                    'min-h-0 w-full flex-1 grid-rows-[repeat(var(--lk-row-count),minmax(0,1fr))] p-0 [--lk-grid-gap:0.75rem]',
+                    shouldStackTiles &&
+                      '[&>*:first-child]:items-end [&>*:last-child]:items-start',
+                    shouldStackTiles &&
+                      !isDesktop &&
+                      '[--lk-grid-gap:0.375rem]',
+                    gridColumnCount === 2 &&
+                      '[&>*:nth-child(even)]:justify-start [&>*:nth-child(odd)]:justify-end',
+                    gridColumnCount === 3 &&
+                      '[&>*:nth-child(3n)]:justify-start [&>*:nth-child(3n+1)]:justify-end [&>*:nth-child(3n+2)]:justify-center',
+                    gridColumnCount === 4 &&
+                      '[&>*:nth-child(4n)]:justify-start [&>*:nth-child(4n+1)]:justify-end [&>*:nth-child(4n+2)]:justify-end [&>*:nth-child(4n+3)]:justify-start',
+                    gridColumnCount === 5 &&
+                      '[&>*:nth-child(5n)]:justify-start [&>*:nth-child(5n+1)]:justify-end [&>*:nth-child(5n+2)]:justify-end [&>*:nth-child(5n+3)]:justify-center [&>*:nth-child(5n+4)]:justify-start',
+                  )}
+                  style={gridLayoutStyle}
+                >
+                  <CallParticipantTile layoutKey={tileLayoutKey} />
+                </GridLayout>
+                {!isDecisionOpen && (
+                  <div className="pt-3">
+                    <CallDecisionBanner
+                      decision={decision?.activeItem}
+                      onOpen={() => setSidePanel('decisions')}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-[--color-border] px-3 py-3">
+              <div className="flex items-center justify-center">
+                <CallControls
+                  onLeave={handleLeave}
+                  onOpenChat={() =>
+                    setSidePanel((panel) => (panel === 'chat' ? null : 'chat'))
+                  }
+                  onOpenDecisions={() =>
+                    setSidePanel((panel) =>
+                      panel === 'decisions' ? null : 'decisions',
+                    )
+                  }
+                />
+              </div>
             </div>
           </div>
-
-          <div className="border-t border-[--color-border] px-3 py-3">
-            <div className="flex items-center justify-center">
-              <CallControls
-                onLeave={handleLeave}
-                onOpenChat={() =>
-                  setSidePanel((panel) => (panel === 'chat' ? null : 'chat'))
-                }
-                onOpenDecisions={() =>
-                  setSidePanel((panel) =>
-                    panel === 'decisions' ? null : 'decisions',
-                  )
-                }
-              />
-            </div>
-          </div>
-        </div>
-
-        {isDesktop && sidePanel && (
-          <aside className="h-full w-95 min-w-0 border-l border-[--color-border]">
-            {isChatOpen ? (
-              <CallChatPanel
-                serverId={serverId}
-                channel={channel}
-                callId={callConfig.call.id}
-              />
-            ) : (
-              <CallDecisionPanel
-                serverId={serverId}
-                channel={channel}
-                callId={callConfig.call.id}
-                onClose={() => setSidePanel(null)}
-              />
-            )}
-          </aside>
-        )}
+        </ResizablePanel>
       </main>
 
       {!isDesktop && (

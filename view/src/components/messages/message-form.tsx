@@ -3,6 +3,7 @@ import { ChooseAuthDialog } from '@/components/auth/choose-auth-dialog';
 import { AttachedImagePreview } from '@/components/images/attached-image-preview';
 import { ImageInput } from '@/components/images/image-input';
 import { MessageFormMenu } from '@/components/messages/message-form-menu';
+import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { Button } from '@/components/ui/button';
 import { Form, FormField } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,10 +12,14 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { handleError } from '@/lib/error.utils';
 import { validateImageInput } from '@/lib/image.utilts';
-import { cn, debounce, t } from '@/lib/shared.utils';
+import { cn, t } from '@/lib/shared.utils';
 import { type FeedItemRes, type FeedQuery } from '@/types/channel.types';
 import { type ImageRes } from '@/types/image.types';
-import { type MessageRes } from '@/types/message.types';
+import {
+  type MessageRes,
+  type ThreadIdentity,
+  type ThreadQuery,
+} from '@/types/message.types';
 import { MESSAGE_BODY_MAX } from '@/constants/message.constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -37,6 +42,7 @@ interface Props {
   channelId?: string;
   callId?: string;
   forumPostId?: string;
+  thread?: ThreadIdentity;
   focusOnTyping?: boolean;
   showActions?: boolean;
   disabled?: boolean;
@@ -47,6 +53,7 @@ export const MessageForm = ({
   channelId,
   callId,
   forumPostId,
+  thread,
   focusOnTyping = true,
   showActions = true,
   disabled = false,
@@ -77,11 +84,29 @@ export const MessageForm = ({
   const isEmptyBody = !getValues('body') && !formState.dirtyFields.body;
   const isEmpty = isEmptyBody && !images.length;
 
-  const draftKey = forumPostId
-    ? `message-draft-${serverId}-${channelId}-forum-post-${forumPostId}`
-    : callId
-      ? `message-draft-${serverId}-${channelId}-call-${callId}`
-      : `message-draft-${serverId}-${channelId}`;
+  const draftKey = thread
+    ? `message-draft-${serverId}-${channelId}-thread-${thread.rootKind}-${thread.rootId}`
+    : forumPostId
+      ? `message-draft-${serverId}-${channelId}-forum-post-${forumPostId}`
+      : callId
+        ? `message-draft-${serverId}-${channelId}-call-${callId}`
+        : `message-draft-${serverId}-${channelId}`;
+
+  const saveDraft = (draft: string) => {
+    if (draft.trim()) {
+      localStorage.setItem(draftKey, draft);
+    } else {
+      localStorage.removeItem(draftKey);
+    }
+  };
+
+  const threadQueryKey = getThreadQueryKey(
+    serverId,
+    channelId,
+    thread?.rootKind,
+    thread?.rootId,
+    inviteToken,
+  );
 
   const feedQueryKey = callId
     ? ['servers', serverId, 'channels', channelId, 'calls', callId, 'feed']
@@ -106,7 +131,25 @@ export const MessageForm = ({
       validateImageInput(currentImages);
 
       let message: MessageRes;
-      if (forumPostId) {
+      if (thread) {
+        const response =
+          thread.rootKind === 'message'
+            ? await api.sendMessageThreadReply(
+                serverId,
+                channelId,
+                thread.rootId,
+                { body: body || undefined },
+                currentImages,
+              )
+            : await api.sendPollThreadReply(
+                serverId,
+                channelId,
+                thread.rootId,
+                { body: body || undefined },
+                currentImages,
+              );
+        message = response.message;
+      } else if (forumPostId) {
         const response = await api.createForumReply(
           serverId,
           channelId,
@@ -174,6 +217,12 @@ export const MessageForm = ({
         bot: null,
         createdAt: new Date().toISOString(),
         commandStatus: null,
+        threadRootId: thread?.rootKind === 'message' ? thread.rootId : undefined,
+        threadPollId: thread?.rootKind === 'poll' ? thread.rootId : undefined,
+        parentMessageId:
+          thread?.rootKind === 'message' ? thread.rootId : undefined,
+        replyCount: 0,
+        latestReplyAt: null,
         images: optimisticImages.length ? optimisticImages : undefined,
       };
 
@@ -183,7 +232,19 @@ export const MessageForm = ({
       };
 
       if (forumPostId) {
-        return { previousFeed: undefined, optimisticImages };
+        return {
+          previousFeed: undefined,
+          previousThread: undefined,
+          optimisticImages,
+        };
+      }
+
+      if (thread) {
+        return {
+          previousFeed: undefined,
+          previousThread: undefined,
+          optimisticImages,
+        };
       }
 
       await queryClient.cancelQueries({
@@ -213,7 +274,11 @@ export const MessageForm = ({
         return { pages, pageParams: oldData.pageParams };
       });
 
-      return { previousFeed, optimisticImages };
+      return {
+        previousFeed,
+        previousThread: undefined,
+        optimisticImages,
+      };
     },
     onSuccess: (message, _variables, context) => {
       if (!serverId || !channelId) {
@@ -233,7 +298,52 @@ export const MessageForm = ({
         type: 'message',
       };
 
-      if (forumPostId) {
+      if (thread) {
+        queryClient.setQueryData<ThreadQuery>(threadQueryKey, (oldData) => {
+          if (!oldData) {
+            return oldData;
+          }
+          const alreadyExists = oldData.pages.some((page) =>
+            page.replies.some((reply) => reply.id === message.id),
+          );
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page, index) => {
+              const withoutOptimistic = page.replies.filter(
+                (reply) => !reply.id.startsWith('temp-'),
+              );
+              const existsOnPage = withoutOptimistic.some(
+                (reply) => reply.id === message.id,
+              );
+              const replies = existsOnPage
+                ? withoutOptimistic.map((reply) =>
+                    reply.id === message.id
+                      ? {
+                          ...message,
+                          images: imagesWithSrc || message.images,
+                        }
+                      : reply,
+                  )
+                : index === 0 && !alreadyExists
+                  ? [
+                      ...withoutOptimistic,
+                      {
+                        ...message,
+                        images: imagesWithSrc || message.images,
+                      },
+                    ]
+                  : withoutOptimistic;
+              replies.sort(
+                (left, right) =>
+                  new Date(left.createdAt).getTime() -
+                    new Date(right.createdAt).getTime() ||
+                  left.id.localeCompare(right.id),
+              );
+              return { ...page, replies };
+            }),
+          };
+        });
+      } else if (forumPostId) {
         void queryClient.invalidateQueries({
           queryKey: ['servers', serverId, 'channels', channelId, 'forum'],
         });
@@ -288,6 +398,12 @@ export const MessageForm = ({
       reset();
     },
     onError: (error: Error, _variables, context) => {
+      if (context?.previousThread) {
+        queryClient.setQueryData<ThreadQuery>(
+          threadQueryKey,
+          context.previousThread,
+        );
+      }
       if (context?.previousFeed) {
         queryClient.setQueryData<FeedQuery>(feedQueryKey, context.previousFeed);
       }
@@ -379,14 +495,6 @@ export const MessageForm = ({
     };
   }, []);
 
-  const saveDraft = debounce((draft: string) => {
-    if (draft && draft.trim() !== '') {
-      localStorage.setItem(draftKey, draft);
-    } else {
-      localStorage.removeItem(draftKey);
-    }
-  }, 100);
-
   const isDisabled = () => {
     if (disabled || isMessageSending) {
       return true;
@@ -455,7 +563,11 @@ export const MessageForm = ({
               render={({ field }) => (
                 <Textarea
                   {...field}
-                  placeholder={t('messages.placeholders.sendMessage')}
+                  placeholder={t(
+                    thread
+                      ? 'messages.placeholders.sendThreadReply'
+                      : 'messages.placeholders.sendMessage',
+                  )}
                   className={cn(
                     'min-h-12 resize-none border-none bg-transparent py-3 shadow-none focus-visible:border-none focus-visible:ring-0 md:py-3.5 dark:bg-transparent',
                     isMessageSending && 'opacity-50',

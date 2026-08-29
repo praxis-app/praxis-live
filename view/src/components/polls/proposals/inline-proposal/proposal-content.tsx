@@ -35,6 +35,9 @@ interface Props {
   sourceCallContext?: SourceCallContext;
   isJoiningSourceCall?: boolean;
   canMoveToForum?: boolean;
+  onOpenThread?: () => void;
+  onCopyThreadLink?: () => void;
+  onImageLoad?: () => void;
   variant?: 'inline' | 'forum';
   votingDisabled?: boolean;
   votingDisabledReason?: string;
@@ -53,6 +56,9 @@ export const ProposalContent = ({
   sourceCallContext = 'in-call',
   isJoiningSourceCall = false,
   canMoveToForum = false,
+  onOpenThread,
+  onCopyThreadLink,
+  onImageLoad,
   variant = 'inline',
   votingDisabled = false,
   votingDisabledReason,
@@ -87,6 +93,8 @@ export const ProposalContent = ({
           channel={channel}
           canMoveToForum={canMoveToForum}
           feedQueryKey={feedQueryKey}
+          onOpenThread={onOpenThread}
+          onCopyThreadLink={onCopyThreadLink}
           onViewSettings={() => setIsSettingsDialogOpen(true)}
         />
       )}
@@ -111,6 +119,7 @@ export const ProposalContent = ({
           images={poll.images}
           channelId={channel.id}
           pollId={poll.id}
+          onImageLoad={onImageLoad}
           imageClassName="max-h-128 rounded-lg object-contain"
         />
       )}

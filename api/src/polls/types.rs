@@ -3,6 +3,7 @@ use sea_orm::prelude::{DateTimeWithTimeZone, Uuid};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    messages::types::{MessageResponse, MessageUser},
     poll_actions::types::{CreatePollActionRequest, PollActionResponse},
     votes::types::VoteResponse,
 };
@@ -78,7 +79,35 @@ pub(crate) struct PollResponse {
     pub(super) member_count: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) source_call_id: Option<String>,
+    pub(crate) reply_count: usize,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) reply_users: Vec<MessageUser>,
+    pub(crate) latest_reply_at: Option<String>,
     pub(crate) created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct PollThreadResponse {
+    pub(super) root: PollResponse,
+    pub(super) replies: Vec<MessageResponse>,
+    pub(super) start_cursor: Option<String>,
+    pub(super) next_cursor: Option<String>,
+    pub(super) has_more: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MovedPollThreadResponse {
+    pub(super) error: &'static str,
+    pub(super) moved_to: MovedPollThreadDestination,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MovedPollThreadDestination {
+    pub(super) destination_channel_id: String,
+    pub(super) forum_post_id: String,
 }
 
 #[derive(Debug, Serialize)]

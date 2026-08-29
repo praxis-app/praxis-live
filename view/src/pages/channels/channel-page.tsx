@@ -11,9 +11,15 @@ import {
   type RightPanel,
   type StandaloneRightPanel,
 } from '@/types/right-panel.types';
+import { type ThreadIdentity } from '@/types/message.types';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 
 const LARGE_DESKTOP_MEDIA_QUERY = '(min-width: 1200px)';
 
@@ -38,10 +44,20 @@ export const ChannelPage = () => {
 
   const { channelId, postId, serverSlug } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const threadRootId = searchParams.get('thread');
+  const threadRootKind =
+    searchParams.get('threadKind') === 'poll' ? 'poll' : 'message';
 
   const rightPanel: RightPanel = postId
     ? { type: 'forumPost', postId }
-    : standaloneRightPanel;
+    : threadRootId
+      ? {
+          type: 'thread',
+          rootKind: threadRootKind,
+          rootId: threadRootId,
+        }
+      : standaloneRightPanel;
 
   const channelPath =
     serverSlug && channelId ? `/s/${serverSlug}/c/${channelId}` : undefined;
@@ -67,8 +83,32 @@ export const ChannelPage = () => {
     if (postId && channelPath) {
       void navigate(channelPath);
     }
+    if (threadRootId) {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('thread');
+      nextSearchParams.delete('threadKind');
+      setSearchParams(nextSearchParams, { replace: true });
+    }
     localStorage.setItem(LocalStorageKeys.DecisionsPanelOpen, 'true');
     setStandaloneRightPanel(panel);
+  };
+
+  const openThread = (thread: ThreadIdentity) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('thread', thread.rootId);
+    if (thread.rootKind === 'poll') {
+      nextSearchParams.set('threadKind', 'poll');
+    } else {
+      nextSearchParams.delete('threadKind');
+    }
+    setSearchParams(nextSearchParams);
+  };
+
+  const closeThread = () => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('thread');
+    nextSearchParams.delete('threadKind');
+    setSearchParams(nextSearchParams, { replace: true });
   };
 
   const toggleDecisionsPanel = () => {
@@ -124,9 +164,11 @@ export const ChannelPage = () => {
   return (
     <TextChannelView
       channel={channel}
-      isDecisionsPanelOpen={rightPanel?.type === 'activeDecisions'}
+      rightPanel={rightPanel}
       onCloseDecisionsPanel={closeDecisionsPanel}
       onToggleDecisionsPanel={toggleDecisionsPanel}
+      onOpenThread={openThread}
+      onCloseThread={closeThread}
     />
   );
 };

@@ -29,6 +29,7 @@ import {
   voteViaApi,
 } from '../lib/polls';
 import { createMessages } from '../lib/messages';
+import { expectRightPanelToResize } from '../lib/right-panel';
 import { getAdminServerRole, getServerRole } from '../lib/server-roles';
 import {
   createServer,
@@ -130,6 +131,28 @@ test('authenticated user can create and vote in a poll', async ({
     await expect(createdPoll.getByText(option)).toBeVisible();
   }
   await expect(createdPoll.getByText('Ends in 30 minutes')).toBeVisible();
+
+  const threadReply = `Poll reply ${authenticatedUser.user.suffix}`;
+  await createdPoll.getByRole('button', { name: 'Open poll menu' }).click();
+  await page.getByRole('menuitem', { name: 'Reply' }).click();
+  const threadPanel = page.getByTestId('thread-panel');
+  await expect(threadPanel.getByText(question)).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`thread=${poll.id}.*threadKind=poll`),
+  );
+  const replyResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/polls/${poll.id}/replies`) &&
+      response.status() === 200,
+  );
+  await threadPanel.getByPlaceholder('Reply to thread...').fill(threadReply);
+  await threadPanel.getByPlaceholder('Reply to thread...').press('Enter');
+  await replyResponse;
+  await expect(threadPanel.getByText(threadReply)).toBeVisible();
+  await expect(createdPoll.getByText('1 reply')).toBeVisible();
+  await threadPanel.getByRole('button', { name: 'Close thread' }).click();
+  await expect(threadPanel).toBeHidden();
 
   const activeDecision = page
     .getByRole('complementary', { name: 'Active decisions' })
@@ -323,6 +346,7 @@ test('active decisions panel loads the next page when scrolled to the bottom', a
   });
   const finalDecision = decisionBodies.at(-1)!;
   await expect(panel.getByText(decisionBodies[0])).toBeVisible();
+  await expectRightPanelToResize(page, panel, 'activeDecisions');
 
   if (totalActiveDecisions > activeDecisionsPageSize) {
     await expect(panel.getByText(finalDecision)).toHaveCount(0);

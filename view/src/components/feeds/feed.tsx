@@ -9,11 +9,14 @@ import { LocalStorageKeys } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useInfiniteScroll } from '@/hooks/use-infinite-scroll';
 import { useServerData } from '@/hooks/use-server-data';
-import { cn } from '@/lib/shared.utils';
+import { cn, t } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
 import { type QueryKey } from '@tanstack/react-query';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { type ThreadIdentity } from '@/types/message.types';
+import { copyThreadLink } from '@/lib/thread.utils';
+import { toast } from 'sonner';
 
 const DECISION_HIGHLIGHT_DURATION_MS = 2000;
 
@@ -33,7 +36,13 @@ interface Props {
   isJoiningCall?: boolean;
   onJoinCall?: (callId: string) => void;
   scrollMode?: FeedScrollMode;
+  onOpenThread?: (thread: ThreadIdentity) => void;
 }
+
+const copyLinkToThread = (thread: ThreadIdentity) => {
+  copyThreadLink(thread);
+  toast(t('messages.prompts.linkCopied'));
+};
 
 export const Feed = ({
   channel,
@@ -49,6 +58,7 @@ export const Feed = ({
   isJoiningCall,
   onJoinCall,
   scrollMode = 'bottom-anchored',
+  onOpenThread,
 }: Props) => {
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
   const [openCallDetailsId, setOpenCallDetailsId] = useState<string | null>(
@@ -195,6 +205,14 @@ export const Feed = ({
                 onJoinCall={onJoinCall}
                 onViewCall={setOpenCallDetailsId}
                 canMoveToForum
+                onOpenThread={
+                  onOpenThread &&
+                  (() => onOpenThread({ rootKind: 'poll', rootId: item.id }))
+                }
+                onCopyThreadLink={
+                  onOpenThread &&
+                  (() => copyLinkToThread({ rootKind: 'poll', rootId: item.id }))
+                }
               />
             );
           }
@@ -206,6 +224,14 @@ export const Feed = ({
               channel={channel}
               feedQueryKey={feedQueryKey}
               me={me}
+              onOpenThread={
+                onOpenThread &&
+                (() => onOpenThread({ rootKind: 'poll', rootId: item.id }))
+              }
+              onCopyThreadLink={
+                onOpenThread &&
+                (() => copyLinkToThread({ rootKind: 'poll', rootId: item.id }))
+              }
             />
           );
         }
@@ -245,6 +271,15 @@ export const Feed = ({
             serverId={serverId}
             message={item}
             me={me}
+            onOpenThread={
+              onOpenThread &&
+              ((rootId: string) => onOpenThread({ rootKind: 'message', rootId }))
+            }
+            onCopyThreadLink={
+              onOpenThread &&
+              ((rootId: string) =>
+                copyLinkToThread({ rootKind: 'message', rootId }))
+            }
           />
         );
       })}

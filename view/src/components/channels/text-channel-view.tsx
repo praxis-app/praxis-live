@@ -3,7 +3,10 @@ import { Feed } from '@/components/feeds/feed';
 import { ChannelTopNav } from '@/components/channels/channel-top-nav';
 import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { MessageForm } from '@/components/messages/message-form';
+import { ThreadPanel } from '@/components/messages/thread/thread-panel';
+import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import { MESSAGES_PAGE_SIZE } from '@/constants/message.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
@@ -20,10 +23,16 @@ import {
   type FeedQueryPage,
 } from '@/types/channel.types';
 import { type CallArtifactRes } from '@/types/call.types';
-import { type MessageRes } from '@/types/message.types';
+import {
+  type MessageRes,
+  type ThreadIdentity,
+  type ThreadQuery,
+  type ThreadRootKind,
+} from '@/types/message.types';
 import { type PollRes } from '@/types/poll.types';
 import { type ProposalForumReferenceRes } from '@/types/forum.types';
 import { type PubSubMessage } from '@/types/shared.types';
+import { type RightPanel } from '@/types/right-panel.types';
 import { PubSubMessageType } from '@/constants/pub-sub.constants';
 import {
   preserveFeedImages,
@@ -31,13 +40,25 @@ import {
   replaceProposalWithForumReference,
 } from '@/lib/feed.utils';
 import { channelPubSubTopic } from '@/lib/pub-sub.utils';
+import { cn } from '@/lib/shared.utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface NewMessagePayload {
   type: PubSubMessageType.MESSAGE;
   message: MessageRes;
+}
+
+interface ThreadReplyPayload {
+  type: PubSubMessageType.THREAD_REPLY;
+  rootKind?: ThreadRootKind;
+  rootId?: string;
+  rootMessageId?: string;
+  reply: MessageRes;
+  replyCount: number;
+  latestReplyAt: string;
 }
 
 interface NewPollPayload {
@@ -57,16 +78,33 @@ interface NewCallPayload {
 
 interface Props {
   channel?: ChannelRes;
-  isDecisionsPanelOpen: boolean;
+  rightPanel: RightPanel;
   onCloseDecisionsPanel: () => void;
   onToggleDecisionsPanel: () => void;
+  onOpenThread: (thread: ThreadIdentity) => void;
+  onCloseThread: () => void;
 }
+
+const addReplyUser = (
+  replyUsers: MessageRes['replyUsers'],
+  replyUser: MessageRes['user'],
+) => {
+  if (!replyUser) {
+    return replyUsers;
+  }
+  return [
+    replyUser,
+    ...(replyUsers || []).filter((user) => user.id !== replyUser.id),
+  ].slice(0, 3);
+};
 
 export const TextChannelView = ({
   channel,
-  isDecisionsPanelOpen,
+  rightPanel,
   onCloseDecisionsPanel,
   onToggleDecisionsPanel,
+  onOpenThread,
+  onCloseThread,
 }: Props) => {
   const { inviteToken } = useAuthStore();
 
@@ -77,10 +115,13 @@ export const TextChannelView = ({
   const isDesktop = useIsDesktop();
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const { me, isMeSuccess, isAuthError } = useAuthData();
   const { data: capabilities } = useInstanceCapabilitiesQuery();
   const { server, serverId } = useServerData();
+  const isDecisionsPanelOpen = rightPanel?.type === 'activeDecisions';
+  const thread = rightPanel?.type === 'thread' ? rightPanel : undefined;
 
   const {
     callConfig,
@@ -171,6 +212,32 @@ export const TextChannelView = ({
   const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
   const focusedDecisionId = navigationDecisionId;
 
+  // Keep the thread panel root in sync with live feed updates such as votes.
+  const threadPoll = useMemo(() => {
+    if (thread?.rootKind !== 'poll') {
+      return undefined;
+    }
+    return feed.find(
+      (item) => item.type === 'poll' && item.id === thread.rootId,
+    ) as PollRes | undefined;
+  }, [feed, thread]);
+
+  useEffect(() => {
+    if (thread?.rootKind !== 'poll' || !server?.slug) {
+      return;
+    }
+    const movedReference = feed.find(
+      (item) => item.type === 'proposalMoved' && item.proposalId === thread.rootId,
+    );
+    if (!movedReference || movedReference.type !== 'proposalMoved') {
+      return;
+    }
+    void navigate(
+      `/s/${server.slug}/c/${movedReference.destinationChannelId}/posts/${movedReference.forumPostId}`,
+      { replace: true },
+    );
+  }, [feed, navigate, server?.slug, thread]);
+
   // Load more of the feed until the selected decision is found.
   useEffect(() => {
     const isDecisionLoaded = feed.some(
@@ -200,10 +267,81 @@ export const TextChannelView = ({
     channelPubSubTopic('new-message', serverId, channel?.id, me?.id),
     {
       onMessage: (event) => {
-        const { body }: PubSubMessage<NewMessagePayload> = JSON.parse(
-          event.data,
-        );
+        const { body }: PubSubMessage<NewMessagePayload | ThreadReplyPayload> =
+          JSON.parse(event.data);
         if (!body) {
+          return;
+        }
+
+        if (body.type === PubSubMessageType.THREAD_REPLY) {
+          const rootKind = body.rootKind || 'message';
+          const rootId = body.rootId || body.rootMessageId;
+          if (!rootId) {
+            return;
+          }
+          queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) => {
+            if (!oldData) {
+              return oldData;
+            }
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => ({
+                ...page,
+                feed: page.feed.map((item) =>
+                  ((rootKind === 'message' && item.type === 'message') ||
+                    (rootKind === 'poll' && item.type === 'poll')) &&
+                  item.id === rootId
+                    ? {
+                        ...item,
+                        replyCount: body.replyCount,
+                        replyUsers: addReplyUser(
+                          item.replyUsers,
+                          body.reply.user,
+                        ),
+                        latestReplyAt: body.latestReplyAt,
+                      }
+                    : item,
+                ),
+              })),
+            };
+          });
+
+          const threadQueryKey = getThreadQueryKey(
+            serverId,
+            channel?.id,
+            rootKind,
+            rootId,
+            inviteToken,
+          );
+          queryClient.setQueryData<ThreadQuery>(threadQueryKey, (oldData) => {
+            if (!oldData?.pages[0]) {
+              return oldData;
+            }
+            const alreadyExists = oldData.pages.some((page) =>
+              page.replies.some((reply) => reply.id === body.reply.id),
+            );
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page, index) => ({
+                ...page,
+                root: {
+                  ...page.root,
+                  replyCount: body.replyCount,
+                  replyUsers: addReplyUser(
+                    page.root.replyUsers,
+                    body.reply.user,
+                  ),
+                  latestReplyAt: body.latestReplyAt,
+                },
+                replies:
+                  index === 0 && !alreadyExists
+                    ? [...page.replies, body.reply]
+                    : page.replies.map((reply) =>
+                        reply.id === body.reply.id ? body.reply : reply,
+                      ),
+              })),
+            };
+          });
           return;
         }
 
@@ -322,6 +460,15 @@ export const TextChannelView = ({
           queryClient.setQueryData<FeedQuery>(feedQueryKey, (oldData) =>
             replaceProposalWithForumReference(oldData, body.reference),
           );
+          if (
+            thread?.rootKind === 'poll' &&
+            thread.rootId === body.reference.proposalId &&
+            server?.slug
+          ) {
+            void navigate(
+              `/s/${server.slug}/c/${body.reference.destinationChannelId}/posts/${body.reference.forumPostId}`,
+            );
+          }
           return;
         }
         scrollToBottom();
@@ -385,57 +532,98 @@ export const TextChannelView = ({
     }
   };
 
+  const desktopRightPanel =
+    isDesktop && channel && thread ? (
+      <ThreadPanel
+        channel={channel}
+        thread={thread}
+        rootPoll={threadPoll}
+        feedQueryKey={feedQueryKey}
+        onClose={onCloseThread}
+      />
+    ) : isDesktop && isDecisionsPanelOpen ? (
+      <DecisionsPanel isOpen onClose={onCloseDecisionsPanel} />
+    ) : null;
+
   return (
     <div className="fixed top-0 right-0 bottom-0 left-0 flex">
-      {isDesktop && <LeftNavDesktop me={me} />}
+      <ResizablePanel
+        panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
+        panelType="channelsList"
+        resizeHandleLabel={t('actions.resizeChannelsPanel')}
+        groupResizeBehavior="preserve-pixel-size"
+        defaultSize={240}
+        minSize="12rem"
+        maxSize={400}
+        position="left"
+      >
+        <ResizablePanel
+          panel={desktopRightPanel}
+          panelType={thread ? 'thread' : 'activeDecisions'}
+          resizeHandleLabel={t('actions.resizeRightPanel')}
+          defaultSize={thread ? 480 : 320}
+          minSize="18rem"
+          maxSize="70%"
+          position="right"
+        >
+          <div
+            className={cn(
+              'flex h-full min-w-0 flex-1 flex-col',
+              !isDesktop && thread && 'hidden',
+            )}
+          >
+            <ChannelTopNav
+              channel={channel}
+              callConfig={callConfig}
+              callPreferences={callPreferences}
+              serverName={server?.name}
+              isJoiningCall={isJoining}
+              isPreJoinOpen={isPreJoinOpen}
+              videoCallsEnabled={videoCallsEnabled}
+              onCancelPreJoin={cancelPreJoin}
+              onConfirmJoinCall={confirmJoinCall}
+              onJoinCall={joinCall}
+              onLeaveCall={leaveCall}
+              isDecisionsPanelOpen={isDecisionsPanelOpen}
+              onToggleDecisionsPanel={onToggleDecisionsPanel}
+            />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ChannelTopNav
-          channel={channel}
-          callConfig={callConfig}
-          callPreferences={callPreferences}
-          serverName={server?.name}
-          isJoiningCall={isJoining}
-          isPreJoinOpen={isPreJoinOpen}
-          videoCallsEnabled={videoCallsEnabled}
-          onCancelPreJoin={cancelPreJoin}
-          onConfirmJoinCall={confirmJoinCall}
-          onJoinCall={joinCall}
-          onLeaveCall={leaveCall}
-          isDecisionsPanelOpen={isDecisionsPanelOpen}
-          onToggleDecisionsPanel={onToggleDecisionsPanel}
-        />
+            <Feed
+              feed={feed}
+              channel={channel}
+              feedBoxRef={feedBoxRef}
+              isLastPage={!hasNextPage}
+              isJoiningCall={isJoining}
+              feedQueryKey={feedQueryKey}
+              isLoadingMore={isFetchingNextPage}
+              focusedDecisionId={focusedDecisionId}
+              focusedDecisionRequestKey={location.key}
+              onFocusedDecisionHandled={clearFocusedDecisionRequest}
+              onJoinCall={videoCallsEnabled ? joinCall : undefined}
+              onLoadMore={() => void fetchNextPage({ cancelRefetch: false })}
+              onOpenThread={onOpenThread}
+            />
 
-        <Feed
-          feed={feed}
-          channel={channel}
-          feedBoxRef={feedBoxRef}
-          isLastPage={!hasNextPage}
-          isJoiningCall={isJoining}
-          feedQueryKey={feedQueryKey}
-          isLoadingMore={isFetchingNextPage}
-          focusedDecisionId={focusedDecisionId}
-          focusedDecisionRequestKey={location.key}
-          onFocusedDecisionHandled={clearFocusedDecisionRequest}
-          onJoinCall={videoCallsEnabled ? joinCall : undefined}
-          onLoadMore={() => void fetchNextPage({ cancelRefetch: false })}
-        />
+            <MessageForm
+              channelId={channel?.id}
+              focusOnTyping={!callConfig}
+              onSend={() => {
+                shouldScrollAfterSendRef.current = true;
+              }}
+            />
+          </div>
 
-        <MessageForm
-          channelId={channel?.id}
-          focusOnTyping={!callConfig}
-          onSend={() => {
-            shouldScrollAfterSendRef.current = true;
-          }}
-        />
-      </div>
-
-      {isDesktop && (
-        <DecisionsPanel
-          isOpen={isDecisionsPanelOpen}
-          onClose={onCloseDecisionsPanel}
-        />
-      )}
+          {!isDesktop && channel && thread && (
+            <ThreadPanel
+              channel={channel}
+              thread={thread}
+              rootPoll={threadPoll}
+              feedQueryKey={feedQueryKey}
+              onClose={onCloseThread}
+            />
+          )}
+        </ResizablePanel>
+      </ResizablePanel>
     </div>
   );
 };

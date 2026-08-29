@@ -15,6 +15,8 @@
     "previous": "Previous",
     "refresh": "Refresh",
     "remove": "Remove",
+    "resizeChannelsPanel": "Resize channels panel",
+    "resizeRightPanel": "Resize right panel",
     "save": "Save",
     "search": "Search",
     "submit": "Submit"
@@ -405,6 +407,7 @@
     "actions": {
       "addAnswer": "Add another answer",
       "createPoll": "Create poll",
+      "openMenu": "Open poll menu",
       "vote": "Vote",
       "removeVote": "Remove vote"
     },
@@ -420,17 +423,30 @@
     "actions": {
       "sendAnonymous": "Send anonymously",
       "dismissMessage": "Dismiss message",
-      "openMessageActions": "Open message actions"
+      "openMessageActions": "Open message actions",
+      "openMenu": "Open message menu",
+      "copyLink": "Copy link",
+      "reply": "Reply"
+    },
+    "labels": {
+      "replies": "Replies",
+      "replyCount_one": "{{count}} reply",
+      "replyCount_other": "{{count}} replies",
+      "lastReplyToday": "Last reply today at {{time}}",
+      "lastReplyYesterday": "Last reply yesterday at {{time}}",
+      "lastReplyOn": "Last reply {{date}} at {{time}}"
     },
     "placeholders": {
-      "sendMessage": "Send a message..."
+      "sendMessage": "Send a message...",
+      "sendThreadReply": "Reply to thread..."
     },
     "prompts": {
       "sendAMessage": "Send a message...",
       "noMessagesYet": "No messages yet",
       "onlyVisibleToYou": "Only visible to you",
       "inviteRequired": "You need to be invited or logged in before you can send messages.",
-      "processingCommand": "Processing your command..."
+      "processingCommand": "Processing your command...",
+      "linkCopied": "Link copied to clipboard"
     },
     "errors": {
       "longBody": "Message body cannot exceed 6000 characters",
@@ -438,6 +454,18 @@
     },
     "names": {
       "praxisBot": "praxis-bot"
+    },
+    "threads": {
+      "title": "Thread",
+      "channel": "In #{{channel}}",
+      "back": "Back to channel",
+      "close": "Close thread",
+      "loading": "Loading thread...",
+      "loadOlder": "Load older replies",
+      "loadingOlder": "Loading older replies...",
+      "empty": "No replies yet. Start the conversation here.",
+      "notFoundTitle": "Thread not available",
+      "notFoundDescription": "This message may have moved, or you may not have access to it."
     }
   },
 

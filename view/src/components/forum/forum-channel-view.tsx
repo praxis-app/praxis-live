@@ -3,6 +3,7 @@ import { DecisionsPanel } from '@/components/decisions/decisions-panel';
 import { ForumPostDetail } from '@/components/forum/forum-post-detail';
 import { ForumPostList } from '@/components/forum/forum-post-list';
 import { LeftNavDesktop } from '@/components/nav/left-nav-desktop';
+import { ResizablePanel } from '@/components/shared/resizable-panel/resizable-panel';
 import { BrowserEvents, KeyCodes } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useChannelCall } from '@/hooks/use-channel-call';
@@ -15,6 +16,7 @@ import { type ChannelRes } from '@/types/channel.types';
 import { type RightPanel } from '@/types/right-panel.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 interface Props {
@@ -47,6 +49,7 @@ export const ForumChannelView = ({
 
   const queryClient = useQueryClient();
   const isDesktop = useIsDesktop();
+  const { t } = useTranslation();
   const { postId } = useParams();
   const navigate = useNavigate();
 
@@ -105,46 +108,59 @@ export const ForumChannelView = ({
     },
   );
 
+  const desktopRightPanel =
+    isDesktop && postId && isForumPostPanelOpen ? (
+      <ForumPostDetail channel={channel} postId={postId} isPane />
+    ) : isDesktop && isDecisionsPanelOpen ? (
+      <DecisionsPanel isOpen onClose={onCloseDecisionsPanel} />
+    ) : null;
+
   return (
     <div className="fixed inset-0 flex">
-      {isDesktop && <LeftNavDesktop me={me} />}
+      <ResizablePanel
+        panel={isDesktop ? <LeftNavDesktop me={me} /> : null}
+        panelType="channelsList"
+        resizeHandleLabel={t('actions.resizeChannelsPanel')}
+        defaultSize={240}
+        minSize="12rem"
+        maxSize={400}
+        position="left"
+        groupResizeBehavior="preserve-pixel-size"
+      >
+        <ResizablePanel
+          panel={desktopRightPanel}
+          panelType={isForumPostPanelOpen ? 'forumPost' : 'activeDecisions'}
+          resizeHandleLabel={t('actions.resizeRightPanel')}
+          defaultSize={isForumPostPanelOpen ? 720 : 320}
+          minSize="18rem"
+          maxSize="70%"
+          position="right"
+        >
+          <div className="flex h-full min-w-0 flex-1 flex-col">
+            <ChannelTopNav
+              channel={channel}
+              callConfig={callConfig}
+              callPreferences={callPreferences}
+              isDecisionsPanelOpen={isDecisionsPanelOpen}
+              isJoiningCall={isJoining}
+              isPreJoinOpen={isPreJoinOpen}
+              onCancelPreJoin={cancelPreJoin}
+              onConfirmJoinCall={confirmJoinCall}
+              onJoinCall={joinCall}
+              onLeaveCall={leaveCall}
+              videoCallsEnabled={capabilities?.videoCallsEnabled === true}
+              onToggleDecisionsPanel={onToggleDecisionsPanel}
+              serverName={server?.name}
+            />
 
-      <div className="flex min-w-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <ChannelTopNav
-            channel={channel}
-            callConfig={callConfig}
-            callPreferences={callPreferences}
-            isDecisionsPanelOpen={isDecisionsPanelOpen}
-            isJoiningCall={isJoining}
-            isPreJoinOpen={isPreJoinOpen}
-            onCancelPreJoin={cancelPreJoin}
-            onConfirmJoinCall={confirmJoinCall}
-            onJoinCall={joinCall}
-            onLeaveCall={leaveCall}
-            videoCallsEnabled={capabilities?.videoCallsEnabled === true}
-            onToggleDecisionsPanel={onToggleDecisionsPanel}
-            serverName={server?.name}
-          />
-
-          {isDesktop || !postId ? (
-            <ForumPostList channel={channel} selectedPostId={postId} />
-          ) : (
-            <ForumPostDetail channel={channel} postId={postId} />
-          )}
-        </div>
-
-        {isDesktop && postId && isForumPostPanelOpen && (
-          <ForumPostDetail channel={channel} postId={postId} isPane />
-        )}
-      </div>
-
-      {isDesktop && (
-        <DecisionsPanel
-          isOpen={isDecisionsPanelOpen}
-          onClose={onCloseDecisionsPanel}
-        />
-      )}
+            {isDesktop || !postId ? (
+              <ForumPostList channel={channel} selectedPostId={postId} />
+            ) : (
+              <ForumPostDetail channel={channel} postId={postId} />
+            )}
+          </div>
+        </ResizablePanel>
+      </ResizablePanel>
     </div>
   );
 };

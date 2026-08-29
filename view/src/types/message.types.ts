@@ -1,6 +1,7 @@
 import { type CommandStatus } from '@/types/command.types';
 import { type ImageRes } from './image.types';
 import { type UserRes } from './user.types';
+import { type PollRes } from './poll.types';
 
 export interface BotRes {
   id: string;
@@ -18,6 +19,43 @@ export interface MessageRes {
   bot: BotRes | null;
   commandStatus?: CommandStatus | null;
   threadRootId?: string;
+  threadPollId?: string;
   parentMessageId?: string;
+  replyCount: number;
+  replyUsers?: UserRes[];
+  latestReplyAt: string | null;
   createdAt: string;
+}
+
+export interface CreateReplyReq {
+  body?: string;
+  parentMessageId?: string;
+}
+
+export interface ThreadPageRes {
+  root: MessageRes | PollRes;
+  replies: MessageRes[];
+  startCursor: string | null;
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface MovedThreadErrorRes {
+  error: string;
+  movedTo: {
+    destinationChannelId: string;
+    forumPostId: string;
+  };
+}
+
+export type ThreadRootKind = 'message' | 'poll';
+
+export interface ThreadIdentity {
+  rootKind: ThreadRootKind;
+  rootId: string;
+}
+
+export interface ThreadQuery {
+  pages: ThreadPageRes[];
+  pageParams: (string | null)[];
 }

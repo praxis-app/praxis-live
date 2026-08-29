@@ -5,8 +5,8 @@ use axum::{
 use sea_orm::DatabaseConnection;
 
 use super::handlers::{
-    create_call_message, create_message, get_call_message_image,
-    get_message_image, ChatState,
+    create_call_message, create_message, create_reply, get_call_message_image,
+    get_message_image, list_replies, ChatState,
 };
 use crate::pub_sub::PubSubService;
 
@@ -17,6 +17,10 @@ pub(crate) fn router(
 ) -> Router {
     Router::new()
         .route("/", post(create_message))
+        .route(
+            "/{rootMessageId}/replies",
+            get(list_replies).post(create_reply),
+        )
         .route("/{messageId}/images/{imageId}", get(get_message_image))
         .with_state(ChatState::new(database, jwt_secret, pub_sub_service))
 }

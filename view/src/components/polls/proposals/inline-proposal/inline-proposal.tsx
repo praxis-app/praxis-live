@@ -3,6 +3,7 @@ import {
   type SourceCallContext,
 } from '@/components/polls/proposals/inline-proposal/proposal-content';
 import { Card } from '@/components/ui/card';
+import { MessageThreadSummary } from '@/components/messages/message-thread-summary';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
 import { DECISION_FOCUS_TARGET_CLASS_NAME } from '@/constants/style.constants';
@@ -28,6 +29,9 @@ interface Props {
   sourceCallContext?: SourceCallContext;
   isJoiningSourceCall?: boolean;
   canMoveToForum?: boolean;
+  onOpenThread?: () => void;
+  onCopyThreadLink?: () => void;
+  onImageLoad?: () => void;
 }
 
 export const InlineProposal = ({
@@ -42,6 +46,9 @@ export const InlineProposal = ({
   sourceCallContext = 'in-call',
   isJoiningSourceCall = false,
   canMoveToForum = false,
+  onOpenThread,
+  onCopyThreadLink,
+  onImageLoad,
 }: Props) => {
   const { t } = useTranslation();
   const { body, user, config, createdAt } = poll;
@@ -111,8 +118,19 @@ export const InlineProposal = ({
             sourceCallContext={sourceCallContext}
             isJoiningSourceCall={isJoiningSourceCall}
             canMoveToForum={canMoveToForum}
+            onOpenThread={onOpenThread}
+            onCopyThreadLink={onCopyThreadLink}
+            onImageLoad={onImageLoad}
           />
         </Card>
+        {onOpenThread && poll.replyCount > 0 && (
+          <MessageThreadSummary
+            replyCount={poll.replyCount}
+            replyUsers={poll.replyUsers || []}
+            latestReplyAt={poll.latestReplyAt}
+            onOpen={onOpenThread}
+          />
+        )}
       </div>
     </article>
   );

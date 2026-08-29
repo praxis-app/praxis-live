@@ -1,7 +1,16 @@
+// TODO: Continue splitting focused modules under `api/src/messages`, leaving
+// message creation and the shared validators here:
+//
+//   images.rs      attachment writes and image serving
+//   responses.rs   model-to-DTO shaping
+//   broadcasts.rs  pub/sub fan-out
+//   feed.rs        channel and call feeds, plus their cursors
+
 use axum::http::StatusCode;
 use entity::{message_images, messages, users};
 use sea_orm::{
-    prelude::Uuid, ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
+    prelude::{DateTimeWithTimeZone, Uuid},
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
     DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
     TransactionTrait,
 };
@@ -11,6 +20,7 @@ use std::{
 };
 use uuid::Uuid as NativeUuid;
 
+pub(super) use super::replies::{broadcast_reply, create_reply, list_replies};
 use super::types::{
     serialize_timestamp, CreateMessageRequest, ImageResponse, MessageResponse,
     MessageUser, StoredImage,
@@ -41,7 +51,9 @@ pub(crate) async fn get_channel_message_feed(
 
     let mut query = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
-        .filter(messages::Column::CallId.is_null());
+        .filter(messages::Column::CallId.is_null())
+        .filter(messages::Column::ThreadRootId.is_null())
+        .filter(messages::Column::ThreadPollId.is_null());
     if let Some(cursor) = cursor {
         query = query.filter(cursor_condition(cursor, direction));
     }
@@ -76,7 +88,9 @@ pub(crate) async fn get_call_message_feed(
 
     let mut query = messages::Entity::find()
         .filter(messages::Column::ChannelId.eq(channel_id))
-        .filter(messages::Column::CallId.eq(call_id));
+        .filter(messages::Column::CallId.eq(call_id))
+        .filter(messages::Column::ThreadRootId.is_null())
+        .filter(messages::Column::ThreadPollId.is_null());
     if let Some(cursor) = cursor {
         query = query.filter(cursor_condition(cursor, direction));
     }
@@ -97,7 +111,7 @@ pub(crate) async fn get_call_message_feed(
     shape_messages(database, messages).await
 }
 
-fn cursor_condition(
+pub(super) fn cursor_condition(
     cursor: PaginationCursor,
     direction: PaginationDirection,
 ) -> Condition {
@@ -278,10 +292,31 @@ pub(crate) async fn shape_messages(
     database: &DatabaseConnection,
     messages: Vec<messages::Model>,
 ) -> AppResult<Vec<MessageResponse>> {
-    let user_ids: Vec<Uuid> =
-        messages.iter().map(|message| message.user_id).collect();
     let message_ids: Vec<Uuid> =
         messages.iter().map(|message| message.id).collect();
+
+    let root_ids = messages
+        .iter()
+        .filter(|message| {
+            message.thread_root_id.is_none() && message.thread_poll_id.is_none()
+        })
+        .map(|message| message.id)
+        .collect::<Vec<_>>();
+    let reply_summaries =
+        super::replies::load_reply_summaries(database, root_ids.clone())
+            .await?;
+    let reply_participants =
+        super::replies::load_reply_participants(database, root_ids).await?;
+
+    let mut user_ids: Vec<Uuid> =
+        messages.iter().map(|message| message.user_id).collect();
+    user_ids.extend(
+        reply_participants
+            .values()
+            .flat_map(|participant_ids| participant_ids.iter().copied()),
+    );
+    user_ids.sort_unstable();
+    user_ids.dedup();
 
     let users_by_id: HashMap<Uuid, users::Model> = users::Entity::find()
         .filter(users::Column::Id.is_in(user_ids.clone()))
@@ -314,13 +349,12 @@ pub(crate) async fn shape_messages(
         .collect::<Vec<_>>();
     let key_map =
         channels::get_unwrapped_channel_key_map(database, key_ids).await?;
-
     Ok(messages
         .into_iter()
         .map(|message| {
             shape_message(
                 &message,
-                users_by_id.get(&message.user_id),
+                &users_by_id,
                 &profile_pictures,
                 images_by_message
                     .get(&message.id)
@@ -328,6 +362,11 @@ pub(crate) async fn shape_messages(
                     .unwrap_or_default()
                     .iter(),
                 decrypt_message_body(&message, &key_map),
+                reply_summaries.get(&message.id),
+                reply_participants
+                    .get(&message.id)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
             )
         })
         .collect())
@@ -549,13 +588,15 @@ fn resolve_upload_path(upload_root: &Path, storage_key: &str) -> PathBuf {
 
 fn shape_message<'a>(
     message: &messages::Model,
-    user: Option<&users::Model>,
+    users_by_id: &HashMap<Uuid, users::Model>,
     profile_pictures: &std::collections::BTreeMap<
         Uuid,
         crate::users::UserImageRef,
     >,
     images: impl Iterator<Item = &'a message_images::Model>,
     body: Option<String>,
+    reply_summary: Option<&(usize, DateTimeWithTimeZone)>,
+    reply_participant_ids: &[Uuid],
 ) -> MessageResponse {
     MessageResponse {
         id: message.id.to_string(),
@@ -563,19 +604,43 @@ fn shape_message<'a>(
         images: images
             .map(|image| shape_image(image, image.storage_key.is_none()))
             .collect(),
-        user: user.map(|user| MessageUser {
-            id: user.id.to_string(),
-            name: user.name.clone(),
-            display_name: user.display_name.clone(),
-            profile_picture: profile_pictures.get(&user.id).cloned(),
-        }),
+        user: users_by_id
+            .get(&message.user_id)
+            .map(|user| shape_message_user(user, profile_pictures)),
         user_id: Some(message.user_id.to_string()),
         bot_id: None,
         bot: None,
         command_status: None,
         thread_root_id: message.thread_root_id.map(|id| id.to_string()),
+        thread_poll_id: message.thread_poll_id.map(|id| id.to_string()),
         parent_message_id: message.parent_message_id.map(|id| id.to_string()),
+        reply_count: reply_summary.map(|(count, _)| *count).unwrap_or_default(),
+        reply_users: reply_participant_ids
+            .iter()
+            .filter_map(|user_id| {
+                users_by_id
+                    .get(user_id)
+                    .map(|user| shape_message_user(user, profile_pictures))
+            })
+            .collect(),
+        latest_reply_at: reply_summary
+            .map(|(_, created_at)| serialize_timestamp(*created_at)),
         created_at: serialize_timestamp(message.created_at),
+    }
+}
+
+fn shape_message_user(
+    user: &users::Model,
+    profile_pictures: &std::collections::BTreeMap<
+        Uuid,
+        crate::users::UserImageRef,
+    >,
+) -> MessageUser {
+    MessageUser {
+        id: user.id.to_string(),
+        name: user.name.clone(),
+        display_name: user.display_name.clone(),
+        profile_picture: profile_pictures.get(&user.id).cloned(),
     }
 }
 
@@ -631,7 +696,7 @@ pub(crate) fn validate_message_content(
     }
 }
 
-fn internal_consistency_error(message: &'static str) -> ApiError {
+pub(super) fn internal_consistency_error(message: &'static str) -> ApiError {
     tracing::error!("message data is inconsistent: {message}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }
@@ -687,7 +752,7 @@ async fn broadcast_to_channel_members(
     Ok(())
 }
 
-fn internal_error(error: impl std::fmt::Display) -> ApiError {
+pub(super) fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("chat request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }

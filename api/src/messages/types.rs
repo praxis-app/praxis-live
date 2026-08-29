@@ -22,8 +22,36 @@ pub(super) struct CallMessageImagePath {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(super) struct ThreadPath {
+    pub(super) root_message_id: Uuid,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct ListRepliesQuery {
+    pub(crate) before: Option<String>,
+    pub(crate) after: Option<String>,
+    pub(crate) limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct CreateMessageRequest {
     pub(crate) body: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct CreateReplyRequest {
+    pub(crate) body: Option<String>,
+    pub(crate) parent_message_id: Option<Uuid>,
+}
+
+#[derive(Debug)]
+pub(super) struct CreateReplyContext {
+    pub(super) server_id: Uuid,
+    pub(super) channel_id: Uuid,
+    pub(super) root_message_id: Uuid,
+    pub(super) user_id: Uuid,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -59,13 +87,29 @@ pub(crate) struct MessageResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) thread_root_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) thread_poll_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) parent_message_id: Option<String>,
+    pub(crate) reply_count: usize,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) reply_users: Vec<MessageUser>,
+    pub(crate) latest_reply_at: Option<String>,
     pub(crate) created_at: String,
 }
 
 #[derive(Debug, Serialize)]
-pub(super) struct MessagePayload {
-    pub(super) message: MessageResponse,
+#[serde(rename_all = "camelCase")]
+pub(super) struct ThreadResponse {
+    pub(super) root: MessageResponse,
+    pub(super) replies: Vec<MessageResponse>,
+    pub(super) start_cursor: Option<String>,
+    pub(super) next_cursor: Option<String>,
+    pub(super) has_more: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct MessagePayload {
+    pub(crate) message: MessageResponse,
 }
 
 #[derive(Debug, Clone)]

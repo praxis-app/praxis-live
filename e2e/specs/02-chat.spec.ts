@@ -18,6 +18,7 @@ import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import { createMessages } from '../lib/messages';
+import { expectRightPanelToResize } from '../lib/right-panel';
 import {
   createServer,
   createServerAdmin,
@@ -558,6 +559,7 @@ test('authenticated user can create and vote on an in-call proposal', async ({
     await expect(
       activeDecisionPanel.getByText('No active decision'),
     ).toBeVisible();
+    await expectRightPanelToResize(page, activeDecisionPanel, 'callDecisions');
 
     await activeDecisionPanel
       .getByRole('button', { name: 'Create proposal' })

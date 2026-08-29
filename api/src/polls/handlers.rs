@@ -3,8 +3,8 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::Response,
-    response::Json,
+    http::{Response, StatusCode},
+    response::{IntoResponse, Json},
 };
 use sea_orm::DatabaseConnection;
 use std::{path::PathBuf, sync::Arc};
@@ -21,11 +21,18 @@ use super::{
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
     calls::extractors::CallWriteContext,
-    channels::{self, extractors::ChannelWriteContext},
+    channels::{
+        self,
+        extractors::{CanReadChannelContext, ChannelWriteContext},
+    },
     common::{request::JsonOrMultipartFiles, storage::upload_root, AppResult},
     invites::InviteAccessToken,
     pub_sub::PubSubService,
     servers::types::ServerPath,
+};
+
+use crate::messages::types::{
+    CreateReplyRequest, ListRepliesQuery, MessagePayload,
 };
 
 #[derive(Clone, Debug)]
@@ -95,6 +102,74 @@ pub(super) async fn create_poll(
     }
 
     Ok(Json(PollPayload { poll }))
+}
+
+pub(super) async fn list_replies(
+    State(state): State<PollsState>,
+    context: CanReadChannelContext,
+    Path(path): Path<PollPath>,
+    Query(query): Query<ListRepliesQuery>,
+) -> AppResult<Response<axum::body::Body>> {
+    let result = super::replies::list_replies(
+        &state.database,
+        super::replies::ListRepliesContext {
+            server_id: context.server_id,
+            channel_id: context.channel_id,
+            poll_id: path.poll_id,
+            current_user_id: context.user_id,
+        },
+        query.before.as_deref(),
+        query.after.as_deref(),
+        query.limit.unwrap_or(50).min(100),
+    )
+    .await?;
+    Ok(match result {
+        super::replies::PollThreadLookup::Thread(thread) => {
+            Json(thread).into_response()
+        }
+        super::replies::PollThreadLookup::Moved(moved) => {
+            (StatusCode::GONE, Json(moved)).into_response()
+        }
+    })
+}
+
+pub(super) async fn create_reply(
+    State(state): State<PollsState>,
+    context: ChannelWriteContext,
+    Path(path): Path<PollPath>,
+    multipart: JsonOrMultipartFiles<CreateReplyRequest>,
+) -> AppResult<Json<MessagePayload>> {
+    let (payload, images) = multipart.into_payload_and_files();
+    let created = super::replies::create_reply(
+        &state.database,
+        &state.upload_root,
+        super::replies::CreateReplyContext {
+            server_id: context.server_id,
+            channel_id: context.channel_id,
+            poll_id: path.poll_id,
+            user_id: context.user_id,
+        },
+        payload,
+        images,
+    )
+    .await?;
+    if let Err(error) = super::replies::broadcast_reply(
+        &state.database,
+        &state.pub_sub_service,
+        context.server_id,
+        context.channel_id,
+        path.poll_id,
+        &created,
+    )
+    .await
+    {
+        tracing::warn!(
+            "failed to broadcast created poll thread reply: {error}"
+        );
+    }
+    Ok(Json(MessagePayload {
+        message: created.reply,
+    }))
 }
 
 pub(super) async fn move_proposal_to_forum(

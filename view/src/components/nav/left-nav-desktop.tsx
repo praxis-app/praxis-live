@@ -85,7 +85,7 @@ export const LeftNavDesktop = ({ me }: Props) => {
   const eventsActive = location.pathname.startsWith(`${serverPath}/events`);
 
   return (
-    <div className="dark:bg-card bg-secondary flex h-full w-60 flex-col border-r border-[--color-border]">
+    <div className="dark:bg-card bg-secondary flex h-full w-full flex-col">
       <SwitchServerDialog
         open={showServerSwitchDialog}
         onOpenChange={setShowServerSwitchDialog}

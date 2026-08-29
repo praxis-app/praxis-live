@@ -9,10 +9,12 @@ import {
 import { type ChannelRes } from '@/types/channel.types';
 import { type PollRes } from '@/types/poll.types';
 import { type CurrentUser } from '@/types/user.types';
+import { useDeferredMenuAction } from '@/hooks/use-deferred-menu-action';
 import { type QueryKey } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdForum, MdMoreHoriz, MdSettings } from 'react-icons/md';
+import { LuReply } from 'react-icons/lu';
+import { MdForum, MdLink, MdMoreHoriz, MdSettings } from 'react-icons/md';
 
 interface Props {
   poll: PollRes;
@@ -20,6 +22,8 @@ interface Props {
   feedQueryKey?: QueryKey;
   me?: CurrentUser;
   canMoveToForum?: boolean;
+  onOpenThread?: () => void;
+  onCopyThreadLink?: () => void;
   onViewSettings: () => void;
 }
 
@@ -29,9 +33,12 @@ export const ProposalMenu = ({
   channel,
   feedQueryKey,
   canMoveToForum = false,
+  onOpenThread,
+  onCopyThreadLink,
   onViewSettings,
 }: Props) => {
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const { deferUntilClosed, runPendingAction } = useDeferredMenuAction();
 
   const { t } = useTranslation();
 
@@ -56,13 +63,27 @@ export const ProposalMenu = ({
             <MdMoreHoriz className="size-5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onViewSettings}>
+        <DropdownMenuContent align="end" onCloseAutoFocus={runPendingAction}>
+          {onOpenThread && (
+            <DropdownMenuItem onSelect={deferUntilClosed(onOpenThread)}>
+              <LuReply />
+              {t('messages.actions.reply')}
+            </DropdownMenuItem>
+          )}
+          {onCopyThreadLink && (
+            <DropdownMenuItem onSelect={onCopyThreadLink}>
+              <MdLink />
+              {t('messages.actions.copyLink')}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={deferUntilClosed(onViewSettings)}>
             <MdSettings />
             {t('proposals.actions.viewSettings')}
           </DropdownMenuItem>
           {canMove && (
-            <DropdownMenuItem onSelect={() => setIsMoveDialogOpen(true)}>
+            <DropdownMenuItem
+              onSelect={deferUntilClosed(() => setIsMoveDialogOpen(true))}
+            >
               <MdForum />
               {t('proposals.actions.moveToForum')}
             </DropdownMenuItem>

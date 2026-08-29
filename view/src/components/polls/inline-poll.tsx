@@ -1,7 +1,9 @@
 import { api } from '@/client/api-client';
 import { updateActiveDecisionCache } from '@/components/decisions/decisions-panel.utils';
-import { PollVoteBreakdown } from '@/components/polls/poll-vote-breakdown';
 import { AttachedImageList } from '@/components/images/attached-image-list';
+import { MessageThreadSummary } from '@/components/messages/message-thread-summary';
+import { PollMenu } from '@/components/polls/poll-menu';
+import { PollVoteBreakdown } from '@/components/polls/poll-vote-breakdown';
 import { FormattedText } from '@/components/shared/formatted-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,13 +12,13 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
-import { DECISION_FOCUS_TARGET_CLASS_NAME } from '@/constants/style.constants';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
+import { DECISION_FOCUS_TARGET_CLASS_NAME } from '@/constants/style.constants';
 import { useServerData } from '@/hooks/use-server-data';
+import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline-label';
 import { handleError } from '@/lib/error.utils';
 import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
-import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline-label';
 import { timeAgo } from '@/lib/time.utils';
 import {
   type ChannelRes,
@@ -49,6 +51,9 @@ interface Props {
   feedQueryKey: QueryKey;
   me?: CurrentUser;
   onPollChange?: () => void;
+  onOpenThread?: () => void;
+  onCopyThreadLink?: () => void;
+  onImageLoad?: () => void;
 }
 
 export const InlinePoll = ({
@@ -56,6 +61,9 @@ export const InlinePoll = ({
   channel,
   feedQueryKey,
   onPollChange,
+  onOpenThread,
+  onCopyThreadLink,
+  onImageLoad,
   me,
 }: Props) => {
   const { t } = useTranslation();
@@ -294,13 +302,26 @@ export const InlinePoll = ({
         </div>
 
         <Card className="before:border-l-border relative max-w-full min-w-0 gap-3.5 rounded-md px-3 py-3.5 pt-2.5 before:absolute before:top-0 before:bottom-0 before:left-0 before:mt-[-0.025rem] before:mb-[-0.025rem] before:w-3 before:rounded-l-md before:border-l-3">
-          {body && <FormattedText text={body} className="pt-1 pb-2" />}
+          {onOpenThread && onCopyThreadLink && (
+            <PollMenu
+              onOpenThread={onOpenThread}
+              onCopyThreadLink={onCopyThreadLink}
+            />
+          )}
+
+          {body && (
+            <FormattedText
+              text={body}
+              className={cn('pt-1 pb-2', onOpenThread && 'pr-8')}
+            />
+          )}
 
           {poll.images.length > 0 && (
             <AttachedImageList
               images={poll.images}
               channelId={channel.id}
               pollId={poll.id}
+              onImageLoad={onImageLoad}
               className="-mx-3"
               imageClassName="max-h-128 rounded-lg object-contain"
             />
@@ -517,6 +538,15 @@ export const InlinePoll = ({
             onOpenChange={setShowVoteBreakdown}
           />
         </Card>
+
+        {onOpenThread && poll.replyCount > 0 && (
+          <MessageThreadSummary
+            replyCount={poll.replyCount}
+            replyUsers={poll.replyUsers || []}
+            latestReplyAt={poll.latestReplyAt}
+            onOpen={onOpenThread}
+          />
+        )}
       </div>
     </div>
   );

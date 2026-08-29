@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::Response,
     response::Json,
 };
@@ -9,14 +9,18 @@ use std::{path::PathBuf, sync::Arc};
 use super::{
     service,
     types::{
-        CallMessageImagePath, CreateMessageRequest, MessageImagePath,
-        MessagePayload,
+        CallMessageImagePath, CreateMessageRequest, CreateReplyContext,
+        CreateReplyRequest, ListRepliesQuery, MessageImagePath, MessagePayload,
+        ThreadPath, ThreadResponse,
     },
 };
 use crate::{
     auth::{AuthenticatedUserOptional, HasJwtSecret},
     calls::extractors::CallWriteContext,
-    channels::{self, extractors::ChannelWriteContext},
+    channels::{
+        self,
+        extractors::{CanReadChannelContext, ChannelWriteContext},
+    },
     common::{
         images::safe_image_response, request::JsonOrMultipartFiles,
         storage::upload_root, AppResult,
@@ -89,6 +93,63 @@ pub(super) async fn create_message(
     }
 
     Ok(Json(MessagePayload { message }))
+}
+
+pub(super) async fn list_replies(
+    State(chat_state): State<ChatState>,
+    context: CanReadChannelContext,
+    Path(path): Path<ThreadPath>,
+    Query(query): Query<ListRepliesQuery>,
+) -> AppResult<Json<ThreadResponse>> {
+    let thread = service::list_replies(
+        &chat_state.database,
+        context.server_id,
+        context.channel_id,
+        path.root_message_id,
+        query.before.as_deref(),
+        query.after.as_deref(),
+        query.limit.unwrap_or(50).min(100),
+    )
+    .await?;
+
+    Ok(Json(thread))
+}
+
+pub(super) async fn create_reply(
+    State(chat_state): State<ChatState>,
+    context: ChannelWriteContext,
+    Path(path): Path<ThreadPath>,
+    multipart: JsonOrMultipartFiles<CreateReplyRequest>,
+) -> AppResult<Json<MessagePayload>> {
+    let (payload, images) = multipart.into_payload_and_files();
+    let created = service::create_reply(
+        &chat_state.database,
+        &chat_state.upload_root,
+        CreateReplyContext {
+            server_id: context.server_id,
+            channel_id: context.channel_id,
+            root_message_id: path.root_message_id,
+            user_id: context.user_id,
+        },
+        payload,
+        images,
+    )
+    .await?;
+    if let Err(error) = service::broadcast_reply(
+        &chat_state.database,
+        &chat_state.pub_sub_service,
+        context.server_id,
+        context.channel_id,
+        &created,
+    )
+    .await
+    {
+        tracing::warn!("failed to broadcast created thread reply: {error}");
+    }
+
+    Ok(Json(MessagePayload {
+        message: created.reply,
+    }))
 }
 
 pub(super) async fn create_call_message(

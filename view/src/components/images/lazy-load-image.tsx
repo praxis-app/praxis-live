@@ -91,6 +91,13 @@ export const LazyLoadImage = forwardRef<HTMLDivElement, Props>(
     });
 
     const [loaded, setLoaded] = useState(!!srcFromImageId);
+
+    // TODO: `failed` is write-once — nothing ever sets it back to false — so a
+    // single failed fetch breaks this image for as long as the component stays
+    // mounted, even after later fetches succeed. This shows up on the invites
+    // page in server settings: leaving the tab and returning refetches every
+    // avatar, and any one that fails stays broken while the rest reload fine.
+    // Clear `failed` when the resolved source changes.
     const [failed, setFailed] = useState(false);
 
     const { t } = useTranslation();
