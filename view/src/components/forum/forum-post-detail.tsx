@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import { useServerData } from '@/hooks/use-server-data';
 import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
@@ -27,9 +28,11 @@ interface Props {
 
 export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const [isProposalSettingsOpen, setIsProposalSettingsOpen] = useState(false);
-  const { t } = useTranslation();
+
   const { inviteToken, me } = useAuthData();
   const { serverId, serverPath } = useServerData();
+
+  const { t } = useTranslation();
 
   const postQueryKey = [
     'servers',
@@ -52,7 +55,12 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   });
   const post = data?.post;
 
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
+  const {
+    containerRef: scrollContainerRef,
+    scrollToBottom,
+    handleContentLoad,
+  } = useScrollToBottom<HTMLElement>();
+
   const shouldScrollAfterReplyRef = useRef(false);
   const wasNearBottomRef = useRef(true);
   const previousReplyCountRef = useRef<number | undefined>(undefined);
@@ -79,23 +87,22 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
       return;
     }
 
-    const frame = requestAnimationFrame(() => {
-      shouldScrollAfterReplyRef.current = false;
-      const container = scrollContainerRef.current;
-      container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-      wasNearBottomRef.current = true;
-    });
+    shouldScrollAfterReplyRef.current = false;
+    wasNearBottomRef.current = true;
+    scrollToBottom();
+  }, [replyCount, scrollToBottom]);
 
-    return () => cancelAnimationFrame(frame);
-  }, [replyCount]);
-
-  const setScrollContainer = useCallback((element: HTMLElement | null) => {
-    scrollContainerRef.current = element;
-    if (element) {
-      wasNearBottomRef.current =
-        element.scrollHeight - element.scrollTop - element.clientHeight <= 200;
-    }
-  }, []);
+  const setScrollContainer = useCallback(
+    (element: HTMLElement | null) => {
+      scrollContainerRef.current = element;
+      if (element) {
+        wasNearBottomRef.current =
+          element.scrollHeight - element.scrollTop - element.clientHeight <=
+          200;
+      }
+    },
+    [scrollContainerRef],
+  );
 
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -104,7 +111,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
         container.scrollHeight - container.scrollTop - container.clientHeight <=
         200;
     }
-  }, []);
+  }, [scrollContainerRef]);
 
   if (!post) {
     return isPane ? (
@@ -220,6 +227,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
             me={me}
             serverId={serverId}
             channelId={channel.id}
+            onImageLoad={handleContentLoad}
           />
         ))}
         {!post.replies.length && (

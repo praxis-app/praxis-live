@@ -31,6 +31,7 @@ interface Props {
   canMoveToForum?: boolean;
   onOpenThread?: () => void;
   onCopyThreadLink?: () => void;
+  onImageLoad?: () => void;
 }
 
 export const InlineProposal = ({
@@ -47,6 +48,7 @@ export const InlineProposal = ({
   canMoveToForum = false,
   onOpenThread,
   onCopyThreadLink,
+  onImageLoad,
 }: Props) => {
   const { t } = useTranslation();
   const { body, user, config, createdAt } = poll;
@@ -118,6 +120,7 @@ export const InlineProposal = ({
             canMoveToForum={canMoveToForum}
             onOpenThread={onOpenThread}
             onCopyThreadLink={onCopyThreadLink}
+            onImageLoad={onImageLoad}
           />
         </Card>
         {onOpenThread && poll.replyCount > 0 && (

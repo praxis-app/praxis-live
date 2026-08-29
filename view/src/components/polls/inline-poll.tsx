@@ -53,6 +53,7 @@ interface Props {
   onPollChange?: () => void;
   onOpenThread?: () => void;
   onCopyThreadLink?: () => void;
+  onImageLoad?: () => void;
 }
 
 export const InlinePoll = ({
@@ -62,6 +63,7 @@ export const InlinePoll = ({
   onPollChange,
   onOpenThread,
   onCopyThreadLink,
+  onImageLoad,
   me,
 }: Props) => {
   const { t } = useTranslation();
@@ -319,6 +321,7 @@ export const InlinePoll = ({
               images={poll.images}
               channelId={channel.id}
               pollId={poll.id}
+              onImageLoad={onImageLoad}
               className="-mx-3"
               imageClassName="max-h-128 rounded-lg object-contain"
             />

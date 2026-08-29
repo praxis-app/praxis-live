@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import { useServerData } from '@/hooks/use-server-data';
 import { preserveMessageImages } from '@/lib/feed.utils';
 import { type ChannelRes } from '@/types/channel.types';
@@ -55,9 +56,14 @@ export const ThreadPanel = ({
   feedQueryKey,
   onClose,
 }: Props) => {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldScrollAfterReplyRef = useRef(false);
   const previousReplyCountRef = useRef<number | undefined>(undefined);
+
+  const {
+    containerRef: scrollContainerRef,
+    scrollToBottom,
+    handleContentLoad,
+  } = useScrollToBottom<HTMLDivElement>();
 
   const { inviteToken, me } = useAuthData();
   const { server, serverId } = useServerData();
@@ -185,13 +191,9 @@ export const ThreadPanel = ({
     if (!receivedReply && !shouldScrollAfterReplyRef.current) {
       return;
     }
-    const frame = requestAnimationFrame(() => {
-      shouldScrollAfterReplyRef.current = false;
-      const container = scrollContainerRef.current;
-      container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [replies.length]);
+    shouldScrollAfterReplyRef.current = false;
+    scrollToBottom();
+  }, [replies.length, scrollToBottom]);
 
   return (
     <aside
@@ -256,6 +258,7 @@ export const ThreadPanel = ({
                 me={me}
                 serverId={serverId}
                 channelId={channel.id}
+                onImageLoad={handleContentLoad}
               />
             ) : (root as PollRes).pollType === 'proposal' ? (
               <InlineProposal
@@ -264,6 +267,7 @@ export const ThreadPanel = ({
                 feedQueryKey={feedQueryKey}
                 me={me}
                 canMoveToForum
+                onImageLoad={handleContentLoad}
               />
             ) : (
               <InlinePoll
@@ -271,6 +275,7 @@ export const ThreadPanel = ({
                 channel={channel}
                 feedQueryKey={feedQueryKey}
                 me={me}
+                onImageLoad={handleContentLoad}
               />
             )}
 
@@ -306,6 +311,7 @@ export const ThreadPanel = ({
                   me={me}
                   serverId={serverId}
                   channelId={channel.id}
+                  onImageLoad={handleContentLoad}
                 />
               ))}
               {!replies.length && (

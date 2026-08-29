@@ -21,6 +21,7 @@ interface Props {
   channelId?: string;
   onOpenThread?: (rootMessageId: string) => void;
   onCopyThreadLink?: (rootMessageId: string) => void;
+  onImageLoad?: () => void;
 }
 
 export const Message = ({
@@ -39,6 +40,7 @@ export const Message = ({
   me,
   onOpenThread,
   onCopyThreadLink,
+  onImageLoad,
 }: Props) => {
   const isDesktop = useIsDesktop();
   const { isPressed, pressHandlers } = usePressHighlight();
@@ -115,6 +117,7 @@ export const Message = ({
             serverId={serverId}
             channelId={channelId}
             messageId={id}
+            onImageLoad={onImageLoad}
             imageClassName="rounded-lg"
             className="w-full max-w-[min(350px,100%)] pt-1.5"
           />
