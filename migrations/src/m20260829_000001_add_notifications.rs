@@ -22,10 +22,12 @@ impl MigrationTrait for Migration {
         create_kind_enum(manager).await?;
         create_notifications(manager).await?;
         create_target_check(manager).await?;
-        create_notification_indexes(manager).await
+        create_notification_indexes(manager).await?;
+        create_dedup_indexes(manager).await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        drop_dedup_indexes(manager).await?;
         drop_notification_indexes(manager).await?;
         manager
             .drop_table(Table::drop().table(Notifications::Table).to_owned())
@@ -77,9 +79,6 @@ async fn create_notifications(
                     ],
                 ))
                 .col(ColumnDef::new(Notifications::UnreadCount).integer())
-                .col(
-                    ColumnDef::new(Notifications::EventKey).string().not_null(),
-                )
                 .col(
                     ColumnDef::new(Notifications::ReadAt)
                         .timestamp_with_time_zone(),
@@ -144,13 +143,6 @@ async fn create_notifications(
                         .on_delete(ForeignKeyAction::Cascade)
                         .on_update(ForeignKeyAction::Cascade),
                 )
-                .index(
-                    Index::create()
-                        .name("notifications-recipient-event-key-key")
-                        .col(Notifications::RecipientUserId)
-                        .col(Notifications::EventKey)
-                        .unique(),
-                )
                 .to_owned(),
         )
         .await
@@ -187,6 +179,40 @@ async fn create_target_check(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
             .get_connection()
             .execute_unprepared(
                 r#"ALTER TABLE notifications ADD CONSTRAINT notifications_one_target_check CHECK (num_nonnulls(message_id, poll_id, server_role_id) = 1)"#,
+            )
+            .await?;
+    }
+
+    Ok(())
+}
+
+async fn create_dedup_indexes(
+    manager: &SchemaManager<'_>,
+) -> Result<(), DbErr> {
+    if manager.get_database_backend() != DbBackend::Postgres {
+        return Ok(());
+    }
+
+    for (name, columns, filter) in DEDUP_INDEXES {
+        manager
+            .get_connection()
+            .execute_unprepared(&format!(
+                r#"CREATE UNIQUE INDEX "{name}" ON notifications ({columns}) WHERE {filter}"#
+            ))
+            .await?;
+    }
+
+    Ok(())
+}
+
+async fn drop_dedup_indexes(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
+    for (name, _, _) in DEDUP_INDEXES {
+        manager
+            .drop_index(
+                Index::drop()
+                    .name(name)
+                    .table(Notifications::Table)
+                    .to_owned(),
             )
             .await?;
     }
@@ -269,6 +295,36 @@ async fn drop_notification_indexes(
         .await
 }
 
+/// Dedup and coalescing keys, one per kind: the natural key differs by kind, so
+/// each is a partial unique index rather than one shared constraint.
+const DEDUP_INDEXES: [(&str, &str, &str); 5] = [
+    (
+        "notifications-new-message-key",
+        "recipient_user_id, channel_id",
+        "kind = 'new_message'",
+    ),
+    (
+        "notifications-reply-key",
+        "recipient_user_id, message_id",
+        "kind IN ('message_reply', 'forum_reply')",
+    ),
+    (
+        "notifications-proposal-vote-key",
+        "recipient_user_id, poll_id, actor_user_id",
+        "kind = 'proposal_vote'",
+    ),
+    (
+        "notifications-proposal-outcome-key",
+        "recipient_user_id, kind, poll_id",
+        "kind IN ('proposal_ratified', 'proposal_closed')",
+    ),
+    (
+        "notifications-server-role-granted-key",
+        "recipient_user_id, server_role_id",
+        "kind = 'server_role_granted'",
+    ),
+];
+
 const TARGET_INDEXES: [(&str, Notifications); 3] = [
     ("notifications-message-id-idx", Notifications::MessageId),
     ("notifications-poll-id-idx", Notifications::PollId),
@@ -304,7 +360,6 @@ enum Notifications {
     ServerRoleId,
     VoteType,
     UnreadCount,
-    EventKey,
     ReadAt,
     CreatedAt,
 }

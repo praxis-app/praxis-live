@@ -17,7 +17,6 @@ pub struct Model {
     pub server_role_id: Option<Uuid>,
     pub vote_type: Option<VoteType>,
     pub unread_count: Option<i32>,
-    pub event_key: String,
     pub read_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
 }
