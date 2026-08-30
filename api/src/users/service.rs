@@ -540,26 +540,25 @@ async fn authorize_user_image_access(
     image_id: Uuid,
     invite_token: Option<&str>,
 ) -> AppResult<()> {
-    let invited_server_member = if current_user_id.is_none() {
-        is_member_of_invited_server(database, invite_token, user_id).await?
-    } else {
-        false
-    };
     let profile_picture = get_user_profile_picture(database, user_id).await?;
     if profile_picture
         .as_ref()
         .is_some_and(|image| image.id == image_id.to_string())
     {
-        let allowed = current_user_id == Some(user_id)
-            || is_default_server_member(database, user_id).await?
-            || invited_server_member;
-        return if allowed {
-            Ok(())
-        } else {
-            Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
-        };
+        return authorize_user_profile_access(
+            database,
+            current_user_id,
+            user_id,
+            invite_token,
+        )
+        .await;
     }
 
+    let invited_server_member = if current_user_id.is_none() {
+        is_member_of_invited_server(database, invite_token, user_id).await?
+    } else {
+        false
+    };
     let cover_photo = get_user_cover_photo(database, user_id).await?;
     if cover_photo
         .as_ref()
