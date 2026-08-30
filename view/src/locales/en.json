@@ -125,7 +125,7 @@
     "errors": {
       "shortName": "Username must be at least 3 characters",
       "longName": "Username cannot exceed 15 characters",
-      "invalidName": "Username can only contain letters, numbers, and underscores",
+      "invalidName": "Username can only contain lowercase letters, numbers, and underscores",
       "shortDisplayName": "Display name must be at least 4 characters",
       "longDisplayName": "Display name cannot exceed 30 characters",
       "longBio": "Bio cannot exceed 500 characters"

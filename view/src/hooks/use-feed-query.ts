@@ -1,3 +1,9 @@
+import { subscribeToBrowserResume } from '@/lib/browser.utils';
+import {
+  type FeedItemRes,
+  type FeedPageRes,
+  type FeedQuery,
+} from '@/types/channel.types';
 import {
   hashKey,
   type QueryKey,
@@ -5,12 +11,6 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useEffectEvent, useMemo, useRef } from 'react';
-import {
-  type FeedItemRes,
-  type FeedPageRes,
-  type FeedQuery,
-} from '@/types/channel.types';
-import { subscribeToBrowserResume } from '@/lib/browser.utils';
 
 interface FeedCursorParams {
   before?: string;
