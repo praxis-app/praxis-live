@@ -111,5 +111,29 @@ export const useFeedQuery = ({
     void syncNewerItems();
   }, [enabled, hadCachedData, queryHash]);
 
+  // Catch up on events missed while the tab was suspended or offline.
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    let syncTimeout: number | undefined;
+    const syncWhenActive = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) {
+        return;
+      }
+      window.clearTimeout(syncTimeout);
+      syncTimeout = window.setTimeout(() => void syncNewerItems(), 0);
+    };
+
+    document.addEventListener('visibilitychange', syncWhenActive);
+    window.addEventListener('online', syncWhenActive);
+    return () => {
+      window.clearTimeout(syncTimeout);
+      document.removeEventListener('visibilitychange', syncWhenActive);
+      window.removeEventListener('online', syncWhenActive);
+    };
+  }, [enabled]);
+
   return query;
 };
