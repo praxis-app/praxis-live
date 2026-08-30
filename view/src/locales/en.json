@@ -699,11 +699,12 @@
       "attachImages": "Attach images",
       "coverPhoto": "Cover photo",
       "profilePicture": "Profile picture",
-      "removeImage": "Remove image"
+      "removeImage": "Remove image",
+      "uploadingImage": "Uploading image"
     },
     "errors": {
       "unsupportedFormat": "{{format}} images are not supported.",
-      "imageTooLarge": "Image is too large. Maximum file size is 8MB.",
+      "imageTooLarge": "Image is too large. Maximum file size is 20MB.",
       "tooManyImages": "You can upload a maximum of 5 images.",
       "fileMissing": "Image file is missing."
     },

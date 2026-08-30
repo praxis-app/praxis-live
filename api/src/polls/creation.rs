@@ -232,15 +232,16 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
             format!("A poll can include up to {MAX_IMAGE_COUNT} images."),
         ));
     }
-    images
-        .iter()
-        .map(|bytes| {
-            crate::common::images::validate_raster(bytes, "Poll image")
-        })
-        .collect::<AppResult<Vec<_>>>()?;
+    let mut normalized = Vec::with_capacity(images.len());
+    for bytes in images {
+        normalized.push(
+            crate::common::images::normalize_raster_async(bytes, "Poll image")
+                .await?,
+        );
+    }
 
     let mut paths = vec![];
-    for bytes in images {
+    for bytes in normalized {
         match attach_poll_image(database, upload_root, poll_id, bytes).await {
             Ok(path) => paths.push(path),
             Err(error) => {

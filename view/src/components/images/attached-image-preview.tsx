@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { MdRemoveCircle } from 'react-icons/md';
 import { type ImageRes } from '../../types/image.types';
 import { Button } from '../ui/button';
+import { ImageUploadOverlay } from './image-upload-overlay';
 
 const RemoveButton = ({
   onClick,
@@ -85,6 +86,8 @@ interface Props {
   savedImages?: ImageRes[];
   selectedImages: File[];
   className?: string;
+  isUploading?: boolean;
+  uploadProgress?: number;
   channelId?: string;
   messageId?: string;
   pollId?: string;
@@ -103,6 +106,8 @@ export const AttachedImagePreview = ({
   messageId,
   pollId,
   disabled,
+  isUploading,
+  uploadProgress,
 }: Props) => {
   const { t } = useTranslation();
 
@@ -135,7 +140,10 @@ export const AttachedImagePreview = ({
 
       {selectedImages.map((image) => (
         <div
-          className={cn(containerClassName, disabled && 'opacity-50')}
+          className={cn(
+            containerClassName,
+            disabled && !isUploading && 'opacity-50',
+          )}
           key={image.name}
         >
           <img
@@ -144,7 +152,8 @@ export const AttachedImagePreview = ({
             width="100%"
             className={imageClassName}
           />
-          {handleRemove && (
+          {isUploading && <ImageUploadOverlay progress={uploadProgress} />}
+          {handleRemove && !isUploading && (
             <RemoveButton
               onClick={() => handleRemove(image.name)}
               disabled={disabled}

@@ -41,6 +41,16 @@ export class ChatPage {
     await expect(scope.getByTestId('attached-image-preview')).toBeVisible();
   }
 
+  async attachImageBuffer(buffer: Buffer, name = 'large-chat-image.png') {
+    await this.page.getByTestId('image-input').setInputFiles({
+      name,
+      mimeType: 'image/png',
+      buffer,
+    });
+
+    await expect(this.page.getByTestId('attached-image-preview')).toBeVisible();
+  }
+
   async expectAttachedImage() {
     await expect(
       this.messageFeed().getByRole('img', { name: 'Attached image' }).first(),

@@ -721,7 +721,9 @@ async fn store_server_image(
     server_id: Uuid,
     bytes: Vec<u8>,
 ) -> AppResult<ServerImageRef> {
-    crate::common::images::validate_raster(&bytes, "Server image")?;
+    let bytes =
+        crate::common::images::normalize_raster_async(bytes, "Server image")
+            .await?;
     get_server(database, server_id).await?;
     let previous_images = server_images::Entity::find()
         .filter(server_images::Column::ServerId.eq(server_id))
