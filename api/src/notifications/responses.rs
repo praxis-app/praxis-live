@@ -26,7 +26,7 @@ struct NotificationContext {
     profile_pictures:
         std::collections::BTreeMap<Uuid, users_service::UserImageRef>,
     channels: HashMap<Uuid, channels::Model>,
-    readable_channels: HashSet<Uuid>,
+    readable_channels_by_viewer: HashMap<Uuid, HashSet<Uuid>>,
     messages: HashMap<Uuid, messages::Model>,
     forum_posts_by_root: HashMap<Uuid, Uuid>,
     polls: HashMap<Uuid, polls::Model>,
@@ -41,17 +41,36 @@ pub(super) async fn shape_notifications(
     if rows.is_empty() {
         return Ok(Vec::new());
     }
-    let context = load_context(database, viewer_id, &rows).await?;
+    let context = load_context(database, &[viewer_id], &rows).await?;
 
     Ok(rows
         .into_iter()
-        .map(|row| shape_notification(row, &context))
+        .map(|row| shape_notification(row, viewer_id, &context))
+        .collect())
+}
+
+pub(super) async fn shape_notifications_for_recipients(
+    database: &DatabaseConnection,
+    rows: Vec<notifications::Model>,
+) -> AppResult<Vec<NotificationResponse>> {
+    if rows.is_empty() {
+        return Ok(Vec::new());
+    }
+    let viewer_ids = unique(rows.iter().map(|row| row.recipient_user_id));
+    let context = load_context(database, &viewer_ids, &rows).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let viewer_id = row.recipient_user_id;
+            shape_notification(row, viewer_id, &context)
+        })
         .collect())
 }
 
 async fn load_context(
     database: &DatabaseConnection,
-    viewer_id: Uuid,
+    viewer_ids: &[Uuid],
     rows: &[notifications::Model],
 ) -> AppResult<NotificationContext> {
     let actor_ids = unique(rows.iter().filter_map(|row| row.actor_user_id));
@@ -140,14 +159,14 @@ async fn load_context(
     .into_iter()
     .map(|channel| (channel.id, channel))
     .collect();
-    let readable_channels =
-        readable_channels(database, viewer_id, &channel_ids).await?;
+    let readable_channels_by_viewer =
+        readable_channels(database, viewer_ids, &channel_ids).await?;
 
     Ok(NotificationContext {
         actors,
         profile_pictures,
         channels,
-        readable_channels,
+        readable_channels_by_viewer,
         messages,
         forum_posts_by_root,
         polls,
@@ -157,6 +176,7 @@ async fn load_context(
 
 fn shape_notification(
     row: notifications::Model,
+    viewer_id: Uuid,
     context: &NotificationContext,
 ) -> NotificationResponse {
     let actor = row.actor_user_id.and_then(|actor_id| {
@@ -184,22 +204,23 @@ fn shape_notification(
         unread_count: row.unread_count,
         read_at: row.read_at.map(serialize_timestamp),
         created_at: serialize_timestamp(row.created_at),
-        target: shape_target(&row, context),
+        target: shape_target(&row, viewer_id, context),
     }
 }
 
 fn shape_target(
     row: &notifications::Model,
+    viewer_id: Uuid,
     context: &NotificationContext,
 ) -> NotificationTargetResponse {
     if let Some(message_id) = row.message_id {
-        return shape_message_target(row, message_id, context);
+        return shape_message_target(row, message_id, viewer_id, context);
     }
     if let Some(poll_id) = row.poll_id {
-        return shape_poll_target(poll_id, context);
+        return shape_poll_target(row, poll_id, viewer_id, context);
     }
     if let Some(role_id) = row.server_role_id {
-        return shape_server_role_target(role_id, context);
+        return shape_server_role_target(row, role_id, context);
     }
     unavailable()
 }
@@ -207,12 +228,16 @@ fn shape_target(
 fn shape_message_target(
     row: &notifications::Model,
     message_id: Uuid,
+    viewer_id: Uuid,
     context: &NotificationContext,
 ) -> NotificationTargetResponse {
     let Some(message) = context.messages.get(&message_id) else {
         return unavailable();
     };
-    if !context.readable_channels.contains(&message.channel_id) {
+    if row.channel_id != Some(message.channel_id)
+        || !channel_is_in_server(message.channel_id, row.server_id, context)
+        || !viewer_can_read_channel(viewer_id, message.channel_id, context)
+    {
         return unavailable();
     }
 
@@ -245,13 +270,18 @@ fn shape_message_target(
 }
 
 fn shape_poll_target(
+    row: &notifications::Model,
     poll_id: Uuid,
+    viewer_id: Uuid,
     context: &NotificationContext,
 ) -> NotificationTargetResponse {
     let Some(poll) = context.polls.get(&poll_id) else {
         return unavailable();
     };
-    if !context.readable_channels.contains(&poll.channel_id) {
+    if row.channel_id != Some(poll.channel_id)
+        || !channel_is_in_server(poll.channel_id, row.server_id, context)
+        || !viewer_can_read_channel(viewer_id, poll.channel_id, context)
+    {
         return unavailable();
     }
 
@@ -266,10 +296,15 @@ fn shape_poll_target(
 }
 
 fn shape_server_role_target(
+    row: &notifications::Model,
     role_id: Uuid,
     context: &NotificationContext,
 ) -> NotificationTargetResponse {
-    let Some(role) = context.server_roles.get(&role_id) else {
+    let Some(role) = context
+        .server_roles
+        .get(&role_id)
+        .filter(|role| role.server_id == row.server_id)
+    else {
         return unavailable();
     };
 
@@ -302,25 +337,54 @@ fn channel_name(
 
 async fn readable_channels(
     database: &DatabaseConnection,
-    viewer_id: Uuid,
+    viewer_ids: &[Uuid],
     channel_ids: &[Uuid],
-) -> AppResult<HashSet<Uuid>> {
-    if channel_ids.is_empty() {
-        return Ok(HashSet::new());
+) -> AppResult<HashMap<Uuid, HashSet<Uuid>>> {
+    if viewer_ids.is_empty() || channel_ids.is_empty() {
+        return Ok(HashMap::new());
     }
 
-    Ok(channel_members::Entity::find()
-        .filter(channel_members::Column::UserId.eq(viewer_id))
+    let memberships = channel_members::Entity::find()
+        .filter(
+            channel_members::Column::UserId.is_in(viewer_ids.iter().copied()),
+        )
         .filter(
             channel_members::Column::ChannelId
                 .is_in(channel_ids.iter().copied()),
         )
         .all(database)
         .await
-        .map_err(internal_error)?
-        .into_iter()
-        .map(|member| member.channel_id)
-        .collect())
+        .map_err(internal_error)?;
+    let mut readable_by_viewer: HashMap<Uuid, HashSet<Uuid>> = HashMap::new();
+    for membership in memberships {
+        readable_by_viewer
+            .entry(membership.user_id)
+            .or_default()
+            .insert(membership.channel_id);
+    }
+    Ok(readable_by_viewer)
+}
+
+fn viewer_can_read_channel(
+    viewer_id: Uuid,
+    channel_id: Uuid,
+    context: &NotificationContext,
+) -> bool {
+    context
+        .readable_channels_by_viewer
+        .get(&viewer_id)
+        .is_some_and(|channel_ids| channel_ids.contains(&channel_id))
+}
+
+fn channel_is_in_server(
+    channel_id: Uuid,
+    server_id: Uuid,
+    context: &NotificationContext,
+) -> bool {
+    context
+        .channels
+        .get(&channel_id)
+        .is_some_and(|channel| channel.server_id == server_id)
 }
 
 async fn load_by_id<E, C>(

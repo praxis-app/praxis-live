@@ -2,7 +2,10 @@ use axum::http::StatusCode;
 use entity::{
     channel_members, enums::NotificationKind, messages, notifications, users,
 };
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
+use sea_orm::{
+    sea_query::Expr, ActiveModelTrait, ColumnTrait, EntityTrait,
+    PaginatorTrait, QueryFilter, Set,
+};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
@@ -32,6 +35,55 @@ async fn channel_messages_notify_other_members_and_coalesce() {
     assert_eq!(bob_inbox.len(), 1);
     assert_eq!(bob_inbox[0]["unreadCount"], 3);
     assert_eq!(context.unread_count(&context.bob).await, 1);
+
+    let old_notification_id = bob_inbox[0]["id"].as_str().unwrap();
+    assert_eq!(
+        context
+            .set_read(&context.bob, old_notification_id, "read")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    context.post_message(&context.alice, "after reading").await;
+    let bob_inbox = context.list(&context.bob).await;
+    assert_eq!(bob_inbox.len(), 2);
+    assert_eq!(bob_inbox[0]["unreadCount"], 1);
+    assert!(bob_inbox[0]["readAt"].is_null());
+    assert!(bob_inbox[1]["readAt"].is_string());
+    assert_eq!(context.unread_count(&context.bob).await, 1);
+}
+
+#[tokio::test]
+async fn anonymous_members_cannot_receive_or_access_notifications() {
+    let app = TestApp::new().await;
+    let context = Context::new(&app).await;
+    let carol_id = context.user_id("Carol").await;
+    users::Entity::update_many()
+        .col_expr(users::Column::Anonymous, Expr::value(true))
+        .filter(users::Column::Id.eq(carol_id))
+        .exec(app.database())
+        .await
+        .unwrap();
+
+    context
+        .post_message(&context.alice, "registered recipients only")
+        .await;
+
+    assert_eq!(
+        notifications::Entity::find()
+            .filter(notifications::Column::RecipientUserId.eq(carol_id))
+            .count(app.database())
+            .await
+            .unwrap(),
+        0
+    );
+    let response = app
+        .get_with_bearer(
+            &format!("/api/servers/{}/notifications", context.server_id),
+            &context.carol,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]
@@ -239,18 +291,26 @@ async fn the_inbox_paginates_and_tracks_read_state() {
     // Read notifications are retained until the user deletes them.
     assert_eq!(context.list(&context.alice).await.len(), 3);
 
-    for _ in 0..2 {
-        let response = app
-            .delete_with_bearer(
-                &format!(
-                    "/api/servers/{}/notifications/{notification_id}",
-                    context.server_id
-                ),
-                &context.alice,
-            )
-            .await;
-        assert_eq!(response.status(), StatusCode::OK);
-    }
+    let response = app
+        .delete_with_bearer(
+            &format!(
+                "/api/servers/{}/notifications/{notification_id}",
+                context.server_id
+            ),
+            &context.alice,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let repeated = app
+        .delete_with_bearer(
+            &format!(
+                "/api/servers/{}/notifications/{notification_id}",
+                context.server_id
+            ),
+            &context.alice,
+        )
+        .await;
+    assert_eq!(repeated.status(), StatusCode::NOT_FOUND);
     assert_eq!(context.list(&context.alice).await.len(), 2);
 
     for _ in 0..2 {
@@ -292,7 +352,7 @@ async fn notifications_are_scoped_to_their_recipient() {
             &context.carol,
         )
         .await;
-    assert_eq!(delete_response.status(), StatusCode::OK);
+    assert_eq!(delete_response.status(), StatusCode::NOT_FOUND);
     assert_eq!(context.list(&context.bob).await.len(), 1);
 
     // A non-member of the server cannot reach the inbox at all.
@@ -358,6 +418,38 @@ async fn targets_reflect_what_the_recipient_can_still_read() {
             .unwrap(),
         0
     );
+}
+
+#[tokio::test]
+async fn mismatched_target_scope_is_unavailable() {
+    let app = TestApp::new().await;
+    let context = Context::new(&app).await;
+    let message_id =
+        context.post_message(&context.alice, "scoped target").await;
+    let other_channel_id = context.create_forum_channel().await;
+
+    notifications::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        recipient_user_id: Set(context.user_id("Bob").await),
+        actor_user_id: Set(Some(context.user_id("Alice").await)),
+        server_id: Set(Uuid::parse_str(&context.server_id).unwrap()),
+        channel_id: Set(Some(Uuid::parse_str(&other_channel_id).unwrap())),
+        kind: Set(NotificationKind::MessageReply),
+        message_id: Set(Some(Uuid::parse_str(&message_id).unwrap())),
+        ..Default::default()
+    }
+    .insert(app.database())
+    .await
+    .unwrap();
+
+    let notification = context
+        .of_kind(&context.bob, "message_reply")
+        .await
+        .pop()
+        .unwrap();
+    assert_eq!(notification["target"]["kind"], "unavailable");
+    assert_eq!(notification["target"]["available"], false);
+    assert!(notification["target"]["messageId"].is_null());
 }
 
 #[tokio::test]

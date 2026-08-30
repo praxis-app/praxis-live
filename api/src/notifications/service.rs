@@ -1,10 +1,14 @@
 use axum::http::StatusCode;
 use chrono::Utc;
-use entity::{enums::NotificationKind, notifications, users};
+use entity::{
+    channel_members, channels, enums::NotificationKind, notifications,
+    server_members, users,
+};
 use sea_orm::{
-    prelude::Uuid, sea_query::OnConflict, ColumnTrait, Condition,
-    ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, Set,
+    prelude::Uuid,
+    sea_query::{Expr, OnConflict},
+    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, DbErr,
+    EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
 };
 use std::collections::HashSet;
 use uuid::Uuid as NativeUuid;
@@ -17,7 +21,6 @@ use super::{
     },
 };
 use crate::{
-    channels as channels_service,
     common::{pagination::PaginationCursor, ApiError, AppResult},
     pub_sub::{PubSubService, PubSubTopic},
     servers,
@@ -44,15 +47,11 @@ where
         return Ok(Vec::new());
     }
 
-    let (coalesced, remaining) = if input.kind == NotificationKind::NewMessage {
-        coalesce_new_messages(database, &input, recipient_ids).await?
+    if input.kind == NotificationKind::NewMessage {
+        upsert_new_messages(database, &input, recipient_ids).await
     } else {
-        (Vec::new(), recipient_ids)
-    };
-
-    let mut created = coalesced;
-    created.extend(insert_notifications(database, &input, remaining).await?);
-    Ok(created)
+        insert_notifications(database, &input, recipient_ids).await
+    }
 }
 
 /// Selects the recipients that should actually receive the notification:
@@ -86,28 +85,43 @@ where
         .map(|user| user.id)
         .collect();
 
-    let readers = match input.channel_id {
+    let readers: HashSet<Uuid> = match input.channel_id {
         Some(channel_id) => {
-            channels_service::get_channel_member_user_ids(database, channel_id)
-                .await?
-                .into_iter()
-                .collect::<HashSet<_>>()
-        }
-        None => {
-            let mut members = HashSet::new();
-            for candidate in &candidates {
-                if servers::is_server_member(
-                    database,
-                    input.server_id,
-                    *candidate,
-                )
-                .await?
-                {
-                    members.insert(*candidate);
-                }
+            let channel_exists = channels::Entity::find_by_id(channel_id)
+                .filter(channels::Column::ServerId.eq(input.server_id))
+                .one(database)
+                .await
+                .map_err(internal_error)?
+                .is_some();
+            if !channel_exists {
+                HashSet::new()
+            } else {
+                channel_members::Entity::find()
+                    .filter(channel_members::Column::ChannelId.eq(channel_id))
+                    .filter(
+                        channel_members::Column::UserId
+                            .is_in(candidates.iter().copied()),
+                    )
+                    .all(database)
+                    .await
+                    .map_err(internal_error)?
+                    .into_iter()
+                    .map(|membership| membership.user_id)
+                    .collect()
             }
-            members
         }
+        None => server_members::Entity::find()
+            .filter(server_members::Column::ServerId.eq(input.server_id))
+            .filter(
+                server_members::Column::UserId
+                    .is_in(candidates.iter().copied()),
+            )
+            .all(database)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|membership| membership.user_id)
+            .collect(),
     };
 
     Ok(candidates
@@ -116,76 +130,46 @@ where
         .collect())
 }
 
-/// While an unread `new_message` row exists for a `(recipient, channel)` pair,
-/// bump it instead of inserting another, so a busy channel produces one inbox
-/// entry rather than hundreds.
-async fn coalesce_new_messages<C>(
+/// Inserts a fresh unread row or atomically bumps the existing unread row.
+async fn upsert_new_messages<C>(
     database: &C,
     input: &NewNotification,
     recipient_ids: Vec<Uuid>,
-) -> AppResult<(Vec<notifications::Model>, Vec<Uuid>)>
+) -> AppResult<Vec<notifications::Model>>
 where
     C: ConnectionTrait,
 {
-    let Some(channel_id) = input.channel_id else {
-        return Ok((Vec::new(), recipient_ids));
+    if input.channel_id.is_none() {
+        return Ok(Vec::new());
     };
-
-    let existing = notifications::Entity::find()
-        .filter(
-            notifications::Column::RecipientUserId
-                .is_in(recipient_ids.iter().copied()),
-        )
-        .filter(notifications::Column::Kind.eq(NotificationKind::NewMessage))
-        .filter(notifications::Column::ChannelId.eq(channel_id))
-        .filter(notifications::Column::ReadAt.is_null())
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-    if existing.is_empty() {
-        return Ok((Vec::new(), recipient_ids));
-    }
-
-    let now = Utc::now().fixed_offset();
-    let coalesced_ids: Vec<Uuid> = existing.iter().map(|row| row.id).collect();
-    notifications::Entity::update_many()
-        .col_expr(
-            notifications::Column::UnreadCount,
-            sea_orm::sea_query::Expr::col(notifications::Column::UnreadCount)
+    let rows = notification_rows(input, recipient_ids);
+    notifications::Entity::insert_many(rows)
+        .on_conflict(
+            OnConflict::columns([
+                notifications::Column::RecipientUserId,
+                notifications::Column::ChannelId,
+            ])
+            .target_and_where(Expr::cust(
+                "kind = 'new_message' AND read_at IS NULL",
+            ))
+            .value(
+                notifications::Column::UnreadCount,
+                Expr::col((
+                    notifications::Entity,
+                    notifications::Column::UnreadCount,
+                ))
                 .add(1),
+            )
+            .update_columns([
+                notifications::Column::ActorUserId,
+                notifications::Column::MessageId,
+                notifications::Column::CreatedAt,
+            ])
+            .to_owned(),
         )
-        .col_expr(
-            notifications::Column::CreatedAt,
-            sea_orm::sea_query::Expr::value(now),
-        )
-        .col_expr(
-            notifications::Column::MessageId,
-            sea_orm::sea_query::Expr::value(target_message_id(input.target)),
-        )
-        .col_expr(
-            notifications::Column::ActorUserId,
-            sea_orm::sea_query::Expr::value(input.actor_user_id),
-        )
-        .filter(notifications::Column::Id.is_in(coalesced_ids.iter().copied()))
-        .exec(database)
+        .exec_with_returning_many(database)
         .await
-        .map_err(internal_error)?;
-
-    let bumped: HashSet<Uuid> =
-        existing.iter().map(|row| row.recipient_user_id).collect();
-    let coalesced = notifications::Entity::find()
-        .filter(notifications::Column::Id.is_in(coalesced_ids))
-        .all(database)
-        .await
-        .map_err(internal_error)?;
-
-    Ok((
-        coalesced,
-        recipient_ids
-            .into_iter()
-            .filter(|id| !bumped.contains(id))
-            .collect(),
-    ))
+        .map_err(internal_error)
 }
 
 async fn insert_notifications<C>(
@@ -200,14 +184,30 @@ where
         return Ok(Vec::new());
     }
 
+    let rows = notification_rows(input, recipient_ids);
+
+    // The per-kind partial unique indexes make repeated processing of the same
+    // event a no-op rather than a second row.
+    let result = notifications::Entity::insert_many(rows)
+        .on_conflict(OnConflict::new().do_nothing().to_owned())
+        .exec_with_returning_many(database)
+        .await;
+    if let Err(DbErr::RecordNotInserted) = result {
+        return Ok(Vec::new());
+    }
+    result.map_err(internal_error)
+}
+
+fn notification_rows(
+    input: &NewNotification,
+    recipient_ids: Vec<Uuid>,
+) -> impl Iterator<Item = notifications::ActiveModel> + '_ {
     let unread_count =
         (input.kind == NotificationKind::NewMessage).then_some(1);
-    let ids: Vec<Uuid> =
-        recipient_ids.iter().map(|_| NativeUuid::new_v4()).collect();
-    let rows = recipient_ids.iter().zip(&ids).map(|(recipient_id, id)| {
+    recipient_ids.into_iter().map(move |recipient_id| {
         notifications::ActiveModel {
-            id: Set(*id),
-            recipient_user_id: Set(*recipient_id),
+            id: Set(NativeUuid::new_v4()),
+            recipient_user_id: Set(recipient_id),
             actor_user_id: Set(input.actor_user_id),
             server_id: Set(input.server_id),
             channel_id: Set(input.channel_id),
@@ -219,24 +219,7 @@ where
             unread_count: Set(unread_count),
             ..Default::default()
         }
-    });
-
-    // The per-kind partial unique indexes make repeated processing of the same
-    // event a no-op rather than a second row.
-    let result = notifications::Entity::insert_many(rows)
-        .on_conflict(OnConflict::new().do_nothing().to_owned())
-        .exec_without_returning(database)
-        .await;
-    if let Err(DbErr::RecordNotInserted) = result {
-        return Ok(Vec::new());
-    }
-    result.map_err(internal_error)?;
-
-    notifications::Entity::find()
-        .filter(notifications::Column::Id.is_in(ids))
-        .all(database)
-        .await
-        .map_err(internal_error)
+    })
 }
 
 /// WebSockets only accelerate delivery, so a failed publish is logged and the
@@ -246,20 +229,16 @@ pub(crate) async fn publish_notifications(
     pub_sub_service: &PubSubService,
     created: &[notifications::Model],
 ) {
-    for notification in created {
-        let shaped = shape_notifications(
-            database,
-            notification.recipient_user_id,
-            vec![notification.clone()],
-        )
-        .await;
-        let Ok(mut shaped) = shaped else {
-            tracing::warn!("failed to shape created notification");
-            continue;
-        };
-        let Some(shaped) = shaped.pop() else {
-            continue;
-        };
+    let shaped = super::responses::shape_notifications_for_recipients(
+        database,
+        created.to_vec(),
+    )
+    .await;
+    let Ok(shaped) = shaped else {
+        tracing::warn!("failed to shape created notifications");
+        return;
+    };
+    for (notification, shaped) in created.iter().zip(shaped) {
         let topic = PubSubTopic::notification(
             notification.server_id,
             notification.recipient_user_id,
@@ -398,7 +377,7 @@ pub(super) async fn delete_notification(
 ) -> AppResult<()> {
     ensure_member(database, server_id, user_id).await?;
 
-    notifications::Entity::delete_many()
+    let result = notifications::Entity::delete_many()
         .filter(notifications::Column::Id.eq(notification_id))
         .filter(notifications::Column::RecipientUserId.eq(user_id))
         .filter(notifications::Column::ServerId.eq(server_id))
@@ -406,7 +385,9 @@ pub(super) async fn delete_notification(
         .await
         .map_err(internal_error)?;
 
-    Ok(())
+    (result.rows_affected > 0)
+        .then_some(())
+        .ok_or_else(not_found)
 }
 
 pub(super) async fn clear_notifications(
@@ -431,7 +412,15 @@ async fn ensure_member(
     server_id: Uuid,
     user_id: Uuid,
 ) -> AppResult<()> {
-    if servers::is_server_member(database, server_id, user_id).await? {
+    let registered = users::Entity::find_by_id(user_id)
+        .filter(users::Column::Anonymous.eq(false))
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .is_some();
+    if registered
+        && servers::is_server_member(database, server_id, user_id).await?
+    {
         return Ok(());
     }
     Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))

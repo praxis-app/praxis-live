@@ -301,7 +301,7 @@ const DEDUP_INDEXES: [(&str, &str, &str); 5] = [
     (
         "notifications-new-message-key",
         "recipient_user_id, channel_id",
-        "kind = 'new_message'",
+        "kind = 'new_message' AND read_at IS NULL",
     ),
     (
         "notifications-reply-key",

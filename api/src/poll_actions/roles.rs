@@ -11,15 +11,15 @@ use entity::{
         ServerRoleAbilityAction,
     },
     notifications, poll_action_permissions, poll_action_role_members,
-    poll_action_roles, polls, server_role_members, server_role_permissions,
-    server_roles, users,
+    poll_action_roles, polls, server_members, server_role_members,
+    server_role_permissions, server_roles, users,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
     DatabaseConnection, DatabaseTransaction, EntityTrait, IntoActiveModel,
     QueryFilter, Set,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
@@ -29,7 +29,7 @@ use super::types::{
 };
 use crate::{
     common::{request::parse_uuid, ApiError, AppResult},
-    servers, users as users_service,
+    users as users_service,
 };
 
 pub(super) fn validate_role_change_payload(
@@ -385,14 +385,45 @@ async fn apply_member_changes(
         .all(database)
         .await
         .map_err(internal_error)?;
-    let mut notifications = Vec::new();
+    let added_user_ids: HashSet<Uuid> = members
+        .iter()
+        .filter(|member| {
+            member.change_type == PollActionRoleMemberChangeType::Add
+        })
+        .map(|member| member.user_id)
+        .collect();
+    let eligible_added_user_ids: HashSet<Uuid> = server_members::Entity::find()
+        .filter(server_members::Column::ServerId.eq(server_id))
+        .filter(
+            server_members::Column::UserId
+                .is_in(added_user_ids.iter().copied()),
+        )
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|membership| membership.user_id)
+        .collect();
+    let mut existing_role_member_ids: HashSet<Uuid> =
+        server_role_members::Entity::find()
+            .filter(server_role_members::Column::ServerRoleId.eq(role_id))
+            .filter(
+                server_role_members::Column::UserId
+                    .is_in(added_user_ids.iter().copied()),
+            )
+            .all(database)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|membership| membership.user_id)
+            .collect();
+    let mut granted_user_ids = Vec::new();
     for member in members {
         // A role only ever grants standing within its own server, so a
         // proposed member who does not belong to that server is skipped
         // rather than silently granted access to it.
         if member.change_type == PollActionRoleMemberChangeType::Add
-            && !servers::is_server_member(database, server_id, member.user_id)
-                .await?
+            && !eligible_added_user_ids.contains(&member.user_id)
         {
             continue;
         }
@@ -405,13 +436,7 @@ async fn apply_member_changes(
                 .await
                 .map_err(internal_error)?;
         } else if member.change_type == PollActionRoleMemberChangeType::Add
-            && server_role_members::Entity::find()
-                .filter(server_role_members::Column::ServerRoleId.eq(role_id))
-                .filter(server_role_members::Column::UserId.eq(member.user_id))
-                .one(database)
-                .await
-                .map_err(internal_error)?
-                .is_none()
+            && existing_role_member_ids.insert(member.user_id)
         {
             server_role_members::ActiveModel {
                 id: Set(NativeUuid::new_v4()),
@@ -423,27 +448,25 @@ async fn apply_member_changes(
             .await
             .map_err(internal_error)?;
 
-            notifications.extend(
-                crate::notifications::create_notifications(
-                    database,
-                    crate::notifications::NewNotification {
-                        kind: NotificationKind::ServerRoleGranted,
-                        server_id,
-                        channel_id: None,
-                        actor_user_id: None,
-                        target:
-                            crate::notifications::NotificationTarget::ServerRole(
-                                role_id,
-                            ),
-                        vote_type: None,
-                        recipient_ids: vec![member.user_id],
-                    },
-                )
-                .await?,
-            );
+            granted_user_ids.push(member.user_id);
         }
     }
-    Ok(notifications)
+
+    crate::notifications::create_notifications(
+        database,
+        crate::notifications::NewNotification {
+            kind: NotificationKind::ServerRoleGranted,
+            server_id,
+            channel_id: None,
+            actor_user_id: None,
+            target: crate::notifications::NotificationTarget::ServerRole(
+                role_id,
+            ),
+            vote_type: None,
+            recipient_ids: granted_user_ids,
+        },
+    )
+    .await
 }
 
 fn shape_role(

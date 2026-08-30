@@ -16,7 +16,7 @@ use crate::{
     cache::CacheService,
     channels,
     common::{ApiError, AppResult},
-    servers,
+    servers, users,
 };
 
 #[cfg(test)]
@@ -543,6 +543,7 @@ struct ChannelAccess {
     // Notification topics are per user rather than per channel, so channel
     // membership is only checked when the topic names one.
     channel_id: Option<Uuid>,
+    registered_only: bool,
 }
 
 fn channel_access(channel: &str, user_id: Uuid) -> Option<ChannelAccess> {
@@ -551,6 +552,7 @@ fn channel_access(channel: &str, user_id: Uuid) -> Option<ChannelAccess> {
     (topic.user_id == user_id).then_some(ChannelAccess {
         server_id: topic.server_id,
         channel_id: topic.channel_id,
+        registered_only: topic.kind == PubSubTopicKind::Notification,
     })
 }
 
@@ -559,6 +561,14 @@ async fn is_authorized(
     access: &ChannelAccess,
     user_id: Uuid,
 ) -> bool {
+    if access.registered_only
+        && users::is_anonymous_user(&state.database, user_id)
+            .await
+            .unwrap_or(true)
+    {
+        return false;
+    }
+
     let Some(channel_id) = access.channel_id else {
         return servers::is_server_member(
             &state.database,
