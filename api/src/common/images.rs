@@ -7,9 +7,9 @@ use std::io::Cursor;
 
 use super::{ApiError, AppResult};
 
-const MAX_IMAGE_DIMENSION: u32 = 10_000;
-const MAX_IMAGE_PIXELS: u64 = 40_000_000;
-const MAX_DECODE_ALLOCATION: u64 = 160 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION: u32 = 20_000;
+const MAX_IMAGE_PIXELS: u64 = 50_000_000;
+const MAX_DECODE_ALLOCATION: u64 = 200 * 1024 * 1024;
 pub(super) const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 
 pub(crate) fn validate_raster(bytes: &[u8], label: &str) -> AppResult<()> {
@@ -26,16 +26,13 @@ pub(crate) fn validate_raster(bytes: &[u8], label: &str) -> AppResult<()> {
     let (width, height) = ImageReader::with_format(Cursor::new(bytes), format)
         .into_dimensions()
         .map_err(|_| invalid_image(label, "is not a valid image"))?;
-    if width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION {
+    let too_large = width > MAX_IMAGE_DIMENSION
+        || height > MAX_IMAGE_DIMENSION
+        || u64::from(width) * u64::from(height) > MAX_IMAGE_PIXELS;
+    if too_large {
         return Err(invalid_image(
             label,
-            "must be no wider or taller than 10,000 pixels",
-        ));
-    }
-    if u64::from(width) * u64::from(height) > MAX_IMAGE_PIXELS {
-        return Err(invalid_image(
-            label,
-            "must contain no more than 40 million pixels",
+            "is too large to process. Try uploading a resized version",
         ));
     }
 
@@ -94,4 +91,37 @@ fn invalid_image(label: &str, requirement: &str) -> ApiError {
         StatusCode::UNPROCESSABLE_ENTITY,
         format!("{label} {requirement}."),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder};
+
+    fn encode_png(width: u32, height: u32) -> Vec<u8> {
+        let pixels = vec![0u8; (width as usize) * (height as usize)];
+        let mut bytes = Vec::new();
+        PngEncoder::new(&mut bytes)
+            .write_image(&pixels, width, height, ExtendedColorType::L8)
+            .unwrap();
+        bytes
+    }
+
+    #[test]
+    fn accepts_high_resolution_image_under_size_limit() {
+        let bytes = encode_png(9_000, 5_000);
+        assert!(bytes.len() < MAX_IMAGE_BYTES);
+
+        let result = validate_raster(&bytes, "Message image");
+        assert!(result.is_ok(), "{:?}", result.err().map(|e| e.to_string()));
+    }
+
+    #[test]
+    fn oversized_image_error_avoids_pixel_jargon() {
+        let bytes = encode_png(MAX_IMAGE_DIMENSION + 1, 200);
+        let error = validate_raster(&bytes, "Message image")
+            .expect_err("expected oversized image to be rejected");
+        let message = error.to_string();
+        assert!(!message.contains("pixel"), "{message}");
+    }
 }
