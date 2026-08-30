@@ -340,9 +340,6 @@ test('upload progress is shown while a large image is sending', async ({
   });
   await expect(overlay).toBeVisible();
   await expect(progress).toHaveAttribute('aria-valuenow', /^\d+$/);
-  await page
-    .getByTestId('attached-image-preview')
-    .screenshot({ path: '/tmp/shot-progress.png' });
 
   // Once the bytes land, the bar fills and waits on server-side processing.
   await expect(progress).not.toHaveAttribute('aria-valuenow');
