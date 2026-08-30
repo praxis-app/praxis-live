@@ -1,5 +1,8 @@
 use axum::http::StatusCode;
-use entity::{enums::ChannelType, forum_posts, messages};
+use entity::{
+    enums::{ChannelType, NotificationKind},
+    forum_posts, messages,
+};
 use sea_orm::{
     prelude::{DateTimeWithTimeZone, Uuid},
     sea_query::Expr,
@@ -37,6 +40,7 @@ pub(crate) struct CreatedReply {
     pub(crate) reply: MessageResponse,
     pub(crate) reply_count: usize,
     pub(crate) latest_reply_at: String,
+    pub(crate) notifications: Vec<entity::notifications::Model>,
 }
 
 #[derive(FromQueryResult)]
@@ -190,6 +194,13 @@ pub(super) async fn create_reply(
         images,
     )
     .await?;
+    let notifications = notify_thread_reply(
+        &transaction,
+        &context,
+        parent_message_id,
+        reply.id,
+    )
+    .await?;
     commit_message_creation(transaction, image_paths).await?;
 
     let (reply_count, latest_reply_at) =
@@ -210,7 +221,57 @@ pub(super) async fn create_reply(
         reply,
         reply_count,
         latest_reply_at,
+        notifications,
     })
+}
+
+/// A thread reply reaches the thread root author and the author of the message
+/// it replies to.
+async fn notify_thread_reply<C>(
+    database: &C,
+    context: &CreateReplyContext,
+    parent_message_id: Uuid,
+    reply_id: Uuid,
+) -> AppResult<Vec<entity::notifications::Model>>
+where
+    C: ConnectionTrait,
+{
+    let recipient_ids = reply_recipient_ids(
+        database,
+        &[context.root_message_id, parent_message_id],
+    )
+    .await?;
+
+    crate::notifications::create_notifications(
+        database,
+        crate::notifications::NewNotification {
+            kind: NotificationKind::MessageReply,
+            server_id: context.server_id,
+            channel_id: Some(context.channel_id),
+            actor_user_id: Some(context.user_id),
+            target: crate::notifications::NotificationTarget::Message(reply_id),
+            vote_type: None,
+            recipient_ids,
+        },
+    )
+    .await
+}
+
+pub(crate) async fn reply_recipient_ids<C>(
+    database: &C,
+    message_ids: &[Uuid],
+) -> AppResult<Vec<Uuid>>
+where
+    C: ConnectionTrait,
+{
+    Ok(messages::Entity::find()
+        .filter(messages::Column::Id.is_in(message_ids.iter().copied()))
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|message| message.user_id)
+        .collect())
 }
 
 pub(super) async fn broadcast_reply(

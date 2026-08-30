@@ -4,9 +4,12 @@
 use axum::http::StatusCode;
 use chrono::{DateTime, FixedOffset};
 use entity::{
-    channel_members,
-    enums::{PollClosedReason, PollDecisionMakingModel, PollStage, VoteType},
-    poll_configs, polls, votes,
+    channel_members, channels,
+    enums::{
+        NotificationKind, PollClosedReason, PollDecisionMakingModel, PollStage,
+        VoteType,
+    },
+    notifications, poll_configs, polls, votes,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait,
@@ -15,13 +18,21 @@ use sea_orm::{
 
 use crate::{
     common::{ApiError, AppResult},
-    poll_actions,
+    notifications as notifications_service, poll_actions,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ProposalFinalization {
     Ratified,
     Closed(PollClosedReason),
+}
+
+/// The outcome plus the notification rows it persisted, so callers can publish
+/// them once their transaction commits.
+#[derive(Clone, Debug)]
+pub(crate) struct FinalizedProposal {
+    pub(crate) finalization: ProposalFinalization,
+    pub(crate) notifications: Vec<notifications::Model>,
 }
 
 pub(crate) async fn is_poll_ratifiable<C>(
@@ -115,7 +126,7 @@ pub(crate) async fn finalize_ratifiable_proposal(
     transaction: &sea_orm::DatabaseTransaction,
     poll_id: Uuid,
     now: DateTime<FixedOffset>,
-) -> AppResult<ProposalFinalization> {
+) -> AppResult<FinalizedProposal> {
     if let Some(reason) = poll_actions::service::plan_event_closed_reason(
         transaction,
         poll_id,
@@ -124,7 +135,16 @@ pub(crate) async fn finalize_ratifiable_proposal(
     .await?
     {
         close_poll_with_reason(transaction, poll_id, Some(reason)).await?;
-        return Ok(ProposalFinalization::Closed(reason));
+        let notifications = notify_proposal_outcome(
+            transaction,
+            poll_id,
+            NotificationKind::ProposalClosed,
+        )
+        .await?;
+        return Ok(FinalizedProposal {
+            finalization: ProposalFinalization::Closed(reason),
+            notifications,
+        });
     }
 
     poll_actions::service::implement_poll_action_in_transaction(
@@ -133,7 +153,68 @@ pub(crate) async fn finalize_ratifiable_proposal(
     )
     .await?;
     ratify_poll(transaction, poll_id).await?;
-    Ok(ProposalFinalization::Ratified)
+    let notifications = notify_proposal_outcome(
+        transaction,
+        poll_id,
+        NotificationKind::ProposalRatified,
+    )
+    .await?;
+
+    Ok(FinalizedProposal {
+        finalization: ProposalFinalization::Ratified,
+        notifications,
+    })
+}
+
+/// Both the vote-triggered path and the scheduler finalize through this
+/// module, so notifying here reaches every path exactly once.
+async fn notify_proposal_outcome<C>(
+    database: &C,
+    poll_id: Uuid,
+    kind: NotificationKind,
+) -> AppResult<Vec<notifications::Model>>
+where
+    C: ConnectionTrait,
+{
+    let Some(poll) = polls::Entity::find_by_id(poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    else {
+        return Ok(Vec::new());
+    };
+    let Some(channel) = channels::Entity::find_by_id(poll.channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    else {
+        return Ok(Vec::new());
+    };
+
+    let mut recipient_ids = vec![poll.user_id];
+    recipient_ids.extend(
+        votes::Entity::find()
+            .filter(votes::Column::PollId.eq(poll_id))
+            .all(database)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|vote| vote.user_id),
+    );
+
+    notifications_service::create_notifications(
+        database,
+        notifications_service::NewNotification {
+            kind,
+            server_id: channel.server_id,
+            channel_id: Some(poll.channel_id),
+            actor_user_id: None,
+            target: notifications_service::NotificationTarget::Poll(poll_id),
+            vote_type: None,
+            recipient_ids,
+        },
+    )
+    .await
 }
 
 async fn get_channel_member_count<C>(

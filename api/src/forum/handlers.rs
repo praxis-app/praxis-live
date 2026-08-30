@@ -273,7 +273,7 @@ pub(super) async fn create_forum_reply(
     multipart: JsonOrMultipartFiles<CreateForumReplyRequest>,
 ) -> AppResult<Json<ForumReplyPayload>> {
     let (payload, images) = multipart.into_payload_and_files();
-    let (reply, post) = service::create_forum_reply(
+    let created = service::create_forum_reply(
         &state.database,
         &state.upload_root,
         context.channel_id,
@@ -291,12 +291,20 @@ pub(super) async fn create_forum_reply(
         context.user_id,
         "created",
         context.post_id,
-        Some(&reply),
+        Some(&created.reply),
         None,
-        &post,
+        &created.summary,
     )
     .await;
-    Ok(Json(ForumReplyPayload { reply }))
+    crate::notifications::publish_notifications(
+        &state.database,
+        &state.pub_sub_service,
+        &created.notifications,
+    )
+    .await;
+    Ok(Json(ForumReplyPayload {
+        reply: created.reply,
+    }))
 }
 
 pub(super) async fn delete_forum_reply(

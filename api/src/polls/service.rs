@@ -34,7 +34,8 @@ pub(crate) use super::{
         prepare_forum_proposal,
     },
     outcome::{
-        finalize_ratifiable_proposal, is_poll_ratifiable, ProposalFinalization,
+        finalize_ratifiable_proposal, is_poll_ratifiable, FinalizedProposal,
+        ProposalFinalization,
     },
     sync::{spawn_expired_poll_closer, spawn_proposal_synchronizer},
 };

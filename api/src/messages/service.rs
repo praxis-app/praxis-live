@@ -7,7 +7,9 @@
 //   feed.rs        channel and call feeds, plus their cursors
 
 use axum::http::StatusCode;
-use entity::{message_images, messages, users};
+use entity::{
+    enums::NotificationKind, message_images, messages, notifications, users,
+};
 use sea_orm::{
     prelude::{DateTimeWithTimeZone, Uuid},
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait,
@@ -22,8 +24,8 @@ use uuid::Uuid as NativeUuid;
 
 pub(super) use super::replies::{broadcast_reply, create_reply, list_replies};
 use super::types::{
-    serialize_timestamp, CreateMessageRequest, ImageResponse, MessageResponse,
-    MessageUser, StoredImage,
+    serialize_timestamp, CreateMessageRequest, CreatedMessage, ImageResponse,
+    MessageResponse, MessageUser, StoredImage,
 };
 use crate::{
     channels,
@@ -33,11 +35,21 @@ use crate::{
         text::sanitize_text,
         ApiError, AppResult,
     },
+    notifications as notifications_service,
     pub_sub::{PubSubService, PubSubTopic},
     users as users_service,
 };
 
 const MAX_IMAGE_COUNT: usize = 8;
+
+/// `notified_server_id` is set for top-level channel messages, which notify the
+/// other channel members. Call messages do not.
+struct MessageCreation {
+    notified_server_id: Option<Uuid>,
+    channel_id: Uuid,
+    call_id: Option<Uuid>,
+    user_id: Uuid,
+}
 
 pub(crate) async fn get_channel_message_feed(
     database: &DatabaseConnection,
@@ -138,17 +150,21 @@ pub(super) fn cursor_condition(
 pub(super) async fn create_message(
     database: &DatabaseConnection,
     upload_root: &Path,
+    server_id: Uuid,
     channel_id: Uuid,
     user_id: Uuid,
     request: CreateMessageRequest,
     images: Vec<Vec<u8>>,
-) -> AppResult<MessageResponse> {
+) -> AppResult<CreatedMessage> {
     create_message_record(
         database,
         upload_root,
-        channel_id,
-        None,
-        user_id,
+        MessageCreation {
+            notified_server_id: Some(server_id),
+            channel_id,
+            call_id: None,
+            user_id,
+        },
         request,
         images,
     )
@@ -170,13 +186,17 @@ pub(super) async fn create_call_message(
     create_message_record(
         database,
         upload_root,
-        channel_id,
-        Some(call_id),
-        user_id,
+        MessageCreation {
+            notified_server_id: None,
+            channel_id,
+            call_id: Some(call_id),
+            user_id,
+        },
         request,
         images,
     )
     .await
+    .map(|created| created.message)
 }
 
 pub(super) async fn broadcast_message(
@@ -232,12 +252,16 @@ pub(super) async fn broadcast_message_to_call(
 async fn create_message_record(
     database: &DatabaseConnection,
     upload_root: &Path,
-    channel_id: Uuid,
-    call_id: Option<Uuid>,
-    user_id: Uuid,
+    context: MessageCreation,
     request: CreateMessageRequest,
     images: Vec<Vec<u8>>,
-) -> AppResult<MessageResponse> {
+) -> AppResult<CreatedMessage> {
+    let MessageCreation {
+        notified_server_id,
+        channel_id,
+        call_id,
+        user_id,
+    } = context;
     validate_message_content(request.body.as_deref(), images.len())?;
 
     let body = request
@@ -279,13 +303,61 @@ async fn create_message_record(
         images,
     )
     .await?;
+    let notifications = match notified_server_id {
+        Some(server_id) => {
+            notify_new_message(
+                &transaction,
+                server_id,
+                channel_id,
+                user_id,
+                message.id,
+            )
+            .await?
+        }
+        None => Vec::new(),
+    };
     commit_message_creation(transaction, image_paths).await?;
 
-    shape_messages(database, vec![message])
+    let message = shape_messages(database, vec![message])
         .await?
         .into_iter()
         .next()
-        .ok_or_else(|| internal_consistency_error("Message not found."))
+        .ok_or_else(|| internal_consistency_error("Message not found."))?;
+
+    Ok(CreatedMessage {
+        message,
+        notifications,
+    })
+}
+
+async fn notify_new_message<C>(
+    database: &C,
+    server_id: Uuid,
+    channel_id: Uuid,
+    sender_id: Uuid,
+    message_id: Uuid,
+) -> AppResult<Vec<notifications::Model>>
+where
+    C: ConnectionTrait,
+{
+    let recipient_ids =
+        channels::get_channel_member_user_ids(database, channel_id).await?;
+
+    notifications_service::create_notifications(
+        database,
+        notifications_service::NewNotification {
+            kind: NotificationKind::NewMessage,
+            server_id,
+            channel_id: Some(channel_id),
+            actor_user_id: Some(sender_id),
+            target: notifications_service::NotificationTarget::Message(
+                message_id,
+            ),
+            vote_type: None,
+            recipient_ids,
+        },
+    )
+    .await
 }
 
 pub(crate) async fn shape_messages(

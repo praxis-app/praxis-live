@@ -1,5 +1,8 @@
 use axum::http::StatusCode;
-use entity::{enums::ChannelType, forum_posts, messages, polls};
+use entity::{
+    enums::{ChannelType, NotificationKind},
+    forum_posts, messages, polls,
+};
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
     DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
@@ -185,6 +188,13 @@ pub(super) async fn create_reply(
         images,
     )
     .await?;
+    let notifications = notify_poll_thread_reply(
+        &transaction,
+        &context,
+        request.parent_message_id,
+        reply.id,
+    )
+    .await?;
     message_service::commit_message_creation(transaction, image_paths).await?;
 
     let (reply_count, latest_reply_at) =
@@ -209,7 +219,53 @@ pub(super) async fn create_reply(
         latest_reply_at: crate::messages::types::serialize_timestamp(
             latest_reply_at,
         ),
+        notifications,
     })
+}
+
+/// A poll thread reply reaches the poll author and the author of the message
+/// it replies to.
+async fn notify_poll_thread_reply<C>(
+    database: &C,
+    context: &CreateReplyContext,
+    parent_message_id: Option<Uuid>,
+    reply_id: Uuid,
+) -> AppResult<Vec<entity::notifications::Model>>
+where
+    C: ConnectionTrait,
+{
+    let Some(poll) = polls::Entity::find_by_id(context.poll_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    else {
+        return Ok(Vec::new());
+    };
+
+    let mut recipient_ids = vec![poll.user_id];
+    if let Some(parent_message_id) = parent_message_id {
+        recipient_ids.extend(
+            crate::messages::reply_recipient_ids(
+                database,
+                &[parent_message_id],
+            )
+            .await?,
+        );
+    }
+
+    crate::notifications::create_notifications(
+        database,
+        crate::notifications::NewNotification {
+            kind: NotificationKind::MessageReply,
+            server_id: context.server_id,
+            channel_id: Some(context.channel_id),
+            actor_user_id: Some(context.user_id),
+            target: crate::notifications::NotificationTarget::Message(reply_id),
+            vote_type: None,
+            recipient_ids,
+        },
+    )
+    .await
 }
 
 pub(super) async fn broadcast_reply(

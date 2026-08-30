@@ -1,7 +1,8 @@
 use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
-    enums::{ForumPostStatus, PollStage},
+    channels as channels_entity,
+    enums::{ForumPostStatus, NotificationKind, PollStage},
     forum_posts, messages, polls, votes as vote_entities,
 };
 use sea_orm::{
@@ -14,8 +15,9 @@ use uuid::Uuid as NativeUuid;
 use super::{
     responses::{shape_forum_post, shape_post_summaries},
     types::{
-        CreateForumPostRequest, CreateForumReplyRequest, ForumPostResponse,
-        ForumPostSummaryResponse, ForumPostsResponse, UpdateForumPostRequest,
+        CreateForumPostRequest, CreateForumReplyRequest, CreatedForumReply,
+        ForumPostResponse, ForumPostSummaryResponse, ForumPostsResponse,
+        UpdateForumPostRequest,
     },
 };
 use crate::{
@@ -24,7 +26,7 @@ use crate::{
         encryption, pagination::PaginationCursor, text::sanitize_text,
         ApiError, AppResult,
     },
-    messages::{self as messages_service, types::MessageResponse},
+    messages::{self as messages_service},
     polls::service as polls_service,
 };
 
@@ -397,7 +399,7 @@ pub(super) async fn create_forum_reply(
     user_id: Uuid,
     request: CreateForumReplyRequest,
     images: Vec<Vec<u8>>,
-) -> AppResult<(MessageResponse, ForumPostSummaryResponse)> {
+) -> AppResult<CreatedForumReply> {
     messages_service::validate_message_content(
         Some(&request.body),
         images.len(),
@@ -455,6 +457,7 @@ pub(super) async fn create_forum_reply(
     .map_err(internal_error)?;
 
     let latest_activity_at = post.latest_activity_at.max(now);
+    let post_author_id = post.user_id;
     let mut active = post.into_active_model();
     active.latest_activity_at = Set(latest_activity_at);
     active.update(&transaction).await.map_err(internal_error)?;
@@ -463,6 +466,15 @@ pub(super) async fn create_forum_reply(
         upload_root,
         reply.id,
         images,
+    )
+    .await?;
+    let notifications = notify_forum_reply(
+        &transaction,
+        channel_id,
+        post_author_id,
+        parent_message_id,
+        user_id,
+        reply.id,
     )
     .await?;
     messages_service::commit_message_creation(transaction, image_paths).await?;
@@ -478,7 +490,53 @@ pub(super) async fn create_forum_reply(
         .into_iter()
         .next()
         .ok_or_else(|| internal_consistency_error("Post not found."))?;
-    Ok((reply, summary))
+    Ok(CreatedForumReply {
+        reply,
+        summary,
+        notifications,
+    })
+}
+
+/// A forum reply reaches the post author and the author of the reply it
+/// answers.
+async fn notify_forum_reply<C>(
+    database: &C,
+    channel_id: Uuid,
+    post_author_id: Uuid,
+    parent_message_id: Uuid,
+    user_id: Uuid,
+    reply_id: Uuid,
+) -> AppResult<Vec<entity::notifications::Model>>
+where
+    C: ConnectionTrait,
+{
+    let Some(channel) = channels_entity::Entity::find_by_id(channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    else {
+        return Ok(Vec::new());
+    };
+
+    let mut recipient_ids = vec![post_author_id];
+    recipient_ids.extend(
+        messages_service::reply_recipient_ids(database, &[parent_message_id])
+            .await?,
+    );
+
+    crate::notifications::create_notifications(
+        database,
+        crate::notifications::NewNotification {
+            kind: NotificationKind::ForumReply,
+            server_id: channel.server_id,
+            channel_id: Some(channel_id),
+            actor_user_id: Some(user_id),
+            target: crate::notifications::NotificationTarget::Message(reply_id),
+            vote_type: None,
+            recipient_ids,
+        },
+    )
+    .await
 }
 
 pub(super) async fn delete_forum_reply(

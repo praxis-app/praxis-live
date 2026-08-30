@@ -5,9 +5,10 @@ use axum::http::StatusCode;
 use entity::{
     channels,
     enums::{
-        PollActionPermissionAbilityAction, PollActionPermissionChangeType,
-        PollActionPermissionSubject, PollActionRoleMemberChangeType,
-        ServerAbilitySubject, ServerRoleAbilityAction,
+        NotificationKind, PollActionPermissionAbilityAction,
+        PollActionPermissionChangeType, PollActionPermissionSubject,
+        PollActionRoleMemberChangeType, ServerAbilitySubject,
+        ServerRoleAbilityAction,
     },
     poll_action_permissions, poll_action_role_members, poll_action_roles,
     polls, server_role_members, server_role_permissions, server_roles, users,
@@ -417,6 +418,23 @@ async fn apply_member_changes(
             .insert(database)
             .await
             .map_err(internal_error)?;
+
+            crate::notifications::create_notifications(
+                database,
+                crate::notifications::NewNotification {
+                    kind: NotificationKind::ServerRoleGranted,
+                    server_id,
+                    channel_id: None,
+                    actor_user_id: None,
+                    target:
+                        crate::notifications::NotificationTarget::ServerRole(
+                            role_id,
+                        ),
+                    vote_type: None,
+                    recipient_ids: vec![member.user_id],
+                },
+            )
+            .await?;
         }
     }
     Ok(())
