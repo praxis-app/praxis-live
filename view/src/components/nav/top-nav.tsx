@@ -127,7 +127,6 @@ export const TopNav = ({
 
       <TooltipProvider>
         <div className="flex items-center gap-1">
-          <NotificationBell />
           {isDesktop && onToggleDecisionsPanel && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -162,6 +161,7 @@ export const TopNav = ({
               <TooltipContent>{t('actions.search')}</TooltipContent>
             </Tooltip>
           )}
+          <NotificationBell />
         </div>
       </TooltipProvider>
     </header>

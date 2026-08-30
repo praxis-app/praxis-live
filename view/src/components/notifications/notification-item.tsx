@@ -11,7 +11,6 @@ import { timeAgo } from '@/lib/time.utils';
 import { type NotificationRes } from '@/types/notification.types';
 import { useTranslation } from 'react-i18next';
 import {
-  LuAtSign,
   LuBadgeCheck,
   LuCheck,
   LuCircleDot,
@@ -24,6 +23,7 @@ import {
 
 interface Props {
   notification: NotificationRes;
+  isLast?: boolean;
   onSelect: (notification: NotificationRes) => void;
   onMarkRead: (notification: NotificationRes) => void;
   onMarkUnread: (notification: NotificationRes) => void;
@@ -33,7 +33,7 @@ interface Props {
 const getIcon = (kind: NotificationRes['kind'], className: string) => {
   switch (kind) {
     case 'new_message':
-      return <LuAtSign className={className} />;
+      return <LuMessageCircle className={cn(className, 'scale-90')} />;
     case 'message_reply':
     case 'forum_reply':
       return <LuReply className={className} />;
@@ -51,6 +51,7 @@ const getIcon = (kind: NotificationRes['kind'], className: string) => {
 
 export const NotificationItem = ({
   notification,
+  isLast = false,
   onSelect,
   onMarkRead,
   onMarkUnread,
@@ -79,6 +80,7 @@ export const NotificationItem = ({
       data-unread={isUnread || undefined}
       className={cn(
         'group relative flex items-start gap-2 border-b px-3 py-3',
+        isLast && 'border-b-0',
         isUnread && 'bg-primary/5 before:bg-primary before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full',
       )}
     >
@@ -93,12 +95,12 @@ export const NotificationItem = ({
           />
         ) : (
           <div className="bg-muted flex size-9 items-center justify-center rounded-full">
-            {getIcon(notification.kind, 'size-4.5')}
+            {getIcon(notification.kind, 'size-4.5 -translate-y-px')}
           </div>
         )}
         {notification.actor && (
           <span className="bg-background absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full border shadow-sm">
-            {getIcon(notification.kind, 'size-3')}
+            {getIcon(notification.kind, 'size-3 -translate-y-px')}
           </span>
         )}
       </div>

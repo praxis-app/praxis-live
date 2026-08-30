@@ -123,7 +123,6 @@ export const ChannelTopNav = ({
 
       <TooltipProvider>
         <div className="flex items-center gap-1">
-          <NotificationBell />
           {channel && videoCallsEnabled && (
             <ChannelCallButton
               callConfig={callConfig}
@@ -171,6 +170,7 @@ export const ChannelTopNav = ({
             </TooltipTrigger>
             <TooltipContent>{searchLabel}</TooltipContent>
           </Tooltip>
+          <NotificationBell />
         </div>
       </TooltipProvider>
     </header>

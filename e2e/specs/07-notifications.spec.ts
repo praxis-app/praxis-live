@@ -81,6 +81,13 @@ test('recovers realtime message notifications, opens the target, and persists re
       .locator('[data-testid="notification-item"][data-unread="true"]')
       .filter({ hasText: actor.user.name }),
   ).toBeVisible();
+  const inboxBox = await inbox.boundingBox();
+  const lastItemBox = await inbox.getByTestId('notification-item').last().boundingBox();
+  expect(inboxBox).not.toBeNull();
+  expect(lastItemBox).not.toBeNull();
+  expect(
+    inboxBox!.y + inboxBox!.height - (lastItemBox!.y + lastItemBox!.height),
+  ).toBeLessThan(4);
 });
 
 test('thread and forum reply notifications open their exact conversations', async ({

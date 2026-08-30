@@ -8,7 +8,7 @@ export const notificationCount = (page: Page) =>
 
 export async function openNotifications(page: Page) {
   await notificationBell(page).click();
-  return page.getByRole('region', { name: 'Notifications' });
+  return page.getByRole('region', { name: 'Notifications', exact: true });
 }
 
 export async function expectUnreadNotifications(page: Page, count: number) {

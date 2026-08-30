@@ -55,7 +55,7 @@ export const NotificationBell = () => {
     return (
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        <PopoverContent align="end" className="h-[min(36rem,calc(100vh-5rem))] w-96 overflow-hidden p-0">
+        <PopoverContent align="end" className="flex max-h-[min(36rem,calc(100vh-5rem))] w-96 overflow-hidden p-0">
           <NotificationInbox onSelect={selectNotification} />
         </PopoverContent>
       </Popover>
@@ -65,7 +65,7 @@ export const NotificationBell = () => {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
-      <SheetContent side="bottom" className="h-[82dvh] gap-0 rounded-t-xl p-0">
+      <SheetContent side="bottom" className="flex max-h-[82dvh] gap-0 rounded-t-xl p-0">
         <NotificationInbox onSelect={selectNotification} />
       </SheetContent>
     </Sheet>

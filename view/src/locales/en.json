@@ -61,8 +61,8 @@
       "unreadCount_other": "{{count}} unread"
     },
     "items": {
-      "new_message_one": "{{actor}} posted a new message in #{{channel}}",
-      "new_message_other": "{{actor}} posted {{count}} new messages in #{{channel}}",
+      "new_message_one": "{{actor}} sent a new message in #{{channel}}",
+      "new_message_other": "{{actor}} sent {{count}} new messages in #{{channel}}",
       "message_reply": "{{actor}} replied to a conversation in #{{channel}}",
       "forum_reply": "{{actor}} replied to your forum post in #{{channel}}",
       "proposal_vote": "{{actor}} voted {{vote}} on your proposal in #{{channel}}",

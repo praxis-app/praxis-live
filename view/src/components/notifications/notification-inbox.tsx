@@ -35,7 +35,7 @@ export const NotificationInbox = ({ onSelect }: Props) => {
   });
 
   return (
-    <section className="flex h-full min-h-0 flex-col" aria-label={t('notifications.title')}>
+    <section className="flex min-h-0 flex-1 flex-col" aria-label={t('notifications.title')}>
       <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
         <div>
           <h2 className="font-semibold">{t('notifications.title')}</h2>
@@ -105,10 +105,11 @@ export const NotificationInbox = ({ onSelect }: Props) => {
             </div>
           )}
 
-        {notifications.map((notification) => (
+        {notifications.map((notification, index) => (
           <NotificationItem
             key={notification.id}
             notification={notification}
+            isLast={index === notifications.length - 1}
             onSelect={onSelect}
             onMarkRead={markRead}
             onMarkUnread={markUnread}
