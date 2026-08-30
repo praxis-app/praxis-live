@@ -47,6 +47,11 @@ import {
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
 import { type ActiveDecisionsRes } from '@/types/decision.types';
 import {
+  type NotificationPayload,
+  type NotificationsPageRes,
+  type UnreadNotificationCountRes,
+} from '@/types/notification.types';
+import {
   type CreateRoleReq,
   type InstanceRoleRes,
   type ServerRoleRes,
@@ -910,6 +915,54 @@ class ApiClient {
 
   deleteInvite = async (serverId: string, inviteId: string) => {
     const path = `/servers/${serverId}/invites/${inviteId}`;
+    return this.executeRequest<void>('delete', path);
+  };
+
+  // -------------------------------------------------------------------------
+  // Notifications
+  // -------------------------------------------------------------------------
+
+  getNotifications = async (
+    serverId: string,
+    before?: string,
+    limit?: number,
+  ) => {
+    const path = `/servers/${serverId}/notifications`;
+    return this.executeRequest<NotificationsPageRes>('get', path, {
+      params: { before, limit },
+    });
+  };
+
+  getUnreadNotificationCount = async (serverId: string) => {
+    const path = `/servers/${serverId}/notifications/unread-count`;
+    return this.executeRequest<UnreadNotificationCountRes>('get', path);
+  };
+
+  markNotificationRead = async (serverId: string, notificationId: string) => {
+    const path = `/servers/${serverId}/notifications/${notificationId}/read`;
+    return this.executeRequest<NotificationPayload>('put', path);
+  };
+
+  markNotificationUnread = async (
+    serverId: string,
+    notificationId: string,
+  ) => {
+    const path = `/servers/${serverId}/notifications/${notificationId}/unread`;
+    return this.executeRequest<NotificationPayload>('put', path);
+  };
+
+  markAllNotificationsRead = async (serverId: string) => {
+    const path = `/servers/${serverId}/notifications/read-all`;
+    return this.executeRequest<void>('put', path);
+  };
+
+  deleteNotification = async (serverId: string, notificationId: string) => {
+    const path = `/servers/${serverId}/notifications/${notificationId}`;
+    return this.executeRequest<void>('delete', path);
+  };
+
+  clearNotifications = async (serverId: string) => {
+    const path = `/servers/${serverId}/notifications`;
     return this.executeRequest<void>('delete', path);
   };
 

@@ -1,4 +1,5 @@
 import { NavSheet } from '@/components/nav/nav-sheet';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -126,6 +127,7 @@ export const TopNav = ({
 
       <TooltipProvider>
         <div className="flex items-center gap-1">
+          <NotificationBell />
           {isDesktop && onToggleDecisionsPanel && (
             <Tooltip>
               <TooltipTrigger asChild>

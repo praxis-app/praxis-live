@@ -63,7 +63,7 @@ export const Message = ({
       data-message-id={id}
       {...pressHandlers}
       className={cn(
-        'group/message data-[state=open]:bg-accent relative -mx-2 flex max-w-full min-w-0 gap-4 rounded-md px-2 pt-1 transition-colors duration-300 ease-out motion-reduce:transition-none',
+        'group/message data-[state=open]:bg-accent data-[notification-highlight=true]:bg-primary/10 relative -mx-2 flex max-w-full min-w-0 gap-4 rounded-md px-2 pt-1 transition-colors duration-300 ease-out motion-reduce:transition-none',
         isPressed && 'bg-accent',
       )}
     >

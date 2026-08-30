@@ -43,6 +43,48 @@
     "fieldRequired": "This field is required."
   },
 
+  "notifications": {
+    "title": "Notifications",
+    "actions": {
+      "open": "Open notifications, {{count}} unread",
+      "openMenu": "Open notification actions",
+      "markRead": "Mark as read",
+      "markUnread": "Mark as unread",
+      "markAllRead": "Mark all read",
+      "delete": "Delete notification",
+      "clearAll": "Clear all notifications"
+    },
+    "labels": {
+      "system": "Praxis",
+      "unavailable": "This item is no longer available",
+      "unreadCount_one": "{{count}} unread",
+      "unreadCount_other": "{{count}} unread"
+    },
+    "items": {
+      "new_message_one": "{{actor}} posted a new message in #{{channel}}",
+      "new_message_other": "{{actor}} posted {{count}} new messages in #{{channel}}",
+      "message_reply": "{{actor}} replied to a conversation in #{{channel}}",
+      "forum_reply": "{{actor}} replied to your forum post in #{{channel}}",
+      "proposal_vote": "{{actor}} voted {{vote}} on your proposal in #{{channel}}",
+      "proposal_ratified": "Your proposal in #{{channel}} was ratified",
+      "proposal_closed": "Your proposal in #{{channel}} closed",
+      "server_role_granted": "You were granted the {{role}} role"
+    },
+    "votes": {
+      "agree": "agree",
+      "disagree": "disagree",
+      "abstain": "abstain",
+      "block": "block"
+    },
+    "empty": {
+      "title": "You're all caught up",
+      "description": "Mentions, replies, proposal updates, and role changes will appear here."
+    },
+    "errors": {
+      "load": "Notifications could not be loaded."
+    }
+  },
+
   "auth": {
     "labels": {
       "email": "Email address",

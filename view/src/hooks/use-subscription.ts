@@ -9,7 +9,7 @@ import { useEffect, useMemo } from 'react';
 import useWebSocket from 'react-use-websocket';
 
 const normalizeChannels = (channels: readonly string[]) =>
-  [...new Set(channels)].sort();
+  [...new Set(channels.filter(Boolean))].sort();
 
 const useSubscriptionInternal = (
   channels: readonly string[],
@@ -91,7 +91,7 @@ const useSubscriptionInternal = (
     });
   }, [isEnabled, isLoggedIn, normalizedChannels, readyState, sendMessage]);
 
-  return { sendMessage, ...rest };
+  return { sendMessage, readyState, ...rest };
 };
 
 export const useSubscription = (

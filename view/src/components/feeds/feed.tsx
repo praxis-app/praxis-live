@@ -18,7 +18,7 @@ import { type ThreadIdentity } from '@/types/message.types';
 import { copyThreadLink } from '@/lib/thread.utils';
 import { toast } from 'sonner';
 
-const DECISION_HIGHLIGHT_DURATION_MS = 2000;
+const FOCUS_HIGHLIGHT_DURATION_MS = 2000;
 
 type FeedScrollMode = 'bottom-anchored' | 'natural';
 
@@ -28,6 +28,7 @@ interface Props {
   feedQueryKey: QueryKey;
   feedBoxRef: RefObject<HTMLDivElement | null>;
   focusedDecisionId?: string;
+  focusedMessageId?: string;
   focusedDecisionRequestKey?: string;
   onFocusedDecisionHandled?: () => void;
   isLastPage: boolean;
@@ -50,6 +51,7 @@ export const Feed = ({
   feedQueryKey,
   feedBoxRef,
   focusedDecisionId,
+  focusedMessageId,
   focusedDecisionRequestKey,
   onFocusedDecisionHandled,
   isLastPage,
@@ -130,7 +132,7 @@ export const Feed = ({
       focusedDecision.dataset.decisionHighlight = 'true';
       window.setTimeout(() => {
         delete focusedDecision.dataset.decisionHighlight;
-      }, DECISION_HIGHLIGHT_DURATION_MS);
+      }, FOCUS_HIGHLIGHT_DURATION_MS);
       focusedDecision.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
@@ -169,6 +171,26 @@ export const Feed = ({
     focusedDecisionRequestKey,
     onFocusedDecisionHandled,
   ]);
+
+  useEffect(() => {
+    if (!focusedMessageId) return;
+    const focusedMessage = feedBoxRef.current?.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(focusedMessageId)}"]`,
+    );
+    if (!focusedMessage) return;
+
+    focusedMessage.dataset.notificationHighlight = 'true';
+    focusedMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    focusedMessage.focus({ preventScroll: true });
+    const timer = window.setTimeout(() => {
+      delete focusedMessage.dataset.notificationHighlight;
+      onFocusedDecisionHandled?.();
+    }, FOCUS_HIGHLIGHT_DURATION_MS);
+    return () => {
+      window.clearTimeout(timer);
+      delete focusedMessage.dataset.notificationHighlight;
+    };
+  }, [feed, feedBoxRef, focusedMessageId, onFocusedDecisionHandled]);
 
   return (
     <div

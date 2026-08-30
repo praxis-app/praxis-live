@@ -204,9 +204,17 @@ export const TextChannelView = ({
     typeof navigationState?.decisionId === 'string'
       ? navigationState.decisionId
       : undefined;
+  const notificationMessageId = new URLSearchParams(location.search).get(
+    'message',
+  );
 
   const clearFocusedDecisionRequest = useCallback(() => {
-    void navigate(location, { replace: true, state: null });
+    const nextSearchParams = new URLSearchParams(location.search);
+    nextSearchParams.delete('message');
+    void navigate(
+      { ...location, search: nextSearchParams.toString() },
+      { replace: true, state: null },
+    );
   }, [location, navigate]);
 
   const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
@@ -238,14 +246,18 @@ export const TextChannelView = ({
     );
   }, [feed, navigate, server?.slug, thread]);
 
-  // Load more of the feed until the selected decision is found.
+  // Load more of the feed until the selected notification target is found.
   useEffect(() => {
     const isDecisionLoaded = feed.some(
       (item) => item.type === 'poll' && item.id === focusedDecisionId,
     );
+    const isMessageLoaded = feed.some(
+      (item) => item.type === 'message' && item.id === notificationMessageId,
+    );
     if (
-      !focusedDecisionId ||
+      (!focusedDecisionId && !notificationMessageId) ||
       isDecisionLoaded ||
+      isMessageLoaded ||
       !hasNextPage ||
       isFetchNextPageError ||
       isFetchingNextPage
@@ -257,6 +269,7 @@ export const TextChannelView = ({
     feed,
     fetchNextPage,
     focusedDecisionId,
+    notificationMessageId,
     hasNextPage,
     isFetchNextPageError,
     isFetchingNextPage,
@@ -597,6 +610,7 @@ export const TextChannelView = ({
               feedQueryKey={feedQueryKey}
               isLoadingMore={isFetchingNextPage}
               focusedDecisionId={focusedDecisionId}
+              focusedMessageId={notificationMessageId || undefined}
               focusedDecisionRequestKey={location.key}
               onFocusedDecisionHandled={clearFocusedDecisionRequest}
               onJoinCall={videoCallsEnabled ? joinCall : undefined}

@@ -18,7 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdClose, MdLockOutline } from 'react-icons/md';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 interface Props {
   channel: ChannelRes;
@@ -28,6 +28,7 @@ interface Props {
 
 export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const [isProposalSettingsOpen, setIsProposalSettingsOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { inviteToken, me } = useAuthData();
   const { serverId, serverPath } = useServerData();
@@ -65,6 +66,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const wasNearBottomRef = useRef(true);
   const previousReplyCountRef = useRef<number | undefined>(undefined);
   const replyCount = post?.replies.length;
+  const focusedReplyId = searchParams.get('reply');
 
   useEffect(() => {
     setIsProposalSettingsOpen(false);
@@ -91,6 +93,27 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
     wasNearBottomRef.current = true;
     scrollToBottom();
   }, [replyCount, scrollToBottom]);
+
+  useEffect(() => {
+    if (!focusedReplyId || !post) return;
+    const reply = scrollContainerRef.current?.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(focusedReplyId)}"]`,
+    );
+    if (!reply) return;
+
+    reply.dataset.notificationHighlight = 'true';
+    reply.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const timer = window.setTimeout(() => {
+      delete reply.dataset.notificationHighlight;
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('reply');
+      setSearchParams(nextSearchParams, { replace: true });
+    }, 2000);
+    return () => {
+      window.clearTimeout(timer);
+      delete reply.dataset.notificationHighlight;
+    };
+  }, [focusedReplyId, post, scrollContainerRef, searchParams, setSearchParams]);
 
   const setScrollContainer = useCallback(
     (element: HTMLElement | null) => {

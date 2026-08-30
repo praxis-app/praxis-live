@@ -2,6 +2,7 @@ import { ChannelDetailsDialogDesktop } from '@/components/channels/channel-detai
 import { ChannelDetailsDrawer } from '@/components/channels/channel-details-drawer';
 import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { NavSheet } from '@/components/nav/nav-sheet';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -122,6 +123,7 @@ export const ChannelTopNav = ({
 
       <TooltipProvider>
         <div className="flex items-center gap-1">
+          <NotificationBell />
           {channel && videoCallsEnabled && (
             <ChannelCallButton
               callConfig={callConfig}
