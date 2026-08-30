@@ -90,7 +90,6 @@ export const NotificationProvider = ({ children }: Props) => {
   const { serverId } = useServerData();
   const queryClient = useQueryClient();
   const previousReadyState = useRef<number | undefined>(undefined);
-  const baseTitle = useRef(document.title.replace(/^\(\d+\)\s*/, ''));
 
   const enabled = isRegistered && !!me && !!serverId;
   const listKey = useMemo(
@@ -193,15 +192,6 @@ export const NotificationProvider = ({ children }: Props) => {
   }, [refresh]);
 
   const unreadCount = unreadQuery.data?.unreadCount || 0;
-  useEffect(() => {
-    const originalTitle = baseTitle.current;
-    document.title = unreadCount
-      ? `(${unreadCount}) ${originalTitle}`
-      : originalTitle;
-    return () => {
-      document.title = originalTitle;
-    };
-  }, [unreadCount]);
 
   const setReadState = useMutation({
     mutationFn: async ({ notification, read }: { notification: NotificationRes; read: boolean }) => {
