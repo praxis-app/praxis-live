@@ -1,5 +1,7 @@
 use axum::http::StatusCode;
-use entity::{channel_members, messages, notifications, users};
+use entity::{
+    channel_members, enums::NotificationKind, messages, notifications, users,
+};
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -358,6 +360,113 @@ async fn targets_reflect_what_the_recipient_can_still_read() {
     );
 }
 
+#[tokio::test]
+async fn ratified_role_proposals_notify_the_added_member() {
+    let app = TestApp::new().await;
+    let context = Context::new(&app).await;
+    context.set_consensus_config().await;
+    let carol_id = context.user_id("Carol").await;
+
+    let poll_id = context
+        .create_role_proposal(
+            "Notified role",
+            json!([{ "userId": carol_id, "changeType": "add" }]),
+        )
+        .await;
+    context.vote(&context.bob, &poll_id, "agree").await;
+
+    let granted = context.of_kind(&context.carol, "server_role_granted").await;
+    assert_eq!(granted.len(), 1);
+    assert_eq!(granted[0]["target"]["kind"], "serverRole");
+    assert_eq!(granted[0]["target"]["available"], true);
+    assert_eq!(granted[0]["target"]["serverRoleName"], "Notified role");
+    assert!(granted[0]["target"]["serverRoleId"].is_string());
+
+    // The grant comes from a ratified proposal rather than from a person, and
+    // it belongs to the server rather than to a channel.
+    assert!(granted[0]["actor"].is_null());
+    assert!(granted[0]["channelId"].is_null());
+    assert_eq!(context.unread_count(&context.carol).await, 1);
+
+    // Only the added member is notified about the grant.
+    for token in [&context.alice, &context.bob] {
+        assert!(context
+            .of_kind(token, "server_role_granted")
+            .await
+            .is_empty());
+    }
+}
+
+#[tokio::test]
+async fn role_grants_travel_with_the_ratification_that_created_them() {
+    let app = TestApp::new().await;
+    let context = Context::new(&app).await;
+    context.set_consensus_config().await;
+    let carol_id = context.user_id("Carol").await;
+
+    let poll_id = context
+        .create_role_proposal(
+            "Publishable role",
+            json!([{ "userId": carol_id, "changeType": "add" }]),
+        )
+        .await;
+    context.vote(&context.bob, &poll_id, "agree").await;
+
+    // The grant is written inside the ratifying transaction, so it lands with
+    // the outcome notifications rather than after them.
+    let role_grant = notifications::Entity::find()
+        .filter(
+            notifications::Column::Kind.eq(NotificationKind::ServerRoleGranted),
+        )
+        .one(app.database())
+        .await
+        .unwrap()
+        .expect("expected a role grant notification");
+    let ratification = notifications::Entity::find()
+        .filter(
+            notifications::Column::Kind.eq(NotificationKind::ProposalRatified),
+        )
+        .one(app.database())
+        .await
+        .unwrap()
+        .expect("expected a ratification notification");
+    assert_eq!(role_grant.recipient_user_id, carol_id);
+    assert_eq!(role_grant.server_id, ratification.server_id);
+    assert!(role_grant.channel_id.is_none());
+    assert!(role_grant.server_role_id.is_some());
+
+    // Re-running the same grant is a no-op, so a member added twice keeps one
+    // inbox entry.
+    let repeat_poll_id = context
+        .create_role_proposal(
+            "Publishable role repeat",
+            json!([{ "userId": carol_id, "changeType": "add" }]),
+        )
+        .await;
+    context.vote(&context.bob, &repeat_poll_id, "agree").await;
+    assert_eq!(
+        context
+            .of_kind(&context.carol, "server_role_granted")
+            .await
+            .len(),
+        2,
+        "a distinct role is a distinct grant"
+    );
+
+    let duplicate = notifications::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        recipient_user_id: Set(role_grant.recipient_user_id),
+        server_id: Set(role_grant.server_id),
+        kind: Set(role_grant.kind),
+        server_role_id: Set(role_grant.server_role_id),
+        ..Default::default()
+    };
+    assert!(notifications::Entity::insert(duplicate)
+        .exec(app.database())
+        .await
+        .is_err());
+}
+
 struct Context<'a> {
     app: &'a TestApp,
     server_id: String,
@@ -490,6 +599,42 @@ impl<'a> Context<'a> {
             )
             .await;
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    async fn create_role_proposal(
+        &self,
+        role_name: &str,
+        members: Value,
+    ) -> String {
+        let response = self
+            .app
+            .post_json_with_bearer(
+                &format!(
+                    "/api/servers/{}/channels/{}/polls",
+                    self.server_id, self.channel_id
+                ),
+                &json!({
+                    "body": format!("Create the {role_name} role"),
+                    "pollType": "proposal",
+                    "action": {
+                        "actionType": "create-role",
+                        "serverRole": {
+                            "name": role_name,
+                            "color": "#336699",
+                            "members": members,
+                            "permissions": [],
+                        }
+                    }
+                }),
+                &self.alice,
+            )
+            .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        json_body(response).await["poll"]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned()
     }
 
     async fn create_proposal(&self) -> String {

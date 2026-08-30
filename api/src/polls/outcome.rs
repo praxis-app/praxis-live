@@ -147,18 +147,20 @@ pub(crate) async fn finalize_ratifiable_proposal(
         });
     }
 
-    poll_actions::service::implement_poll_action_in_transaction(
-        transaction,
-        poll_id,
-    )
-    .await?;
+    let action_notifications =
+        poll_actions::service::implement_poll_action_in_transaction(
+            transaction,
+            poll_id,
+        )
+        .await?;
     ratify_poll(transaction, poll_id).await?;
-    let notifications = notify_proposal_outcome(
+    let mut notifications = notify_proposal_outcome(
         transaction,
         poll_id,
         NotificationKind::ProposalRatified,
     )
     .await?;
+    notifications.extend(action_notifications);
 
     Ok(FinalizedProposal {
         finalization: ProposalFinalization::Ratified,

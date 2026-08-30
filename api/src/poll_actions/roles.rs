@@ -10,8 +10,9 @@ use entity::{
         PollActionRoleMemberChangeType, ServerAbilitySubject,
         ServerRoleAbilityAction,
     },
-    poll_action_permissions, poll_action_role_members, poll_action_roles,
-    polls, server_role_members, server_role_permissions, server_roles, users,
+    notifications, poll_action_permissions, poll_action_role_members,
+    poll_action_roles, polls, server_role_members, server_role_permissions,
+    server_roles, users,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
@@ -149,7 +150,7 @@ pub(super) async fn implement_change_server_role(
     database: &DatabaseTransaction,
     poll_id: Uuid,
     poll_action_id: Uuid,
-) -> AppResult<()> {
+) -> AppResult<Vec<notifications::Model>> {
     let action_role = load_action_role(database, poll_action_id).await?;
     let role_id = action_role.server_role_id.ok_or_else(|| {
         ApiError::new(
@@ -183,7 +184,7 @@ pub(super) async fn implement_create_server_role(
     database: &DatabaseTransaction,
     poll_id: Uuid,
     poll_action_id: Uuid,
-) -> AppResult<()> {
+) -> AppResult<Vec<notifications::Model>> {
     let action_role = load_action_role(database, poll_action_id).await?;
     let server_id = poll_server_id(database, poll_id).await?;
     let name = action_role.name.ok_or_else(|| {
@@ -368,12 +369,14 @@ async fn add_role_permission(
     Ok(())
 }
 
+/// Returns the notifications for every user the role was granted to, so the
+/// ratifying caller can publish them once its transaction commits.
 async fn apply_member_changes(
     database: &DatabaseTransaction,
     server_id: Uuid,
     role_id: Uuid,
     action_role_id: Uuid,
-) -> AppResult<()> {
+) -> AppResult<Vec<notifications::Model>> {
     let members = poll_action_role_members::Entity::find()
         .filter(
             poll_action_role_members::Column::PollActionRoleId
@@ -382,6 +385,7 @@ async fn apply_member_changes(
         .all(database)
         .await
         .map_err(internal_error)?;
+    let mut notifications = Vec::new();
     for member in members {
         // A role only ever grants standing within its own server, so a
         // proposed member who does not belong to that server is skipped
@@ -419,25 +423,27 @@ async fn apply_member_changes(
             .await
             .map_err(internal_error)?;
 
-            crate::notifications::create_notifications(
-                database,
-                crate::notifications::NewNotification {
-                    kind: NotificationKind::ServerRoleGranted,
-                    server_id,
-                    channel_id: None,
-                    actor_user_id: None,
-                    target:
-                        crate::notifications::NotificationTarget::ServerRole(
-                            role_id,
-                        ),
-                    vote_type: None,
-                    recipient_ids: vec![member.user_id],
-                },
-            )
-            .await?;
+            notifications.extend(
+                crate::notifications::create_notifications(
+                    database,
+                    crate::notifications::NewNotification {
+                        kind: NotificationKind::ServerRoleGranted,
+                        server_id,
+                        channel_id: None,
+                        actor_user_id: None,
+                        target:
+                            crate::notifications::NotificationTarget::ServerRole(
+                                role_id,
+                            ),
+                        vote_type: None,
+                        recipient_ids: vec![member.user_id],
+                    },
+                )
+                .await?,
+            );
         }
     }
-    Ok(())
+    Ok(notifications)
 }
 
 fn shape_role(

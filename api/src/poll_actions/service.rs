@@ -3,7 +3,9 @@
 
 use axum::http::StatusCode;
 use chrono::Utc;
-use entity::{enums::PollActionType, poll_actions, server_configs};
+use entity::{
+    enums::PollActionType, notifications, poll_actions, server_configs,
+};
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
     ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
@@ -145,7 +147,7 @@ pub(crate) fn validate_action(
 pub(crate) async fn implement_poll_action_in_transaction(
     transaction: &DatabaseTransaction,
     poll_id: Uuid,
-) -> AppResult<bool> {
+) -> AppResult<Vec<notifications::Model>> {
     let action = match poll_actions::Entity::find()
         .filter(poll_actions::Column::PollId.eq(poll_id))
         .lock(LockType::Update)
@@ -154,14 +156,14 @@ pub(crate) async fn implement_poll_action_in_transaction(
         .map_err(internal_error)?
     {
         Some(action) => action,
-        None => return Ok(false),
+        None => return Ok(Vec::new()),
     };
 
     if action.executed_at.is_some() {
-        return Ok(false);
+        return Ok(Vec::new());
     }
 
-    match action.action_type {
+    let notifications = match action.action_type {
         PollActionType::ChangeRole => {
             roles::implement_change_server_role(transaction, poll_id, action.id)
                 .await?
@@ -176,19 +178,21 @@ pub(crate) async fn implement_poll_action_in_transaction(
                 poll_id,
                 action.id,
             )
-            .await?
+            .await?;
+            Vec::new()
         }
         PollActionType::PlanEvent => {
             events::implement_plan_event(transaction, poll_id, action.id)
-                .await?
+                .await?;
+            Vec::new()
         }
-        _ => {}
-    }
+        _ => Vec::new(),
+    };
 
     let mut active = action.into_active_model();
     active.executed_at = Set(Some(Utc::now().fixed_offset()));
     active.update(transaction).await.map_err(internal_error)?;
-    Ok(true)
+    Ok(notifications)
 }
 
 pub(crate) async fn shape_poll_actions(
