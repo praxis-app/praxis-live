@@ -213,7 +213,9 @@
       "selectedRoleInfo": "Selected Role Information",
       "voteProgress": "Vote Progress",
       "proposalSettings": "Proposal Settings",
-      "planEvent": "Plan Event"
+      "planEvent": "Plan Event",
+      "confirmRatifyingVote": "Your vote may ratify this proposal",
+      "confirmBlockingVote": "Confirm blocking vote"
     },
     "placeholders": {
       "action": "Select an action type",
@@ -225,6 +227,8 @@
       "abstain": "Abstain",
       "agree": "Agree",
       "block": "Block",
+      "castBlockingVote": "Cast blocking vote",
+      "castRatifyingVote": "Cast ratifying vote",
       "create": "Create proposal",
       "disagree": "Disagree",
       "moveToForum": "Move to forum",
@@ -250,6 +254,8 @@
       "proposalSettings": "The decision rules captured when this proposal was created.",
       "votingDeadline": "The date and time when voting ends.",
       "consentRules": "Consent is decided when voting closes. Agree is supportive, disagreements and abstentions are limited objections bounded by their limits, and a single block prevents the proposal from passing.",
+      "confirmBlockingVote": "A blocking vote prevents this proposal from ratifying. Only continue if you intend to stop the proposal from passing.",
+      "confirmRatifyingVote": "Based on the current vote count, this vote is likely to ratify the proposal and put its action into effect.",
       "planEvent": "Set the event details and choose at least one host. The event will be automatically created if this proposal passes."
     },
     "actionTypes": {

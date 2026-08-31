@@ -9,6 +9,7 @@ import { createForumChannel, createForumPosts } from '../lib/forums';
 import { expectRightPanelToResize } from '../lib/right-panel';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
+  confirmRatifyingVote,
   makeProposalsRatifyWithOneAgreeVote,
   openCreateProposalDialog,
   selectRadixOption,
@@ -265,6 +266,7 @@ test('user can move a text proposal to a forum, reply, vote, and see it ratified
   await forumProposal
     .getByRole('button', { name: 'Agree', exact: true })
     .click();
+  await confirmRatifyingVote(page);
   await voteResponse;
   await expect(
     forumProposal.getByText('Ratified', { exact: true }),
@@ -396,6 +398,7 @@ test('user can turn a forum discussion into a ratified proposal', async ({
   await forumProposal
     .getByRole('button', { name: 'Agree', exact: true })
     .click();
+  await confirmRatifyingVote(page);
   await voteResponse;
   await expect(
     forumProposal.getByText('Ratified', { exact: true }),

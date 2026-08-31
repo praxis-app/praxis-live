@@ -3,16 +3,22 @@ import {
   getActiveDecisionsQueryKey,
   updateActiveDecisionCache,
 } from '@/components/decisions/decisions-panel.utils';
+import {
+  ProposalVoteConfirmationDialog,
+  type ProposalVoteConfirmationType,
+} from '@/components/polls/proposals/proposal-vote-confirmation-dialog';
 import { Button } from '@/components/ui/button';
 import { VOTE_TYPES } from '@/constants/vote.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { handleError } from '@/lib/error.utils';
+import { wouldVoteRatifyProposal } from '@/lib/poll.utils';
 import { cn } from '@/lib/shared.utils';
 import { type ChannelRes, type FeedQuery } from '@/types/channel.types';
 import {
   type DecisionMakingModel,
+  type PollConfigRes,
   type PollRes,
   type PollStage,
 } from '@/types/poll.types';
@@ -22,6 +28,7 @@ import {
   useQueryClient,
   type QueryKey,
 } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -32,6 +39,9 @@ interface Props {
   pollId: string;
   stage: PollStage;
   decisionMakingModel: DecisionMakingModel;
+  config: PollConfigRes;
+  votes: VoteRes[];
+  memberCount: number;
   closingAt?: string;
   disabled?: boolean;
   disabledReason?: string;
@@ -46,12 +56,20 @@ export const ProposalVoteButtons = ({
   myVote,
   stage,
   decisionMakingModel,
+  config,
+  votes,
+  memberCount,
   closingAt,
   disabled = false,
   disabledReason,
   onVoteSuccess,
   updateCachedProposal,
 }: Props) => {
+  const [pendingVote, setPendingVote] = useState<{
+    voteType: VoteType;
+    confirmationType: ProposalVoteConfirmationType;
+  } | null>(null);
+
   const deadlineHasPassed = useVotingDeadline(closingAt);
 
   const { serverId } = useServerData();
@@ -257,32 +275,65 @@ export const ProposalVoteButtons = ({
       toast(disabledReason ?? t('proposals.prompts.votingUnavailable'));
       return;
     }
+    if (myVote?.voteType !== voteType) {
+      const confirmationType =
+        voteType === 'block'
+          ? 'blocking'
+          : wouldVoteRatifyProposal(
+              votes,
+              config,
+              memberCount,
+              myVote,
+              voteType,
+            )
+            ? 'ratifying'
+            : null;
+      if (confirmationType) {
+        setPendingVote({ voteType, confirmationType });
+        return;
+      }
+    }
     castVote(voteType);
+  };
+
+  const confirmPendingVote = () => {
+    if (!pendingVote) {
+      return;
+    }
+    castVote(pendingVote.voteType);
+    setPendingVote(null);
   };
 
   const isVotingDisabled =
     disabled || isPending || stage !== 'voting' || deadlineHasPassed;
 
   return (
-    <div className="grid w-full min-w-0 grid-cols-2 gap-2 @lg:grid-cols-4">
-      {voteTypes.map((vote) => (
-        <Button
-          key={vote}
-          variant="outline"
-          size="sm"
-          className={cn(
-            'col-span-1',
-            myVote?.voteType === vote && 'bg-primary/15!',
-            isVotingDisabled &&
-              'hover:bg-background dark:hover:bg-input/30 opacity-50',
-          )}
-          onClick={() => handleVoteBtnClick(vote)}
-          aria-disabled={isVotingDisabled}
-          disabled={isPending}
-        >
-          {t(`proposals.actions.${vote}`)}
-        </Button>
-      ))}
-    </div>
+    <>
+      <div className="grid w-full min-w-0 grid-cols-2 gap-2 @lg:grid-cols-4">
+        {voteTypes.map((vote) => (
+          <Button
+            key={vote}
+            variant="outline"
+            size="sm"
+            className={cn(
+              'col-span-1',
+              myVote?.voteType === vote && 'bg-primary/15!',
+              isVotingDisabled &&
+                'hover:bg-background dark:hover:bg-input/30 opacity-50',
+            )}
+            onClick={() => handleVoteBtnClick(vote)}
+            aria-disabled={isVotingDisabled}
+            disabled={isPending}
+          >
+            {t(`proposals.actions.${vote}`)}
+          </Button>
+        ))}
+      </div>
+      <ProposalVoteConfirmationDialog
+        confirmationType={pendingVote?.confirmationType ?? null}
+        onCancel={() => setPendingVote(null)}
+        onConfirm={confirmPendingVote}
+      />
+    </>
   );
 };

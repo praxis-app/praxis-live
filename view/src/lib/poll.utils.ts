@@ -2,7 +2,7 @@ import { VotingTimeLimit } from '@/constants/vote.constants';
 import { t } from '@/lib/shared.utils';
 import { sortConsensusVotesByType, type WithVoteType } from '@/lib/vote.utils';
 import { type PollConfigRes } from '@/types/poll.types';
-import { type VoteRes } from '@/types/vote.types';
+import { type VoteRes, type VoteType } from '@/types/vote.types';
 
 /**
  * Calculate progress percentage toward a required voting threshold
@@ -121,6 +121,31 @@ export const getProposalRuleStatus = (
     passes,
     eligible: deadlineReached && passes,
   };
+};
+
+export const wouldVoteRatifyProposal = (
+  votes: VoteRes[],
+  config: PollConfigRes,
+  memberCount: number,
+  myVote: VoteRes | undefined,
+  voteType: VoteType,
+) => {
+  const prospectiveVote = {
+    id: myVote?.id ?? 'prospective-vote',
+    voteType,
+  };
+  const prospectiveVotes = myVote
+    ? [
+        ...votes.filter((vote) => vote.id !== myVote.id),
+        prospectiveVote,
+      ]
+    : [...votes, prospectiveVote];
+
+  return getProposalRuleStatus(
+    prospectiveVotes,
+    config,
+    memberCount,
+  ).eligible;
 };
 
 /** Render a voting time limit, stored in minutes, as readable copy */

@@ -72,6 +72,16 @@ export async function voteViaApi(
   await expect(response).toBeOK();
 }
 
+export async function confirmRatifyingVote(page: Page) {
+  const dialog = page.getByRole('dialog', {
+    name: 'Your vote may ratify this proposal',
+  });
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole('button', { name: 'Cast ratifying vote' })
+    .click();
+}
+
 export function getPollVoteSummary(pollId: string) {
   assertUuid(pollId, 'Poll ID');
 

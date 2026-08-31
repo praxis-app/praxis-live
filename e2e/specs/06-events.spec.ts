@@ -12,6 +12,7 @@ import { createPlanEventProposal } from '../lib/events';
 import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import {
+  confirmRatifyingVote,
   getPollVoteSummary,
   makeProposalsRatifyWithOneAgreeVote,
   openCreateProposalDialog,
@@ -280,6 +281,7 @@ test('user can propose and ratify an online event with all details preserved', a
       response.status() === 200,
   );
   await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await confirmRatifyingVote(page);
   await voteResponse;
   await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
 
