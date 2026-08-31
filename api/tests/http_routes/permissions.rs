@@ -701,11 +701,7 @@ async fn a_role_holding_the_all_subject_keeps_blocking() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-pub(crate) async fn restrict_blocks(
-    app: &TestApp,
-    admin: &TestUser,
-    server_id: &str,
-) {
+async fn restrict_blocks(app: &TestApp, admin: &TestUser, server_id: &str) {
     let response = app
         .put_json_with_bearer(
             &format!("/api/servers/{server_id}/configs"),
