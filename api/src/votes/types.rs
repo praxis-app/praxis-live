@@ -34,6 +34,10 @@ pub(crate) struct VoteResponse {
     pub(super) vote_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) poll_option_ids: Option<Vec<String>>,
+    /// Present only on a block the server no longer counts, so the client can
+    /// show it as a recorded objection without veto weight.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub(super) block_ignored: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

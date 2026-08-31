@@ -217,6 +217,35 @@ export const PollSettingsForm = ({
           )}
         />
 
+        {!majorityVoteSelected && (
+          <>
+            <Separator />
+
+            <FormField
+              control={form.control}
+              name="blocksRestricted"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between gap-4 md:gap-16">
+                  <div className="space-y-1">
+                    <FormLabel>
+                      {t('settings.names.blocksRestricted')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('settings.descriptions.blocksRestricted')}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
         <Separator />
 
         <FormField

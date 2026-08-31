@@ -35,11 +35,12 @@ pub(crate) use super::{
     },
     outcome::{
         finalize_ratifiable_proposal, is_poll_ratifiable, ProposalFinalization,
+        PROPOSAL_BLOCK_SUBJECT,
     },
     sync::{spawn_expired_poll_closer, spawn_proposal_synchronizer},
 };
 use crate::{
-    channels,
+    authz, channels,
     common::{
         encryption,
         pagination::{PaginationCursor, PaginationDirection},
@@ -788,6 +789,8 @@ async fn shape_polls(
         polls.iter().map(|poll| poll.channel_id),
     )
     .await?;
+    let ignored_block_vote_ids =
+        get_ignored_block_vote_ids(database, &polls, &configs, &votes).await?;
 
     // Group the loaded rows by poll so each response is an in-memory lookup
     let mut votes_by_poll: HashMap<Uuid, Vec<votes::Model>> = HashMap::new();
@@ -846,13 +849,25 @@ async fn shape_polls(
 
         let shaped_votes = poll_votes
             .iter()
-            .map(|vote| vote_service::shape_vote(vote, &option_ids_by_vote))
+            .map(|vote| {
+                vote_service::shape_vote(
+                    vote,
+                    &option_ids_by_vote,
+                    &ignored_block_vote_ids,
+                )
+            })
             .collect::<Vec<_>>();
         let my_vote = current_user_id.and_then(|user_id| {
             poll_votes
                 .iter()
                 .find(|vote| vote.user_id == user_id)
-                .map(|vote| vote_service::shape_vote(vote, &option_ids_by_vote))
+                .map(|vote| {
+                    vote_service::shape_vote(
+                        vote,
+                        &option_ids_by_vote,
+                        &ignored_block_vote_ids,
+                    )
+                })
         });
 
         // Proposals carry an action and no options; polls are the reverse
@@ -935,6 +950,95 @@ async fn shape_polls(
     }
 
     Ok(responses)
+}
+
+/// Resolves, for the whole batch, which block votes the server no longer
+/// counts. Restricted proposals are rare, so the common path returns before
+/// issuing any query; otherwise it costs one channel lookup plus one
+/// permission lookup per distinct server.
+async fn get_ignored_block_vote_ids(
+    database: &DatabaseConnection,
+    polls: &[polls::Model],
+    configs: &[poll_configs::Model],
+    votes: &[votes::Model],
+) -> AppResult<HashSet<Uuid>> {
+    let restricted_poll_ids: HashSet<Uuid> = configs
+        .iter()
+        .filter(|config| config.blocks_restricted == Some(true))
+        .map(|config| config.poll_id)
+        .collect();
+    if restricted_poll_ids.is_empty() {
+        return Ok(HashSet::new());
+    }
+
+    let block_votes: Vec<&votes::Model> = votes
+        .iter()
+        .filter(|vote| {
+            vote.vote_type == Some(VoteType::Block)
+                && restricted_poll_ids.contains(&vote.poll_id)
+        })
+        .collect();
+    if block_votes.is_empty() {
+        return Ok(HashSet::new());
+    }
+
+    let channel_id_by_poll: HashMap<Uuid, Uuid> = polls
+        .iter()
+        .map(|poll| (poll.id, poll.channel_id))
+        .collect();
+    let channel_ids: HashSet<Uuid> = block_votes
+        .iter()
+        .filter_map(|vote| channel_id_by_poll.get(&vote.poll_id).copied())
+        .collect();
+    let server_id_by_channel: HashMap<Uuid, Uuid> =
+        channel_entities::Entity::find()
+            .filter(channel_entities::Column::Id.is_in(channel_ids))
+            .all(database)
+            .await
+            .map_err(internal_error)?
+            .into_iter()
+            .map(|channel| (channel.id, channel.server_id))
+            .collect();
+
+    let mut block_voters_by_server: HashMap<Uuid, HashSet<Uuid>> =
+        HashMap::new();
+    for vote in &block_votes {
+        let Some(server_id) = channel_id_by_poll
+            .get(&vote.poll_id)
+            .and_then(|channel_id| server_id_by_channel.get(channel_id))
+        else {
+            continue;
+        };
+        block_voters_by_server
+            .entry(*server_id)
+            .or_default()
+            .insert(vote.user_id);
+    }
+
+    let mut eligible_by_server: HashMap<Uuid, HashSet<Uuid>> = HashMap::new();
+    for (server_id, block_voters) in &block_voters_by_server {
+        let eligible = authz::users_can_on_server(
+            database,
+            block_voters,
+            "create",
+            PROPOSAL_BLOCK_SUBJECT,
+            *server_id,
+        )
+        .await?;
+        eligible_by_server.insert(*server_id, eligible);
+    }
+
+    Ok(block_votes
+        .into_iter()
+        .filter(|vote| {
+            channel_id_by_poll
+                .get(&vote.poll_id)
+                .and_then(|channel_id| server_id_by_channel.get(channel_id))
+                .and_then(|server_id| eligible_by_server.get(server_id))
+                .is_none_or(|eligible| !eligible.contains(&vote.user_id))
+        })
+        .map(|vote| vote.id)
+        .collect())
 }
 
 async fn get_channel_member_counts(

@@ -84,6 +84,14 @@ export const getServerPermissionValues = (permissions: ServerPermission[]) =>
         name,
       };
     }
+    if (name === 'blockProposals') {
+      return {
+        value: permissions.some(
+          (p) => p.subject === 'ProposalBlock' && p.action.includes('create'),
+        ),
+        name,
+      };
+    }
     return {
       value: false,
       name,

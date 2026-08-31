@@ -33,6 +33,7 @@ export interface ProposalRuleStatus {
   disagreements: number;
   abstains: number;
   blocks: number;
+  ignoredBlocks: number;
   requiredAgreements: number;
   requiredQuorum: number;
   agreementApplies: boolean;
@@ -50,6 +51,17 @@ export interface ProposalRuleStatus {
 }
 
 /**
+ * A block whose voter has since lost the block permission is dropped from the
+ * arithmetic entirely, matching the server, which excludes it from quorum as
+ * well as from the block tally.
+ */
+export const getCountedVotes = (votes: VoteRes[]) =>
+  votes.filter((vote) => !vote.blockIgnored);
+
+export const getIgnoredBlocks = (votes: VoteRes[]) =>
+  votes.filter((vote) => vote.blockIgnored);
+
+/**
  * Mirror of the server's decision-model evaluation. Rules that do not apply to
  * the proposal's model are reported as met so they can never be shown as a
  * blocker, and `eligible` matches what the server would ratify at `now`.
@@ -60,7 +72,7 @@ export const getProposalRuleStatus = (
   memberCount: number,
   now = Date.now(),
 ): ProposalRuleStatus => {
-  const typedVotes = votes.filter(
+  const typedVotes = getCountedVotes(votes).filter(
     (vote): vote is VoteRes & WithVoteType => !!vote.voteType,
   );
   const { agreements, disagreements, abstains, blocks } =
@@ -106,6 +118,7 @@ export const getProposalRuleStatus = (
     disagreements: disagreements.length,
     abstains: abstains.length,
     blocks: blocks.length,
+    ignoredBlocks: getIgnoredBlocks(votes).length,
     requiredAgreements,
     requiredQuorum,
     agreementApplies,

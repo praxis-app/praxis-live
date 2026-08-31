@@ -183,6 +183,7 @@
       "disagreements": "disagreement limit",
       "abstentions": "abstention limit",
       "blocks": "block present",
+      "ignoredBlocks": "Blocks no longer counted",
       "limitReached": "Limit reached",
       "voting": "Voting",
       "createdInCall": "Created in-call",
@@ -253,7 +254,11 @@
       "selectRoleDescription": "Choose the role you want to modify",
       "proposalSettings": "The decision rules captured when this proposal was created.",
       "votingDeadline": "The date and time when voting ends.",
-      "consentRules": "Consent is decided when voting closes. Agree is supportive, disagreements and abstentions are limited objections bounded by their limits, and a single block prevents the proposal from passing.",
+      "consentRules": "Consent is decided when voting closes. Agree is supportive, disagreements and abstentions are limited objections bounded by their limits, and a single block from a member eligible to block prevents the proposal from passing.",
+      "consensusRules": "Consensus passes when agreement reaches the threshold and disagreements and abstentions stay within their limits. A single block from a member eligible to block prevents the proposal from passing.",
+      "blocksRoleRestricted": "Blocking is restricted to certain roles on this server, so the block option is unavailable to you. Disagree still counts against the disagreement limit.",
+      "ignoredBlocks_one": "{{count}} block is still on record but no longer carries veto weight, because the member who cast it no longer holds a role that allows blocking.",
+      "ignoredBlocks_other": "{{count}} blocks are still on record but no longer carry veto weight, because the members who cast them no longer hold a role that allows blocking.",
       "confirmBlockingVote": "A blocking vote prevents this proposal from ratifying. Only continue if you intend to stop the proposal from passing.",
       "confirmRatifyingVote": "Based on the current vote count, this vote is likely to ratify the proposal and put its action into effect.",
       "planEvent": "Set the event details and choose at least one host. The event will be automatically created if this proposal passes."
@@ -764,6 +769,7 @@
 
   "permissions": {
     "names": {
+      "blockProposals": "Block proposals",
       "createEvents": "Create events",
       "createInvites": "Create invites",
       "manageChannels": "Manage channels",
@@ -781,6 +787,7 @@
       "removeProposals": "Remove proposals"
     },
     "descriptions": {
+      "blockProposals": "Allows members to cast a blocking vote on proposals when blocking is restricted on this server.",
       "createEvents": "Allows members to create and plan events.",
       "createInvites": "Allows members to invite new people to the server.",
       "manageChannels": "Allows members to create, edit, or delete channels.",
@@ -826,6 +833,7 @@
       "disagreementsLimit": "Disagreements limit",
       "abstainsLimit": "Abstains limit",
       "votingTimeLimit": "Voting time limit",
+      "blocksRestricted": "Restrict blocking",
       "anonymousUsersEnabled": "Anonymous users"
     },
     "descriptions": {
@@ -840,6 +848,7 @@
       "majorityVoteLimitsDisabled": "Disagreement and abstention limits do not apply to majority vote, which is determined by the agreement threshold and quorum.",
       "consentThresholdsDisabled": "Quorum and agreement threshold do not apply to consent, which passes at the voting deadline when disagreements and abstentions stay within their limits and nobody blocks.",
       "votingTimeLimit": "Set a time limit for how long proposals can be voted on before they're closed or ratified.",
+      "blocksRestricted": "Limit blocking to members with a role that grants it. Everyone else can still disagree, which counts against the disagreement limit.",
       "anonymousUsersEnabled": "Allow users to participate without creating an account or providing personal information."
     },
     "explanations": {

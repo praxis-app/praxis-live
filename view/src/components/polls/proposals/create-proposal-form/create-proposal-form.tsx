@@ -239,6 +239,17 @@ export const CreateProposalForm = ({
               ],
             });
             break;
+          case 'blockProposals':
+            result.push({
+              subject: 'ProposalBlock',
+              actions: [
+                {
+                  action: 'create',
+                  changeType: permissionValue ? 'add' : 'remove',
+                },
+              ],
+            });
+            break;
         }
         return result;
       }, []);

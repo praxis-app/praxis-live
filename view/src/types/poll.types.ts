@@ -54,6 +54,7 @@ export interface PollConfigRes {
   quorumThreshold?: number;
   disagreementsLimit?: number;
   abstainsLimit?: number;
+  blocksRestricted?: boolean;
   closingAt?: string;
   multipleChoice?: boolean;
 }

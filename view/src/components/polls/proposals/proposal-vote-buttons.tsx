@@ -9,6 +9,7 @@ import {
 } from '@/components/polls/proposals/proposal-vote-confirmation-dialog';
 import { Button } from '@/components/ui/button';
 import { VOTE_TYPES } from '@/constants/vote.constants';
+import { useAbility } from '@/hooks/use-ability';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
 import { useVotingDeadline } from '@/hooks/use-voting-deadline';
@@ -74,14 +75,21 @@ export const ProposalVoteButtons = ({
 
   const { serverId } = useServerData();
   const { isLoggedIn } = useAuthData();
+  const { serverAbility } = useAbility();
 
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const voteTypes = VOTE_TYPES.filter(
-    (voteType) =>
-      decisionMakingModel !== 'majority-vote' || voteType !== 'block',
-  );
+  const blocksRestricted =
+    config.blocksRestricted === true &&
+    !serverAbility.can('create', 'ProposalBlock');
+
+  const voteTypes = VOTE_TYPES.filter((voteType) => {
+    if (voteType !== 'block') {
+      return true;
+    }
+    return decisionMakingModel !== 'majority-vote' && !blocksRestricted;
+  });
 
   const { mutate: castVote, isPending } = useMutation({
     mutationFn: async (voteType: VoteType) => {
