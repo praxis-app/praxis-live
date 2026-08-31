@@ -639,6 +639,197 @@ async fn only_instance_role_managers_can_create_instance_roles() {
     assert_eq!(admin_response.status(), StatusCode::OK);
 }
 
+#[tokio::test]
+async fn restricted_blocks_are_refused_without_the_proposal_block_permission() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = default_server_id(&app).await;
+    let channel_id = general_channel_id(&app, &server_id).await;
+    restrict_blocks(&app, &admin, &server_id).await;
+
+    let poll_id =
+        create_proposal(&app, &admin, &server_id, &channel_id, "Restricted")
+            .await;
+
+    let response =
+        cast_vote(&app, &member, &server_id, &channel_id, &poll_id, "block")
+            .await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn a_role_granting_proposal_block_restores_blocking() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = default_server_id(&app).await;
+    let channel_id = general_channel_id(&app, &server_id).await;
+    restrict_blocks(&app, &admin, &server_id).await;
+    grant_proposal_block(&app, &admin, &server_id, &member).await;
+
+    let poll_id =
+        create_proposal(&app, &admin, &server_id, &channel_id, "Restricted")
+            .await;
+
+    let response =
+        cast_vote(&app, &member, &server_id, &channel_id, &poll_id, "block")
+            .await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn a_role_holding_the_all_subject_keeps_blocking() {
+    let app = TestApp::new().await;
+    let admin = signup(&app, "admin@example.com", "Admin Example").await;
+    let member = signup(&app, "member@example.com", "Member Example").await;
+    let server_id = default_server_id(&app).await;
+    let channel_id = general_channel_id(&app, &server_id).await;
+    restrict_blocks(&app, &admin, &server_id).await;
+    grant_all_subject(&app, &admin, &server_id, &member).await;
+
+    let poll_id =
+        create_proposal(&app, &admin, &server_id, &channel_id, "Restricted")
+            .await;
+
+    let response =
+        cast_vote(&app, &member, &server_id, &channel_id, &poll_id, "block")
+            .await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+pub(crate) async fn restrict_blocks(
+    app: &TestApp,
+    admin: &TestUser,
+    server_id: &str,
+) {
+    let response = app
+        .put_json_with_bearer(
+            &format!("/api/servers/{server_id}/configs"),
+            &json!({
+                "decisionMakingModel": "consensus",
+                "agreementThreshold": 51,
+                "disagreementsLimit": 2,
+                "abstainsLimit": 2,
+                "quorumEnabled": false,
+                "votingTimeLimit": 0,
+                "blocksRestricted": true,
+            }),
+            &admin.token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+async fn grant_all_subject(
+    app: &TestApp,
+    granter: &TestUser,
+    server_id: &str,
+    user: &TestUser,
+) {
+    let role_id = create_server_role(app, granter, server_id, "Owners").await;
+
+    let permissions_response = app
+        .put_json_with_bearer(
+            &format!("/api/servers/{server_id}/roles/{role_id}/permissions"),
+            &json!({
+                "permissions": [{ "subject": "all", "action": ["manage"] }],
+            }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(permissions_response.status(), StatusCode::OK);
+
+    let members_response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/roles/{role_id}/members"),
+            &json!({ "userIds": [user.user_id] }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(members_response.status(), StatusCode::OK);
+}
+
+async fn grant_proposal_block(
+    app: &TestApp,
+    granter: &TestUser,
+    server_id: &str,
+    user: &TestUser,
+) -> String {
+    let role_id = create_server_role(app, granter, server_id, "Blockers").await;
+
+    let permissions_response = app
+        .put_json_with_bearer(
+            &format!("/api/servers/{server_id}/roles/{role_id}/permissions"),
+            &json!({
+                "permissions": [
+                    { "subject": "ProposalBlock", "action": ["create"] },
+                ],
+            }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(permissions_response.status(), StatusCode::OK);
+
+    let members_response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/roles/{role_id}/members"),
+            &json!({ "userIds": [user.user_id] }),
+            &granter.token,
+        )
+        .await;
+    assert_eq!(members_response.status(), StatusCode::OK);
+
+    role_id
+}
+
+async fn create_proposal(
+    app: &TestApp,
+    proposer: &TestUser,
+    server_id: &str,
+    channel_id: &str,
+    body: &str,
+) -> String {
+    let response = app
+        .post_json_with_bearer(
+            &format!("/api/servers/{server_id}/channels/{channel_id}/polls"),
+            &json!({
+                "body": body,
+                "pollType": "proposal",
+                "action": { "actionType": "general" },
+            }),
+            &proposer.token,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    json_body(response).await["poll"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn cast_vote(
+    app: &TestApp,
+    voter: &TestUser,
+    server_id: &str,
+    channel_id: &str,
+    poll_id: &str,
+    vote_type: &str,
+) -> axum::response::Response {
+    app.post_json_with_bearer(
+        &format!(
+            "/api/servers/{server_id}/channels/{channel_id}/polls/{poll_id}/votes"
+        ),
+        &json!({ "voteType": vote_type }),
+        &voter.token,
+    )
+    .await
+}
+
 fn server_payload(
     name: &str,
     slug: &str,

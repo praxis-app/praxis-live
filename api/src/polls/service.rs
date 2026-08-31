@@ -973,6 +973,7 @@ fn shape_poll_config(config: poll_configs::Model) -> PollConfigResponse {
         quorum_threshold: config.quorum_threshold,
         disagreements_limit: config.disagreements_limit,
         abstains_limit: config.abstains_limit,
+        blocks_restricted: config.blocks_restricted,
         closing_at: config.closing_at.map(serialize_timestamp),
         multiple_choice: config.multiple_choice,
     }

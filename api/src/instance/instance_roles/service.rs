@@ -48,8 +48,8 @@ pub(super) async fn get_instance_roles(
     Ok(responses)
 }
 
-pub(crate) async fn get_permissions_by_user(
-    database: &DatabaseConnection,
+pub(crate) async fn get_permissions_by_user<C: ConnectionTrait>(
+    database: &C,
     user_id: Uuid,
 ) -> AppResult<Vec<PermissionRule>> {
     let memberships = instance_role_members::Entity::find()

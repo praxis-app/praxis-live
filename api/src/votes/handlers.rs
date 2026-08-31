@@ -35,9 +35,14 @@ pub(super) async fn create_vote(
     let channel_id = context.channel_id;
     let poll_id = context.poll_id;
     let user_id = context.user_id;
-    let vote =
-        service::create_vote(&state.database, context.poll, user_id, payload)
-            .await?;
+    let vote = service::create_vote(
+        &state.database,
+        server_id,
+        context.poll,
+        user_id,
+        payload,
+    )
+    .await?;
 
     if let Err(error) = polls_service::broadcast_poll_update(
         &state.database,
@@ -66,6 +71,7 @@ pub(super) async fn update_vote(
     let user_id = context.route.user_id;
     let response = service::update_vote(
         &state.database,
+        server_id,
         context.route.poll,
         context.vote_id,
         user_id,
