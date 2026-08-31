@@ -1,6 +1,7 @@
 import { api } from '@/client/api-client';
 import { Button } from '@/components/ui/button';
 import { INSTANCE_PERMISSION_KEYS } from '@/constants/role.constants';
+import { useUpdateRoleCache } from '@/hooks/use-update-role-cache';
 import { getInstancePermissionValues } from '@/lib/role.utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
@@ -33,6 +34,8 @@ export const InstanceRolePermissionsForm = ({ instanceRole }: Props) => {
   });
 
   const queryClient = useQueryClient();
+  const { updateCachedInstanceRoles } = useUpdateRoleCache();
+
   const { mutate: updatePermissions, isPending } = useMutation({
     mutationFn: async (values: FormValues) => {
       const permissions = values.permissions.reduce<InstancePermission[]>(
@@ -67,6 +70,14 @@ export const InstanceRolePermissionsForm = ({ instanceRole }: Props) => {
           return { instanceRole: { ...oldData.instanceRole, permissions } };
         },
       );
+      const cacheUpdated = updateCachedInstanceRoles((instanceRoles) =>
+        instanceRoles.map((role) =>
+          role.id === instanceRole.id ? { ...role, permissions } : role,
+        ),
+      );
+      if (!cacheUpdated) {
+        queryClient.invalidateQueries({ queryKey: ['me'] });
+      }
       reset({
         permissions: getInstancePermissionValues(permissions),
       });

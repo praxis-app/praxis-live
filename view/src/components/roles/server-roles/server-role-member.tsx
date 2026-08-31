@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { useServerData } from '@/hooks/use-server-data';
+import { useUpdateRoleCache } from '@/hooks/use-update-role-cache';
 import { truncate } from '@/lib/text.utils';
 import { type ServerRoleRes } from '@/types/role.types';
 import { type UserRes } from '@/types/user.types';
@@ -30,6 +31,7 @@ export const ServerRoleMember = ({ serverRoleId, serverRoleMember }: Props) => {
   const queryClient = useQueryClient();
 
   const { serverId } = useServerData();
+  const { updateCachedServerRoles } = useUpdateRoleCache();
 
   const { mutate: removeMember, isPending } = useMutation({
     async mutationFn() {
@@ -55,20 +57,29 @@ export const ServerRoleMember = ({ serverRoleId, serverRoleMember }: Props) => {
         },
       );
       queryClient.setQueryData(
-        ['servers', serverId, 'roles'],
-        (data: { serverRoles: ServerRoleRes[] }) => ({
-          serverRoles: data.serverRoles.map((role) => ({
-            ...role,
-            memberCount: Math.max(0, role.memberCount - 1),
-          })),
-        }),
-      );
-      queryClient.setQueryData(
         ['servers', serverId, 'roles', serverRoleId, 'members', 'eligible'],
         (data: { users: UserRes[] }) => {
           return { users: [serverRoleMember, ...data.users] };
         },
       );
+
+      const cacheUpdated = updateCachedServerRoles(serverId, (serverRoles) =>
+        serverRoles.map((role) => {
+          if (role.id !== serverRoleId) {
+            return role;
+          }
+          return {
+            ...role,
+            members: role.members.filter(
+              (member) => member.id !== serverRoleMember.id,
+            ),
+            memberCount: Math.max(0, role.memberCount - 1),
+          };
+        }),
+      );
+      if (!cacheUpdated) {
+        queryClient.invalidateQueries({ queryKey: ['me'] });
+      }
     },
   });
 

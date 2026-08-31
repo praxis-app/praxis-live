@@ -30,7 +30,7 @@ export const ProposalVoteConfirmationDialog = ({
       open={confirmationType !== null}
       onOpenChange={(open) => !open && onCancel()}
     >
-      <DialogContent>
+      <DialogContent className="md:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {t(

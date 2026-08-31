@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuX } from 'react-icons/lu';
+import { useUpdateRoleCache } from '@/hooks/use-update-role-cache';
 import { truncate } from '@/lib/text.utils';
 import { type InstanceRoleRes } from '@/types/role.types';
 import { type UserRes } from '@/types/user.types';
@@ -30,6 +31,7 @@ export const InstanceRoleMember = ({
 
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { updateCachedInstanceRoles } = useUpdateRoleCache();
 
   const { mutate: removeMember, isPending } = useMutation({
     async mutationFn() {
@@ -52,25 +54,29 @@ export const InstanceRoleMember = ({
         },
       );
       queryClient.setQueryData(
-        ['instance-roles'],
-        (data: { instanceRoles: InstanceRoleRes[] }) => ({
-          instanceRoles: data.instanceRoles.map((role) => {
-            if (role.id !== instanceRoleId) {
-              return role;
-            }
-            return {
-              ...role,
-              memberCount: Math.max(0, role.memberCount - 1),
-            };
-          }),
-        }),
-      );
-      queryClient.setQueryData(
         ['instance-roles', instanceRoleId, 'members', 'eligible'],
         (data: { users: UserRes[] }) => {
           return { users: [instanceRoleMember, ...data.users] };
         },
       );
+
+      const cacheUpdated = updateCachedInstanceRoles((instanceRoles) =>
+        instanceRoles.map((role) => {
+          if (role.id !== instanceRoleId) {
+            return role;
+          }
+          return {
+            ...role,
+            members: role.members.filter(
+              (member) => member.id !== instanceRoleMember.id,
+            ),
+            memberCount: Math.max(0, role.memberCount - 1),
+          };
+        }),
+      );
+      if (!cacheUpdated) {
+        queryClient.invalidateQueries({ queryKey: ['me'] });
+      }
     },
   });
 
