@@ -49,8 +49,8 @@ pub(crate) fn normalize_raster(
     bytes: Vec<u8>,
     label: &str,
 ) -> AppResult<Vec<u8>> {
-    let format = inspect(&bytes, label)?;
-    let (width, height) = dimensions(&bytes, format, label)?;
+    let (format, image) = inspect(&bytes, label)?;
+    let (width, height) = (image.width(), image.height());
 
     let oversized = bytes.len() > COMPRESSION_THRESHOLD_BYTES
         || width > COMPRESSION_TARGET_DIMENSION
@@ -59,7 +59,6 @@ pub(crate) fn normalize_raster(
         return Ok(bytes);
     }
 
-    let image = decode(&bytes, format, label)?;
     let image = if width > COMPRESSION_TARGET_DIMENSION
         || height > COMPRESSION_TARGET_DIMENSION
     {
@@ -101,13 +100,12 @@ pub(crate) async fn normalize_raster_async(
         })?
 }
 
-/// Applies the rejection limits without re-encoding, for callers that need
-/// to fail before doing other work.
-pub(crate) fn validate_raster(bytes: &[u8], label: &str) -> AppResult<()> {
-    inspect(bytes, label).map(|_| ())
-}
-
-fn inspect(bytes: &[u8], label: &str) -> AppResult<ImageFormat> {
+/// Applies the rejection limits and returns the decoded image alongside its
+/// format, so callers that go on to resize do not decode a second time.
+fn inspect(
+    bytes: &[u8],
+    label: &str,
+) -> AppResult<(ImageFormat, DynamicImage)> {
     if bytes.is_empty() {
         return Err(invalid_image(label, "is required"));
     }
@@ -135,9 +133,9 @@ fn inspect(bytes: &[u8], label: &str) -> AppResult<ImageFormat> {
         ));
     }
 
-    decode(bytes, format, label)?;
+    let image = decode(bytes, format, label)?;
 
-    Ok(format)
+    Ok((format, image))
 }
 
 fn dimensions(
@@ -267,14 +265,14 @@ mod tests {
         let bytes = encode_png(9_000, 5_000);
         assert!(bytes.len() < MAX_IMAGE_BYTES);
 
-        let result = validate_raster(&bytes, "Message image");
+        let result = inspect(&bytes, "Message image");
         assert!(result.is_ok(), "{:?}", result.err().map(|e| e.to_string()));
     }
 
     #[test]
     fn oversized_image_error_avoids_pixel_jargon() {
         let bytes = encode_png(MAX_IMAGE_DIMENSION + 1, 200);
-        let error = validate_raster(&bytes, "Message image")
+        let error = inspect(&bytes, "Message image")
             .expect_err("expected oversized image to be rejected");
         let message = error.to_string();
         assert!(!message.contains("pixel"), "{message}");

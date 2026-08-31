@@ -1132,19 +1132,19 @@ fn internal_error(error: impl std::fmt::Display) -> ApiError {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::images::validate_raster;
+    use crate::common::images::normalize_raster;
 
     #[test]
     fn event_cover_photo_rejects_active_content() {
         assert!(
-            validate_raster(
-                br#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#,
+            normalize_raster(
+                br#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#.to_vec(),
                 "Event cover photo",
             )
             .is_err()
         );
-        assert!(validate_raster(
-            b"<script>alert(1)</script>",
+        assert!(normalize_raster(
+            b"<script>alert(1)</script>".to_vec(),
             "Event cover photo"
         )
         .is_err());
