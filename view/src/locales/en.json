@@ -437,6 +437,7 @@
       "openMessageActions": "Open message actions",
       "openMenu": "Open message menu",
       "copyLink": "Copy link",
+      "copyText": "Copy text",
       "reply": "Reply"
     },
     "labels": {
@@ -457,7 +458,8 @@
       "onlyVisibleToYou": "Only visible to you",
       "inviteRequired": "You need to be invited or logged in before you can send messages.",
       "processingCommand": "Processing your command...",
-      "linkCopied": "Link copied to clipboard"
+      "linkCopied": "Link copied to clipboard",
+      "textCopied": "Message copied to clipboard"
     },
     "errors": {
       "longBody": "Message body cannot exceed 6000 characters",

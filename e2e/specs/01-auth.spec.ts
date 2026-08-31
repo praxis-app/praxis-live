@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createAuthenticatedUser,
+  getOrCreateInstanceAdmin,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
@@ -73,6 +74,7 @@ test('invited user can log in and join the invited server', async ({
   page,
   request,
 }) => {
+  await getOrCreateInstanceAdmin(request);
   const admin = await createServerAdmin(request, 'invite-admin');
   const serverName = `Invite server ${admin.user.suffix}`;
   const serverSlug = `invite-${admin.user.suffix}`;
@@ -139,6 +141,7 @@ test('invited user can sign up and join the invited server', async ({
   page,
   request,
 }) => {
+  await getOrCreateInstanceAdmin(request);
   const admin = await createServerAdmin(request, 'signup-invite-admin');
   const serverName = `Signup invite server ${admin.user.suffix}`;
   const serverSlug = `signup-invite-${admin.user.suffix}`;
@@ -168,8 +171,15 @@ test('invited user can sign up and join the invited server', async ({
       response.status() === 201 &&
       response.request().postDataJSON().inviteToken === inviteToken,
   );
+  const currentServerResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith(`/api/servers/${server.id}/current`) &&
+      response.status() === 200,
+  );
   await auth.signUp(invitedUser);
   await signupResponse;
+  await currentServerResponse;
 
   await expect(page).toHaveURL(new RegExp(`/s/${server.slug}/c/[^/]+/?$`));
   await chat.expectChannel('general');
@@ -180,6 +190,16 @@ test('invited user can sign up and join the invited server', async ({
       page.evaluate(() => window.localStorage.getItem('invite-token')),
     )
     .toBeNull();
+
+  await navigation.logOut();
+  await navigation.expectAccessTokenCleared();
+  await page.getByRole('link', { name: 'Log in', exact: true }).first().click();
+  await auth.logIn(invitedUser);
+
+  await expect(page).toHaveURL(new RegExp(`/s/${server.slug}/c/[^/]+/?$`));
+  await chat.expectChannel('general');
+  await navigation.expectSignedInUser(invitedUser);
+  await navigation.expectAccessTokenPersisted();
 });
 
 const switchToServer = async (page: Page, serverName: string) => {

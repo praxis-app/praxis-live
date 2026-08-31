@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import {
+  devices,
   expect,
   test,
   type Locator,
@@ -17,7 +18,11 @@ import { createTestMessage, createTestUser } from '../lib/data';
 import { createLargePng, expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
-import { createMessages } from '../lib/messages';
+import {
+  createMessages,
+  getSelectedText,
+  longPressMessage,
+} from '../lib/messages';
 import { expectRightPanelToResize } from '../lib/right-panel';
 import {
   createServer,
@@ -767,3 +772,57 @@ async function backgroundColor(locator: Locator) {
     (element) => window.getComputedStyle(element).backgroundColor,
   );
 }
+
+test('long pressing a message on mobile opens its menu without selecting text', async ({
+  browser,
+  request,
+}) => {
+  const mobileContext = await browser.newContext({
+    ...devices['Pixel 5'],
+  });
+  const page = await mobileContext.newPage();
+
+  try {
+    const user = await createAuthenticatedUser(
+      request,
+      mobileContext,
+      createTestUser('long-press'),
+    );
+    const server = await getDefaultServer(request, user);
+    const body = `Long press target ${user.user.suffix}`;
+    await createMessages({
+      request,
+      user,
+      serverId: server.id,
+      channelId: server.generalChannelId,
+      bodies: [body],
+    });
+
+    await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+    const feed = page.getByTestId('feed');
+    await expect(feed.getByText(body)).toBeVisible();
+    const message = feed.locator('[data-message-id]').filter({ hasText: body });
+
+    // The long press and a drag-to-select are the same gesture, so the touch
+    // menu path has to opt out of selection entirely.
+    await expect
+      .poll(() =>
+        message.evaluate(
+          (element) => window.getComputedStyle(element).userSelect,
+        ),
+      )
+      .toBe('none');
+
+    await longPressMessage(page, message);
+
+    await expect(page.getByRole('menuitem', { name: 'Reply' })).toBeVisible();
+    expect(await getSelectedText(page)).toBe('');
+
+    // Copying stays available through the menu now that the browser's own
+    // select-and-copy is off.
+    await page.getByRole('menuitem', { name: 'Copy text' }).click();
+    await expect(page.getByText('Message copied to clipboard')).toBeVisible();
+  } finally {
+    await mobileContext.close();
+  }
+});
