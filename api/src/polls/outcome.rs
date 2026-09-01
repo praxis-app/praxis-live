@@ -128,7 +128,7 @@ where
     }
 
     let server_id = get_server_id_by_channel(database, poll.channel_id).await?;
-    let eligible = authz::users_can_on_server(
+    let eligible = authz::filter_users_who_can(
         database,
         &block_voters,
         "create",

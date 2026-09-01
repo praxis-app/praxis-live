@@ -73,7 +73,7 @@ pub(crate) async fn can<C: ConnectionTrait>(
     }
 }
 
-pub(crate) async fn users_can_on_server<C: ConnectionTrait>(
+pub(crate) async fn filter_users_who_can<C: ConnectionTrait>(
     database: &C,
     user_ids: &HashSet<Uuid>,
     action: &str,

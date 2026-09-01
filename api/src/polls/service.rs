@@ -1017,7 +1017,7 @@ async fn get_ignored_block_vote_ids(
 
     let mut eligible_by_server: HashMap<Uuid, HashSet<Uuid>> = HashMap::new();
     for (server_id, block_voters) in &block_voters_by_server {
-        let eligible = authz::users_can_on_server(
+        let eligible = authz::filter_users_who_can(
             database,
             block_voters,
             "create",
