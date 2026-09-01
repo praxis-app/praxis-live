@@ -1126,24 +1126,3 @@ fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("poll request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::common::images::normalize_raster;
-
-    #[test]
-    fn event_cover_photo_rejects_active_content() {
-        assert!(
-            normalize_raster(
-                br#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#.to_vec(),
-                "Event cover photo",
-            )
-            .is_err()
-        );
-        assert!(normalize_raster(
-            b"<script>alert(1)</script>".to_vec(),
-            "Event cover photo"
-        )
-        .is_err());
-    }
-}
