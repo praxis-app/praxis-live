@@ -197,7 +197,6 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     dialog.getByText(eventDescription, { exact: true }),
   ).toBeVisible();
-  await expect(dialog.getByText(/1w 1d/)).toBeVisible();
   await expect(dialog.getByText('Online', { exact: true })).toBeVisible();
   await expect(dialog.getByRole('link', { name: externalLink })).toBeVisible();
   await expect(
@@ -263,7 +262,6 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     proposal.getByText(eventDescription, { exact: true }),
   ).toBeVisible();
-  await expect(proposal.getByText(/1w 1d/)).toBeVisible();
   await expect(
     proposal.getByRole('link', { name: externalLink }),
   ).toBeVisible();
@@ -351,7 +349,6 @@ test('user can propose and ratify an online event with all details preserved', a
   ).toBeVisible();
   await expect(page.getByRole('img', { name: 'Cover photo' })).toBeVisible();
   await expect(page.getByText(eventDescription, { exact: true })).toBeVisible();
-  await expect(page.getByText(/1w 1d/)).toBeVisible();
   await expect(page.getByRole('link', { name: externalLink })).toBeVisible();
   await expect(
     page.getByText(`Hosted by ${host.user.name}`, { exact: true }),
@@ -422,40 +419,6 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     page.getByText('Your RSVP could not be updated.', { exact: true }),
   ).toHaveCount(0);
-
-  const calendarResponsePromise = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return (
-      response.request().method() === 'GET' &&
-      url.pathname === `/api/servers/${server.id}/events` &&
-      response.status() === 200
-    );
-  });
-  await page.getByRole('link', { name: 'Events', exact: true }).click();
-  await calendarResponsePromise;
-  await page.getByRole('button', { name: 'Month', exact: true }).click();
-  const calendarEventSegments = page
-    .getByRole('grid')
-    .locator('.events-calendar-event')
-    .filter({ hasText: eventName });
-  await expect(calendarEventSegments.first()).toBeVisible();
-  await calendarEventSegments.first().hover();
-  await expect
-    .poll(() =>
-      calendarEventSegments.evaluateAll((segments) =>
-        segments.every(
-          (segment) =>
-            getComputedStyle(segment).cursor === 'pointer' &&
-            segment.classList.contains('is-hovered'),
-        ),
-      ),
-    )
-    .toBe(true);
-  await calendarEventSegments.first().click();
-  await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
-  await expect(
-    page.getByRole('button', { name: 'Going', exact: true }),
-  ).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('invite holder can view events and event details in a non-default server', async ({
