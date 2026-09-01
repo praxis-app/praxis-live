@@ -7,11 +7,6 @@ export interface VoteRes {
   id: string;
   voteType?: VoteType;
   pollOptionIds?: string[];
-  /**
-   * Set on a block the server no longer counts because its voter has since
-   * lost the block permission. The objection stays on record with no veto
-   * weight.
-   */
   blockIgnored?: boolean;
 }
 
