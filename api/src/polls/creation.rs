@@ -17,15 +17,16 @@ use uuid::Uuid as NativeUuid;
 use super::types::CreatePollRequest;
 use crate::{
     channels,
-    common::{encryption, text::sanitize_text, ApiError, AppResult},
+    common::{
+        encryption, request::MAX_ATTACHMENT_FILES, text::sanitize_text,
+        ApiError, AppResult,
+    },
     poll_actions,
     servers::server_configs,
     users,
 };
 
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
-const MAX_IMAGE_COUNT: usize = 5;
-
 pub(crate) struct PreparedPollCreation {
     request: CreatePollRequest,
     server_id: Uuid,
@@ -228,10 +229,10 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
     images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<Vec<PathBuf>> {
-    if images.len() > MAX_IMAGE_COUNT {
+    if images.len() > MAX_ATTACHMENT_FILES {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
-            format!("A poll can include up to {MAX_IMAGE_COUNT} images."),
+            format!("A poll can include up to {MAX_ATTACHMENT_FILES} images."),
         ));
     }
     let mut normalized = Vec::with_capacity(images.len());

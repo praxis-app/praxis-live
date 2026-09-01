@@ -65,6 +65,7 @@ type EventDetailResponse = EventResponse & {
 type PollResponse = {
   poll: {
     id: string;
+    images?: ImageSummary[];
     action?: {
       id: string;
       actionType: string;
@@ -419,6 +420,78 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     page.getByText('Your RSVP could not be updated.', { exact: true }),
   ).toHaveCount(0);
+});
+
+test('event proposal accepts four attachments plus a cover photo', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('event-image-limit'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  const proposalBody = `Event image limit ${proposer.user.suffix}`;
+  const eventName = `Five image event ${proposer.user.suffix}`;
+  const imageBuffer = await readFile('e2e/fixtures/valid-image.png');
+  const attachments = Array.from({ length: 4 }, (_, index) => ({
+    name: `attachment-${index + 1}.png`,
+    mimeType: 'image/png',
+    buffer: imageBuffer,
+  }));
+
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+  await openCreateProposalDialog(page);
+
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(dialog, page, 'Select an action type', 'Plan event');
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await dialog.getByTestId('image-input').setInputFiles(attachments);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await dialog.getByLabel('Event name').fill(eventName);
+  await dialog.getByLabel('Description').fill('Five image boundary coverage.');
+  await dialog.getByTestId('image-input').setInputFiles({
+    name: 'cover.png',
+    mimeType: 'image/png',
+    buffer: imageBuffer,
+  });
+  await dialog.getByRole('switch', { name: 'Online' }).click();
+  await dialog
+    .getByPlaceholder("Type a member's name to add hosts...")
+    .fill(proposer.user.name);
+  await dialog.getByText(proposer.user.name, { exact: true }).click();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  const response = await createProposalResponse;
+  const { poll } = (await response.json()) as PollResponse;
+
+  expect(poll.images).toHaveLength(4);
+  expect(poll.action?.event?.coverPhoto).toBeTruthy();
+  await expect(dialog).toBeHidden();
+
+  const proposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${proposalBody}`,
+  });
+  await expect(
+    proposal.getByRole('img', { name: 'Attached image' }),
+  ).toHaveCount(4);
+  await expect(
+    proposal.getByRole('img', { name: 'Cover photo' }),
+  ).toBeVisible();
 });
 
 test('invite holder can view events and event details in a non-default server', async ({

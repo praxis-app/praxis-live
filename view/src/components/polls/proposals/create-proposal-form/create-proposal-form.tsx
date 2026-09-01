@@ -154,6 +154,7 @@ export const CreateProposalForm = ({
       if (!values.action) {
         throw new Error('Action is required');
       }
+      validateImageInput(values.images);
       if (values.eventCoverPhoto) {
         validateImageInput(values.eventCoverPhoto);
       }
@@ -311,8 +312,6 @@ export const CreateProposalForm = ({
               : undefined,
         },
       };
-
-      validateImageInput(values.images);
 
       const result = createProposal
         ? await createProposal(request, values.images, values.eventCoverPhoto)
