@@ -952,10 +952,7 @@ async fn shape_polls(
     Ok(responses)
 }
 
-/// Resolves, for the whole batch, which block votes the server no longer
-/// counts. Restricted proposals are rare, so the common path returns before
-/// issuing any query; otherwise it costs one channel lookup plus one
-/// permission lookup per distinct server.
+/// Returns the ids of block votes that no longer count, across many polls.
 async fn get_ignored_block_vote_ids(
     database: &DatabaseConnection,
     polls: &[polls::Model],
