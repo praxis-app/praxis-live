@@ -45,11 +45,16 @@ export const ProposalMetadata = ({
   onClick,
 }: Props) => {
   const { t } = useTranslation();
+
+  const shortActionKey = actionType
+    ? SHORT_ACTION_TRANSLATION_KEYS[actionType]
+    : null;
+
+  const modelKey = MODEL_TRANSLATION_KEYS[decisionMakingModel];
+  const shortModelKey = SHORT_MODEL_TRANSLATION_KEYS[decisionMakingModel];
+  const actionKey = actionType ? ACTION_TRANSLATION_KEYS[actionType] : null;
+
   const ActionIcon = actionType ? actionIcons[actionType] : null;
-  const separatorClass = cn(
-    'px-1.5',
-    variant !== 'forum' && 'hidden @sm:inline',
-  );
 
   return (
     <button
@@ -66,14 +71,19 @@ export const ProposalMetadata = ({
         <span className="flex items-center whitespace-nowrap">
           <span className="flex items-center gap-1.5">
             <ActionIcon className="size-4" aria-hidden="true" />
-            <span className="@sm:hidden">
-              {t(SHORT_ACTION_TRANSLATION_KEYS[actionType])}
-            </span>
-            <span className="hidden @sm:inline">
-              {t(ACTION_TRANSLATION_KEYS[actionType])}
-            </span>
+            {shortActionKey === actionKey ? (
+              <span>{t(actionKey!)}</span>
+            ) : (
+              <>
+                <span className="@sm:hidden">{t(shortActionKey!)}</span>
+                <span className="hidden @sm:inline">{t(actionKey!)}</span>
+              </>
+            )}
           </span>
-          <span className={separatorClass} aria-hidden="true">
+          <span
+            className={cn('px-1.5', variant !== 'forum' && 'hidden @sm:inline')}
+            aria-hidden="true"
+          >
             {MIDDOT_WITH_SPACES.trim()}
           </span>
         </span>
@@ -82,15 +92,20 @@ export const ProposalMetadata = ({
       <span className="flex items-center whitespace-nowrap">
         <span className="flex items-center gap-1.5">
           <LuListCheck className="size-4" aria-hidden="true" />
-          <span className="@sm:hidden">
-            {t(SHORT_MODEL_TRANSLATION_KEYS[decisionMakingModel])}
-          </span>
-          <span className="hidden @sm:inline">
-            {t(MODEL_TRANSLATION_KEYS[decisionMakingModel])}
-          </span>
+          {shortModelKey === modelKey ? (
+            <span>{t(modelKey)}</span>
+          ) : (
+            <>
+              <span className="@sm:hidden">{t(shortModelKey)}</span>
+              <span className="hidden @sm:inline">{t(modelKey)}</span>
+            </>
+          )}
         </span>
         {createdAt && (
-          <span className={separatorClass} aria-hidden="true">
+          <span
+            className={cn('px-1.5', variant !== 'forum' && 'hidden @sm:inline')}
+            aria-hidden="true"
+          >
             {MIDDOT_WITH_SPACES.trim()}
           </span>
         )}
