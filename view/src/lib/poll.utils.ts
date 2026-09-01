@@ -50,11 +50,7 @@ export interface ProposalRuleStatus {
   eligible: boolean;
 }
 
-/**
- * A block whose voter has since lost the block permission is dropped from the
- * arithmetic entirely, matching the server, which excludes it from quorum as
- * well as from the block tally.
- */
+/** Ignored blocks leave the arithmetic entirely, quorum included. */
 export const getCountedVotes = (votes: VoteRes[]) =>
   votes.filter((vote) => !vote.blockIgnored);
 
@@ -148,17 +144,10 @@ export const wouldVoteRatifyProposal = (
     voteType,
   };
   const prospectiveVotes = myVote
-    ? [
-        ...votes.filter((vote) => vote.id !== myVote.id),
-        prospectiveVote,
-      ]
+    ? [...votes.filter((vote) => vote.id !== myVote.id), prospectiveVote]
     : [...votes, prospectiveVote];
 
-  return getProposalRuleStatus(
-    prospectiveVotes,
-    config,
-    memberCount,
-  ).eligible;
+  return getProposalRuleStatus(prospectiveVotes, config, memberCount).eligible;
 };
 
 /** Render a voting time limit, stored in minutes, as readable copy */

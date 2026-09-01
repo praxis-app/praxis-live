@@ -3,15 +3,11 @@ import { cn } from '@/lib/shared.utils';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
-  /** Upload completion between 0 and 1, or undefined while indeterminate. */
   progress?: number;
   className?: string;
 }
 
-/**
- * Covers an attached image while it uploads. The bar tracks bytes sent, then
- * pulses once the server takes over to process the image.
- */
+/** Tracks bytes sent, then pulses while the server processes the image. */
 export const ImageUploadOverlay = ({ progress, className }: Props) => {
   const { t } = useTranslation();
 

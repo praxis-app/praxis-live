@@ -317,9 +317,7 @@ test('upload progress is shown while a large image is sending', async ({
   await chat.goto();
   await chat.expectChannel('general');
 
-  // Throttle the upload so the indicator is observable rather than instant.
-  // The added latency holds the response back long enough to also see the
-  // processing state that follows the last byte.
+  // Throttled so the upload and the processing that follows are observable.
   const client = await context.newCDPSession(page);
   await client.send('Network.enable');
   await client.send('Network.emulateNetworkConditions', {
@@ -346,7 +344,6 @@ test('upload progress is shown while a large image is sending', async ({
   await expect(overlay).toBeVisible();
   await expect(progress).toHaveAttribute('aria-valuenow', /^\d+$/);
 
-  // Once the bytes land, the bar fills and waits on server-side processing.
   await expect(progress).not.toHaveAttribute('aria-valuenow');
 
   await messageResponse;
@@ -804,7 +801,7 @@ test('long pressing a message on mobile opens its menu without selecting text', 
     const message = feed.locator('[data-message-id]').filter({ hasText: body });
 
     // The long press and a drag-to-select are the same gesture, so the touch
-    // menu path has to opt out of selection entirely.
+    // menu path opts out of selection and offers copying through the menu.
     await expect
       .poll(() =>
         message.evaluate(
@@ -818,8 +815,6 @@ test('long pressing a message on mobile opens its menu without selecting text', 
     await expect(page.getByRole('menuitem', { name: 'Reply' })).toBeVisible();
     expect(await getSelectedText(page)).toBe('');
 
-    // Copying stays available through the menu now that the browser's own
-    // select-and-copy is off.
     await page.getByRole('menuitem', { name: 'Copy text' }).click();
     await expect(page.getByText('Message copied to clipboard')).toBeVisible();
   } finally {
