@@ -711,8 +711,7 @@ async fn get_latest_server_image(
         .map(|image| image.map(|image| shape_server_image(&image)))
 }
 
-/// Rejects and compresses an upload before any database write, so storage
-/// receives bytes that are already normalized.
+/// Validates and compresses an upload before any database write.
 async fn normalize_server_image(
     image: Option<Vec<u8>>,
 ) -> AppResult<Option<Vec<u8>>> {
