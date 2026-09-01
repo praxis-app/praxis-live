@@ -997,13 +997,19 @@ async fn get_ignored_block_vote_ids(
             .map(|channel| (channel.id, channel.server_id))
             .collect();
 
+    let server_id_by_poll: HashMap<Uuid, Uuid> = polls
+        .iter()
+        .filter_map(|poll| {
+            server_id_by_channel
+                .get(&poll.channel_id)
+                .map(|server_id| (poll.id, *server_id))
+        })
+        .collect();
+
     let mut block_voters_by_server: HashMap<Uuid, HashSet<Uuid>> =
         HashMap::new();
     for vote in &block_votes {
-        let Some(server_id) = channel_id_by_poll
-            .get(&vote.poll_id)
-            .and_then(|channel_id| server_id_by_channel.get(channel_id))
-        else {
+        let Some(server_id) = server_id_by_poll.get(&vote.poll_id) else {
             continue;
         };
         block_voters_by_server
@@ -1028,9 +1034,8 @@ async fn get_ignored_block_vote_ids(
     Ok(block_votes
         .into_iter()
         .filter(|vote| {
-            channel_id_by_poll
+            server_id_by_poll
                 .get(&vote.poll_id)
-                .and_then(|channel_id| server_id_by_channel.get(channel_id))
                 .and_then(|server_id| eligible_by_server.get(server_id))
                 .is_none_or(|eligible| !eligible.contains(&vote.user_id))
         })
