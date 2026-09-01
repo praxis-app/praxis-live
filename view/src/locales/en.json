@@ -153,6 +153,7 @@
       "majorityProposal": "Majority Vote Proposal",
       "consent": "Consent",
       "majority": "Majority vote",
+      "majorityShort": "Majority",
       "proposedSettings": "Settings proposal",
       "settingsChangeProposal": "Settings change proposal",
       "settingChangesCount_one": "{{count}} setting change",
@@ -272,6 +273,7 @@
       "createRole": "Create role",
       "planEvent": "Plan event",
       "general": "General decision",
+      "generalShort": "General",
       "test": "Test"
     },
     "prompts": {

@@ -55,6 +55,19 @@ export const timeMessage = (
   return formatDate(timeStamp);
 };
 
+/** Like `timeAgo`, but falls back to a compact date instead of a full one. */
+export const shortTimeAgo = (timeStamp: string) => {
+  const secondsPast =
+    (new Date().getTime() - new Date(timeStamp).getTime()) / 1000;
+  if (secondsPast < Time.Month) {
+    return timeMessage(timeStamp, secondsPast);
+  }
+  const date = dayjs(timeStamp);
+  return date.isSame(dayjs(), 'year')
+    ? date.format('MMM D')
+    : date.format('MMM D, YYYY');
+};
+
 export const timeAgo = (timeStamp: string) => {
   const now = new Date().getTime();
   const time = new Date(timeStamp).getTime();
