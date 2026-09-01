@@ -183,8 +183,8 @@ pub(crate) async fn insert_prepared_poll<C: ConnectionTrait>(
             .then_some(server_config.agreement_threshold)),
         quorum_enabled: Set(is_proposal.then_some(server_config.quorum_enabled)),
         quorum_threshold: Set(is_proposal.then_some(server_config.quorum_threshold)),
-        blocks_restricted: Set(is_proposal
-            .then_some(server_config.blocks_restricted)),
+        blocks_open_to_all: Set(is_proposal
+            .then_some(server_config.blocks_open_to_all)),
         multiple_choice: Set((!is_proposal)
             .then_some(request.multiple_choice.unwrap_or(false))),
         closing_at: Set(closing_at),

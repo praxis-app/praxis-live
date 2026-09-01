@@ -961,7 +961,7 @@ async fn get_ignored_block_vote_ids(
 ) -> AppResult<HashSet<Uuid>> {
     let restricted_poll_ids: HashSet<Uuid> = configs
         .iter()
-        .filter(|config| config.blocks_restricted == Some(true))
+        .filter(|config| config.blocks_open_to_all == Some(false))
         .map(|config| config.poll_id)
         .collect();
     if restricted_poll_ids.is_empty() {
@@ -1079,7 +1079,7 @@ fn shape_poll_config(config: poll_configs::Model) -> PollConfigResponse {
         quorum_threshold: config.quorum_threshold,
         disagreements_limit: config.disagreements_limit,
         abstains_limit: config.abstains_limit,
-        blocks_restricted: config.blocks_restricted,
+        blocks_open_to_all: config.blocks_open_to_all,
         closing_at: config.closing_at.map(serialize_timestamp),
         multiple_choice: config.multiple_choice,
     }

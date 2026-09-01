@@ -52,7 +52,7 @@ export const VoteProgressDialog = ({
   // the rules have to explain why rather than leaving it looking broken.
   const blockingRoleRestricted =
     config.decisionMakingModel !== 'majority-vote' &&
-    config.blocksRestricted === true &&
+    config.blocksOpenToAll === false &&
     !serverAbility.can('create', 'ProposalBlock');
 
   return (

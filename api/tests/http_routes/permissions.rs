@@ -712,7 +712,7 @@ async fn restrict_blocks(app: &TestApp, admin: &TestUser, server_id: &str) {
                 "abstainsLimit": 2,
                 "quorumEnabled": false,
                 "votingTimeLimit": 0,
-                "blocksRestricted": true,
+                "blocksOpenToAll": false,
             }),
             &admin.token,
         )

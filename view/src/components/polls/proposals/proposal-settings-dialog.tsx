@@ -65,10 +65,12 @@ export const ProposalSettingsDialog = ({
       visible: showVoteLimits,
     },
     {
-      name: t('settings.names.blocksRestricted'),
-      description: t('settings.explanations.blocksRestricted'),
+      name: t('proposals.labels.blocking'),
+      description: t('settings.explanations.blocksOpenToAll'),
       value: t(
-        config.blocksRestricted ? 'actions.enabled' : 'actions.disabled',
+        config.blocksOpenToAll === false
+          ? 'proposals.labels.blockingPermittedRoles'
+          : 'proposals.labels.blockingOpenToAll',
       ),
       visible: showVoteLimits,
     },

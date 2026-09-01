@@ -114,7 +114,7 @@ async fn get_ineligible_block_voters<C>(
 where
     C: ConnectionTrait,
 {
-    if config.blocks_restricted != Some(true) {
+    if config.blocks_open_to_all != Some(false) {
         return Ok(HashSet::new());
     }
 

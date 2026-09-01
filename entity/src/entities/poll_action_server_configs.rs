@@ -22,8 +22,8 @@ pub struct Model {
     pub prev_quorum_threshold: Option<i32>,
     pub voting_time_limit: Option<i32>,
     pub prev_voting_time_limit: Option<i32>,
-    pub blocks_restricted: Option<bool>,
-    pub prev_blocks_restricted: Option<bool>,
+    pub blocks_open_to_all: Option<bool>,
+    pub prev_blocks_open_to_all: Option<bool>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

@@ -193,7 +193,10 @@
       "votingDeadline": "Voting deadline",
       "deadline": "voting deadline",
       "plannedEvent": "Planned event: {{name}}",
-      "eventProposal": "Event proposal"
+      "eventProposal": "Event proposal",
+      "blocking": "Blocking",
+      "blockingOpenToAll": "Anyone",
+      "blockingPermittedRoles": "With permission"
     },
     "headers": {
       "availableRoles": "Available Roles",
@@ -254,8 +257,8 @@
       "selectRoleDescription": "Choose the role you want to modify",
       "proposalSettings": "The decision rules captured when this proposal was created.",
       "votingDeadline": "The date and time when voting ends.",
-      "consentRules": "Consent is decided when voting closes. Agree is supportive, disagreements and abstentions are limited objections bounded by their limits, and a single block from a member eligible to block prevents the proposal from passing.",
-      "consensusRules": "Consensus passes when agreement reaches the threshold and disagreements and abstentions stay within their limits. A single block from a member eligible to block prevents the proposal from passing.",
+      "consentRules": "Consent is decided when voting closes. Disagreements and abstentions count against their limits, and a single block from a member with permission stops the proposal.",
+      "consensusRules": "Consensus passes when agreement reaches the threshold and disagreements and abstentions stay within their limits. A single block from a member with permission stops the proposal.",
       "blocksRoleRestricted": "Blocking is restricted to certain roles on this server, so the block option is unavailable to you. Disagree still counts against the disagreement limit.",
       "ignoredBlocks_one": "{{count}} block is still on record but no longer carries veto weight, because the member who cast it no longer holds a role that allows blocking.",
       "ignoredBlocks_other": "{{count}} blocks are still on record but no longer carry veto weight, because the members who cast them no longer hold a role that allows blocking.",
@@ -835,7 +838,7 @@
       "disagreementsLimit": "Disagreements limit",
       "abstainsLimit": "Abstains limit",
       "votingTimeLimit": "Voting time limit",
-      "blocksRestricted": "Restrict blocking",
+      "blocksOpenToAll": "Anyone can block",
       "anonymousUsersEnabled": "Anonymous users"
     },
     "descriptions": {
@@ -850,7 +853,7 @@
       "majorityVoteLimitsDisabled": "Disagreement and abstention limits do not apply to majority vote, which is determined by the agreement threshold and quorum.",
       "consentThresholdsDisabled": "Quorum and agreement threshold do not apply to consent, which passes at the voting deadline when disagreements and abstentions stay within their limits and nobody blocks.",
       "votingTimeLimit": "Set a time limit for how long proposals can be voted on before they're closed or ratified.",
-      "blocksRestricted": "Limit blocking to members with a role that grants it. Everyone else can still disagree, which counts against the disagreement limit.",
+      "blocksOpenToAll": "When off, blocking needs a role that grants it. Everyone else can still disagree, which counts against the disagreement limit.",
       "anonymousUsersEnabled": "Allow users to participate without creating an account or providing personal information."
     },
     "explanations": {
@@ -861,7 +864,7 @@
       "disagreementsLimit": "The maximum number of disagreements allowed for a proposal to still be able to pass.",
       "abstainsLimit": "The maximum number of abstains allowed for a proposal to still be able to pass.",
       "votingTimeLimit": "The minimum amount of time proposals can be voted on before they're closed or ratified.",
-      "blocksRestricted": "Whether blocking this proposal is limited to members with a role that grants it."
+      "blocksOpenToAll": "Whether any member can block this proposal, or only members with a role that grants it."
     },
     "errors": {
       "consentVotingTimeLimitRequired": "Voting time limit is required for consent decision making.",

@@ -10,7 +10,7 @@ const consensusConfig: PollConfigRes = {
   quorumThreshold: 50,
   disagreementsLimit: 2,
   abstainsLimit: 2,
-  blocksRestricted: true,
+  blocksOpenToAll: false,
 };
 
 const vote = (
@@ -87,10 +87,10 @@ describe('getProposalRuleStatus', () => {
     expect(ignored.ignoredBlocks).toBe(1);
   });
 
-  it('should not report ignored blocks when the setting is off', () => {
+  it('should not report ignored blocks when blocking is open to all', () => {
     const status = getProposalRuleStatus(
       [vote('1', 'agree'), vote('2', 'block')],
-      { ...consensusConfig, blocksRestricted: false },
+      { ...consensusConfig, blocksOpenToAll: true },
       2,
     );
 

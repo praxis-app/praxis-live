@@ -121,7 +121,7 @@ export interface PollActionServerConfigRes extends ServerConfigReq {
   prevQuorumEnabled?: boolean;
   prevQuorumThreshold?: number;
   prevVotingTimeLimit?: number;
-  prevBlocksRestricted?: boolean;
+  prevBlocksOpenToAll?: boolean;
 }
 
 export interface PollActionServerRoleRes {

@@ -130,7 +130,7 @@ async fn blocking_is_unrestricted_by_default() {
     let proposer = signup_user(&app, "proposer@example.com", "Proposer").await;
     let member = signup_user(&app, "member@example.com", "Member").await;
     let (server_id, channel_id) = default_server_channel(&app).await;
-    set_consensus_config(&app, &proposer, &server_id, false).await;
+    set_consensus_config(&app, &proposer, &server_id, true).await;
 
     let poll_id =
         create_proposal(&app, &proposer, &server_id, &channel_id).await;
@@ -177,11 +177,11 @@ async fn proposals_opened_before_the_restriction_keep_their_snapshot() {
     let proposer = signup_user(&app, "proposer@example.com", "Proposer").await;
     let member = signup_user(&app, "member@example.com", "Member").await;
     let (server_id, channel_id) = default_server_channel(&app).await;
-    set_consensus_config(&app, &proposer, &server_id, false).await;
+    set_consensus_config(&app, &proposer, &server_id, true).await;
 
     let poll_id =
         create_proposal(&app, &proposer, &server_id, &channel_id).await;
-    set_consensus_config(&app, &proposer, &server_id, true).await;
+    set_consensus_config(&app, &proposer, &server_id, false).await;
 
     let response =
         block(&app, &member, &server_id, &channel_id, &poll_id).await;
@@ -197,7 +197,7 @@ async fn a_block_stops_counting_once_its_voter_loses_the_permission() {
     let voter_a = signup_user(&app, "voter-a@example.com", "Voter A").await;
     let voter_b = signup_user(&app, "voter-b@example.com", "Voter B").await;
     let (server_id, channel_id) = default_server_channel(&app).await;
-    set_consensus_config(&app, &proposer, &server_id, true).await;
+    set_consensus_config(&app, &proposer, &server_id, false).await;
     let role_id =
         grant_proposal_block(&app, &proposer, &server_id, &blocker).await;
 
@@ -262,7 +262,7 @@ async fn set_consensus_config(
     app: &TestApp,
     admin: &TestUser,
     server_id: &str,
-    blocks_restricted: bool,
+    blocks_open_to_all: bool,
 ) {
     let response = app
         .put_json_with_bearer(
@@ -274,7 +274,7 @@ async fn set_consensus_config(
                 "abstainsLimit": 2,
                 "quorumEnabled": false,
                 "votingTimeLimit": 0,
-                "blocksRestricted": blocks_restricted,
+                "blocksOpenToAll": blocks_open_to_all,
             }),
             &admin.token,
         )

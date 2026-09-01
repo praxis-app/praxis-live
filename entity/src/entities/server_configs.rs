@@ -15,7 +15,7 @@ pub struct Model {
     pub quorum_enabled: bool,
     pub quorum_threshold: i32,
     pub voting_time_limit: i32,
-    pub blocks_restricted: bool,
+    pub blocks_open_to_all: bool,
     pub anonymous_users_enabled: bool,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,

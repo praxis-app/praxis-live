@@ -30,11 +30,11 @@ vi.mock('react-i18next', () => ({
 const channel = { id: 'channel-1' } as ChannelRes;
 
 const renderButtons = ({
-  blocksRestricted,
+  blocksOpenToAll,
   canBlock,
   decisionMakingModel = 'consensus',
 }: {
-  blocksRestricted?: boolean;
+  blocksOpenToAll?: boolean;
   canBlock: boolean;
   decisionMakingModel?: DecisionMakingModel;
 }) => {
@@ -43,7 +43,7 @@ const renderButtons = ({
       canBlock && action === 'create' && subject === 'ProposalBlock',
   );
 
-  const config: PollConfigRes = { decisionMakingModel, blocksRestricted };
+  const config: PollConfigRes = { decisionMakingModel, blocksOpenToAll };
 
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -68,7 +68,7 @@ describe('ProposalVoteButtons', () => {
   });
 
   it('should hide the block button when restricted and the member lacks the permission', () => {
-    renderButtons({ blocksRestricted: true, canBlock: false });
+    renderButtons({ blocksOpenToAll: false, canBlock: false });
 
     expect(
       screen.queryByText('proposals.actions.block'),
@@ -77,7 +77,7 @@ describe('ProposalVoteButtons', () => {
   });
 
   it('should keep the block button when restricted and the member holds the permission', () => {
-    renderButtons({ blocksRestricted: true, canBlock: true });
+    renderButtons({ blocksOpenToAll: false, canBlock: true });
 
     expect(screen.getByText('proposals.actions.block')).toBeInTheDocument();
   });

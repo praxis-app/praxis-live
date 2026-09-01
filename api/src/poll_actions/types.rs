@@ -115,8 +115,8 @@ pub(super) struct PollActionServerConfigResponse {
     pub(super) prev_quorum_threshold: Option<i32>,
     pub(super) voting_time_limit: Option<i32>,
     pub(super) prev_voting_time_limit: Option<i32>,
-    pub(super) blocks_restricted: Option<bool>,
-    pub(super) prev_blocks_restricted: Option<bool>,
+    pub(super) blocks_open_to_all: Option<bool>,
+    pub(super) prev_blocks_open_to_all: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

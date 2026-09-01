@@ -164,7 +164,7 @@ pub(super) struct PollConfigResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) abstains_limit: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) blocks_restricted: Option<bool>,
+    pub(super) blocks_open_to_all: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) closing_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

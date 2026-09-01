@@ -28,7 +28,7 @@ pub(super) fn validate_settings_payload(
         && request.quorum_enabled.is_none()
         && request.quorum_threshold.is_none()
         && request.voting_time_limit.is_none()
-        && request.blocks_restricted.is_none()
+        && request.blocks_open_to_all.is_none()
     {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -79,10 +79,10 @@ pub(super) async fn create_poll_action_server_config<C: ConnectionTrait>(
         prev_voting_time_limit: Set(request
             .voting_time_limit
             .map(|_| current.voting_time_limit)),
-        blocks_restricted: Set(request.blocks_restricted),
-        prev_blocks_restricted: Set(request
-            .blocks_restricted
-            .map(|_| current.blocks_restricted)),
+        blocks_open_to_all: Set(request.blocks_open_to_all),
+        prev_blocks_open_to_all: Set(request
+            .blocks_open_to_all
+            .map(|_| current.blocks_open_to_all)),
         ..Default::default()
     }
     .insert(database)
@@ -132,8 +132,8 @@ pub(crate) fn validate_server_config_change(
             .map(|value| value != current.voting_time_limit)
             .unwrap_or(false)
         || request
-            .blocks_restricted
-            .map(|value| value != current.blocks_restricted)
+            .blocks_open_to_all
+            .map(|value| value != current.blocks_open_to_all)
             .unwrap_or(false);
     if !has_real_change {
         return Err(ApiError::new(
@@ -194,7 +194,7 @@ pub(super) async fn implement_change_server_config(
         quorum_enabled: change.quorum_enabled,
         quorum_threshold: change.quorum_threshold,
         voting_time_limit: change.voting_time_limit,
-        blocks_restricted: change.blocks_restricted,
+        blocks_open_to_all: change.blocks_open_to_all,
     };
     servers::server_configs::service::apply_server_config(
         database, config, &request,
@@ -241,8 +241,8 @@ pub(super) async fn shape_poll_action_settings_map(
                     prev_quorum_threshold: config.prev_quorum_threshold,
                     voting_time_limit: config.voting_time_limit,
                     prev_voting_time_limit: config.prev_voting_time_limit,
-                    blocks_restricted: config.blocks_restricted,
-                    prev_blocks_restricted: config.prev_blocks_restricted,
+                    blocks_open_to_all: config.blocks_open_to_all,
+                    prev_blocks_open_to_all: config.prev_blocks_open_to_all,
                 },
             )
         })

@@ -80,15 +80,15 @@ export const ProposalVoteButtons = ({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const blocksRestricted =
-    config.blocksRestricted === true &&
+  const blockingRestricted =
+    config.blocksOpenToAll === false &&
     !serverAbility.can('create', 'ProposalBlock');
 
   const voteTypes = VOTE_TYPES.filter((voteType) => {
     if (voteType !== 'block') {
       return true;
     }
-    return decisionMakingModel !== 'majority-vote' && !blocksRestricted;
+    return decisionMakingModel !== 'majority-vote' && !blockingRestricted;
   });
 
   const { mutate: castVote, isPending } = useMutation({

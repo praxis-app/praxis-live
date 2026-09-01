@@ -311,15 +311,15 @@ export const PollSettingsForm = ({
 
             <FormField
               control={form.control}
-              name="blocksRestricted"
+              name="blocksOpenToAll"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between gap-4 md:gap-16">
                   <div className="space-y-1">
                     <FormLabel>
-                      {t('settings.names.blocksRestricted')}
+                      {t('settings.names.blocksOpenToAll')}
                     </FormLabel>
                     <FormDescription>
-                      {t('settings.descriptions.blocksRestricted')}
+                      {t('settings.descriptions.blocksOpenToAll')}
                     </FormDescription>
                   </div>
                   <FormControl>
