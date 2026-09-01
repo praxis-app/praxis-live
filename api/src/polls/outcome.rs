@@ -82,7 +82,7 @@ where
 
     let ignored_blockers =
         get_ineligible_block_voters(database, poll, config, &votes).await?;
-    let votes = filter_arithmetic_votes(votes, &ignored_blockers);
+    let votes = drop_ignored_blocks(votes, &ignored_blockers);
 
     match config.decision_making_model {
         Some(PollDecisionMakingModel::Consensus) => {
@@ -139,7 +139,8 @@ where
     Ok(block_voters.difference(&eligible).copied().collect())
 }
 
-fn filter_arithmetic_votes(
+/// Removes blocks cast by voters the server no longer counts
+fn drop_ignored_blocks(
     votes: Vec<votes::Model>,
     ignored_blockers: &HashSet<Uuid>,
 ) -> Vec<votes::Model> {
@@ -400,7 +401,7 @@ mod tests {
     use uuid::Uuid as NativeUuid;
 
     use super::{
-        count_votes, filter_arithmetic_votes, get_ineligible_block_voters,
+        count_votes, drop_ignored_blocks, get_ineligible_block_voters,
         has_consensus, has_consent,
     };
 
@@ -587,7 +588,7 @@ mod tests {
         ];
 
         let filtered =
-            filter_arithmetic_votes(votes.clone(), &HashSet::from([blocker]));
+            drop_ignored_blocks(votes.clone(), &HashSet::from([blocker]));
         let (_, _, _, counted) = count_votes(&filtered);
         let (_, _, _, uncounted) = count_votes(&votes);
 
@@ -621,7 +622,7 @@ mod tests {
             vote(blocker, VoteType::Block),
         ];
 
-        let votes = filter_arithmetic_votes(votes, &HashSet::from([blocker]));
+        let votes = drop_ignored_blocks(votes, &HashSet::from([blocker]));
         let has_consensus = has_consensus(
             &votes,
             &config(PollDecisionMakingModel::Consensus, Some(true), None),
@@ -645,7 +646,7 @@ mod tests {
 
         let blocked = has_consent(&votes, &config, timestamp(2))
             .expect("consent evaluation should succeed");
-        let votes = filter_arithmetic_votes(votes, &HashSet::from([blocker]));
+        let votes = drop_ignored_blocks(votes, &HashSet::from([blocker]));
         let ignored = has_consent(&votes, &config, timestamp(2))
             .expect("consent evaluation should succeed");
 
@@ -665,7 +666,7 @@ mod tests {
         config.quorum_enabled = Some(true);
         config.quorum_threshold = Some(50);
 
-        let votes = filter_arithmetic_votes(votes, &HashSet::from([blocker]));
+        let votes = drop_ignored_blocks(votes, &HashSet::from([blocker]));
         let has_consensus = has_consensus(&votes, &config, 4, timestamp(1))
             .expect("consensus evaluation should succeed");
 
