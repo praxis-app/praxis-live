@@ -5,15 +5,12 @@ import {
 import { t } from 'i18next';
 import { type Namespace, type TFunction } from 'react-i18next';
 import {
-  type AbilityAction,
   type InstanceAbility,
   type InstancePermission,
   type InstancePermissionKeys,
-  type InstanceRoleRes,
   type ServerAbility,
   type ServerPermission,
   type ServerPermissionKeys,
-  type ServerRoleRes,
 } from '../types/role.types';
 
 export const getSettingsAccess = (
@@ -153,50 +150,6 @@ export const getInstancePermissionValuesMap = (
       return result;
     },
     {},
-  );
-
-// Mirrors how the API unions a user's roles into a single permission set,
-// so role edits can be applied to the cached `me` without a refetch.
-const mergeRolePermissions = <
-  TPermission extends { subject: string; action: AbilityAction[] },
->(
-  permissionSets: TPermission[][],
-): TPermission[] => {
-  const actionsBySubject = new Map<string, AbilityAction[]>();
-  for (const permissions of permissionSets) {
-    for (const permission of permissions) {
-      const actions = actionsBySubject.get(permission.subject) ?? [];
-      for (const action of permission.action) {
-        if (!actions.includes(action)) {
-          actions.push(action);
-        }
-      }
-      actionsBySubject.set(permission.subject, actions);
-    }
-  }
-  return [...actionsBySubject.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([subject, action]) => ({ subject, action }) as TPermission);
-};
-
-export const getMergedServerPermissions = (
-  serverRoles: ServerRoleRes[],
-  userId: string,
-): ServerPermission[] =>
-  mergeRolePermissions(
-    serverRoles
-      .filter((role) => role.members.some((member) => member.id === userId))
-      .map((role) => role.permissions),
-  );
-
-export const getMergedInstancePermissions = (
-  instanceRoles: InstanceRoleRes[],
-  userId: string,
-): InstancePermission[] =>
-  mergeRolePermissions(
-    instanceRoles
-      .filter((role) => role.members.some((member) => member.id === userId))
-      .map((role) => role.permissions),
   );
 
 export const getPermissionText = (

@@ -13,7 +13,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuX } from 'react-icons/lu';
-import { useUpdateRoleCache } from '@/hooks/use-update-role-cache';
 import { truncate } from '@/lib/text.utils';
 import { type InstanceRoleRes } from '@/types/role.types';
 import { type UserRes } from '@/types/user.types';
@@ -31,7 +30,6 @@ export const InstanceRoleMember = ({
 
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { updateCachedInstanceRoles } = useUpdateRoleCache();
 
   const { mutate: removeMember, isPending } = useMutation({
     async mutationFn() {
@@ -60,23 +58,29 @@ export const InstanceRoleMember = ({
         },
       );
 
-      const cacheUpdated = updateCachedInstanceRoles((instanceRoles) =>
-        instanceRoles.map((role) => {
-          if (role.id !== instanceRoleId) {
-            return role;
+      queryClient.setQueryData<{ instanceRoles: InstanceRoleRes[] }>(
+        ['instance-roles'],
+        (data) => {
+          if (!data) {
+            return data;
           }
           return {
-            ...role,
-            members: role.members.filter(
-              (member) => member.id !== instanceRoleMember.id,
-            ),
-            memberCount: Math.max(0, role.memberCount - 1),
+            instanceRoles: data.instanceRoles.map((role) => {
+              if (role.id !== instanceRoleId) {
+                return role;
+              }
+              return {
+                ...role,
+                members: role.members.filter(
+                  (member) => member.id !== instanceRoleMember.id,
+                ),
+                memberCount: Math.max(0, role.memberCount - 1),
+              };
+            }),
           };
-        }),
+        },
       );
-      if (!cacheUpdated) {
-        queryClient.invalidateQueries({ queryKey: ['me'] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
 

@@ -1,7 +1,6 @@
 import { api } from '@/client/api-client';
 import { SERVER_PERMISSION_KEYS } from '@/constants/role.constants';
 import { useServerData } from '@/hooks/use-server-data';
-import { useUpdateRoleCache } from '@/hooks/use-update-role-cache';
 import { getServerPermissionValues } from '@/lib/role.utils';
 import {
   type ServerPermission,
@@ -38,7 +37,6 @@ export const ServerRolePermissionsForm = ({ serverRole }: Props) => {
   });
 
   const queryClient = useQueryClient();
-  const { updateCachedServerRoles } = useUpdateRoleCache();
 
   const { mutate: updatePermissions, isPending } = useMutation({
     mutationFn: async (values: FormValues) => {
@@ -85,14 +83,20 @@ export const ServerRolePermissionsForm = ({ serverRole }: Props) => {
           return { serverRole: { ...oldData.serverRole, permissions } };
         },
       );
-      const cacheUpdated = updateCachedServerRoles(serverId, (serverRoles) =>
-        serverRoles.map((role) =>
-          role.id === serverRole.id ? { ...role, permissions } : role,
-        ),
+      queryClient.setQueryData<{ serverRoles: ServerRoleRes[] }>(
+        ['servers', serverId, 'roles'],
+        (data) => {
+          if (!data) {
+            return data;
+          }
+          return {
+            serverRoles: data.serverRoles.map((role) =>
+              role.id === serverRole.id ? { ...role, permissions } : role,
+            ),
+          };
+        },
       );
-      if (!cacheUpdated) {
-        queryClient.invalidateQueries({ queryKey: ['me'] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['me'] });
       reset({
         permissions: getServerPermissionValues(permissions),
       });
