@@ -238,7 +238,7 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
     let mut normalized = Vec::with_capacity(images.len());
     for bytes in images {
         normalized.push(
-            crate::common::images::normalize_raster_async(bytes, "Poll image")
+            crate::common::images::normalize_upload(bytes, "Poll image")
                 .await?,
         );
     }

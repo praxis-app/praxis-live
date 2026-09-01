@@ -321,8 +321,7 @@ pub(super) async fn store_user_image(
     bytes: Vec<u8>,
 ) -> AppResult<UserImageRef> {
     let bytes =
-        crate::common::images::normalize_raster_async(bytes, "User image")
-            .await?;
+        crate::common::images::normalize_upload(bytes, "User image").await?;
 
     let kind = match kind {
         PROFILE_PICTURE_KIND | COVER_PHOTO_KIND => kind,

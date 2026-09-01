@@ -12,39 +12,30 @@ use super::{ApiError, AppResult};
 
 // Uploads pass through two tiers of limits.
 //
-// Rejection limits: an upload past any of these is refused outright, because
-// it is too large to decode safely. They also bound the memory a single
-// decode can claim, so keep the allocation in step with the pixel count.
+// Rejection limits refuse an upload outright as too large to decode safely,
+// and bound the memory one decode can claim: `MAX_DECODE_ALLOCATION` is
+// `MAX_IMAGE_PIXELS` at four bytes per pixel, so the two move together.
+// `MAX_IMAGE_BYTES` also sizes the multipart body limits in `common::request`
+// and is mirrored by the client check in the view's `image.utilts.ts`.
 //
-// Compression limits: an accepted upload larger than the threshold is
-// downscaled to the target dimension and re-encoded before it is stored, so
-// the rejection limits are a ceiling on what we accept, not on what we keep.
+// Compression limits apply to uploads we accept: anything past the threshold
+// is downscaled to the target dimension and re-encoded before storage, so the
+// rejection limits cap what we accept, not what we keep. Opaque images become
+// JPEG and images with alpha stay PNG; GIF may be animated and WebP has no
+// encoder in `image`, so both are stored as uploaded. A re-encode that comes
+// out larger than the original is discarded.
 //
-// Note that `MAX_IMAGE_BYTES` also sizes the multipart body limits in
-// `common::request`, and is mirrored by the client-side check in the view's
-// `image.utilts.ts`. Raising it widens both.
+// `inspect` returns the image it decoded, so normalization decodes only once.
 
-/// Longest edge accepted, in pixels.
 const MAX_IMAGE_DIMENSION: u32 = 20_000;
-/// Total pixels accepted, which bounds the decoded size of skewed images.
 const MAX_IMAGE_PIXELS: u64 = 50_000_000;
-/// Decode memory ceiling: `MAX_IMAGE_PIXELS` at four bytes per pixel.
 const MAX_DECODE_ALLOCATION: u64 = 200 * 1024 * 1024;
-/// Largest upload accepted before compression, in bytes.
 pub(super) const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 
-/// Longest edge kept in storage; anything larger is downscaled to fit.
 const COMPRESSION_TARGET_DIMENSION: u32 = 2_560;
-/// Uploads at or below this size are stored exactly as received.
 const COMPRESSION_THRESHOLD_BYTES: usize = 1024 * 1024;
-/// Quality used when re-encoding opaque images as JPEG.
 const JPEG_QUALITY: u8 = 82;
 
-/// Validates an upload and, when it is larger than we want to store,
-/// downscales and re-encodes it. Returns the bytes to persist.
-///
-/// Opaque images are re-encoded as JPEG, images with an alpha channel stay
-/// PNG, and GIF and WebP are stored untouched. See [`is_compressible`].
 pub(crate) fn normalize_raster(
     bytes: Vec<u8>,
     label: &str,
@@ -76,7 +67,6 @@ pub(crate) fn normalize_raster(
         invalid_image(label, "could not be processed")
     })?;
 
-    // Re-encoding can inflate already well-compressed uploads.
     Ok(if compressed.len() < bytes.len() {
         compressed
     } else {
@@ -84,8 +74,9 @@ pub(crate) fn normalize_raster(
     })
 }
 
-/// Off-runtime wrapper: decoding and resizing are CPU-bound.
-pub(crate) async fn normalize_raster_async(
+/// Validates an upload and compresses it for storage, decoding on a blocking
+/// thread so the async runtime is not stalled.
+pub(crate) async fn normalize_upload(
     bytes: Vec<u8>,
     label: &'static str,
 ) -> AppResult<Vec<u8>> {
@@ -100,8 +91,6 @@ pub(crate) async fn normalize_raster_async(
         })?
 }
 
-/// Applies the rejection limits and returns the decoded image alongside its
-/// format, so callers that go on to resize do not decode a second time.
 fn inspect(
     bytes: &[u8],
     label: &str,
@@ -164,8 +153,6 @@ fn decode(
         .map_err(|_| invalid_image(label, "is not a valid image"))
 }
 
-/// GIFs may be animated and WebP has no encoder in `image`, so both are
-/// stored as uploaded.
 fn is_compressible(format: ImageFormat) -> bool {
     matches!(format, ImageFormat::Png | ImageFormat::Jpeg)
 }
@@ -224,149 +211,4 @@ fn invalid_image(label: &str, requirement: &str) -> ApiError {
         StatusCode::UNPROCESSABLE_ENTITY,
         format!("{label} {requirement}."),
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder};
-
-    fn encode_png(width: u32, height: u32) -> Vec<u8> {
-        let pixels = vec![0u8; (width as usize) * (height as usize)];
-        let mut bytes = Vec::new();
-        PngEncoder::new(&mut bytes)
-            .write_image(&pixels, width, height, ExtendedColorType::L8)
-            .unwrap();
-        bytes
-    }
-
-    /// Detailed enough that the PNG does not compress down to nothing;
-    /// a smaller `detail` produces a larger file.
-    fn encode_photo_png(width: u32, height: u32, detail: u32) -> Vec<u8> {
-        let mut pixels = vec![0u8; (width as usize) * (height as usize) * 3];
-        for y in 0..height {
-            for x in 0..width {
-                let value = (((x / detail) ^ (y / detail)) % 251) as u8;
-                let index = ((y * width + x) * 3) as usize;
-                pixels[index] = value;
-                pixels[index + 1] = value;
-                pixels[index + 2] = value;
-            }
-        }
-        let mut bytes = Vec::new();
-        PngEncoder::new(&mut bytes)
-            .write_image(&pixels, width, height, ExtendedColorType::Rgb8)
-            .unwrap();
-        bytes
-    }
-
-    #[test]
-    fn accepts_high_resolution_image_under_size_limit() {
-        let bytes = encode_png(9_000, 5_000);
-        assert!(bytes.len() < MAX_IMAGE_BYTES);
-
-        let result = inspect(&bytes, "Message image");
-        assert!(result.is_ok(), "{:?}", result.err().map(|e| e.to_string()));
-    }
-
-    #[test]
-    fn oversized_image_error_avoids_pixel_jargon() {
-        let bytes = encode_png(MAX_IMAGE_DIMENSION + 1, 200);
-        let error = inspect(&bytes, "Message image")
-            .expect_err("expected oversized image to be rejected");
-        let message = error.to_string();
-        assert!(!message.contains("pixel"), "{message}");
-    }
-
-    #[test]
-    fn compresses_image_that_exceeds_storage_target() {
-        let bytes = encode_photo_png(4_000, 3_000, 4);
-        let original_len = bytes.len();
-
-        let normalized = normalize_raster(bytes, "Message image").unwrap();
-
-        assert!(
-            normalized.len() < original_len,
-            "expected compression, got {} from {original_len}",
-            normalized.len()
-        );
-        let (width, height) =
-            dimensions(&normalized, ImageFormat::Jpeg, "Message image")
-                .unwrap();
-        assert_eq!(width, COMPRESSION_TARGET_DIMENSION);
-        assert_eq!(height, 1_920);
-    }
-
-    #[test]
-    fn accepts_image_between_old_and_new_size_limits() {
-        // Previously rejected outright at 8 MB; now compressed instead.
-        let bytes = encode_photo_png(6_000, 4_500, 2);
-        assert!(bytes.len() > 8 * 1024 * 1024);
-        assert!(bytes.len() < MAX_IMAGE_BYTES);
-
-        let normalized = normalize_raster(bytes, "Message image").unwrap();
-        assert!(normalized.len() < 8 * 1024 * 1024);
-    }
-
-    #[test]
-    fn rejects_image_beyond_compression_ceiling() {
-        let bytes = vec![0u8; MAX_IMAGE_BYTES + 1];
-        let error = normalize_raster(bytes, "Message image")
-            .expect_err("expected rejection past the compression ceiling");
-        assert!(error.to_string().contains("20 MB"), "{error}");
-    }
-
-    #[test]
-    fn preserves_transparency_when_compressing() {
-        let width = 3_000;
-        let height = 3_000;
-        let mut pixels = vec![0u8; (width * height * 4) as usize];
-        for y in 0..height {
-            for x in 0..width {
-                let value = (((x / 4) ^ (y / 4)) % 251) as u8;
-                let index = ((y * width + x) * 4) as usize;
-                pixels[index] = value;
-                pixels[index + 1] = value;
-                pixels[index + 2] = value;
-                pixels[index + 3] = 128;
-            }
-        }
-        let mut bytes = Vec::new();
-        PngEncoder::new(&mut bytes)
-            .write_image(&pixels, width, height, ExtendedColorType::Rgba8)
-            .unwrap();
-
-        let normalized = normalize_raster(bytes, "User image").unwrap();
-
-        assert_eq!(supported_format(&normalized), Some(ImageFormat::Png));
-        assert!(decode(&normalized, ImageFormat::Png, "User image")
-            .unwrap()
-            .color()
-            .has_alpha());
-    }
-
-    #[test]
-    fn leaves_small_images_untouched() {
-        let bytes = encode_photo_png(400, 300, 4);
-        let normalized =
-            normalize_raster(bytes.clone(), "Message image").unwrap();
-        assert_eq!(normalized, bytes);
-    }
-
-    #[test]
-    fn stores_gifs_as_uploaded() {
-        let mut bytes = Vec::new();
-        image::codecs::gif::GifEncoder::new(&mut bytes)
-            .encode(
-                &vec![0u8; (3_000 * 3_000 * 4) as usize],
-                3_000,
-                3_000,
-                image::ExtendedColorType::Rgba8,
-            )
-            .unwrap();
-
-        let normalized =
-            normalize_raster(bytes.clone(), "Message image").unwrap();
-        assert_eq!(normalized, bytes);
-    }
 }

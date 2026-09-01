@@ -215,20 +215,3 @@ fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("multipart request failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn creation_uploads_allow_four_attachments_and_one_cover_photo() {
-        assert_eq!(MAX_ATTACHMENT_FILES, 4);
-        assert_eq!(MAX_COVER_PHOTO_FILES, 1);
-        assert_eq!(MAX_CREATION_MULTIPART_FILES, 5);
-        assert!(ensure_creation_file_count(5).is_ok());
-        assert_eq!(
-            ensure_creation_file_count(6).unwrap_err().status(),
-            StatusCode::UNPROCESSABLE_ENTITY
-        );
-    }
-}

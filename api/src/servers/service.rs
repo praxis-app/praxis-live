@@ -719,7 +719,7 @@ async fn normalize_server_image(
     let Some(bytes) = image else {
         return Ok(None);
     };
-    crate::common::images::normalize_raster_async(bytes, "Server image")
+    crate::common::images::normalize_upload(bytes, "Server image")
         .await
         .map(Some)
 }

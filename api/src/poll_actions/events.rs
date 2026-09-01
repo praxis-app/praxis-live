@@ -170,11 +170,9 @@ pub(crate) async fn attach_event_cover_photo<C: ConnectionTrait>(
     poll_id: Uuid,
     bytes: Vec<u8>,
 ) -> AppResult<PathBuf> {
-    let bytes = crate::common::images::normalize_raster_async(
-        bytes,
-        "Event cover photo",
-    )
-    .await?;
+    let bytes =
+        crate::common::images::normalize_upload(bytes, "Event cover photo")
+            .await?;
     let action = poll_actions::Entity::find()
         .filter(poll_actions::Column::PollId.eq(poll_id))
         .one(database)
