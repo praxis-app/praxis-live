@@ -65,6 +65,14 @@ export const ProposalSettingsDialog = ({
       visible: showVoteLimits,
     },
     {
+      name: t('settings.names.blocksRestricted'),
+      description: t('settings.explanations.blocksRestricted'),
+      value: t(
+        config.blocksRestricted ? 'actions.enabled' : 'actions.disabled',
+      ),
+      visible: showVoteLimits,
+    },
+    {
       name: t('settings.names.agreementThreshold'),
       description: t('settings.explanations.agreementThreshold'),
       value: `${config.agreementThreshold ?? 0}%`,
