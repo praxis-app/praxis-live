@@ -15,6 +15,7 @@ export const InstanceRole = ({ instanceRole }: Props) => {
       color={instanceRole.color}
       name={instanceRole.name}
       memberCount={instanceRole.memberCount}
+      members={instanceRole.members}
     />
   );
 };
