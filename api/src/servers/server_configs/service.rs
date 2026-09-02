@@ -63,6 +63,9 @@ pub(crate) async fn update_server_config(
     if let Some(value) = request.voting_time_limit {
         active.voting_time_limit = Set(value);
     }
+    if let Some(value) = request.blocks_open_to_all {
+        active.blocks_open_to_all = Set(value);
+    }
 
     active.update(database).await.map_err(internal_error)?;
     Ok(())
@@ -98,6 +101,9 @@ pub(crate) async fn apply_server_config<C: ConnectionTrait>(
     }
     if let Some(value) = request.voting_time_limit {
         active.voting_time_limit = Set(value);
+    }
+    if let Some(value) = request.blocks_open_to_all {
+        active.blocks_open_to_all = Set(value);
     }
     active.update(database).await.map_err(internal_error)?;
     Ok(())
@@ -138,6 +144,7 @@ fn shape_server_config(config: server_configs::Model) -> ServerConfigResponse {
         quorum_enabled: config.quorum_enabled,
         quorum_threshold: config.quorum_threshold,
         voting_time_limit: config.voting_time_limit,
+        blocks_open_to_all: config.blocks_open_to_all,
         updated_at: serialize_timestamp(config.updated_at),
     }
 }

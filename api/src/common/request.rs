@@ -9,7 +9,10 @@ use serde::de::DeserializeOwned;
 use crate::common::{ApiError, AppResult};
 
 const MULTIPART_OVERHEAD_BYTES: usize = 1024 * 1024;
-const MAX_CREATION_MULTIPART_FILES: usize = 8;
+pub(crate) const MAX_ATTACHMENT_FILES: usize = 4;
+const MAX_COVER_PHOTO_FILES: usize = 1;
+const MAX_CREATION_MULTIPART_FILES: usize =
+    MAX_ATTACHMENT_FILES + MAX_COVER_PHOTO_FILES;
 
 const CREATION_MULTIPART_BODY_LIMIT: usize =
     crate::common::images::MAX_IMAGE_BYTES * MAX_CREATION_MULTIPART_FILES
@@ -142,6 +145,7 @@ async fn multipart_json_files<T: DeserializeOwned>(
     let mut payload = None;
     let mut file = None;
     let mut files = vec![];
+    let mut file_count = 0;
 
     while let Some(field) =
         multipart.next_field().await.map_err(internal_error)?
@@ -157,11 +161,15 @@ async fn multipart_json_files<T: DeserializeOwned>(
                 })?);
             }
             Some("file") => {
+                file_count += 1;
+                ensure_creation_file_count(file_count)?;
                 let bytes =
                     field.bytes().await.map_err(internal_error)?.to_vec();
                 file = Some(MultipartFile { bytes });
             }
             Some("files") => {
+                file_count += 1;
+                ensure_creation_file_count(file_count)?;
                 let bytes =
                     field.bytes().await.map_err(internal_error)?.to_vec();
                 files.push(MultipartFile { bytes });
@@ -180,6 +188,18 @@ async fn multipart_json_files<T: DeserializeOwned>(
         ));
     }
     Ok((payload, file, files))
+}
+
+fn ensure_creation_file_count(file_count: usize) -> AppResult<()> {
+    if file_count > MAX_CREATION_MULTIPART_FILES {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!(
+                "A request can include at most {MAX_CREATION_MULTIPART_FILES} image files."
+            ),
+        ));
+    }
+    Ok(())
 }
 
 pub(crate) fn parse_uuid(value: &str, field: &str) -> AppResult<Uuid> {

@@ -33,6 +33,7 @@ export const InstanceRolePermissionsForm = ({ instanceRole }: Props) => {
   });
 
   const queryClient = useQueryClient();
+
   const { mutate: updatePermissions, isPending } = useMutation({
     mutationFn: async (values: FormValues) => {
       const permissions = values.permissions.reduce<InstancePermission[]>(
@@ -67,6 +68,20 @@ export const InstanceRolePermissionsForm = ({ instanceRole }: Props) => {
           return { instanceRole: { ...oldData.instanceRole, permissions } };
         },
       );
+      queryClient.setQueryData<{ instanceRoles: InstanceRoleRes[] }>(
+        ['instance-roles'],
+        (data) => {
+          if (!data) {
+            return data;
+          }
+          return {
+            instanceRoles: data.instanceRoles.map((role) =>
+              role.id === instanceRole.id ? { ...role, permissions } : role,
+            ),
+          };
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ['me'] });
       reset({
         permissions: getInstancePermissionValues(permissions),
       });

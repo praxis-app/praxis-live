@@ -55,20 +55,35 @@ export const ServerRoleMember = ({ serverRoleId, serverRoleMember }: Props) => {
         },
       );
       queryClient.setQueryData(
-        ['servers', serverId, 'roles'],
-        (data: { serverRoles: ServerRoleRes[] }) => ({
-          serverRoles: data.serverRoles.map((role) => ({
-            ...role,
-            memberCount: Math.max(0, role.memberCount - 1),
-          })),
-        }),
-      );
-      queryClient.setQueryData(
         ['servers', serverId, 'roles', serverRoleId, 'members', 'eligible'],
         (data: { users: UserRes[] }) => {
           return { users: [serverRoleMember, ...data.users] };
         },
       );
+
+      queryClient.setQueryData<{ serverRoles: ServerRoleRes[] }>(
+        ['servers', serverId, 'roles'],
+        (data) => {
+          if (!data) {
+            return data;
+          }
+          return {
+            serverRoles: data.serverRoles.map((role) => {
+              if (role.id !== serverRoleId) {
+                return role;
+              }
+              return {
+                ...role,
+                members: role.members.filter(
+                  (member) => member.id !== serverRoleMember.id,
+                ),
+                memberCount: Math.max(0, role.memberCount - 1),
+              };
+            }),
+          };
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
 

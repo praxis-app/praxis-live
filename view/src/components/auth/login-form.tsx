@@ -1,5 +1,3 @@
-// TODO: Add show password toggle
-
 import { api } from '@/client/api-client';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +9,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/auth/password-input';
 import {
   LocalStorageKeys,
   NavigationPaths,
@@ -107,8 +106,7 @@ export const LoginForm = () => {
             <FormItem>
               <FormLabel>{t('auth.labels.password')}</FormLabel>
               <FormControl>
-                <Input
-                  type="password"
+                <PasswordInput
                   placeholder={t('auth.prompts.createPassword')}
                   autoComplete="current-password"
                   {...field}

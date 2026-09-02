@@ -7,6 +7,7 @@ import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { usePressHighlight } from '@/hooks/use-press-highlight';
+import { copyMessageText } from '@/lib/message.utils';
 import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type MessageRes } from '@/types/message.types';
@@ -57,6 +58,11 @@ export const Message = ({
   const name = user.displayName || user.name;
   const truncatedUsername = truncate(name, 18);
   const hasThreadActions = !!onOpenThread && !!onCopyThreadLink;
+  // The long press that opens the menu is the same gesture the browser uses to
+  // start a text selection, so selection is turned off where that menu lives.
+  // Radix already suppresses the iOS callout on its trigger.
+  const usesLongPressMenu = hasThreadActions && !isDesktop;
+  const copyText = body ? () => copyMessageText(body) : undefined;
 
   const message = (
     <div
@@ -65,12 +71,14 @@ export const Message = ({
       className={cn(
         'group/message data-[state=open]:bg-accent data-[notification-highlight=true]:bg-primary/10 relative -mx-2 flex max-w-full min-w-0 gap-4 rounded-md px-2 pt-1 transition-colors duration-300 ease-out motion-reduce:transition-none',
         isPressed && 'bg-accent',
+        usesLongPressMenu && 'select-none',
       )}
     >
       {hasThreadActions && isDesktop && (
         <MessageMenu
           onOpenThread={() => onOpenThread(id)}
           onCopyThreadLink={() => onCopyThreadLink(id)}
+          onCopyText={copyText}
         />
       )}
 
@@ -151,6 +159,7 @@ export const Message = ({
     <MessageContextMenu
       onOpenThread={() => onOpenThread(id)}
       onCopyThreadLink={() => onCopyThreadLink(id)}
+      onCopyText={copyText}
     >
       {message}
     </MessageContextMenu>

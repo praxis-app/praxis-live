@@ -2,6 +2,7 @@
 
 import { getJsonOrFormData } from '@/client/form-data.utils';
 import { LocalStorageKeys } from '@/constants/shared.constants';
+import { type UploadProgressHandler } from '@/types/api.types';
 import {
   type AuthRes,
   type LoginReq,
@@ -392,10 +393,12 @@ class ApiClient {
     channelId: string,
     body: string,
     images: File[] = [],
+    onUploadProgress?: UploadProgressHandler,
   ) => {
     const path = `/servers/${serverId}/channels/${channelId}/messages`;
     return this.executeRequest<{ message: MessageRes }>('post', path, {
       data: getJsonOrFormData({ body }, { files: images }),
+      onUploadProgress,
     });
   };
 
@@ -981,6 +984,7 @@ class ApiClient {
       data?: unknown;
       params?: Record<string, unknown>;
       responseType?: AxiosResponse['config']['responseType'];
+      onUploadProgress?: UploadProgressHandler;
     },
   ): Promise<T> {
     try {
@@ -997,6 +1001,10 @@ class ApiClient {
         data: options?.data,
         params: options?.params,
         responseType: options?.responseType,
+        onUploadProgress: options?.onUploadProgress
+          ? ({ loaded, total }) =>
+              options.onUploadProgress?.(total ? loaded / total : 0)
+          : undefined,
         headers,
       });
 

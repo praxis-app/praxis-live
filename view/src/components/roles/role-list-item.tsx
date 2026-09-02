@@ -1,6 +1,8 @@
+import { UserAvatar } from '@/components/users/user-avatar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { cn } from '@/lib/shared.utils';
+import { type UserRes } from '@/types/user.types';
 import { useTranslation } from 'react-i18next';
 import { MdArrowForwardIos, MdPerson } from 'react-icons/md';
 import { Link } from 'react-router-dom';
@@ -10,16 +12,23 @@ interface Props {
   color: string;
   name: string;
   memberCount: number;
+  members: UserRes[];
 }
 
-export const RoleListItem = ({ to, color, name, memberCount }: Props) => {
+export const RoleListItem = ({
+  to,
+  color,
+  name,
+  memberCount,
+  members,
+}: Props) => {
   const { t } = useTranslation();
   const isAboveMd = useIsDesktop();
 
   return (
     <Link to={to}>
       <div className="hover:bg-ring/10 cursor-pointer rounded-lg p-2 transition-colors">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center">
             <Avatar className="mr-4 size-10">
               <AvatarFallback
@@ -46,7 +55,24 @@ export const RoleListItem = ({ to, color, name, memberCount }: Props) => {
             </div>
           </div>
 
-          <MdArrowForwardIos className="text-muted-foreground size-5" />
+          <div className="flex items-center gap-3">
+            {members.length > 0 && (
+              <div className="flex shrink-0 -space-x-2">
+                {members.slice(0, 3).map((member) => (
+                  <UserAvatar
+                    key={member.id}
+                    userId={member.id}
+                    name={member.displayName || member.name}
+                    imageId={member.profilePicture?.id}
+                    className="border-card size-6 border-2"
+                    fallbackClassName="text-xs"
+                  />
+                ))}
+              </div>
+            )}
+
+            <MdArrowForwardIos className="text-muted-foreground size-5" />
+          </div>
         </div>
       </div>
     </Link>

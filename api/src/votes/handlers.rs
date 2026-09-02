@@ -36,15 +36,15 @@ pub(super) async fn create_vote(
     let channel_id = context.channel_id;
     let poll_id = context.poll_id;
     let user_id = context.user_id;
-    let created =
-        service::create_vote(&state.database, context.poll, user_id, payload)
-            .await?;
-    notifications::publish_notifications(
+
+    let created = service::create_vote(
         &state.database,
-        &state.pub_sub_service,
-        &created.notifications,
+        server_id,
+        context.poll,
+        user_id,
+        payload,
     )
-    .await;
+    .await?;
 
     if let Err(error) = polls_service::broadcast_poll_update(
         &state.database,
@@ -58,6 +58,13 @@ pub(super) async fn create_vote(
     {
         tracing::warn!("failed to broadcast vote update: {error}");
     }
+
+    notifications::publish_notifications(
+        &state.database,
+        &state.pub_sub_service,
+        &created.notifications,
+    )
+    .await;
 
     Ok(Json(VotePayload { vote: created.vote }))
 }
@@ -73,6 +80,7 @@ pub(super) async fn update_vote(
     let user_id = context.route.user_id;
     let updated = service::update_vote(
         &state.database,
+        server_id,
         context.route.poll,
         context.vote_id,
         user_id,

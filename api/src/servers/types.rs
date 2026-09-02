@@ -101,6 +101,7 @@ pub(crate) struct ServerConfigRequest {
     pub(crate) quorum_enabled: Option<bool>,
     pub(crate) quorum_threshold: Option<i32>,
     pub(crate) voting_time_limit: Option<i32>,
+    pub(crate) blocks_open_to_all: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -114,6 +115,7 @@ pub(crate) struct ServerConfigResponse {
     pub(super) quorum_enabled: bool,
     pub(super) quorum_threshold: i32,
     pub(super) voting_time_limit: i32,
+    pub(super) blocks_open_to_all: bool,
     pub(super) updated_at: String,
 }
 

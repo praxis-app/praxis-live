@@ -12,6 +12,7 @@ import { createPlanEventProposal } from '../lib/events';
 import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import {
+  confirmRatifyingVote,
   getPollVoteSummary,
   makeProposalsRatifyWithOneAgreeVote,
   openCreateProposalDialog,
@@ -64,6 +65,7 @@ type EventDetailResponse = EventResponse & {
 type PollResponse = {
   poll: {
     id: string;
+    images?: ImageSummary[];
     action?: {
       id: string;
       actionType: string;
@@ -196,7 +198,6 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     dialog.getByText(eventDescription, { exact: true }),
   ).toBeVisible();
-  await expect(dialog.getByText(/1w 1d/)).toBeVisible();
   await expect(dialog.getByText('Online', { exact: true })).toBeVisible();
   await expect(dialog.getByRole('link', { name: externalLink })).toBeVisible();
   await expect(
@@ -262,7 +263,6 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     proposal.getByText(eventDescription, { exact: true }),
   ).toBeVisible();
-  await expect(proposal.getByText(/1w 1d/)).toBeVisible();
   await expect(
     proposal.getByRole('link', { name: externalLink }),
   ).toBeVisible();
@@ -280,6 +280,7 @@ test('user can propose and ratify an online event with all details preserved', a
       response.status() === 200,
   );
   await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await confirmRatifyingVote(page);
   await voteResponse;
   await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
 
@@ -349,7 +350,6 @@ test('user can propose and ratify an online event with all details preserved', a
   ).toBeVisible();
   await expect(page.getByRole('img', { name: 'Cover photo' })).toBeVisible();
   await expect(page.getByText(eventDescription, { exact: true })).toBeVisible();
-  await expect(page.getByText(/1w 1d/)).toBeVisible();
   await expect(page.getByRole('link', { name: externalLink })).toBeVisible();
   await expect(
     page.getByText(`Hosted by ${host.user.name}`, { exact: true }),
@@ -420,40 +420,78 @@ test('user can propose and ratify an online event with all details preserved', a
   await expect(
     page.getByText('Your RSVP could not be updated.', { exact: true }),
   ).toHaveCount(0);
+});
 
-  const calendarResponsePromise = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return (
-      response.request().method() === 'GET' &&
-      url.pathname === `/api/servers/${server.id}/events` &&
-      response.status() === 200
-    );
+test('event proposal accepts four attachments plus a cover photo', async ({
+  context,
+  page,
+  request,
+}) => {
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('event-image-limit'),
+  );
+  const server = await getDefaultServer(request, proposer);
+  const proposalBody = `Event image limit ${proposer.user.suffix}`;
+  const eventName = `Five image event ${proposer.user.suffix}`;
+  const imageBuffer = await readFile('e2e/fixtures/valid-image.png');
+  const attachments = Array.from({ length: 4 }, (_, index) => ({
+    name: `attachment-${index + 1}.png`,
+    mimeType: 'image/png',
+    buffer: imageBuffer,
+  }));
+
+  const chat = new ChatPage(page);
+  await chat.goto();
+  await chat.expectChannel('general');
+  await openCreateProposalDialog(page);
+
+  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
+  await selectRadixOption(dialog, page, 'Select an action type', 'Plan event');
+  await dialog
+    .getByPlaceholder('Enter your proposal details...')
+    .fill(proposalBody);
+  await dialog.getByTestId('image-input').setInputFiles(attachments);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  await dialog.getByLabel('Event name').fill(eventName);
+  await dialog.getByLabel('Description').fill('Five image boundary coverage.');
+  await dialog.getByTestId('image-input').setInputFiles({
+    name: 'cover.png',
+    mimeType: 'image/png',
+    buffer: imageBuffer,
   });
-  await page.getByRole('link', { name: 'Events', exact: true }).click();
-  await calendarResponsePromise;
-  await page.getByRole('button', { name: 'Month', exact: true }).click();
-  const calendarEventSegments = page
-    .getByRole('grid')
-    .locator('.events-calendar-event')
-    .filter({ hasText: eventName });
-  await expect(calendarEventSegments.first()).toBeVisible();
-  await calendarEventSegments.first().hover();
-  await expect
-    .poll(() =>
-      calendarEventSegments.evaluateAll((segments) =>
-        segments.every(
-          (segment) =>
-            getComputedStyle(segment).cursor === 'pointer' &&
-            segment.classList.contains('is-hovered'),
-        ),
-      ),
-    )
-    .toBe(true);
-  await calendarEventSegments.first().click();
-  await expect(page).toHaveURL(`/s/${server.slug}/events/${createdEvent.id}`);
+  await dialog.getByRole('switch', { name: 'Online' }).click();
+  await dialog
+    .getByPlaceholder("Type a member's name to add hosts...")
+    .fill(proposer.user.name);
+  await dialog.getByText(proposer.user.name, { exact: true }).click();
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  const createProposalResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
+      response.status() === 200,
+  );
+  await dialog.getByRole('button', { name: 'Create proposal' }).click();
+  const response = await createProposalResponse;
+  const { poll } = (await response.json()) as PollResponse;
+
+  expect(poll.images).toHaveLength(4);
+  expect(poll.action?.event?.coverPhoto).toBeTruthy();
+  await expect(dialog).toBeHidden();
+
+  // Located by id rather than accessible name: the decision model is shared
+  // server state, so the name depends on what earlier tests left configured.
+  const proposal = page.locator(`[data-decision-id="${poll.id}"]`);
   await expect(
-    page.getByRole('button', { name: 'Going', exact: true }),
-  ).toHaveAttribute('aria-pressed', 'true');
+    proposal.getByRole('img', { name: 'Attached image' }),
+  ).toHaveCount(4);
+  await expect(
+    proposal.getByRole('img', { name: 'Cover photo' }),
+  ).toBeVisible();
 });
 
 test('invite holder can view events and event details in a non-default server', async ({

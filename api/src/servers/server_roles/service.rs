@@ -8,7 +8,7 @@ use sea_orm::{
     DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
     Set, SqlErr,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{RoleRequest, ServerRoleResponse};
@@ -30,6 +30,7 @@ const SERVER_SUBJECTS: &[&str] = &[
     "Invite",
     "Message",
     "ServerRole",
+    "ProposalBlock",
     "all",
 ];
 
@@ -61,17 +62,35 @@ pub(super) async fn get_server_roles(
     Ok(responses)
 }
 
-pub(crate) async fn get_permissions_by_user(
-    database: &DatabaseConnection,
+pub(crate) async fn get_permissions_by_user<C: ConnectionTrait>(
+    database: &C,
     user_id: Uuid,
 ) -> AppResult<PermissionMap> {
+    Ok(get_permissions_by_users(database, &[user_id])
+        .await?
+        .remove(&user_id)
+        .unwrap_or_default())
+}
+
+pub(crate) async fn get_permissions_by_users<C: ConnectionTrait>(
+    database: &C,
+    user_ids: &[Uuid],
+) -> AppResult<BTreeMap<Uuid, PermissionMap>> {
+    if user_ids.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
     let memberships = server_role_members::Entity::find()
-        .filter(server_role_members::Column::UserId.eq(user_id))
+        .filter(server_role_members::Column::UserId.is_in(user_ids.to_vec()))
         .all(database)
         .await
         .map_err(internal_error)?;
-    let role_ids: Vec<Uuid> =
-        memberships.iter().map(|item| item.server_role_id).collect();
+    let role_ids: Vec<Uuid> = memberships
+        .iter()
+        .map(|item| item.server_role_id)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
     if role_ids.is_empty() {
         return Ok(BTreeMap::new());
     }
@@ -92,21 +111,48 @@ pub(crate) async fn get_permissions_by_user(
         .into_iter()
         .map(|role| (role.id, role.server_id))
         .collect();
-    let mut raw: BTreeMap<String, Vec<server_role_permissions::Model>> =
-        BTreeMap::new();
+    let mut permissions_by_role: BTreeMap<
+        Uuid,
+        Vec<server_role_permissions::Model>,
+    > = BTreeMap::new();
     for permission in permissions {
-        if let Some(server_id) = role_server_ids.get(&permission.server_role_id)
-        {
-            raw.entry(server_id.to_string())
-                .or_default()
-                .push(permission);
-        }
+        permissions_by_role
+            .entry(permission.server_role_id)
+            .or_default()
+            .push(permission);
+    }
+
+    let mut raw: BTreeMap<
+        Uuid,
+        BTreeMap<String, Vec<server_role_permissions::Model>>,
+    > = BTreeMap::new();
+    for membership in memberships {
+        let Some(server_id) = role_server_ids.get(&membership.server_role_id)
+        else {
+            continue;
+        };
+        let Some(permissions) =
+            permissions_by_role.get(&membership.server_role_id)
+        else {
+            continue;
+        };
+        raw.entry(membership.user_id)
+            .or_default()
+            .entry(server_id.to_string())
+            .or_default()
+            .extend(permissions.iter().cloned());
     }
 
     Ok(raw
         .into_iter()
-        .map(|(server_id, permissions)| {
-            (server_id, group_permissions(permissions))
+        .map(|(user_id, permissions_by_server)| {
+            let permissions = permissions_by_server
+                .into_iter()
+                .map(|(server_id, permissions)| {
+                    (server_id, group_permissions(permissions))
+                })
+                .collect();
+            (user_id, permissions)
         })
         .collect())
 }

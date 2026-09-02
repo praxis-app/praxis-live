@@ -1,3 +1,9 @@
+import { subscribeToBrowserResume } from '@/lib/browser.utils';
+import {
+  type FeedItemRes,
+  type FeedPageRes,
+  type FeedQuery,
+} from '@/types/channel.types';
 import {
   hashKey,
   type QueryKey,
@@ -5,11 +11,6 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useEffectEvent, useMemo, useRef } from 'react';
-import {
-  type FeedItemRes,
-  type FeedPageRes,
-  type FeedQuery,
-} from '@/types/channel.types';
 
 interface FeedCursorParams {
   before?: string;
@@ -110,6 +111,15 @@ export const useFeedQuery = ({
     syncedQueryHashes.current.add(queryHash);
     void syncNewerItems();
   }, [enabled, hadCachedData, queryHash]);
+
+  // WebSocket reconnects do not replay missed events, and this query never
+  // becomes stale, so catch up from the API when the browser becomes active.
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    return subscribeToBrowserResume(() => void syncNewerItems());
+  }, [enabled]);
 
   return query;
 };

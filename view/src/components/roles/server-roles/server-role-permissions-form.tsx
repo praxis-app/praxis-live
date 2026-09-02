@@ -37,6 +37,7 @@ export const ServerRolePermissionsForm = ({ serverRole }: Props) => {
   });
 
   const queryClient = useQueryClient();
+
   const { mutate: updatePermissions, isPending } = useMutation({
     mutationFn: async (values: FormValues) => {
       const permissions = values.permissions.reduce<ServerPermission[]>(
@@ -59,6 +60,9 @@ export const ServerRolePermissionsForm = ({ serverRole }: Props) => {
           if (permission.name === 'manageServerRoles') {
             result.push({ subject: 'ServerRole', action: ['manage'] });
           }
+          if (permission.name === 'blockProposals') {
+            result.push({ subject: 'ProposalBlock', action: ['create'] });
+          }
           return result;
         },
         [],
@@ -79,6 +83,20 @@ export const ServerRolePermissionsForm = ({ serverRole }: Props) => {
           return { serverRole: { ...oldData.serverRole, permissions } };
         },
       );
+      queryClient.setQueryData<{ serverRoles: ServerRoleRes[] }>(
+        ['servers', serverId, 'roles'],
+        (data) => {
+          if (!data) {
+            return data;
+          }
+          return {
+            serverRoles: data.serverRoles.map((role) =>
+              role.id === serverRole.id ? { ...role, permissions } : role,
+            ),
+          };
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ['me'] });
       reset({
         permissions: getServerPermissionValues(permissions),
       });

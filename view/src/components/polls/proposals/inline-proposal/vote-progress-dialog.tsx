@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { ProposalRuleRow } from '@/components/polls/proposals/inline-proposal/proposal-rule-row';
+import { useAbility } from '@/hooks/use-ability';
 import { getProgressPercentage, getProposalRuleStatus } from '@/lib/poll.utils';
 import { type PollClosedReason, type PollConfigRes } from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
@@ -34,6 +35,7 @@ export const VoteProgressDialog = ({
   onOpenChange,
 }: Props) => {
   const { t } = useTranslation();
+  const { serverAbility } = useAbility();
   const status = getProposalRuleStatus(votes, config, memberCount);
   const showAgreement = status.agreementApplies;
   const showLimits = status.limitsApply;
@@ -46,6 +48,12 @@ export const VoteProgressDialog = ({
     status.totalVotes,
     status.requiredQuorum,
   );
+  // Mirrors the vote buttons: the block option is hidden for this member, so
+  // the rules have to explain why rather than leaving it looking broken.
+  const blockingRoleRestricted =
+    config.decisionMakingModel !== 'majority-vote' &&
+    config.blocksOpenToAll === false &&
+    !serverAbility.can('create', 'ProposalBlock');
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -74,6 +82,18 @@ export const VoteProgressDialog = ({
           {config.decisionMakingModel === 'consent' && (
             <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
               {t('proposals.descriptions.consentRules')}
+            </p>
+          )}
+
+          {config.decisionMakingModel === 'consensus' && (
+            <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+              {t('proposals.descriptions.consensusRules')}
+            </p>
+          )}
+
+          {blockingRoleRestricted && (
+            <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
+              {t('proposals.descriptions.blocksRoleRestricted')}
             </p>
           )}
 
@@ -191,6 +211,13 @@ export const VoteProgressDialog = ({
                 })}
                 met={status.blocksMet}
               />
+              {status.ignoredBlocks > 0 && (
+                <p className="text-muted-foreground text-sm">
+                  {t('proposals.descriptions.ignoredBlocks', {
+                    count: status.ignoredBlocks,
+                  })}
+                </p>
+              )}
             </div>
           )}
         </div>

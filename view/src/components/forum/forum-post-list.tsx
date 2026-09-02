@@ -162,7 +162,7 @@ export const ForumPostList = ({ channel, selectedPostId }: Props) => {
       </div>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto md:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto md:w-full md:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t('forums.actions.createPost')}</DialogTitle>
             <DialogDescription>

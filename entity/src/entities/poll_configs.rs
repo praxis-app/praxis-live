@@ -14,6 +14,7 @@ pub struct Model {
     pub agreement_threshold: Option<i32>,
     pub quorum_enabled: Option<bool>,
     pub quorum_threshold: Option<i32>,
+    pub blocks_open_to_all: Option<bool>,
     pub multiple_choice: Option<bool>,
     pub closing_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,

@@ -1,4 +1,9 @@
-import { expect, type APIRequestContext } from '@playwright/test';
+import {
+  expect,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import { authorizationHeaders, type AuthenticatedUser } from './auth';
 
 interface CreateMessagesOptions {
@@ -29,4 +34,36 @@ export async function createMessages({
     });
     await expect(response).toBeOK();
   }
+}
+
+/** Radix opens its context menu 700ms into a touch press. */
+const LONG_PRESS_MS = 900;
+
+/**
+ * Drives a real touch press through CDP rather than synthetic pointer events,
+ * so the browser's own long-press selection behaviour is exercised too.
+ */
+export async function longPressMessage(page: Page, message: Locator) {
+  const box = await message.boundingBox();
+  if (!box) {
+    throw new Error('Expected the message to have a bounding box');
+  }
+
+  const touchPoints = [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }];
+  const session = await page.context().newCDPSession(page);
+
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints,
+  });
+  await page.waitForTimeout(LONG_PRESS_MS);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+  await session.detach();
+}
+
+export function getSelectedText(page: Page) {
+  return page.evaluate(() => window.getSelection()?.toString() ?? '');
 }

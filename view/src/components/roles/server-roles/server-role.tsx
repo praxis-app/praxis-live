@@ -17,6 +17,7 @@ export const ServerRole = ({ serverRole }: Props) => {
       color={serverRole.color}
       name={serverRole.name}
       memberCount={serverRole.memberCount}
+      members={serverRole.members}
     />
   );
 };
