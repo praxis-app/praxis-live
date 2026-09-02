@@ -13,6 +13,7 @@ interface Props {
 
 export const NotificationInbox = ({ onSelect }: Props) => {
   const { t } = useTranslation();
+
   const {
     notifications,
     unreadCount,
@@ -28,6 +29,7 @@ export const NotificationInbox = ({ onSelect }: Props) => {
     markAllRead,
     clearAll,
   } = useNotifications();
+
   const listBottomRef = useInfiniteScroll({
     hasNextPage,
     isLoadingMore: isFetchingNextPage,
@@ -35,7 +37,10 @@ export const NotificationInbox = ({ onSelect }: Props) => {
   });
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col" aria-label={t('notifications.title')}>
+    <section
+      className="flex min-h-0 flex-1 flex-col"
+      aria-label={t('notifications.title')}
+    >
       <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
         <div>
           <h2 className="font-semibold">{t('notifications.title')}</h2>
@@ -91,19 +96,17 @@ export const NotificationInbox = ({ onSelect }: Props) => {
           </div>
         )}
 
-        {!isPending &&
-          !isError &&
-          !notifications.length && (
-            <div className="flex h-full min-h-60 flex-col items-center justify-center gap-2 px-6 text-center">
-              <div className="bg-muted flex size-11 items-center justify-center rounded-full">
-                <LuBell className="text-muted-foreground size-5" />
-              </div>
-              <p className="font-medium">{t('notifications.empty.title')}</p>
-              <p className="text-muted-foreground max-w-64 text-sm">
-                {t('notifications.empty.description')}
-              </p>
+        {!isPending && !isError && !notifications.length && (
+          <div className="flex h-full min-h-60 flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="bg-muted flex size-11 items-center justify-center rounded-full">
+              <LuBell className="text-muted-foreground size-5" />
             </div>
-          )}
+            <p className="font-medium">{t('notifications.empty.title')}</p>
+            <p className="text-muted-foreground max-w-64 text-sm">
+              {t('notifications.empty.description')}
+            </p>
+          </div>
+        )}
 
         {notifications.map((notification, index) => (
           <NotificationItem

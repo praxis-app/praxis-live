@@ -113,7 +113,7 @@ export const NotificationItem = ({
         type="button"
         disabled={!isAvailable}
         onClick={() => onSelect(notification)}
-        className="min-w-0 flex-1 text-left disabled:cursor-default"
+        className="min-w-0 flex-1 cursor-pointer text-left disabled:cursor-default"
       >
         <p className={cn('text-sm leading-5', isUnread && 'font-medium')}>
           {description}
