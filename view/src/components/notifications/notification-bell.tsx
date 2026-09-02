@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
+import { cn } from '@/lib/shared.utils';
 import { type NotificationRes } from '@/types/notification.types';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
@@ -27,9 +29,23 @@ export const NotificationBell = () => {
 
   if (!enabled || !serverSlug) return null;
 
-  const openSettings = () => {
+  // Hide the panel right away when leaving, so it never paints over the page
+  // we just routed to. Normal closes keep their animation.
+  const closeAndNavigate = (path: string, state?: unknown) => {
+    setIsLeaving(true);
     setIsOpen(false);
-    void navigate(NavigationPaths.UserSettings);
+    void navigate(path, { state });
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setIsLeaving(false);
+    }
+    setIsOpen(open);
+  };
+
+  const openSettings = () => {
+    closeAndNavigate(NavigationPaths.UserSettings);
   };
 
   const selectNotification = (notification: NotificationRes) => {
@@ -40,8 +56,7 @@ export const NotificationBell = () => {
     if (!notification.readAt) {
       markRead(notification);
     }
-    setIsOpen(false);
-    void navigate(route.path, { state: route.state });
+    closeAndNavigate(route.path, route.state);
   };
 
   const trigger = (
@@ -67,11 +82,14 @@ export const NotificationBell = () => {
 
   if (isDesktop) {
     return (
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover open={isOpen} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent
           align="end"
-          className="flex max-h-[min(36rem,calc(100vh-5rem))] w-96 overflow-hidden p-0"
+          className={cn(
+            'flex max-h-[min(36rem,calc(100vh-5rem))] w-96 overflow-hidden p-0',
+            isLeaving && 'invisible',
+          )}
         >
           <NotificationInbox
             onSelect={selectNotification}
@@ -83,11 +101,14 @@ export const NotificationBell = () => {
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent
         side="bottom"
-        className="flex max-h-[82dvh] gap-0 rounded-t-xl p-0"
+        className={cn(
+          'flex max-h-[82dvh] gap-0 rounded-t-xl p-0',
+          isLeaving && 'invisible',
+        )}
       >
         <NotificationInbox
           onSelect={selectNotification}

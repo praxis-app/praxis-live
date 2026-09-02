@@ -434,3 +434,69 @@ test('notification targets flash where they appear in the feed', async ({
     threadPanel.locator(`[data-message-id="${reply.id}"]`),
   ).toHaveAttribute('data-focus-highlight', 'true');
 });
+
+test('selecting a notification from another page closes the inbox before routing', async ({
+  context,
+  page,
+  request,
+}) => {
+  const recipient = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('inbox-close-recipient'),
+  );
+  const actor = await signUpViaApi(
+    request,
+    createTestUser('inbox-close-actor'),
+  );
+  const server = await getDefaultServer(request, recipient);
+
+  const messageResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/messages`,
+    {
+      headers: authorizationHeaders(actor),
+      data: { body: `Inbox close message ${recipient.user.suffix}` },
+    },
+  );
+  await expect(messageResponse).toBeOK();
+
+  await page.goto('/users/settings');
+  await page.getByTestId('notification-bell').click();
+  const inbox = page.locator('section[aria-label="Notifications"]');
+  await expect(inbox).toBeVisible();
+
+  await page.evaluate(() => {
+    const target = window as unknown as { __frames: string[] };
+    target.__frames = [];
+    const sample = () => {
+      const open = Array.from(
+        document.querySelectorAll('section[aria-label="Notifications"]'),
+      ).filter(
+        (element) => getComputedStyle(element).visibility !== 'hidden',
+      ).length;
+      target.__frames.push(`${location.pathname} inbox:${open}`);
+      if (target.__frames.length < 120) {
+        requestAnimationFrame(sample);
+      }
+    };
+    requestAnimationFrame(sample);
+  });
+
+  await notificationItem(inbox, 'sent a new message')
+    .getByRole('button')
+    .first()
+    .click();
+
+  await page.waitForURL(/\/c\//);
+  await expect(page.getByTestId('feed')).toBeVisible();
+  await expect(inbox).toBeHidden();
+
+  // The inbox must never be painted over the page it routed to.
+  const frames = await page.evaluate(
+    () => (window as unknown as { __frames: string[] }).__frames,
+  );
+  const overlapping = frames.filter(
+    (frame) => !frame.startsWith('/users/settings') && frame.endsWith('inbox:1'),
+  );
+  expect(overlapping).toEqual([]);
+});
