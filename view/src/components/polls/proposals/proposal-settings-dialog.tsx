@@ -65,6 +65,16 @@ export const ProposalSettingsDialog = ({
       visible: showVoteLimits,
     },
     {
+      name: t('proposals.labels.blocking'),
+      description: t('settings.explanations.blocksOpenToAll'),
+      value: t(
+        config.blocksOpenToAll === false
+          ? 'proposals.labels.blockingPermittedRoles'
+          : 'proposals.labels.blockingOpenToAll',
+      ),
+      visible: showVoteLimits,
+    },
+    {
       name: t('settings.names.agreementThreshold'),
       description: t('settings.explanations.agreementThreshold'),
       value: `${config.agreementThreshold ?? 0}%`,

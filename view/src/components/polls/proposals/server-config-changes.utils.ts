@@ -12,6 +12,7 @@ export const SERVER_CONFIG_FIELDS = [
   'quorumEnabled',
   'quorumThreshold',
   'votingTimeLimit',
+  'blocksOpenToAll',
 ] as const;
 
 export const getServerConfigChanges = (

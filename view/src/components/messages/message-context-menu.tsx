@@ -7,19 +7,21 @@ import {
 import { useDeferredMenuAction } from '@/hooks/use-deferred-menu-action';
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuReply } from 'react-icons/lu';
+import { LuCopy, LuReply } from 'react-icons/lu';
 import { MdLink } from 'react-icons/md';
 
 interface Props {
   children: ReactNode;
   onOpenThread: () => void;
   onCopyThreadLink: () => void;
+  onCopyText?: () => void;
 }
 
 export const MessageContextMenu = ({
   children,
   onOpenThread,
   onCopyThreadLink,
+  onCopyText,
 }: Props) => {
   const { deferUntilClosed, runPendingAction } = useDeferredMenuAction();
 
@@ -33,6 +35,12 @@ export const MessageContextMenu = ({
           <LuReply />
           {t('messages.actions.reply')}
         </ContextMenuItem>
+        {onCopyText && (
+          <ContextMenuItem onSelect={onCopyText}>
+            <LuCopy />
+            {t('messages.actions.copyText')}
+          </ContextMenuItem>
+        )}
         <ContextMenuItem onSelect={onCopyThreadLink}>
           <MdLink />
           {t('messages.actions.copyLink')}

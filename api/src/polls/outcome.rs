@@ -4,7 +4,7 @@
 use axum::http::StatusCode;
 use chrono::{DateTime, FixedOffset};
 use entity::{
-    channel_members,
+    channel_members, channels,
     enums::{PollClosedReason, PollDecisionMakingModel, PollStage, VoteType},
     poll_configs, polls, votes,
 };
@@ -12,11 +12,16 @@ use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait,
     IntoActiveModel, PaginatorTrait, QueryFilter, Set,
 };
+use std::collections::HashSet;
 
 use crate::{
+    authz,
     common::{ApiError, AppResult},
     poll_actions,
 };
+
+/// Server-role subject that gates blocking when a server restricts it.
+pub(crate) const PROPOSAL_BLOCK_SUBJECT: &str = "ProposalBlock";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ProposalFinalization {
@@ -75,6 +80,10 @@ where
         .await
         .map_err(internal_error)?;
 
+    let ignored_blockers =
+        get_ineligible_block_voters(database, poll, config, &votes).await?;
+    let votes = drop_ignored_blocks(votes, &ignored_blockers);
+
     match config.decision_making_model {
         Some(PollDecisionMakingModel::Consensus) => {
             let member_count =
@@ -91,6 +100,74 @@ where
         }
         None => Ok(false),
     }
+}
+
+/// Blocks cast by members who no longer hold `ProposalBlock` are kept as vote
+/// rows but stop carrying veto weight. Resolved once per evaluation over the
+/// distinct block voters rather than per vote.
+async fn get_ineligible_block_voters<C>(
+    database: &C,
+    poll: &polls::Model,
+    config: &poll_configs::Model,
+    votes: &[votes::Model],
+) -> AppResult<HashSet<Uuid>>
+where
+    C: ConnectionTrait,
+{
+    if config.blocks_open_to_all != Some(false) {
+        return Ok(HashSet::new());
+    }
+
+    let block_voters: HashSet<Uuid> = votes
+        .iter()
+        .filter(|vote| vote.vote_type == Some(VoteType::Block))
+        .map(|vote| vote.user_id)
+        .collect();
+    if block_voters.is_empty() {
+        return Ok(HashSet::new());
+    }
+
+    let server_id = get_server_id_by_channel(database, poll.channel_id).await?;
+    let eligible = authz::filter_users_who_can(
+        database,
+        &block_voters,
+        "create",
+        PROPOSAL_BLOCK_SUBJECT,
+        server_id,
+    )
+    .await?;
+    Ok(block_voters.difference(&eligible).copied().collect())
+}
+
+/// Removes blocks cast by voters the server no longer counts
+fn drop_ignored_blocks(
+    votes: Vec<votes::Model>,
+    ignored_blockers: &HashSet<Uuid>,
+) -> Vec<votes::Model> {
+    votes
+        .into_iter()
+        .filter(|vote| {
+            vote.vote_type != Some(VoteType::Block)
+                || !ignored_blockers.contains(&vote.user_id)
+        })
+        .collect()
+}
+
+async fn get_server_id_by_channel<C>(
+    database: &C,
+    channel_id: Uuid,
+) -> AppResult<Uuid>
+where
+    C: ConnectionTrait,
+{
+    channels::Entity::find_by_id(channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+        .map(|channel| channel.server_id)
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "Channel not found.")
+        })
 }
 
 async fn ratify_poll<C>(database: &C, poll_id: Uuid) -> AppResult<()>

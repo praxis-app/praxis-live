@@ -30,14 +30,13 @@ use crate::{
     common::{
         encryption,
         pagination::{PaginationCursor, PaginationDirection},
+        request::MAX_ATTACHMENT_FILES,
         text::sanitize_text,
         ApiError, AppResult,
     },
     pub_sub::{PubSubService, PubSubTopic},
     users as users_service,
 };
-
-const MAX_IMAGE_COUNT: usize = 8;
 
 pub(crate) async fn get_channel_message_feed(
     database: &DatabaseConnection,
@@ -378,21 +377,24 @@ pub(crate) async fn attach_message_creation_images<C: ConnectionTrait>(
     message_id: Uuid,
     images: Vec<Vec<u8>>,
 ) -> AppResult<Vec<PathBuf>> {
-    if images.len() > MAX_IMAGE_COUNT {
+    if images.len() > MAX_ATTACHMENT_FILES {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
-            format!("A message can include at most {MAX_IMAGE_COUNT} images."),
+            format!(
+                "A message can include at most {MAX_ATTACHMENT_FILES} images."
+            ),
         ));
     }
-    images
-        .iter()
-        .map(|bytes| {
-            crate::common::images::validate_raster(bytes, "Message image")
-        })
-        .collect::<AppResult<Vec<_>>>()?;
+    let mut normalized = Vec::with_capacity(images.len());
+    for bytes in images {
+        normalized.push(
+            crate::common::images::normalize_upload(bytes, "Message image")
+                .await?,
+        );
+    }
 
     let mut paths = vec![];
-    for bytes in images {
+    for bytes in normalized {
         let image_id = NativeUuid::new_v4();
         let storage_key = format!("message-images/{image_id}");
         let destination = upload_root.join(&storage_key);
@@ -675,10 +677,12 @@ pub(crate) fn validate_message_content(
     body: Option<&str>,
     image_count: usize,
 ) -> AppResult<()> {
-    if image_count > MAX_IMAGE_COUNT {
+    if image_count > MAX_ATTACHMENT_FILES {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
-            format!("A message can include at most {MAX_IMAGE_COUNT} images."),
+            format!(
+                "A message can include at most {MAX_ATTACHMENT_FILES} images."
+            ),
         ));
     }
 

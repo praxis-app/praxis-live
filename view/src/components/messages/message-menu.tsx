@@ -7,15 +7,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useDeferredMenuAction } from '@/hooks/use-deferred-menu-action';
 import { useTranslation } from 'react-i18next';
-import { LuReply } from 'react-icons/lu';
+import { LuCopy, LuReply } from 'react-icons/lu';
 import { MdLink, MdMoreHoriz } from 'react-icons/md';
 
 interface Props {
   onOpenThread: () => void;
   onCopyThreadLink: () => void;
+  onCopyText?: () => void;
 }
 
-export const MessageMenu = ({ onOpenThread, onCopyThreadLink }: Props) => {
+export const MessageMenu = ({
+  onOpenThread,
+  onCopyThreadLink,
+  onCopyText,
+}: Props) => {
   const { deferUntilClosed, runPendingAction } = useDeferredMenuAction();
 
   const { t } = useTranslation();
@@ -38,6 +43,12 @@ export const MessageMenu = ({ onOpenThread, onCopyThreadLink }: Props) => {
           <LuReply />
           {t('messages.actions.reply')}
         </DropdownMenuItem>
+        {onCopyText && (
+          <DropdownMenuItem onSelect={onCopyText}>
+            <LuCopy />
+            {t('messages.actions.copyText')}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={onCopyThreadLink}>
           <MdLink />
           {t('messages.actions.copyLink')}

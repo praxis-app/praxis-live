@@ -313,9 +313,7 @@ pub(super) async fn create_server(
     current_user_id: Uuid,
     image: Option<Vec<u8>>,
 ) -> AppResult<ServerResponse> {
-    if let Some(image) = image.as_deref() {
-        crate::common::images::validate_raster(image, "Server image")?;
-    }
+    let image = normalize_server_image(image).await?;
     let (name, slug, description) = validate_server_request(&request)?;
     let server_id = NativeUuid::new_v4();
 
@@ -366,9 +364,7 @@ pub(super) async fn update_server(
         can_manage_servers(database, user_id).await?;
     }
 
-    if let Some(image) = image.as_deref() {
-        crate::common::images::validate_raster(image, "Server image")?;
-    }
+    let image = normalize_server_image(image).await?;
     let (name, slug, description) = validate_server_request(&request)?;
     let server = get_server(database, server_id).await?;
     let mut active = server.into_active_model();
@@ -715,13 +711,25 @@ async fn get_latest_server_image(
         .map(|image| image.map(|image| shape_server_image(&image)))
 }
 
+/// Validates and compresses an upload before any database write.
+async fn normalize_server_image(
+    image: Option<Vec<u8>>,
+) -> AppResult<Option<Vec<u8>>> {
+    let Some(bytes) = image else {
+        return Ok(None);
+    };
+    crate::common::images::normalize_upload(bytes, "Server image")
+        .await
+        .map(Some)
+}
+
+/// Expects bytes already normalized by [`normalize_server_image`].
 async fn store_server_image(
     database: &DatabaseConnection,
     upload_root: &Path,
     server_id: Uuid,
     bytes: Vec<u8>,
 ) -> AppResult<ServerImageRef> {
-    crate::common::images::validate_raster(&bytes, "Server image")?;
     get_server(database, server_id).await?;
     let previous_images = server_images::Entity::find()
         .filter(server_images::Column::ServerId.eq(server_id))

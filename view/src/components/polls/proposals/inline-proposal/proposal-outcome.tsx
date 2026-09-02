@@ -40,13 +40,22 @@ export const ProposalOutcome = ({ poll }: Props) => {
     ].filter((rule): rule is string => !!rule);
 
     return (
-      failedRules.length > 0 && (
-        <p className="text-destructive text-sm">
-          {t('proposals.outcomes.failedRules', {
-            rules: failedRules.join(', '),
-          })}
-        </p>
-      )
+      <>
+        {failedRules.length > 0 && (
+          <p className="text-destructive text-sm">
+            {t('proposals.outcomes.failedRules', {
+              rules: failedRules.join(', '),
+            })}
+          </p>
+        )}
+        {status.ignoredBlocks > 0 && (
+          <p className="text-muted-foreground text-sm">
+            {t('proposals.descriptions.ignoredBlocks', {
+              count: status.ignoredBlocks,
+            })}
+          </p>
+        )}
+      </>
     );
   }
 
@@ -59,6 +68,16 @@ export const ProposalOutcome = ({ poll }: Props) => {
         />
         <p>{t('proposals.outcomes.finalizing')}</p>
       </div>
+    );
+  }
+
+  if (status.ignoredBlocks > 0) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t('proposals.descriptions.ignoredBlocks', {
+          count: status.ignoredBlocks,
+        })}
+      </p>
     );
   }
 

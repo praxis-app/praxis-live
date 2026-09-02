@@ -63,6 +63,7 @@ export const MessageForm = ({
   const [isAuthPromptOpen, setIsAuthPromptOpen] = useState(false);
   const [imagesInputKey, setImagesInputKey] = useState<number>();
   const [images, setImages] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>();
 
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -129,6 +130,7 @@ export const MessageForm = ({
       }
       const currentImages = [...images];
       validateImageInput(currentImages);
+      setUploadProgress(currentImages.length ? 0 : undefined);
 
       let message: MessageRes;
       if (thread) {
@@ -173,6 +175,7 @@ export const MessageForm = ({
           channelId,
           body,
           currentImages,
+          currentImages.length ? setUploadProgress : undefined,
         );
         message = response.message;
       }
@@ -387,6 +390,7 @@ export const MessageForm = ({
         });
       }
 
+      setUploadProgress(undefined);
       if (images.length) {
         setImagesInputKey(Date.now());
         setImages([]);
@@ -398,6 +402,7 @@ export const MessageForm = ({
       reset();
     },
     onError: (error: Error, _variables, context) => {
+      setUploadProgress(undefined);
       if (context?.previousThread) {
         queryClient.setQueryData<ThreadQuery>(
           threadQueryKey,
@@ -629,6 +634,8 @@ export const MessageForm = ({
             handleRemove={handleRemoveSelectedImage}
             selectedImages={images}
             disabled={isMessageSending}
+            isUploading={isMessageSending}
+            uploadProgress={uploadProgress}
             className="ml-1.5"
           />
         )}

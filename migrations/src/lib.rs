@@ -17,6 +17,8 @@ mod m20260811_000001_drop_unused_image_content_types;
 mod m20260814_000001_add_server_images;
 mod m20260817_000001_add_channel_sort_order;
 mod m20260827_000001_add_poll_reply_threads;
+mod m20260830_000001_add_restricted_block_votes;
+mod m20260901_000001_rename_blocks_restricted;
 
 pub struct Migrator;
 
@@ -45,6 +47,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260814_000001_add_server_images::Migration),
             Box::new(m20260817_000001_add_channel_sort_order::Migration),
             Box::new(m20260827_000001_add_poll_reply_threads::Migration),
+            Box::new(m20260830_000001_add_restricted_block_votes::Migration),
+            Box::new(m20260901_000001_rename_blocks_restricted::Migration),
         ]
     }
 }

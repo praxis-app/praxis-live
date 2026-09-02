@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import {
+  devices,
   expect,
   test,
   type Locator,
@@ -14,10 +15,14 @@ import {
 } from '../lib/auth';
 import { startCallFromTopNav } from '../lib/calls';
 import { createTestMessage, createTestUser } from '../lib/data';
-import { expectImageToLoad } from '../lib/images';
+import { createLargePng, expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
-import { createMessages } from '../lib/messages';
+import {
+  createMessages,
+  getSelectedText,
+  longPressMessage,
+} from '../lib/messages';
 import { expectRightPanelToResize } from '../lib/right-panel';
 import {
   createServer,
@@ -288,6 +293,61 @@ test('authenticated user can send a chat message with an image', async ({
   await chat.attachImage();
   await chat.sendMessage(message);
   await messageResponse;
+
+  await chat.expectMessage(message, authenticatedUser.user.name);
+  await chat.expectAttachedImage();
+});
+
+test('upload progress is shown while a large image is sending', async ({
+  context,
+  page,
+  request,
+}) => {
+  const authenticatedUser = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('chat-upload-progress'),
+  );
+  const message = createTestMessage(
+    'chat-upload-progress',
+    authenticatedUser.user.suffix,
+  );
+  const chat = new ChatPage(page);
+
+  await chat.goto();
+  await chat.expectChannel('general');
+
+  // Throttled so the upload and the processing that follows are observable.
+  const client = await context.newCDPSession(page);
+  await client.send('Network.enable');
+  await client.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 2_000,
+    downloadThroughput: -1,
+    uploadThroughput: 2 * 1024 * 1024,
+  });
+
+  await chat.attachImageBuffer(createLargePng(2600, 1200));
+
+  const messageResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith('/messages') &&
+      response.status() === 200,
+  );
+  await chat.sendMessage(message);
+
+  const overlay = page.getByTestId('image-upload-overlay');
+  const progress = overlay.getByRole('progressbar', {
+    name: 'Uploading image',
+  });
+  await expect(overlay).toBeVisible();
+  await expect(progress).toHaveAttribute('aria-valuenow', /^\d+$/);
+
+  await expect(progress).not.toHaveAttribute('aria-valuenow');
+
+  await messageResponse;
+  await expect(overlay).toBeHidden();
 
   await chat.expectMessage(message, authenticatedUser.user.name);
   await chat.expectAttachedImage();
@@ -709,3 +769,55 @@ async function backgroundColor(locator: Locator) {
     (element) => window.getComputedStyle(element).backgroundColor,
   );
 }
+
+test('long pressing a message on mobile opens its menu without selecting text', async ({
+  browser,
+  request,
+}) => {
+  const mobileContext = await browser.newContext({
+    ...devices['Pixel 5'],
+  });
+  const page = await mobileContext.newPage();
+
+  try {
+    const user = await createAuthenticatedUser(
+      request,
+      mobileContext,
+      createTestUser('long-press'),
+    );
+    const server = await getDefaultServer(request, user);
+    const body = `Long press target ${user.user.suffix}`;
+    await createMessages({
+      request,
+      user,
+      serverId: server.id,
+      channelId: server.generalChannelId,
+      bodies: [body],
+    });
+
+    await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+    const feed = page.getByTestId('feed');
+    await expect(feed.getByText(body)).toBeVisible();
+    const message = feed.locator('[data-message-id]').filter({ hasText: body });
+
+    // The long press and a drag-to-select are the same gesture, so the touch
+    // menu path opts out of selection and offers copying through the menu.
+    await expect
+      .poll(() =>
+        message.evaluate(
+          (element) => window.getComputedStyle(element).userSelect,
+        ),
+      )
+      .toBe('none');
+
+    await longPressMessage(page, message);
+
+    await expect(page.getByRole('menuitem', { name: 'Reply' })).toBeVisible();
+    expect(await getSelectedText(page)).toBe('');
+
+    await page.getByRole('menuitem', { name: 'Copy text' }).click();
+    await expect(page.getByText('Message copied to clipboard')).toBeVisible();
+  } finally {
+    await mobileContext.close();
+  }
+});

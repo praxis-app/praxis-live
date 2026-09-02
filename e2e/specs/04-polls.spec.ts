@@ -19,7 +19,9 @@ import { expectImageToLoad } from '../lib/images';
 import { createInvite } from '../lib/invites';
 import { scrollThroughAllPages } from '../lib/infinite-scroll';
 import {
+  confirmRatifyingVote,
   expirePollDeadline,
+  getPollVoteSummary,
   makeProposalsRatifyWithOneAgreeVote,
   openCreatePollDialog,
   openCreateProposalDialog,
@@ -1113,6 +1115,7 @@ test('user can create and ratify a proposal to change a role', async ({
       response.status() === 200,
   );
   await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await confirmRatifyingVote(page);
   await voteResponse;
 
   await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
@@ -1247,6 +1250,7 @@ test('user can create and ratify a proposal to change server settings', async ({
       response.status() === 200,
   );
   await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await confirmRatifyingVote(page);
   await voteResponse;
   await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
 
@@ -1259,6 +1263,130 @@ test('user can create and ratify a proposal to change server settings', async ({
     serverConfig: { anonymousUsersEnabled: boolean };
   };
   expect(config.serverConfig.anonymousUsersEnabled).toBe(true);
+});
+
+test('proposal votes require confirmation when ratifying or blocking', async ({
+  context,
+  page,
+  request,
+}) => {
+  const serverAdmin = await createServerAdmin(request, 'vote-confirmation');
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Vote confirmation ${serverAdmin.user.suffix}`,
+    slug: `vote-confirmation-${serverAdmin.user.suffix}`,
+  });
+  const server = await getServerBySlug(
+    request,
+    serverAdmin,
+    createdServer.slug,
+  );
+  await updateServerConfig(request, serverAdmin, server.id, {
+    decisionMakingModel: 'consensus',
+    agreementThreshold: 51,
+    quorumEnabled: false,
+    disagreementsLimit: 0,
+    abstainsLimit: 0,
+    votingTimeLimit: 0,
+  });
+
+  const proposalPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`;
+  const createProposal = async (body: string) => {
+    const response = await request.post(proposalPath, {
+      headers: authorizationHeaders(serverAdmin),
+      data: {
+        body,
+        pollType: 'proposal',
+        action: { actionType: 'test' },
+      },
+    });
+    await expect(response).toBeOK();
+    const { poll } = (await response.json()) as PollResponse;
+    return poll;
+  };
+
+  const ratifyingBody = `Ratifying confirmation ${serverAdmin.user.suffix}`;
+  const blockingBody = `Blocking confirmation ${serverAdmin.user.suffix}`;
+  const ratifyingPoll = await createProposal(ratifyingBody);
+  const blockingPoll = await createProposal(blockingBody);
+
+  await seedAuthenticatedSession(context, serverAdmin.accessToken);
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+
+  const ratifyingProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${ratifyingBody}`,
+  });
+  await ratifyingProposal
+    .getByRole('button', { name: 'Agree', exact: true })
+    .click();
+
+  const ratifyingDialog = page.getByRole('dialog', {
+    name: 'Your vote may ratify this proposal',
+  });
+  await expect(ratifyingDialog).toBeVisible();
+  await expect(
+    ratifyingDialog.getByText(
+      'Based on the current vote count, this vote is likely to ratify the proposal and put its action into effect.',
+    ),
+  ).toBeVisible();
+  await ratifyingDialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(ratifyingDialog).toBeHidden();
+  expect(getPollVoteSummary(ratifyingPoll.id)).toBe('0:none');
+
+  await ratifyingProposal
+    .getByRole('button', { name: 'Agree', exact: true })
+    .click();
+  const ratifyingVoteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/polls/${ratifyingPoll.id}/votes`) &&
+      response.status() === 200,
+  );
+  await ratifyingDialog
+    .getByRole('button', { name: 'Cast ratifying vote' })
+    .click();
+  await ratifyingVoteResponse;
+  await expect(
+    ratifyingProposal.getByText('Ratified', { exact: true }),
+  ).toBeVisible();
+
+  const blockingProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${blockingBody}`,
+  });
+  await blockingProposal
+    .getByRole('button', { name: 'Block', exact: true })
+    .click();
+
+  const blockingDialog = page.getByRole('dialog', {
+    name: 'Confirm blocking vote',
+  });
+  await expect(blockingDialog).toBeVisible();
+  await expect(
+    blockingDialog.getByText(
+      'A blocking vote prevents this proposal from ratifying. Only continue if you intend to stop the proposal from passing.',
+    ),
+  ).toBeVisible();
+  await blockingDialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(blockingDialog).toBeHidden();
+  expect(getPollVoteSummary(blockingPoll.id)).toBe('0:none');
+
+  await blockingProposal
+    .getByRole('button', { name: 'Block', exact: true })
+    .click();
+  const blockingVoteResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/polls/${blockingPoll.id}/votes`) &&
+      response.status() === 200,
+  );
+  await blockingDialog
+    .getByRole('button', { name: 'Cast blocking vote' })
+    .click();
+  await blockingVoteResponse;
+  await expect(
+    blockingProposal.getByRole('button', {
+      name: 'Voting · Limit reached',
+    }),
+  ).toBeVisible();
 });
 
 test('user can create and ratify a majority vote proposal', async ({
@@ -1330,6 +1458,7 @@ test('user can create and ratify a majority vote proposal', async ({
       response.status() === 200,
   );
   await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
+  await confirmRatifyingVote(page);
   await voteResponse;
 
   await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();

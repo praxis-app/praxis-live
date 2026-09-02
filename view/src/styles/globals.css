@@ -5,6 +5,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import './events.css';
+@import './chrome.css';
 
 @custom-variant dark (&:is(.dark *));
 

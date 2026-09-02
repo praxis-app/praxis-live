@@ -17,15 +17,16 @@ use uuid::Uuid as NativeUuid;
 use super::types::CreatePollRequest;
 use crate::{
     channels,
-    common::{encryption, text::sanitize_text, ApiError, AppResult},
+    common::{
+        encryption, request::MAX_ATTACHMENT_FILES, text::sanitize_text,
+        ApiError, AppResult,
+    },
     poll_actions,
     servers::server_configs,
     users,
 };
 
 const MAX_POLL_BODY_LENGTH: usize = 8_000;
-const MAX_IMAGE_COUNT: usize = 5;
-
 pub(crate) struct PreparedPollCreation {
     request: CreatePollRequest,
     server_id: Uuid,
@@ -182,6 +183,8 @@ pub(crate) async fn insert_prepared_poll<C: ConnectionTrait>(
             .then_some(server_config.agreement_threshold)),
         quorum_enabled: Set(is_proposal.then_some(server_config.quorum_enabled)),
         quorum_threshold: Set(is_proposal.then_some(server_config.quorum_threshold)),
+        blocks_open_to_all: Set(is_proposal
+            .then_some(server_config.blocks_open_to_all)),
         multiple_choice: Set((!is_proposal)
             .then_some(request.multiple_choice.unwrap_or(false))),
         closing_at: Set(closing_at),
@@ -226,21 +229,22 @@ pub(crate) async fn attach_poll_creation_images<C: ConnectionTrait>(
     images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
 ) -> AppResult<Vec<PathBuf>> {
-    if images.len() > MAX_IMAGE_COUNT {
+    if images.len() > MAX_ATTACHMENT_FILES {
         return Err(ApiError::new(
             StatusCode::UNPROCESSABLE_ENTITY,
-            format!("A poll can include up to {MAX_IMAGE_COUNT} images."),
+            format!("A poll can include up to {MAX_ATTACHMENT_FILES} images."),
         ));
     }
-    images
-        .iter()
-        .map(|bytes| {
-            crate::common::images::validate_raster(bytes, "Poll image")
-        })
-        .collect::<AppResult<Vec<_>>>()?;
+    let mut normalized = Vec::with_capacity(images.len());
+    for bytes in images {
+        normalized.push(
+            crate::common::images::normalize_upload(bytes, "Poll image")
+                .await?,
+        );
+    }
 
     let mut paths = vec![];
-    for bytes in images {
+    for bytes in normalized {
         match attach_poll_image(database, upload_root, poll_id, bytes).await {
             Ok(path) => paths.push(path),
             Err(error) => {

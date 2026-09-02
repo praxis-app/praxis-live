@@ -2,7 +2,7 @@ import { VotingTimeLimit } from '@/constants/vote.constants';
 import { t } from '@/lib/shared.utils';
 import { sortConsensusVotesByType, type WithVoteType } from '@/lib/vote.utils';
 import { type PollConfigRes } from '@/types/poll.types';
-import { type VoteRes } from '@/types/vote.types';
+import { type VoteRes, type VoteType } from '@/types/vote.types';
 
 /**
  * Calculate progress percentage toward a required voting threshold
@@ -33,6 +33,7 @@ export interface ProposalRuleStatus {
   disagreements: number;
   abstains: number;
   blocks: number;
+  ignoredBlocks: number;
   requiredAgreements: number;
   requiredQuorum: number;
   agreementApplies: boolean;
@@ -49,6 +50,13 @@ export interface ProposalRuleStatus {
   eligible: boolean;
 }
 
+/** Ignored blocks leave the arithmetic entirely, quorum included. */
+export const getCountedVotes = (votes: VoteRes[]) =>
+  votes.filter((vote) => !vote.blockIgnored);
+
+export const getIgnoredBlocks = (votes: VoteRes[]) =>
+  votes.filter((vote) => vote.blockIgnored);
+
 /**
  * Mirror of the server's decision-model evaluation. Rules that do not apply to
  * the proposal's model are reported as met so they can never be shown as a
@@ -60,7 +68,7 @@ export const getProposalRuleStatus = (
   memberCount: number,
   now = Date.now(),
 ): ProposalRuleStatus => {
-  const typedVotes = votes.filter(
+  const typedVotes = getCountedVotes(votes).filter(
     (vote): vote is VoteRes & WithVoteType => !!vote.voteType,
   );
   const { agreements, disagreements, abstains, blocks } =
@@ -106,6 +114,7 @@ export const getProposalRuleStatus = (
     disagreements: disagreements.length,
     abstains: abstains.length,
     blocks: blocks.length,
+    ignoredBlocks: getIgnoredBlocks(votes).length,
     requiredAgreements,
     requiredQuorum,
     agreementApplies,
@@ -121,6 +130,24 @@ export const getProposalRuleStatus = (
     passes,
     eligible: deadlineReached && passes,
   };
+};
+
+export const wouldVoteRatifyProposal = (
+  votes: VoteRes[],
+  config: PollConfigRes,
+  memberCount: number,
+  myVote: VoteRes | undefined,
+  voteType: VoteType,
+) => {
+  const prospectiveVote = {
+    id: myVote?.id ?? 'prospective-vote',
+    voteType,
+  };
+  const prospectiveVotes = myVote
+    ? [...votes.filter((vote) => vote.id !== myVote.id), prospectiveVote]
+    : [...votes, prospectiveVote];
+
+  return getProposalRuleStatus(prospectiveVotes, config, memberCount).eligible;
 };
 
 /** Render a voting time limit, stored in minutes, as readable copy */

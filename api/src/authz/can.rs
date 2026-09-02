@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
-use sea_orm::{prelude::Uuid, DatabaseConnection};
+use sea_orm::{prelude::Uuid, ConnectionTrait};
+use std::collections::HashSet;
 
 use super::types::PermissionRule;
 use crate::common::{ApiError, AppResult};
@@ -29,8 +30,8 @@ pub(crate) enum PermissionScope {
 
 /// If multiple `actions` are given, all of them must be granted
 /// (not just one). An empty list always denies.
-pub(crate) async fn can(
-    database: &DatabaseConnection,
+pub(crate) async fn can<C: ConnectionTrait>(
+    database: &C,
     user_id: Uuid,
     actions: impl Actions,
     subject: &str,
@@ -70,6 +71,32 @@ pub(crate) async fn can(
     } else {
         Err(ApiError::new(StatusCode::FORBIDDEN, "Forbidden."))
     }
+}
+
+pub(crate) async fn filter_users_who_can<C: ConnectionTrait>(
+    database: &C,
+    user_ids: &HashSet<Uuid>,
+    action: &str,
+    subject: &str,
+    server_id: Uuid,
+) -> AppResult<HashSet<Uuid>> {
+    let user_ids: Vec<Uuid> = user_ids.iter().copied().collect();
+    let permissions_by_user =
+        crate::servers::server_roles::service::get_permissions_by_users(
+            database, &user_ids,
+        )
+        .await?;
+    let server_id = server_id.to_string();
+
+    Ok(user_ids
+        .into_iter()
+        .filter(|user_id| {
+            permissions_by_user
+                .get(user_id)
+                .and_then(|permissions| permissions.get(&server_id))
+                .is_some_and(|rules| is_allowed(rules, subject, action))
+        })
+        .collect())
 }
 
 /// Whether a permission set grants `action` on `subject`. The `"all"` subject

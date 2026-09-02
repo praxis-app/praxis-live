@@ -52,25 +52,35 @@ export const InstanceRoleMember = ({
         },
       );
       queryClient.setQueryData(
-        ['instance-roles'],
-        (data: { instanceRoles: InstanceRoleRes[] }) => ({
-          instanceRoles: data.instanceRoles.map((role) => {
-            if (role.id !== instanceRoleId) {
-              return role;
-            }
-            return {
-              ...role,
-              memberCount: Math.max(0, role.memberCount - 1),
-            };
-          }),
-        }),
-      );
-      queryClient.setQueryData(
         ['instance-roles', instanceRoleId, 'members', 'eligible'],
         (data: { users: UserRes[] }) => {
           return { users: [instanceRoleMember, ...data.users] };
         },
       );
+
+      queryClient.setQueryData<{ instanceRoles: InstanceRoleRes[] }>(
+        ['instance-roles'],
+        (data) => {
+          if (!data) {
+            return data;
+          }
+          return {
+            instanceRoles: data.instanceRoles.map((role) => {
+              if (role.id !== instanceRoleId) {
+                return role;
+              }
+              return {
+                ...role,
+                members: role.members.filter(
+                  (member) => member.id !== instanceRoleMember.id,
+                ),
+                memberCount: Math.max(0, role.memberCount - 1),
+              };
+            }),
+          };
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
 

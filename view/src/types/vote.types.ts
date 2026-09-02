@@ -7,6 +7,7 @@ export interface VoteRes {
   id: string;
   voteType?: VoteType;
   pollOptionIds?: string[];
+  blockIgnored?: boolean;
 }
 
 export interface CreateVoteRes {

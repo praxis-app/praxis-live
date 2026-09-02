@@ -11,6 +11,7 @@ import { useAuthData } from '@/hooks/use-auth-data';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import { useServerData } from '@/hooks/use-server-data';
+import { subscribeToBrowserResume } from '@/lib/browser.utils';
 import { preserveMessageImages } from '@/lib/feed.utils';
 import { type ChannelRes } from '@/types/channel.types';
 import {
@@ -127,6 +128,8 @@ export const ThreadPanel = ({
       lastPage.hasMore ? lastPage.nextCursor : undefined,
     enabled: !!serverId,
     refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
 
     // A moved proposal answers with 410 and a redirect target, so retrying any
     // client error only delays handling an answer the server already gave.
@@ -138,6 +141,15 @@ export const ThreadPanel = ({
       return failureCount < 3;
     },
   });
+  const refetchThread = threadQuery.refetch;
+
+  // Catch up on replies missed while the open panel was inactive or offline.
+  useEffect(() => {
+    if (!serverId) {
+      return;
+    }
+    return subscribeToBrowserResume(() => void refetchThread());
+  }, [refetchThread, serverId]);
 
   const queriedRoot = threadQuery.data?.pages[0]?.root;
   const movedTo =

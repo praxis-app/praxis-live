@@ -32,5 +32,6 @@ uuid.workspace = true
 
 [dev-dependencies]
 http-body-util = "0.1"
+sea-orm = { workspace = true, features = ["proxy"] }
 serde_json.workspace = true
 tower = { version = "0.5", features = ["util"] }

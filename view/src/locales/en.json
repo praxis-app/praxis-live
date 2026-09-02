@@ -75,7 +75,9 @@
       "logOut": "Log out",
       "signUp": "Sign up",
       "signIn": "Sign in",
-      "createAccount": "Create account"
+      "createAccount": "Create account",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
     },
     "descriptions": {
       "confirmLogOut": "Use this dialog to log out of your account."
@@ -125,7 +127,7 @@
     "errors": {
       "shortName": "Username must be at least 3 characters",
       "longName": "Username cannot exceed 15 characters",
-      "invalidName": "Username can only contain letters, numbers, and underscores",
+      "invalidName": "Username can only contain lowercase letters, numbers, and underscores",
       "shortDisplayName": "Display name must be at least 4 characters",
       "longDisplayName": "Display name cannot exceed 30 characters",
       "longBio": "Bio cannot exceed 500 characters"
@@ -153,6 +155,7 @@
       "majorityProposal": "Majority Vote Proposal",
       "consent": "Consent",
       "majority": "Majority vote",
+      "majorityShort": "Majority",
       "proposedSettings": "Settings proposal",
       "settingsChangeProposal": "Settings change proposal",
       "settingChangesCount_one": "{{count}} setting change",
@@ -183,6 +186,7 @@
       "disagreements": "disagreement limit",
       "abstentions": "abstention limit",
       "blocks": "block present",
+      "ignoredBlocks": "Blocks no longer counted",
       "limitReached": "Limit reached",
       "voting": "Voting",
       "createdInCall": "Created in-call",
@@ -192,7 +196,10 @@
       "votingDeadline": "Voting deadline",
       "deadline": "voting deadline",
       "plannedEvent": "Planned event: {{name}}",
-      "eventProposal": "Event proposal"
+      "eventProposal": "Event proposal",
+      "blocking": "Blocking",
+      "blockingOpenToAll": "Anyone",
+      "blockingPermittedRoles": "With permission"
     },
     "headers": {
       "availableRoles": "Available Roles",
@@ -213,7 +220,9 @@
       "selectedRoleInfo": "Selected Role Information",
       "voteProgress": "Vote Progress",
       "proposalSettings": "Proposal Settings",
-      "planEvent": "Plan Event"
+      "planEvent": "Plan Event",
+      "confirmRatifyingVote": "Your vote may ratify this proposal",
+      "confirmBlockingVote": "Confirm blocking vote"
     },
     "placeholders": {
       "action": "Select an action type",
@@ -225,6 +234,8 @@
       "abstain": "Abstain",
       "agree": "Agree",
       "block": "Block",
+      "castBlockingVote": "Cast blocking vote",
+      "castRatifyingVote": "Cast ratifying vote",
       "create": "Create proposal",
       "disagree": "Disagree",
       "moveToForum": "Move to forum",
@@ -249,7 +260,13 @@
       "selectRoleDescription": "Choose the role you want to modify",
       "proposalSettings": "The decision rules captured when this proposal was created.",
       "votingDeadline": "The date and time when voting ends.",
-      "consentRules": "Consent is decided when voting closes. Agree is supportive, disagreements and abstentions are limited objections bounded by their limits, and a single block prevents the proposal from passing.",
+      "consentRules": "Consent is decided when voting closes. Disagreements and abstentions count against their limits, and a single block from a member with permission stops the proposal.",
+      "consensusRules": "Consensus passes when agreement reaches the threshold and disagreements and abstentions stay within their limits. A single block from a member with permission stops the proposal.",
+      "blocksRoleRestricted": "Blocking is restricted to certain roles on this server, so the block option is unavailable to you. Disagree still counts against the disagreement limit.",
+      "ignoredBlocks_one": "{{count}} block is still on record but no longer carries veto weight, because the member who cast it no longer holds a role that allows blocking.",
+      "ignoredBlocks_other": "{{count}} blocks are still on record but no longer carry veto weight, because the members who cast them no longer hold a role that allows blocking.",
+      "confirmBlockingVote": "A blocking vote prevents this proposal from ratifying. Only continue if you intend to stop the proposal from passing.",
+      "confirmRatifyingVote": "Based on the current vote count, this vote is likely to ratify the proposal and put its action into effect.",
       "planEvent": "Set the event details and choose at least one host. The event will be automatically created if this proposal passes."
     },
     "actionTypes": {
@@ -258,6 +275,7 @@
       "createRole": "Create role",
       "planEvent": "Plan event",
       "general": "General decision",
+      "generalShort": "General",
       "test": "Test"
     },
     "prompts": {
@@ -426,6 +444,7 @@
       "openMessageActions": "Open message actions",
       "openMenu": "Open message menu",
       "copyLink": "Copy link",
+      "copyText": "Copy text",
       "reply": "Reply"
     },
     "labels": {
@@ -446,7 +465,8 @@
       "onlyVisibleToYou": "Only visible to you",
       "inviteRequired": "You need to be invited or logged in before you can send messages.",
       "processingCommand": "Processing your command...",
-      "linkCopied": "Link copied to clipboard"
+      "linkCopied": "Link copied to clipboard",
+      "textCopied": "Message copied to clipboard"
     },
     "errors": {
       "longBody": "Message body cannot exceed 6000 characters",
@@ -699,12 +719,13 @@
       "attachImages": "Attach images",
       "coverPhoto": "Cover photo",
       "profilePicture": "Profile picture",
-      "removeImage": "Remove image"
+      "removeImage": "Remove image",
+      "uploadingImage": "Uploading image"
     },
     "errors": {
       "unsupportedFormat": "{{format}} images are not supported.",
-      "imageTooLarge": "Image is too large. Maximum file size is 8MB.",
-      "tooManyImages": "You can upload a maximum of 5 images.",
+      "imageTooLarge": "Image is too large. Maximum file size is 20MB.",
+      "tooManyImages": "You can upload a maximum of 4 images.",
       "fileMissing": "Image file is missing."
     },
     "descriptions": {
@@ -757,6 +778,7 @@
 
   "permissions": {
     "names": {
+      "blockProposals": "Block proposals",
       "createEvents": "Create events",
       "createInvites": "Create invites",
       "manageChannels": "Manage channels",
@@ -774,6 +796,7 @@
       "removeProposals": "Remove proposals"
     },
     "descriptions": {
+      "blockProposals": "Allows members to cast a blocking vote on proposals when blocking is restricted on this server.",
       "createEvents": "Allows members to create and plan events.",
       "createInvites": "Allows members to invite new people to the server.",
       "manageChannels": "Allows members to create, edit, or delete channels.",
@@ -819,6 +842,7 @@
       "disagreementsLimit": "Disagreements limit",
       "abstainsLimit": "Abstains limit",
       "votingTimeLimit": "Voting time limit",
+      "blocksOpenToAll": "Anyone can block",
       "anonymousUsersEnabled": "Anonymous users"
     },
     "descriptions": {
@@ -833,6 +857,7 @@
       "majorityVoteLimitsDisabled": "Disagreement and abstention limits do not apply to majority vote, which is determined by the agreement threshold and quorum.",
       "consentThresholdsDisabled": "Quorum and agreement threshold do not apply to consent, which passes at the voting deadline when disagreements and abstentions stay within their limits and nobody blocks.",
       "votingTimeLimit": "Set a time limit for how long proposals can be voted on before they're closed or ratified.",
+      "blocksOpenToAll": "When off, blocking needs a role that grants it. Everyone else can still disagree, which counts against the disagreement limit.",
       "anonymousUsersEnabled": "Allow users to participate without creating an account or providing personal information."
     },
     "explanations": {
@@ -842,7 +867,8 @@
       "quorumThreshold": "The minimum percentage of eligible members that must participate for a proposal to be valid.",
       "disagreementsLimit": "The maximum number of disagreements allowed for a proposal to still be able to pass.",
       "abstainsLimit": "The maximum number of abstains allowed for a proposal to still be able to pass.",
-      "votingTimeLimit": "The minimum amount of time proposals can be voted on before they're closed or ratified."
+      "votingTimeLimit": "The minimum amount of time proposals can be voted on before they're closed or ratified.",
+      "blocksOpenToAll": "Whether any member can block this proposal, or only members with a role that grants it."
     },
     "errors": {
       "consentVotingTimeLimitRequired": "Voting time limit is required for consent decision making.",

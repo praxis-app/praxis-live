@@ -14,6 +14,7 @@ export const serverConfigSchema = zod
     quorumEnabled: zod.boolean().optional(),
     quorumThreshold: zod.number().min(1).max(100).optional(),
     votingTimeLimit: zod.number().optional(),
+    blocksOpenToAll: zod.boolean().optional(),
   })
   .refine(
     (data) =>
@@ -48,6 +49,7 @@ export interface ServerConfigReq {
   quorumEnabled?: boolean;
   quorumThreshold?: number;
   votingTimeLimit?: number;
+  blocksOpenToAll?: boolean;
 }
 
 export interface ServerConfigRes {
@@ -59,5 +61,6 @@ export interface ServerConfigRes {
   quorumEnabled: boolean;
   quorumThreshold: number;
   votingTimeLimit: number;
+  blocksOpenToAll: boolean;
   updatedAt: Date;
 }
