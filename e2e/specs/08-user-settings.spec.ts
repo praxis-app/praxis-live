@@ -18,6 +18,12 @@ const settingsPath = '/users/settings';
 const newMessagesSwitch = (page: Page) =>
   page.getByRole('switch', { name: 'New messages' });
 
+const saveNotificationSettings = async (page: Page) => {
+  const save = page.getByRole('button', { name: 'Save', exact: true });
+  await save.click();
+  await expect(save).toBeDisabled();
+};
+
 const expectUnifiedSettingsPage = async (page: Page) => {
   await expect(
     page.getByRole('heading', { name: 'Profile', exact: true }),
@@ -132,6 +138,7 @@ test('turning off new message notifications silences them until it is turned bac
 
   await newMessagesSwitch(page).click();
   await expect(newMessagesSwitch(page)).not.toBeChecked();
+  await saveNotificationSettings(page);
 
   // The setting is stored server side, not just in the open page.
   await page.reload();
@@ -148,6 +155,7 @@ test('turning off new message notifications silences them until it is turned bac
   await page.goto(settingsPath);
   await newMessagesSwitch(page).click();
   await expect(newMessagesSwitch(page)).toBeChecked();
+  await saveNotificationSettings(page);
 
   await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
   const heardBody = `Delivered message ${recipient.user.suffix}`;
@@ -177,6 +185,7 @@ test('other notification kinds keep arriving while new messages are off', async 
   await page.goto(settingsPath);
   await newMessagesSwitch(page).click();
   await expect(newMessagesSwitch(page)).not.toBeChecked();
+  await saveNotificationSettings(page);
 
   const rootResponse = await request.post(
     `/api/servers/${server.id}/channels/${server.generalChannelId}/messages`,

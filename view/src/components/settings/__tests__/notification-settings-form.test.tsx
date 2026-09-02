@@ -35,35 +35,44 @@ const renderForm = (config: UserConfigRes = userConfig) => {
   return queryClient;
 };
 
+const toggle = (name: string) =>
+  screen.getByRole('switch', { name: `settings.names.${name}` });
+
+const saveButton = () => screen.getByRole('button', { name: 'actions.save' });
+
 describe('NotificationSettingsForm', () => {
   it('should show a switch per notification category reflecting stored settings', () => {
     renderForm();
 
-    const switches = screen.getAllByRole('switch');
-    expect(switches).toHaveLength(4);
-    expect(
-      screen.getByRole('switch', {
-        name: 'settings.names.messageNotificationsEnabled',
-      }),
-    ).toBeChecked();
-    expect(
-      screen.getByRole('switch', {
-        name: 'settings.names.replyNotificationsEnabled',
-      }),
-    ).not.toBeChecked();
+    expect(screen.getAllByRole('switch')).toHaveLength(4);
+    expect(toggle('messageNotificationsEnabled')).toBeChecked();
+    expect(toggle('replyNotificationsEnabled')).not.toBeChecked();
   });
 
-  it('should only send the toggled setting when turning one off', async () => {
+  it('should keep saving disabled until a setting changes', async () => {
+    renderForm();
+
+    expect(saveButton()).toBeDisabled();
+
+    fireEvent.click(toggle('messageNotificationsEnabled'));
+
+    await waitFor(() => {
+      expect(saveButton()).toBeEnabled();
+    });
+    expect(updateUserConfigMock).not.toHaveBeenCalled();
+  });
+
+  it('should only send the toggled setting when saving', async () => {
     updateUserConfigMock.mockResolvedValue({
       userConfig: { ...userConfig, messageNotificationsEnabled: false },
     });
     renderForm();
 
-    fireEvent.click(
-      screen.getByRole('switch', {
-        name: 'settings.names.messageNotificationsEnabled',
-      }),
-    );
+    fireEvent.click(toggle('messageNotificationsEnabled'));
+    await waitFor(() => {
+      expect(saveButton()).toBeEnabled();
+    });
+    fireEvent.click(saveButton());
 
     await waitFor(() => {
       expect(updateUserConfigMock).toHaveBeenCalledWith({
@@ -72,17 +81,17 @@ describe('NotificationSettingsForm', () => {
     });
   });
 
-  it('should turn a disabled setting back on', async () => {
+  it('should cache the saved settings and disable saving again', async () => {
     updateUserConfigMock.mockResolvedValue({
       userConfig: { ...userConfig, replyNotificationsEnabled: true },
     });
     const queryClient = renderForm();
 
-    fireEvent.click(
-      screen.getByRole('switch', {
-        name: 'settings.names.replyNotificationsEnabled',
-      }),
-    );
+    fireEvent.click(toggle('replyNotificationsEnabled'));
+    await waitFor(() => {
+      expect(saveButton()).toBeEnabled();
+    });
+    fireEvent.click(saveButton());
 
     await waitFor(() => {
       expect(updateUserConfigMock).toHaveBeenCalledWith({
@@ -93,6 +102,9 @@ describe('NotificationSettingsForm', () => {
       expect(queryClient.getQueryData(['users', 'me', 'configs'])).toEqual({
         userConfig: { ...userConfig, replyNotificationsEnabled: true },
       });
+    });
+    await waitFor(() => {
+      expect(saveButton()).toBeDisabled();
     });
   });
 });

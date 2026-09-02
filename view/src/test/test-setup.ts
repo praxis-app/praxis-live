@@ -34,6 +34,13 @@ globalThis.IntersectionObserver = vi.fn().mockImplementation(() => ({
   disconnect: vi.fn(),
 }));
 
+// Mock ResizeObserver
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // Set up mocks for image inputs
 URL.createObjectURL = vi.fn();
 
