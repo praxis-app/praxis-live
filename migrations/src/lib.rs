@@ -20,6 +20,7 @@ mod m20260827_000001_add_poll_reply_threads;
 mod m20260829_000001_add_notifications;
 mod m20260830_000001_add_restricted_block_votes;
 mod m20260901_000001_rename_blocks_restricted;
+mod m20260902_000001_add_user_configs;
 
 pub struct Migrator;
 
@@ -51,6 +52,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260829_000001_add_notifications::Migration),
             Box::new(m20260830_000001_add_restricted_block_votes::Migration),
             Box::new(m20260901_000001_rename_blocks_restricted::Migration),
+            Box::new(m20260902_000001_add_user_configs::Migration),
         ]
     }
 }

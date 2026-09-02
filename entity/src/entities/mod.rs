@@ -35,6 +35,7 @@ pub mod server_role_members;
 pub mod server_role_permissions;
 pub mod server_roles;
 pub mod servers;
+pub mod user_configs;
 pub mod user_images;
 pub mod users;
 pub mod votes;

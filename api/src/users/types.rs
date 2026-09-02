@@ -109,3 +109,28 @@ pub(super) struct UpdateUserProfileRequest {
     pub(super) display_name: Option<String>,
     pub(super) bio: Option<String>,
 }
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct UserConfigRequest {
+    pub(crate) message_notifications_enabled: Option<bool>,
+    pub(crate) reply_notifications_enabled: Option<bool>,
+    pub(crate) proposal_notifications_enabled: Option<bool>,
+    pub(crate) role_notifications_enabled: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UserConfigResponse {
+    pub(crate) message_notifications_enabled: bool,
+    pub(crate) reply_notifications_enabled: bool,
+    pub(crate) proposal_notifications_enabled: bool,
+    pub(crate) role_notifications_enabled: bool,
+    pub(crate) updated_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct UserConfigPayload {
+    pub(super) user_config: UserConfigResponse,
+}

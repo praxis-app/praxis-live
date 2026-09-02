@@ -72,6 +72,10 @@ import {
   type UserRes,
 } from '@/types/user.types';
 import {
+  type UserConfigReq,
+  type UserConfigRes,
+} from '@/types/user-config.types';
+import {
   type CreateVoteReq,
   type CreateVoteRes,
   type PollOptionVoterRes,
@@ -140,6 +144,18 @@ class ApiClient {
   getCurrentUserServers = async () => {
     const path = '/users/me/servers';
     return this.executeRequest<{ servers: ServerRes[] }>('get', path);
+  };
+
+  getUserConfig = async () => {
+    const path = '/users/me/configs';
+    return this.executeRequest<{ userConfig: UserConfigRes }>('get', path);
+  };
+
+  updateUserConfig = async (data: UserConfigReq) => {
+    const path = '/users/me/configs';
+    return this.executeRequest<{ userConfig: UserConfigRes }>('put', path, {
+      data,
+    });
   };
 
   getUserProfile = async (userId: string) => {

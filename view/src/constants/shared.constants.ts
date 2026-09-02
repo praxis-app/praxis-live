@@ -35,6 +35,7 @@ export enum NavigationPaths {
   Roles = '/settings/roles',
   Settings = '/settings',
   SignUp = '/auth/signup',
+  UserSettings = '/users/settings',
   UsersEdit = '/users/edit',
 }
 

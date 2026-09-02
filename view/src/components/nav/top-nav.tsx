@@ -90,14 +90,21 @@ export const TopNav = ({
   const renderBackBtn = () => {
     if (isDesktop && hideBackButtonOnDesktop) return null;
 
-    const renderBtn = () => (
-      <Button variant="ghost" size="icon" onClick={() => handleBackClick()}>
+    const renderBtn = (label?: string) => (
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={label}
+        onClick={() => handleBackClick()}
+      >
         {backBtnIcon || <LuArrowLeft className="size-6" />}
       </Button>
     );
 
     if (!isDesktop && !onBackClick) {
-      return <NavSheet trigger={renderBtn()} />;
+      return (
+        <NavSheet trigger={renderBtn(t('navigation.actions.openNavSheet'))} />
+      );
     }
 
     return renderBtn();

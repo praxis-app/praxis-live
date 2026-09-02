@@ -55,8 +55,8 @@ where
 }
 
 /// Selects the recipients that should actually receive the notification:
-/// never the actor, never anonymous users, and never someone who cannot
-/// currently read the target.
+/// never the actor, never anonymous users, never someone who cannot currently
+/// read the target, and never someone who turned this kind off in settings.
 async fn eligible_recipients<C>(
     database: &C,
     input: &NewNotification,
@@ -124,10 +124,17 @@ where
             .collect(),
     };
 
-    Ok(candidates
+    let candidates: Vec<Uuid> = candidates
         .into_iter()
         .filter(|id| registered.contains(id) && readers.contains(id))
-        .collect())
+        .collect();
+
+    crate::users::filter_notification_recipients(
+        database,
+        input.kind,
+        &candidates,
+    )
+    .await
 }
 
 /// Inserts a fresh unread row or atomically bumps the existing unread row.

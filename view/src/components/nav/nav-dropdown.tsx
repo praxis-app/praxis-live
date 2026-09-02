@@ -16,7 +16,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useNavStore } from '@/store/nav.store';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdExitToApp, MdPerson } from 'react-icons/md';
+import { MdExitToApp, MdPerson, MdSettings } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -84,6 +84,19 @@ export const NavDropdown = ({ trigger }: Props) => {
           >
             <MdPerson className="text-foreground size-5" />
             {t('users.actions.editProfile')}
+          </DropdownMenuItem>
+        )}
+
+        {!me.anonymous && (
+          <DropdownMenuItem
+            onClick={() => {
+              navigate(NavigationPaths.UserSettings);
+              setIsNavSheetOpen(false);
+            }}
+            className="text-md"
+          >
+            <MdSettings className="text-foreground size-5" />
+            {t('navigation.labels.userSettings')}
           </DropdownMenuItem>
         )}
 

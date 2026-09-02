@@ -5,13 +5,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useInfiniteScroll } from '@/hooks/use-infinite-scroll';
 import { type NotificationRes } from '@/types/notification.types';
 import { useTranslation } from 'react-i18next';
-import { LuBell, LuRefreshCw, LuTrash2 } from 'react-icons/lu';
+import { LuBell, LuRefreshCw, LuSettings, LuTrash2 } from 'react-icons/lu';
 
 interface Props {
   onSelect: (notification: NotificationRes) => void;
+  onOpenSettings: () => void;
 }
 
-export const NotificationInbox = ({ onSelect }: Props) => {
+export const NotificationInbox = ({ onSelect, onOpenSettings }: Props) => {
   const { t } = useTranslation();
 
   const {
@@ -65,6 +66,14 @@ export const NotificationInbox = ({ onSelect }: Props) => {
             aria-label={t('notifications.actions.clearAll')}
           >
             <LuTrash2 />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenSettings}
+            aria-label={t('notifications.actions.settings')}
+          >
+            <LuSettings />
           </Button>
         </div>
       </div>

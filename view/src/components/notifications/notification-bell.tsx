@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { NavigationPaths } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
 import { type NotificationRes } from '@/types/notification.types';
@@ -25,6 +26,11 @@ export const NotificationBell = () => {
   const { enabled, unreadCount, markRead } = useNotifications();
 
   if (!enabled || !serverSlug) return null;
+
+  const openSettings = () => {
+    setIsOpen(false);
+    void navigate(NavigationPaths.UserSettings);
+  };
 
   const selectNotification = (notification: NotificationRes) => {
     const route = getNotificationTargetRoute(notification, serverSlug);
@@ -67,7 +73,10 @@ export const NotificationBell = () => {
           align="end"
           className="flex max-h-[min(36rem,calc(100vh-5rem))] w-96 overflow-hidden p-0"
         >
-          <NotificationInbox onSelect={selectNotification} />
+          <NotificationInbox
+            onSelect={selectNotification}
+            onOpenSettings={openSettings}
+          />
         </PopoverContent>
       </Popover>
     );
@@ -80,7 +89,10 @@ export const NotificationBell = () => {
         side="bottom"
         className="flex max-h-[82dvh] gap-0 rounded-t-xl p-0"
       >
-        <NotificationInbox onSelect={selectNotification} />
+        <NotificationInbox
+          onSelect={selectNotification}
+          onOpenSettings={openSettings}
+        />
       </SheetContent>
     </Sheet>
   );
