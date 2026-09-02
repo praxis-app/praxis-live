@@ -5,6 +5,7 @@ import { MessageMenu } from '@/components/messages/message-menu';
 import { MessageThreadSummary } from '@/components/messages/message-thread-summary';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
+import { FOCUS_HIGHLIGHT_TARGET_CLASS_NAME } from '@/constants/style.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { usePressHighlight } from '@/hooks/use-press-highlight';
 import { copyMessageText } from '@/lib/message.utils';
@@ -67,9 +68,11 @@ export const Message = ({
   const message = (
     <div
       data-message-id={id}
+      tabIndex={-1}
       {...pressHandlers}
       className={cn(
-        'group/message data-[state=open]:bg-accent data-[notification-highlight=true]:bg-primary/10 relative -mx-2 flex max-w-full min-w-0 gap-4 rounded-md px-2 pt-1 transition-colors duration-300 ease-out motion-reduce:transition-none',
+        FOCUS_HIGHLIGHT_TARGET_CLASS_NAME,
+        'group/message data-[state=open]:bg-accent -mx-2 flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-md px-2 pt-1 transition-colors duration-300 ease-out focus:outline-none motion-reduce:transition-none',
         isPressed && 'bg-accent',
         usesLongPressMenu && 'select-none',
       )}

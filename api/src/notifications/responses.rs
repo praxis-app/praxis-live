@@ -29,6 +29,7 @@ struct NotificationContext {
     readable_channels_by_viewer: HashMap<Uuid, HashSet<Uuid>>,
     messages: HashMap<Uuid, messages::Model>,
     forum_posts_by_root: HashMap<Uuid, Uuid>,
+    forum_posts_by_poll: HashMap<Uuid, Uuid>,
     polls: HashMap<Uuid, polls::Model>,
     server_roles: HashMap<Uuid, server_roles::Model>,
 }
@@ -144,6 +145,19 @@ async fn load_context(
     .map(|post| (post.root_message_id, post.id))
     .collect();
 
+    // A proposal hosted in a forum channel is read through its post rather than
+    // a channel feed, so its post is resolved alongside the poll.
+    let forum_posts_by_poll = load_by_id(
+        forum_posts::Entity::find(),
+        forum_posts::Column::PollId,
+        &poll_ids,
+        database,
+    )
+    .await?
+    .into_iter()
+    .filter_map(|post| post.poll_id.map(|poll_id| (poll_id, post.id)))
+    .collect();
+
     let channel_ids = unique(
         rows.iter()
             .filter_map(|row| row.channel_id)
@@ -170,6 +184,7 @@ async fn load_context(
         readable_channels_by_viewer,
         messages,
         forum_posts_by_root,
+        forum_posts_by_poll,
         polls,
         server_roles,
     })
@@ -288,6 +303,10 @@ fn shape_poll_target(
         available: true,
         channel_id: Some(poll.channel_id.to_string()),
         channel_name: channel_name(poll.channel_id, context),
+        forum_post_id: context
+            .forum_posts_by_poll
+            .get(&poll.id)
+            .map(|post_id| post_id.to_string()),
         poll_id: Some(poll.id.to_string()),
         ..Default::default()
     }

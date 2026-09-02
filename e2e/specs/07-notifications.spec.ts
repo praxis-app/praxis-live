@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import {
   authorizationHeaders,
   createAuthenticatedUser,
@@ -7,6 +7,7 @@ import {
 } from '../lib/auth';
 import { createTestUser } from '../lib/data';
 import { createForumChannel } from '../lib/forums';
+import { createMessages } from '../lib/messages';
 import {
   channelListItem,
   channelUnreadIndicator,
@@ -19,6 +20,27 @@ import {
   voteViaApi,
 } from '../lib/polls';
 import { getDefaultServer } from '../lib/servers';
+
+/** Matches MESSAGES_PAGE_SIZE, so the feed has to page back to old targets. */
+const channelFeedPageSize = 20;
+
+async function expectScrolledIntoFeed(feed: Locator, target: Locator) {
+  await expect
+    .poll(async () => {
+      const [feedBox, targetBox] = await Promise.all([
+        feed.boundingBox(),
+        target.boundingBox(),
+      ]);
+      if (!feedBox || !targetBox) {
+        return false;
+      }
+      return (
+        targetBox.y >= feedBox.y &&
+        targetBox.y + targetBox.height <= feedBox.y + feedBox.height
+      );
+    })
+    .toBe(true);
+}
 
 type MessageResponse = { message: { id: string } };
 type ForumPostResponse = { post: { id: string; rootMessageId: string } };
@@ -286,8 +308,129 @@ test('proposal vote and ratification notifications open the proposal', async ({
   const outcome = notificationItem(inbox, 'was ratified');
   await expect(outcome).toBeVisible();
   await outcome.getByRole('button').first().click();
-  await expect(page).toHaveURL(
-    new RegExp(`thread=${proposal.id}.*threadKind=poll`),
+  await expect(
+    page.getByTestId('feed').locator(`[data-decision-id="${proposal.id}"]`),
+  ).toContainText(proposalBody);
+});
+
+test('notification targets flash where they appear in the feed', async ({
+  context,
+  page,
+  request,
+}) => {
+  const recipient = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('flash-recipient'),
   );
-  await expect(page.getByTestId('thread-panel').getByText(proposalBody)).toBeVisible();
+  const actor = await signUpViaApi(request, createTestUser('flash-actor'));
+  const server = await getDefaultServer(request, recipient);
+
+  const messageResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/messages`,
+    {
+      headers: authorizationHeaders(actor),
+      data: { body: `Flashed message ${recipient.user.suffix}` },
+    },
+  );
+  await expect(messageResponse).toBeOK();
+  const message = ((await messageResponse.json()) as MessageResponse).message;
+
+  const proposalBody = `Flashed proposal ${recipient.user.suffix}`;
+  const proposalResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+    {
+      headers: authorizationHeaders(recipient),
+      data: {
+        body: proposalBody,
+        pollType: 'proposal',
+        action: { actionType: 'test' },
+      },
+    },
+  );
+  await expect(proposalResponse).toBeOK();
+  const proposal = ((await proposalResponse.json()) as PollResponse).poll;
+  await voteViaApi(
+    request,
+    actor,
+    server.id,
+    server.generalChannelId,
+    proposal.id,
+    'agree',
+  );
+
+  // Bury both targets so opening their notifications has to page back to them.
+  await createMessages({
+    request,
+    user: recipient,
+    serverId: server.id,
+    channelId: server.generalChannelId,
+    bodies: Array.from(
+      { length: channelFeedPageSize * 2 },
+      (_, index) => `Newer flash filler ${index + 1} ${recipient.user.suffix}`,
+    ),
+  });
+
+  await page.setViewportSize({ width: 1440, height: 720 });
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  const feed = page.getByTestId('feed');
+  await expect(feed).toBeVisible();
+
+  let inbox = await openNotifications(page);
+  await notificationItem(inbox, 'sent a new message')
+    .getByRole('button')
+    .first()
+    .click();
+
+  const focusedMessage = feed.locator(`[data-message-id="${message.id}"]`);
+  await expect(focusedMessage).toHaveAttribute('data-focus-highlight', 'true');
+  await expect(focusedMessage).toBeFocused();
+  await expectScrolledIntoFeed(feed, focusedMessage);
+  await expect(focusedMessage).not.toHaveAttribute(
+    'data-focus-highlight',
+    'true',
+  );
+
+  inbox = await openNotifications(page);
+  await notificationItem(inbox, 'voted agree')
+    .getByRole('button')
+    .first()
+    .click();
+
+  const focusedProposal = feed.locator(`[data-decision-id="${proposal.id}"]`);
+  await expect(focusedProposal).toHaveAttribute('data-focus-highlight', 'true');
+  await expect(focusedProposal).toBeFocused();
+  await expectScrolledIntoFeed(feed, focusedProposal);
+  await expect(focusedProposal).not.toHaveAttribute(
+    'data-focus-highlight',
+    'true',
+  );
+
+  // A reply opens its thread panel and still places the proposal in the feed.
+  const replyResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls/${proposal.id}/replies`,
+    {
+      headers: authorizationHeaders(actor),
+      data: { body: `Flashed proposal reply ${actor.user.suffix}` },
+    },
+  );
+  await expect(replyResponse).toBeOK();
+  const reply = ((await replyResponse.json()) as MessageResponse).message;
+
+  inbox = await openNotifications(page);
+  await notificationItem(inbox, 'replied to a conversation')
+    .getByRole('button')
+    .first()
+    .click();
+
+  const threadPanel = page.getByTestId('thread-panel');
+  await expect(threadPanel).toContainText(proposalBody);
+  await expect(focusedProposal).toHaveAttribute('data-focus-highlight', 'true');
+  await expectScrolledIntoFeed(feed, focusedProposal);
+
+  // The reply itself is flashed in the panel, which older replies need since
+  // the panel opens scrolled to its newest reply.
+  await expect(
+    threadPanel.locator(`[data-message-id="${reply.id}"]`),
+  ).toHaveAttribute('data-focus-highlight', 'true');
 });

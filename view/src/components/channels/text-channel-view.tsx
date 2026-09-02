@@ -220,6 +220,10 @@ export const TextChannelView = ({
   const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
   const focusedDecisionId = navigationDecisionId;
 
+  // The feed is swapped out for the thread panel on narrow layouts, so a focus
+  // request waits there rather than flashing behind a hidden feed.
+  const isFeedHidden = !isDesktop && !!thread;
+
   // Keep the thread panel root in sync with live feed updates such as votes.
   const threadPoll = useMemo(() => {
     if (thread?.rootKind !== 'poll') {
@@ -609,8 +613,10 @@ export const TextChannelView = ({
               isJoiningCall={isJoining}
               feedQueryKey={feedQueryKey}
               isLoadingMore={isFetchingNextPage}
-              focusedDecisionId={focusedDecisionId}
-              focusedMessageId={notificationMessageId || undefined}
+              focusedDecisionId={isFeedHidden ? undefined : focusedDecisionId}
+              focusedMessageId={
+                isFeedHidden ? undefined : notificationMessageId || undefined
+              }
               focusedDecisionRequestKey={location.key}
               onFocusedDecisionHandled={clearFocusedDecisionRequest}
               onJoinCall={videoCallsEnabled ? joinCall : undefined}

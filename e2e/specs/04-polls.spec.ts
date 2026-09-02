@@ -773,7 +773,7 @@ test('active decision opens fully in view across channels and feed pages', async
   expect(feedPageCursors).toHaveLength(2);
   expect(new Set(feedPageCursors).size).toBe(2);
   await expect(focusedDecision).toHaveAttribute(
-    'data-decision-highlight',
+    'data-focus-highlight',
     'true',
   );
   await feed.evaluate(
@@ -834,7 +834,7 @@ test('active decision opens fully in view across channels and feed pages', async
 
   expect(decisionScrollCalls).toBe(1);
   await expect(focusedDecision).not.toHaveAttribute(
-    'data-decision-highlight',
+    'data-focus-highlight',
     'true',
   );
 });

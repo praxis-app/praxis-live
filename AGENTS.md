@@ -13,7 +13,8 @@ Praxis Live is a video calling app with collaborative decision-making (CDM) feat
 - TypeScript
 - PostgreSQL
 - WebSockets
-- WebRTC
+- LiveKit
+- Redis
 
 Refer to `README.md` for more information.
 
@@ -55,8 +56,8 @@ The Rust backend under `api/src` is organized into modules divided by domain or 
 
 ## Git command restrictions
 
+- Only run read-only inspection commands like `git status` or `git diff` when absolutely necessary for context.
 - Do not run git commands that stage, commit, amend, stash, or rewrite history (`git add`, `git commit`, `git reset`, etc.).
-- Read-only inspection commands like `git status` or `git diff` are allowed when needed for context.
 
 # Legacy code
 

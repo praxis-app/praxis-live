@@ -7,18 +7,17 @@ import { InlineProposal } from '@/components/polls/proposals/inline-proposal/inl
 import { ProposalForumReference } from '@/components/polls/proposals/proposal-forum-reference';
 import { LocalStorageKeys } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useFocusHighlight } from '@/hooks/use-focus-highlight';
 import { useInfiniteScroll } from '@/hooks/use-infinite-scroll';
 import { useServerData } from '@/hooks/use-server-data';
 import { cn, t } from '@/lib/shared.utils';
 import { useAppStore } from '@/store/app.store';
 import { type ChannelRes, type FeedItemRes } from '@/types/channel.types';
 import { type QueryKey } from '@tanstack/react-query';
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { type RefObject, useEffect, useMemo, useState } from 'react';
 import { type ThreadIdentity } from '@/types/message.types';
 import { copyThreadLink } from '@/lib/thread.utils';
 import { toast } from 'sonner';
-
-const FOCUS_HIGHLIGHT_DURATION_MS = 2000;
 
 type FeedScrollMode = 'bottom-anchored' | 'natural';
 
@@ -71,7 +70,6 @@ export const Feed = ({
   const { me, isAnon, isLoggedIn } = useAuthData();
   const { serverId } = useServerData();
 
-  const lastFocusedDecisionRequestRef = useRef<string | null>(null);
   const isBottomAnchored = scrollMode === 'bottom-anchored';
 
   const feedTopRef = useInfiniteScroll({
@@ -102,95 +100,27 @@ export const Feed = ({
     }
   }, [isLoggedIn, isAppLoading, isAnon]);
 
-  // Focus and reveal a selected decision after the feed layout settles.
-  useEffect(() => {
-    if (!focusedDecisionId) {
-      lastFocusedDecisionRequestRef.current = null;
-      return;
-    }
+  useFocusHighlight({
+    containerRef: feedBoxRef,
+    targetSelector: focusedDecisionId
+      ? `[data-decision-id="${CSS.escape(focusedDecisionId)}"]`
+      : null,
+    requestKey: focusedDecisionRequestKey,
+    revision: feed,
+    block: 'start',
+    onHandled: onFocusedDecisionHandled,
+  });
 
-    const focusedDecision = Array.from(
-      feedBoxRef.current?.querySelectorAll<HTMLElement>('[data-decision-id]') ||
-        [],
-    ).find((element) => element.dataset.decisionId === focusedDecisionId);
-    if (!focusedDecision) {
-      return;
-    }
-
-    const requestKey = focusedDecisionRequestKey || focusedDecisionId;
-    if (lastFocusedDecisionRequestRef.current === requestKey) {
-      return;
-    }
-
-    focusedDecision.focus({ preventScroll: true });
-
-    let settleTimer: number;
-    const scrollOnce = () => {
-      resizeObserver.disconnect();
-      mutationObserver.disconnect();
-      lastFocusedDecisionRequestRef.current = requestKey;
-      focusedDecision.dataset.decisionHighlight = 'true';
-      window.setTimeout(() => {
-        delete focusedDecision.dataset.decisionHighlight;
-      }, FOCUS_HIGHLIGHT_DURATION_MS);
-      focusedDecision.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-      onFocusedDecisionHandled?.();
-    };
-    const scheduleScroll = () => {
-      window.clearTimeout(settleTimer);
-      settleTimer = window.setTimeout(scrollOnce, 100);
-    };
-    const resizeObserver = new ResizeObserver(scheduleScroll);
-    const mutationObserver = new MutationObserver(scheduleScroll);
-
-    const feedBox = feedBoxRef.current;
-    if (feedBox) {
-      resizeObserver.observe(focusedDecision);
-      for (const feedItem of feedBox.children) {
-        resizeObserver.observe(feedItem);
-      }
-      mutationObserver.observe(feedBox, {
-        childList: true,
-        subtree: true,
-      });
-    }
-    scheduleScroll();
-
-    return () => {
-      window.clearTimeout(settleTimer);
-      resizeObserver.disconnect();
-      mutationObserver.disconnect();
-    };
-  }, [
-    feed,
-    feedBoxRef,
-    focusedDecisionId,
-    focusedDecisionRequestKey,
-    onFocusedDecisionHandled,
-  ]);
-
-  useEffect(() => {
-    if (!focusedMessageId) return;
-    const focusedMessage = feedBoxRef.current?.querySelector<HTMLElement>(
-      `[data-message-id="${CSS.escape(focusedMessageId)}"]`,
-    );
-    if (!focusedMessage) return;
-
-    focusedMessage.dataset.notificationHighlight = 'true';
-    focusedMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    focusedMessage.focus({ preventScroll: true });
-    const timer = window.setTimeout(() => {
-      delete focusedMessage.dataset.notificationHighlight;
-      onFocusedDecisionHandled?.();
-    }, FOCUS_HIGHLIGHT_DURATION_MS);
-    return () => {
-      window.clearTimeout(timer);
-      delete focusedMessage.dataset.notificationHighlight;
-    };
-  }, [feed, feedBoxRef, focusedMessageId, onFocusedDecisionHandled]);
+  useFocusHighlight({
+    containerRef: feedBoxRef,
+    targetSelector: focusedMessageId
+      ? `[data-message-id="${CSS.escape(focusedMessageId)}"]`
+      : null,
+    requestKey: focusedDecisionRequestKey,
+    revision: feed,
+    block: 'center',
+    onHandled: onFocusedDecisionHandled,
+  });
 
   return (
     <div

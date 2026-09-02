@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useFocusHighlight } from '@/hooks/use-focus-highlight';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import { useServerData } from '@/hooks/use-server-data';
 import { cn } from '@/lib/shared.utils';
@@ -94,26 +95,21 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
     scrollToBottom();
   }, [replyCount, scrollToBottom]);
 
-  useEffect(() => {
-    if (!focusedReplyId || !post) return;
-    const reply = scrollContainerRef.current?.querySelector<HTMLElement>(
-      `[data-message-id="${CSS.escape(focusedReplyId)}"]`,
-    );
-    if (!reply) return;
+  const clearFocusedReply = useCallback(() => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('reply');
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-    reply.dataset.notificationHighlight = 'true';
-    reply.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const timer = window.setTimeout(() => {
-      delete reply.dataset.notificationHighlight;
-      const nextSearchParams = new URLSearchParams(searchParams);
-      nextSearchParams.delete('reply');
-      setSearchParams(nextSearchParams, { replace: true });
-    }, 2000);
-    return () => {
-      window.clearTimeout(timer);
-      delete reply.dataset.notificationHighlight;
-    };
-  }, [focusedReplyId, post, scrollContainerRef, searchParams, setSearchParams]);
+  useFocusHighlight({
+    containerRef: scrollContainerRef,
+    targetSelector: focusedReplyId
+      ? `[data-message-id="${CSS.escape(focusedReplyId)}"]`
+      : null,
+    revision: post,
+    block: 'center',
+    onHandled: clearFocusedReply,
+  });
 
   const setScrollContainer = useCallback(
     (element: HTMLElement | null) => {

@@ -210,6 +210,28 @@ async fn proposal_votes_and_outcomes_notify_the_author_and_voters() {
 }
 
 #[tokio::test]
+async fn forum_hosted_proposals_point_their_notifications_at_the_post() {
+    let app = TestApp::new().await;
+    let context = Context::new(&app).await;
+    let forum_channel_id = context.create_forum_channel().await;
+    let (post_id, poll_id) =
+        context.create_forum_proposal_post(&forum_channel_id).await;
+
+    context
+        .vote_in_channel(&context.bob, &forum_channel_id, &poll_id, "agree")
+        .await;
+
+    // A forum-hosted proposal is read through its post, so the target carries
+    // the post rather than leaving the client to look for it in a channel feed.
+    let votes = context.of_kind(&context.alice, "proposal_vote").await;
+    assert_eq!(votes.len(), 1);
+    assert_eq!(votes[0]["target"]["kind"], "poll");
+    assert_eq!(votes[0]["target"]["pollId"], poll_id);
+    assert_eq!(votes[0]["target"]["channelId"], forum_channel_id);
+    assert_eq!(votes[0]["target"]["forumPostId"], post_id);
+}
+
+#[tokio::test]
 async fn the_inbox_paginates_and_tracks_read_state() {
     let app = TestApp::new().await;
     let context = Context::new(&app).await;
@@ -753,13 +775,56 @@ impl<'a> Context<'a> {
             .to_owned()
     }
 
-    async fn vote(&self, token: &str, poll_id: &str, vote_type: &str) {
+    async fn create_forum_proposal_post(
+        &self,
+        forum_channel_id: &str,
+    ) -> (String, String) {
         let response = self
             .app
             .post_json_with_bearer(
                 &format!(
-                    "/api/servers/{}/channels/{}/polls/{poll_id}/votes",
-                    self.server_id, self.channel_id
+                    "/api/servers/{}/channels/{forum_channel_id}/forum/posts",
+                    self.server_id
+                ),
+                &json!({
+                    "title": "A forum proposal",
+                    "body": "Post body",
+                    "proposal": {
+                        "body": "A proposal worth notifying about",
+                        "pollType": "proposal",
+                        "action": { "actionType": "general" },
+                    },
+                }),
+                &self.alice,
+            )
+            .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = json_body(response).await;
+        (
+            body["post"]["id"].as_str().unwrap().to_owned(),
+            body["post"]["proposal"]["id"].as_str().unwrap().to_owned(),
+        )
+    }
+
+    async fn vote(&self, token: &str, poll_id: &str, vote_type: &str) {
+        self.vote_in_channel(token, &self.channel_id, poll_id, vote_type)
+            .await;
+    }
+
+    async fn vote_in_channel(
+        &self,
+        token: &str,
+        channel_id: &str,
+        poll_id: &str,
+        vote_type: &str,
+    ) {
+        let response = self
+            .app
+            .post_json_with_bearer(
+                &format!(
+                    "/api/servers/{}/channels/{channel_id}/polls/{poll_id}/votes",
+                    self.server_id
                 ),
                 &json!({ "voteType": vote_type }),
                 token,

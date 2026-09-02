@@ -66,9 +66,9 @@
   /* Custom fonts */
   --font-inter: 'Inter', system-ui, sans-serif;
 
-  --animate-decision-focus: decision-focus-highlight 2000ms ease-out both;
+  --animate-focus-highlight: focus-highlight 3000ms ease-out both;
 
-  @keyframes decision-focus-highlight {
+  @keyframes focus-highlight {
     0% {
       opacity: 0;
     }
