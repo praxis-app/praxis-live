@@ -64,7 +64,11 @@ export const NotificationItem = ({
   const isUnread = !notification.readAt;
   const isAvailable = notification.target.available;
   const count = notification.unreadCount || 1;
-  const description = t(`notifications.items.${notification.kind}`, {
+  const itemKey =
+    notification.kind === 'new_message' && notification.target.forumPostId
+      ? 'new_message_forum'
+      : notification.kind;
+  const description = t(`notifications.items.${itemKey}`, {
     actor: actorName,
     channel: notification.target.channelName,
     role: notification.target.serverRoleName,

@@ -63,6 +63,8 @@
     "items": {
       "new_message_one": "{{actor}} sent a new message in #{{channel}}",
       "new_message_other": "{{actor}} sent {{count}} new messages in #{{channel}}",
+      "new_message_forum_one": "{{actor}} created a new post in #{{channel}}",
+      "new_message_forum_other": "{{actor}} created {{count}} new posts in #{{channel}}",
       "message_reply": "{{actor}} replied to a conversation in #{{channel}}",
       "forum_reply": "{{actor}} replied to your forum post in #{{channel}}",
       "proposal_vote": "{{actor}} voted {{vote}} on your proposal in #{{channel}}",

@@ -6,7 +6,8 @@ use sea_orm::DatabaseConnection;
 
 use super::handlers::{
     create_channel, delete_channel, get_channel, get_channels,
-    get_joined_channels, update_channel, update_channel_order, ChannelsState,
+    get_joined_channels, get_unread_channels, mark_channel_read,
+    update_channel, update_channel_order, ChannelsState,
 };
 use crate::{
     calls, calls::LiveKitConfig, feeds, forum, messages, polls,
@@ -22,11 +23,13 @@ pub(crate) fn router(
     let channels_router = Router::new()
         .route("/", get(get_channels))
         .route("/joined", get(get_joined_channels))
+        .route("/unread", get(get_unread_channels))
         .route("/", post(create_channel))
         .route("/order", put(update_channel_order))
         .route("/{channelId}", get(get_channel))
         .route("/{channelId}", put(update_channel))
         .route("/{channelId}", delete(delete_channel))
+        .route("/{channelId}/read", put(mark_channel_read))
         .with_state(ChannelsState::new(database.clone(), jwt_secret.clone()));
 
     channels_router

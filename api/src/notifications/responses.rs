@@ -1,6 +1,6 @@
 use entity::{
-    channel_members, channels, enums::NotificationKind, forum_posts, messages,
-    notifications, polls, server_roles, users,
+    channel_members, channels, forum_posts, messages, notifications, polls,
+    server_roles, users,
 };
 use sea_orm::{
     prelude::Uuid, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
@@ -125,17 +125,18 @@ async fn load_context(
     .map(|role| (role.id, role))
     .collect();
 
-    // A forum reply's post is the one whose unique root message is the reply's
-    // thread root, so it is derived rather than stored.
-    let thread_root_ids = unique(
-        messages
-            .values()
-            .filter_map(|message| message.thread_root_id),
-    );
+    // A forum post is the one whose unique root message is the notified
+    // message, or that message's thread root, so it is derived rather than
+    // stored.
+    let root_message_ids = unique(messages.values().flat_map(|message| {
+        [Some(message.id), message.thread_root_id]
+            .into_iter()
+            .flatten()
+    }));
     let forum_posts_by_root = load_by_id(
         forum_posts::Entity::find(),
         forum_posts::Column::RootMessageId,
-        &thread_root_ids,
+        &root_message_ids,
         database,
     )
     .await?
@@ -247,14 +248,11 @@ fn shape_message_target(
             (_, Some(poll_id)) => (Some(poll_id.to_string()), Some("poll")),
             _ => (None, None),
         };
-    let forum_post_id = (row.kind == NotificationKind::ForumReply)
-        .then(|| {
-            message
-                .thread_root_id
-                .and_then(|root_id| context.forum_posts_by_root.get(&root_id))
-                .map(|post_id| post_id.to_string())
-        })
-        .flatten();
+    let forum_post_id = message.thread_root_id.unwrap_or(message.id);
+    let forum_post_id = context
+        .forum_posts_by_root
+        .get(&forum_post_id)
+        .map(|post_id| post_id.to_string());
 
     NotificationTargetResponse {
         kind: "message",

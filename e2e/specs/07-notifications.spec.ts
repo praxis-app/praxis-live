@@ -8,6 +8,8 @@ import {
 import { createTestUser } from '../lib/data';
 import { createForumChannel } from '../lib/forums';
 import {
+  channelListItem,
+  channelUnreadIndicator,
   expectUnreadNotifications,
   notificationItem,
   openNotifications,
@@ -171,6 +173,71 @@ test('thread and forum reply notifications open their exact conversations', asyn
     .click();
   await expect(page).toHaveURL(new RegExp(`/posts/${post.id}`));
   await expect(page.getByText(`Forum reply ${actor.user.suffix}`)).toBeVisible();
+});
+
+test('marks channels with unread activity in the channel list', async ({
+  context,
+  page,
+  request,
+}) => {
+  const member = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('unread-member'),
+  );
+  const actor = await signUpViaApi(request, createTestUser('unread-actor'));
+  const server = await getDefaultServer(request, member);
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const forumName = `unread-${member.user.suffix}`;
+  const forum = await createForumChannel(
+    request,
+    instanceAdmin,
+    server.id,
+    forumName,
+  );
+
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await expect(channelListItem(page, 'general')).toBeVisible();
+  await page.goto(`/s/${server.slug}/c/${forum.id}`);
+  await expect(channelUnreadIndicator(page, 'general')).toHaveCount(0);
+
+  const messageResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/messages`,
+    {
+      headers: authorizationHeaders(actor),
+      data: { body: `Unread channel message ${member.user.suffix}` },
+    },
+  );
+  await expect(messageResponse).toBeOK();
+  await expect(channelUnreadIndicator(page, 'general')).toBeVisible();
+
+  await channelListItem(page, 'general').getByRole('link').first().click();
+  await expect(page).toHaveURL(new RegExp(`/c/${server.generalChannelId}`));
+  await expect(channelUnreadIndicator(page, 'general')).toHaveCount(0);
+  await page.reload();
+  await expect(channelUnreadIndicator(page, 'general')).toHaveCount(0);
+
+  const postResponse = await request.post(
+    `/api/servers/${server.id}/channels/${forum.id}/forum/posts`,
+    {
+      headers: authorizationHeaders(actor),
+      data: {
+        title: `Unread forum post ${member.user.suffix}`,
+        body: 'Forum posts mark their channel unread too',
+      },
+    },
+  );
+  await expect(postResponse).toBeOK();
+  const post = ((await postResponse.json()) as ForumPostResponse).post;
+  await expect(channelUnreadIndicator(page, forumName)).toBeVisible();
+
+  const inbox = await openNotifications(page);
+  await notificationItem(inbox, 'created a new post')
+    .getByRole('button')
+    .first()
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/posts/${post.id}`));
+  await expect(channelUnreadIndicator(page, forumName)).toHaveCount(0);
 });
 
 test('proposal vote and ratification notifications open the proposal', async ({

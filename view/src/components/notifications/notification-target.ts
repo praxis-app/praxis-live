@@ -14,7 +14,10 @@ export const getNotificationTargetPath = (
 
   const channelPath = `/s/${serverSlug}/c/${target.channelId}`;
   if (target.forumPostId) {
-    const reply = target.messageId ? `?reply=${target.messageId}` : '';
+    const reply =
+      target.threadRootId && target.messageId
+        ? `?reply=${target.messageId}`
+        : '';
     return `${channelPath}/posts/${target.forumPostId}${reply}`;
   }
   if (target.threadRootId) {

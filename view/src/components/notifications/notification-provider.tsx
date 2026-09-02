@@ -5,6 +5,7 @@ import {
 } from '@/components/notifications/notification-context';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
+import { getUnreadChannelsQueryKey } from '@/hooks/use-unread-channels';
 import { useSubscription } from '@/hooks/use-subscription';
 import { notificationPubSubTopic } from '@/lib/pub-sub.utils';
 import {
@@ -168,6 +169,9 @@ export const NotificationProvider = ({ children }: Props) => {
         );
       }
       void queryClient.invalidateQueries({ queryKey: countKey, exact: true });
+      void queryClient.invalidateQueries({
+        queryKey: getUnreadChannelsQueryKey(serverId),
+      });
     },
   });
 

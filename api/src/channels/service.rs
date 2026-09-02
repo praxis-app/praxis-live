@@ -1,12 +1,12 @@
 use axum::http::StatusCode;
 use entity::{
-    channel_keys, channel_members, channels, enums::ChannelType,
+    channel_keys, channel_members, channels, enums::ChannelType, messages,
     server_members, servers,
 };
 use sea_orm::{
-    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait,
+    prelude::Uuid, sea_query::Expr, ActiveModelTrait, ColumnTrait, Condition,
     ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    ModelTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
+    ModelTrait, QueryFilter, QueryOrder, QuerySelect, Set, TransactionTrait,
 };
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid as NativeUuid;
@@ -75,6 +75,108 @@ pub(super) async fn get_joined_channels(
         .into_iter()
         .map(|channel| shape_channel(channel, &server))
         .collect())
+}
+
+pub(super) async fn get_unread_channel_ids(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Vec<Uuid>> {
+    let memberships =
+        server_channel_memberships(database, server_id, user_id).await?;
+    if memberships.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let read_message_ids: Vec<Uuid> = memberships
+        .iter()
+        .filter_map(|membership| membership.last_message_read_id)
+        .collect();
+    let read_at: HashMap<Uuid, _> = messages::Entity::find()
+        .filter(messages::Column::Id.is_in(read_message_ids))
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|message| (message.id, message.created_at))
+        .collect();
+
+    let mut unread_after = Condition::any();
+    for membership in &memberships {
+        let read_at = membership
+            .last_message_read_id
+            .and_then(|message_id| read_at.get(&message_id));
+        let mut channel = Condition::all()
+            .add(messages::Column::ChannelId.eq(membership.channel_id));
+        if let Some(read_at) = read_at {
+            channel = channel.add(messages::Column::CreatedAt.gt(*read_at));
+        }
+        unread_after = unread_after.add(channel);
+    }
+
+    messages::Entity::find()
+        .select_only()
+        .column(messages::Column::ChannelId)
+        .distinct()
+        .filter(messages::Column::UserId.ne(user_id))
+        .filter(messages::Column::CallId.is_null())
+        .filter(unread_after)
+        .into_tuple::<Uuid>()
+        .all(database)
+        .await
+        .map_err(internal_error)
+}
+
+pub(super) async fn mark_channel_read(
+    database: &DatabaseConnection,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<()> {
+    let latest_message = messages::Entity::find()
+        .filter(messages::Column::ChannelId.eq(channel_id))
+        .filter(messages::Column::CallId.is_null())
+        .order_by_desc(messages::Column::CreatedAt)
+        .one(database)
+        .await
+        .map_err(internal_error)?;
+    let Some(latest_message) = latest_message else {
+        return Ok(());
+    };
+
+    channel_members::Entity::update_many()
+        .col_expr(
+            channel_members::Column::LastMessageReadId,
+            Expr::value(Some(latest_message.id)),
+        )
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .filter(channel_members::Column::UserId.eq(user_id))
+        .exec(database)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(())
+}
+
+async fn server_channel_memberships(
+    database: &DatabaseConnection,
+    server_id: Uuid,
+    user_id: Uuid,
+) -> AppResult<Vec<channel_members::Model>> {
+    let server_channel_ids: Vec<Uuid> = channels::Entity::find()
+        .filter(channels::Column::ServerId.eq(server_id))
+        .all(database)
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .map(|channel| channel.id)
+        .collect();
+
+    channel_members::Entity::find()
+        .filter(channel_members::Column::UserId.eq(user_id))
+        .filter(channel_members::Column::ChannelId.is_in(server_channel_ids))
+        .all(database)
+        .await
+        .map_err(internal_error)
 }
 
 pub(super) async fn get_channel_with_server(

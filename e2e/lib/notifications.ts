@@ -21,3 +21,9 @@ export async function expectUnreadNotifications(page: Page, count: number) {
 
 export const notificationItem = (inbox: Locator, text: string | RegExp) =>
   inbox.getByTestId('notification-item').filter({ hasText: text });
+
+export const channelListItem = (page: Page, channelName: string) =>
+  page.getByTestId('channel-list-item').filter({ hasText: channelName });
+
+export const channelUnreadIndicator = (page: Page, channelName: string) =>
+  channelListItem(page, channelName).getByTestId('channel-unread-indicator');

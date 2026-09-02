@@ -329,7 +329,7 @@ async fn create_message_record(
     })
 }
 
-async fn notify_new_message<C>(
+pub(crate) async fn notify_new_message<C>(
     database: &C,
     server_id: Uuid,
     channel_id: Uuid,

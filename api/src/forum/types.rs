@@ -138,6 +138,11 @@ pub(crate) struct MoveProposalToForumResponse {
 /// A created forum reply plus the notification rows it persisted, which the
 /// handler publishes once the reply transaction has committed.
 #[derive(Debug)]
+pub(super) struct CreatedForumPost {
+    pub(super) post: ForumPostResponse,
+    pub(super) notifications: Vec<entity::notifications::Model>,
+}
+
 pub(super) struct CreatedForumReply {
     pub(super) reply: crate::messages::types::MessageResponse,
     pub(super) summary: ForumPostSummaryResponse,

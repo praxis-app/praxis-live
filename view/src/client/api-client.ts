@@ -13,6 +13,7 @@ import {
   type ChannelRes,
   type CreateChannelReq,
   type FeedPageRes,
+  type UnreadChannelsRes,
   type UpdateChannelOrderReq,
   type UpdateChannelReq,
 } from '@/types/channel.types';
@@ -194,6 +195,16 @@ class ApiClient {
   getJoinedChannels = async (serverId: string) => {
     const path = `/servers/${serverId}/channels/joined`;
     return this.executeRequest<{ channels: ChannelRes[] }>('get', path);
+  };
+
+  getUnreadChannels = async (serverId: string) => {
+    const path = `/servers/${serverId}/channels/unread`;
+    return this.executeRequest<UnreadChannelsRes>('get', path);
+  };
+
+  markChannelRead = async (serverId: string, channelId: string) => {
+    const path = `/servers/${serverId}/channels/${channelId}/read`;
+    return this.executeRequest<void>('put', path);
   };
 
   getChannelFeed = async (

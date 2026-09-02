@@ -7,6 +7,7 @@ import {
 } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
+import { useUnreadChannels } from '@/hooks/use-unread-channels';
 import {
   type RightPanel,
   type StandaloneRightPanel,
@@ -41,6 +42,7 @@ export const ChannelPage = () => {
 
   const { isRegistered } = useAuthData();
   const { serverId } = useServerData();
+  const { unreadChannelIds, markChannelRead } = useUnreadChannels();
 
   const { channelId, postId, serverSlug } = useParams();
   const navigate = useNavigate();
@@ -65,6 +67,12 @@ export const ChannelPage = () => {
   useEffect(() => {
     setStandaloneRightPanel(getDefaultStandaloneRightPanel());
   }, [serverId]);
+
+  useEffect(() => {
+    if (channelId && unreadChannelIds.includes(channelId)) {
+      markChannelRead(channelId);
+    }
+  }, [channelId, markChannelRead, unreadChannelIds]);
 
   useEffect(() => {
     if (postId) {

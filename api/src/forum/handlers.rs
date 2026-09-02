@@ -88,7 +88,7 @@ pub(super) async fn create_forum_post(
     multipart: JsonOrMultipartFiles<CreateForumPostRequest>,
 ) -> AppResult<Json<ForumPostPayload>> {
     let (payload, cover_photo, images) = multipart.into_parts();
-    let post = service::create_forum_post(
+    let created = service::create_forum_post(
         &state.database,
         &state.upload_root,
         context.server_id,
@@ -99,6 +99,7 @@ pub(super) async fn create_forum_post(
         cover_photo,
     )
     .await?;
+    let post = created.post;
     let proposal_id = post
         .proposal
         .as_ref()
@@ -127,6 +128,12 @@ pub(super) async fn create_forum_post(
             tracing::warn!("failed to broadcast forum proposal: {error}");
         }
     }
+    crate::notifications::publish_notifications(
+        &state.database,
+        &state.pub_sub_service,
+        &created.notifications,
+    )
+    .await;
     Ok(Json(ForumPostPayload { post }))
 }
 

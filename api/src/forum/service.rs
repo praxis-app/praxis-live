@@ -15,9 +15,9 @@ use uuid::Uuid as NativeUuid;
 use super::{
     responses::{shape_forum_post, shape_post_summaries},
     types::{
-        CreateForumPostRequest, CreateForumReplyRequest, CreatedForumReply,
-        ForumPostResponse, ForumPostSummaryResponse, ForumPostsResponse,
-        UpdateForumPostRequest,
+        CreateForumPostRequest, CreateForumReplyRequest, CreatedForumPost,
+        CreatedForumReply, ForumPostResponse, ForumPostSummaryResponse,
+        ForumPostsResponse, UpdateForumPostRequest,
     },
 };
 use crate::{
@@ -115,7 +115,7 @@ pub(super) async fn create_forum_post(
     request: CreateForumPostRequest,
     images: Vec<Vec<u8>>,
     cover_photo: Option<Vec<u8>>,
-) -> AppResult<ForumPostResponse> {
+) -> AppResult<CreatedForumPost> {
     let title = validate_title(&request.title)?;
     let body = validate_body(&request.body, "A forum post body is required.")?;
     let prepared_proposal = match request.proposal {
@@ -197,9 +197,22 @@ pub(super) async fn create_forum_post(
         }
         None => vec![],
     };
+    let notifications = messages_service::notify_new_message(
+        &transaction,
+        server_id,
+        channel_id,
+        user_id,
+        root_message_id,
+    )
+    .await?;
     polls_service::commit_creation(transaction, image_paths).await?;
 
-    get_forum_post(database, channel_id, post_id, Some(user_id)).await
+    let post =
+        get_forum_post(database, channel_id, post_id, Some(user_id)).await?;
+    Ok(CreatedForumPost {
+        post,
+        notifications,
+    })
 }
 
 pub(super) async fn get_forum_post(
