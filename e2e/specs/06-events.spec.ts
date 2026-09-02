@@ -483,9 +483,9 @@ test('event proposal accepts four attachments plus a cover photo', async ({
   expect(poll.action?.event?.coverPhoto).toBeTruthy();
   await expect(dialog).toBeHidden();
 
-  const proposal = page.getByRole('article', {
-    name: `Consensus Proposal: ${proposalBody}`,
-  });
+  // Located by id rather than accessible name: the decision model is shared
+  // server state, so the name depends on what earlier tests left configured.
+  const proposal = page.locator(`[data-decision-id="${poll.id}"]`);
   await expect(
     proposal.getByRole('img', { name: 'Attached image' }),
   ).toHaveCount(4);
