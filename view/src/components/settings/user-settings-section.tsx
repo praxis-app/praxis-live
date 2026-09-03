@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
-export const copyUserSettingsSectionLink = (section: UserSettingsSections) => {
+const copySectionLink = (section: UserSettingsSections) => {
   const link = new URL(window.location.href);
   link.hash = '';
   link.search = '';
@@ -21,6 +21,7 @@ interface Props {
   section: UserSettingsSections;
   title: string;
   description: string;
+  isFirst?: boolean;
   children: ReactNode;
 }
 
@@ -28,6 +29,7 @@ export const UserSettingsSection = ({
   section,
   title,
   description,
+  isFirst = false,
   children,
 }: Props) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,14 +41,19 @@ export const UserSettingsSection = ({
   const headingId = `${section}-settings-heading`;
 
   useEffect(() => {
-    if (isSelected) {
-      sectionRef.current?.scrollIntoView({ block: 'start' });
+    if (!isSelected) {
+      return;
     }
-  }, [isSelected]);
+    if (isFirst) {
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    sectionRef.current?.scrollIntoView({ block: 'start' });
+  }, [isFirst, isSelected]);
 
   const handleHeaderClick = () => {
     setSearchParams({ [USER_SETTINGS_SECTION_PARAM]: section });
-    copyUserSettingsSectionLink(section);
+    copySectionLink(section);
     toast(t('settings.prompts.sectionLinkCopied'));
   };
 

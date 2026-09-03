@@ -63,6 +63,7 @@ export const UserSettings = () => {
           section={UserSettingsSections.Profile}
           title={t('navigation.labels.profile')}
           description={t('settings.descriptions.profileSection')}
+          isFirst
         >
           <UserProfileForm userProfile={profileData.user} me={meData.user} />
         </UserSettingsSection>

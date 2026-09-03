@@ -4,6 +4,7 @@ import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { NavSheet } from '@/components/nav/nav-sheet';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/tooltip';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
 import { useAppStore } from '@/store/app.store';
 import { type ChannelRes } from '@/types/channel.types';
@@ -122,55 +124,67 @@ export const ChannelTopNav = ({
       </div>
 
       <TooltipProvider>
-        <div className="flex items-center gap-1">
-          {channel && videoCallsEnabled && (
-            <ChannelCallButton
-              callConfig={callConfig}
-              callPreferences={callPreferences}
-              channel={channel}
-              serverName={serverName}
-              isJoining={isJoiningCall}
-              isPreJoinOpen={isPreJoinOpen}
-              onCancelPreJoin={onCancelPreJoin}
-              onConfirmJoin={onConfirmJoinCall}
-              onJoin={onJoinCall}
-              onLeave={onLeaveCall}
-            />
-          )}
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-0.5 empty:hidden">
+            {channel && videoCallsEnabled && (
+              <ChannelCallButton
+                callConfig={callConfig}
+                callPreferences={callPreferences}
+                channel={channel}
+                serverName={serverName}
+                isJoining={isJoiningCall}
+                isPreJoinOpen={isPreJoinOpen}
+                onCancelPreJoin={onCancelPreJoin}
+                onConfirmJoin={onConfirmJoinCall}
+                onJoin={onJoinCall}
+                onLeave={onLeaveCall}
+              />
+            )}
 
-          {isDesktop && (
+            {isDesktop && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    aria-label={t('decisions.actions.togglePanel')}
+                    aria-controls="active-decisions-panel"
+                    aria-expanded={isDecisionsPanelOpen}
+                    onClick={onToggleDecisionsPanel}
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      isDecisionsPanelOpen && 'bg-accent text-foreground',
+                    )}
+                  >
+                    <LuListTodo className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('decisions.actions.panel')}</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+
+          <Separator
+            orientation="vertical"
+            className="bg-muted-foreground/30 h-5"
+          />
+
+          <div className="flex items-center gap-0.5">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  type="button"
-                  aria-label={t('decisions.actions.togglePanel')}
-                  aria-controls="active-decisions-panel"
-                  aria-expanded={isDecisionsPanelOpen}
-                  onClick={onToggleDecisionsPanel}
+                  aria-label={searchLabel}
+                  onClick={() => toast(t('prompts.inDev'))}
                   variant="ghost"
                   size="icon"
                 >
-                  <LuListTodo className="size-5.5" />
+                  <MdSearch className="size-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{t('decisions.actions.panel')}</TooltipContent>
+              <TooltipContent>{searchLabel}</TooltipContent>
             </Tooltip>
-          )}
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={searchLabel}
-                onClick={() => toast(t('prompts.inDev'))}
-                variant="ghost"
-                size="icon"
-              >
-                <MdSearch className="size-6" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{searchLabel}</TooltipContent>
-          </Tooltip>
-          <NotificationBell />
+            <NotificationBell />
+          </div>
         </div>
       </TooltipProvider>
     </header>

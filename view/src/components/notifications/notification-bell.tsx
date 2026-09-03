@@ -69,7 +69,7 @@ export const NotificationBell = () => {
       aria-label={t('notifications.actions.open', { count: unreadCount })}
       data-testid="notification-bell"
     >
-      <LuBell className="size-5.5" />
+      <LuBell className="size-5" />
       {unreadCount > 0 && (
         <span
           data-testid="notification-count"
