@@ -916,6 +916,9 @@
       "proposalNotificationsEnabled": "Get notified about votes on your proposals and their outcomes.",
       "roleNotificationsEnabled": "Get notified when you're granted a server role."
     },
+    "prompts": {
+      "sectionLinkCopied": "Link copied to clipboard"
+    },
     "explanations": {
       "decisionMakingModel": "The process used to make decisions in the server, which can be based on consensus, consent, or majority vote.",
       "agreementThreshold": "The minimum percentage of positive votes required for a proposal to pass.",

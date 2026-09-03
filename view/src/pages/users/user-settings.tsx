@@ -1,10 +1,13 @@
 import { api } from '@/client/api-client';
 import { TopNav } from '@/components/nav/top-nav';
 import { NotificationSettingsForm } from '@/components/settings/notification-settings-form';
-import { Card, CardContent } from '@/components/ui/card';
+import { UserSettingsSection } from '@/components/settings/user-settings-section';
 import { Container } from '@/components/ui/container';
 import { UserProfileForm } from '@/components/users/user-profile-form';
-import { NavigationPaths } from '@/constants/shared.constants';
+import {
+  NavigationPaths,
+  UserSettingsSections,
+} from '@/constants/shared.constants';
 import { useMeQuery } from '@/hooks/use-me-query';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +44,12 @@ export const UserSettings = () => {
     return <Navigate to={NavigationPaths.Explore} />;
   }
 
+  // Sections are only placed once their content is known, so linking to one
+  // lands on it instead of where it briefly sat while loading.
+  if (!profileData?.user) {
+    return null;
+  }
+
   return (
     <>
       <TopNav
@@ -50,49 +59,24 @@ export const UserSettings = () => {
       />
 
       <Container className="flex flex-col gap-8">
-        <section aria-labelledby="user-profile-settings-heading">
-          <h2
-            id="user-profile-settings-heading"
-            className="text-lg font-semibold"
-          >
-            {t('navigation.labels.profile')}
-          </h2>
-          <p className="text-muted-foreground mt-1 mb-4 text-sm">
-            {t('settings.descriptions.profileSection')}
-          </p>
-          <Card>
-            <CardContent>
-              {profileData?.user && (
-                <UserProfileForm
-                  userProfile={profileData.user}
-                  me={meData.user}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </section>
+        <UserSettingsSection
+          section={UserSettingsSections.Profile}
+          title={t('navigation.labels.profile')}
+          description={t('settings.descriptions.profileSection')}
+        >
+          <UserProfileForm userProfile={profileData.user} me={meData.user} />
+        </UserSettingsSection>
 
-        <section aria-labelledby="user-notification-settings-heading">
-          <h2
-            id="user-notification-settings-heading"
-            className="text-lg font-semibold"
-          >
-            {t('navigation.labels.notifications')}
-          </h2>
-          <p className="text-muted-foreground mt-1 mb-4 text-sm">
-            {t('settings.descriptions.notificationSection')}
-          </p>
-          <Card>
-            <CardContent>
-              {userConfigError && <p>{t('errors.somethingWentWrong')}</p>}
-              {!userConfigError && !isUserConfigPending && (
-                <NotificationSettingsForm
-                  userConfig={userConfigData.userConfig}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </section>
+        <UserSettingsSection
+          section={UserSettingsSections.Notifications}
+          title={t('navigation.labels.notifications')}
+          description={t('settings.descriptions.notificationSection')}
+        >
+          {userConfigError && <p>{t('errors.somethingWentWrong')}</p>}
+          {!userConfigError && !isUserConfigPending && (
+            <NotificationSettingsForm userConfig={userConfigData.userConfig} />
+          )}
+        </UserSettingsSection>
       </Container>
     </>
   );

@@ -8,7 +8,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
-import { NavigationPaths } from '@/constants/shared.constants';
+import {
+  NavigationPaths,
+  UserSettingsSections,
+} from '@/constants/shared.constants';
+import { getUserSettingsPath } from '@/lib/user-settings.utils';
 import { useLogOut } from '@/hooks/use-log-out';
 import { useMeQuery } from '@/hooks/use-me-query';
 import { truncate } from '@/lib/text.utils';
@@ -77,7 +81,7 @@ export const NavDropdown = ({ trigger }: Props) => {
         {!me.anonymous && (
           <DropdownMenuItem
             onClick={() => {
-              navigate(NavigationPaths.UsersEdit);
+              navigate(getUserSettingsPath(UserSettingsSections.Profile));
               setIsNavSheetOpen(false);
             }}
             className="text-md"

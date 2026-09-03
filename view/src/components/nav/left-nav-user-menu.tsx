@@ -1,4 +1,5 @@
-import { NavigationPaths } from '@/constants/shared.constants';
+import { UserSettingsSections } from '@/constants/shared.constants';
+import { getUserSettingsPath } from '@/lib/user-settings.utils';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { truncate } from '@/lib/text.utils';
 import { useState } from 'react';
@@ -98,7 +99,9 @@ export const LeftNavUserMenu = () => {
         ) : (
           <DropdownMenuItem
             className="text-md"
-            onClick={() => navigate(NavigationPaths.UsersEdit)}
+            onClick={() =>
+              navigate(getUserSettingsPath(UserSettingsSections.Profile))
+            }
           >
             <MdPerson className="text-foreground size-5" />
             {t('users.actions.editProfile')}

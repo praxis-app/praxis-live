@@ -8,7 +8,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { NavigationPaths } from '@/constants/shared.constants';
+import { UserSettingsSections } from '@/constants/shared.constants';
+import { getUserSettingsPath } from '@/lib/user-settings.utils';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useServerData } from '@/hooks/use-server-data';
 import { cn } from '@/lib/shared.utils';
@@ -45,7 +46,7 @@ export const NotificationBell = () => {
   };
 
   const openSettings = () => {
-    closeAndNavigate(NavigationPaths.UserSettings);
+    closeAndNavigate(getUserSettingsPath(UserSettingsSections.Notifications));
   };
 
   const selectNotification = (notification: NotificationRes) => {
