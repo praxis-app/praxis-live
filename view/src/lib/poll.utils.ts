@@ -74,7 +74,13 @@ export const getProposalRuleStatus = (
   const { agreements, disagreements, abstains, blocks } =
     sortConsensusVotesByType(typedVotes);
   const participants = agreements.length + disagreements.length;
+  // The server measures the threshold against turnout, but the count shown to
+  // members is the share of the channel the proposal ultimately has to win.
   const requiredAgreements = getRequiredCount(
+    memberCount,
+    config.agreementThreshold ?? 0,
+  );
+  const requiredParticipantAgreements = getRequiredCount(
     participants,
     config.agreementThreshold ?? 0,
   );
@@ -91,7 +97,7 @@ export const getProposalRuleStatus = (
 
   const agreementMet =
     !agreementApplies ||
-    (participants > 0 && agreements.length >= requiredAgreements);
+    (participants > 0 && agreements.length >= requiredParticipantAgreements);
   const quorumMet = !quorumApplies || typedVotes.length >= requiredQuorum;
   const disagreementsMet =
     !limitsApply || disagreements.length <= (config.disagreementsLimit ?? 0);

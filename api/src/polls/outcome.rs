@@ -228,6 +228,10 @@ where
         .map_err(internal_error)
 }
 
+// TODO: The agreement threshold is applied to turnout (agreements +
+// disagreements) here and in `has_majority_vote`, while the vote progress UI
+// reports the count required of the whole channel. Decide which definition is
+// authoritative and make both sides use it.
 fn has_consensus(
     votes: &[votes::Model],
     config: &poll_configs::Model,

@@ -1767,6 +1767,109 @@ test('consent proposals are decided only at their deadline', async ({
   expect(serverConfig.anonymousUsersEnabled).toBe(true);
 });
 
+test('vote progress dialog scales required agreements to server members', async ({
+  context,
+  page,
+  request,
+}) => {
+  const serverAdmin = await createServerAdmin(request, 'vote-progress-admin');
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Vote progress ${serverAdmin.user.suffix}`,
+    slug: `vote-progress-${serverAdmin.user.suffix}`,
+  });
+  const progressInvite = await createInvite(
+    request,
+    serverAdmin,
+    createdServer.id,
+  );
+  const proposer = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('vote-progress-proposer'),
+    progressInvite,
+  );
+  const supporter = await signUpViaApi(
+    request,
+    createTestUser('vote-progress-supporter'),
+    progressInvite,
+  );
+  await signUpViaApi(
+    request,
+    createTestUser('vote-progress-observer'),
+    progressInvite,
+  );
+  const server = await getServerBySlug(request, proposer, createdServer.slug);
+
+  // Four members: 51% agreement needs three, 50% quorum needs two.
+  await updateServerConfig(request, serverAdmin, server.id, {
+    decisionMakingModel: 'consensus',
+    agreementThreshold: 51,
+    quorumEnabled: true,
+    quorumThreshold: 50,
+    disagreementsLimit: 1,
+    abstainsLimit: 1,
+    votingTimeLimit: 30,
+    anonymousUsersEnabled: false,
+  });
+
+  const chat = new ChatPage(page);
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await chat.expectChannel('general');
+
+  const proposalBody = `Vote progress proposal ${proposer.user.suffix}`;
+  const poll = await createTestProposal(
+    page,
+    server.generalChannelId,
+    proposalBody,
+  );
+  const proposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${proposalBody}`,
+  });
+  await expect(proposal).toBeVisible();
+
+  await proposal.getByRole('button', { name: /^\d+ votes?$/ }).click();
+  const progressDialog = page.getByRole('dialog', { name: 'Vote Progress' });
+  await expect(progressDialog).toBeVisible();
+
+  await expect(
+    progressDialog.getByText('0 of 3 agreements needed (51% threshold)'),
+  ).toBeVisible();
+  await expect(
+    progressDialog.getByText('0 of 2 participants needed (50% quorum)'),
+  ).toBeVisible();
+
+  // Nothing has been voted on yet, so no rule can read as satisfied.
+  await expect(progressDialog.getByLabel('met', { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(progressDialog.getByLabel('pending')).toHaveCount(3);
+
+  await page.keyboard.press('Escape');
+  await expect(progressDialog).toBeHidden();
+
+  await voteViaApi(
+    request,
+    supporter,
+    server.id,
+    server.generalChannelId,
+    poll.id,
+    'agree',
+  );
+  await expect(
+    proposal.getByRole('button', { name: '1 vote' }),
+  ).toBeVisible();
+
+  await proposal.getByRole('button', { name: '1 vote' }).click();
+  await expect(progressDialog).toBeVisible();
+  await expect(
+    progressDialog.getByText('1 of 3 agreements needed (51% threshold)'),
+  ).toBeVisible();
+  await expect(progressDialog.getByLabel('pending')).toHaveCount(0);
+  await expect(progressDialog.getByLabel('met', { exact: true })).toHaveCount(
+    3,
+  );
+});
+
 async function createTestProposal(page: Page, channelId: string, body: string) {
   await openCreateProposalDialog(page);
   const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });

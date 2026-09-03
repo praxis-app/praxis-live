@@ -39,15 +39,16 @@ export const VoteProgressDialog = ({
   const status = getProposalRuleStatus(votes, config, memberCount);
   const showAgreement = status.agreementApplies;
   const showLimits = status.limitsApply;
-  const requiredAgreements = Math.max(1, status.requiredAgreements);
   const agreementsPercentage = getProgressPercentage(
     status.agreements,
-    requiredAgreements,
+    status.requiredAgreements,
   );
   const quorumPercentage = getProgressPercentage(
     status.totalVotes,
     status.requiredQuorum,
   );
+  // Limits can only be satisfied by votes, so they stay pending until one lands.
+  const limitsPending = status.totalVotes === 0;
   // Mirrors the vote buttons: the block option is hidden for this member, so
   // the rules have to explain why rather than leaving it looking broken.
   const blockingRoleRestricted =
@@ -150,7 +151,7 @@ export const VoteProgressDialog = ({
               <p className="text-muted-foreground text-sm">
                 {t('proposals.descriptions.thresholdStatus', {
                   current: status.agreements,
-                  required: requiredAgreements,
+                  required: status.requiredAgreements,
                   threshold: config.agreementThreshold,
                 })}
               </p>
@@ -195,6 +196,7 @@ export const VoteProgressDialog = ({
                   limit: config.disagreementsLimit ?? 0,
                 })}
                 met={status.disagreementsMet}
+                pending={limitsPending}
               />
               <ProposalRuleRow
                 label={t('proposals.labels.abstentionLimit')}
@@ -203,6 +205,7 @@ export const VoteProgressDialog = ({
                   limit: config.abstainsLimit ?? 0,
                 })}
                 met={status.abstainsMet}
+                pending={limitsPending}
               />
               <ProposalRuleRow
                 label={t('proposals.labels.blockStatus')}
@@ -210,6 +213,7 @@ export const VoteProgressDialog = ({
                   count: status.blocks,
                 })}
                 met={status.blocksMet}
+                pending={limitsPending}
               />
               {status.ignoredBlocks > 0 && (
                 <p className="text-muted-foreground text-sm">
