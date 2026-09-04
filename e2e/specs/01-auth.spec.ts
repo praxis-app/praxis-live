@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   createAuthenticatedUser,
   getOrCreateInstanceAdmin,
+  isFirstUser,
   setupAnonymousSession,
   signUpViaApi,
 } from '../lib/auth';
@@ -25,14 +26,32 @@ const fixturePath = path.resolve(
   '../fixtures/valid-image.png',
 );
 
-test('user can sign up from the landing page', async ({ page }) => {
-  const user = INSTANCE_ADMIN_USER;
+test('user can sign up from the landing page', async ({ page, request }) => {
+  // Only the very first user can sign up without an invite, so the same
+  // landing page flow is reached through an invite once the instance has one.
+  const isFirstSignup = await isFirstUser(request);
+  const user = isFirstSignup
+    ? INSTANCE_ADMIN_USER
+    : createTestUser('landing-signup');
   const auth = new AuthPage(page);
   const chat = new ChatPage(page);
   const navigation = new NavigationPage(page);
 
-  await auth.gotoLanding();
-  await auth.followSignupLink();
+  if (isFirstSignup) {
+    await auth.gotoLanding();
+    await auth.followSignupLink();
+  } else {
+    const admin = await getOrCreateInstanceAdmin(request);
+    const server = await getDefaultServer(request, admin);
+    const inviteToken = await createInvite(request, admin, server.id);
+
+    await page.goto(`/i/${inviteToken}`);
+    await expect(page).toHaveURL('/about');
+    await page
+      .getByRole('link', { name: 'Accept invite', exact: true })
+      .first()
+      .click();
+  }
   await auth.signUp(user);
 
   await auth.expectSignedUp();
