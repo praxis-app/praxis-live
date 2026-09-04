@@ -139,17 +139,22 @@ export const VoteProgressDialog = ({
                 </span>
               </div>
               <Progress value={status.approvalPercentage} />
-              <p className="text-muted-foreground text-sm">
-                {status.approvalVoteCount === 0
-                  ? t('proposals.descriptions.approvalNoVotes', {
-                      threshold: config.agreementThreshold,
-                    })
-                  : t('proposals.descriptions.approvalStatus', {
-                      agreements: status.agreements,
-                      count: status.approvalVoteCount,
-                      threshold: config.agreementThreshold,
-                    })}
-              </p>
+              <div className="space-y-0.5 text-sm">
+                <p className="text-muted-foreground">
+                  {status.approvalVoteCount === 0
+                    ? t('proposals.descriptions.approvalNoVotes', {
+                        threshold: config.agreementThreshold,
+                      })
+                    : t('proposals.descriptions.approvalStatus', {
+                        agreements: status.agreements,
+                        count: status.approvalVoteCount,
+                        threshold: config.agreementThreshold,
+                      })}
+                </p>
+                <p className="text-muted-foreground">
+                  {t('proposals.descriptions.approvalParticipantNote')}
+                </p>
+              </div>
             </div>
           )}
 
