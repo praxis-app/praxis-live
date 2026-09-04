@@ -10,7 +10,11 @@ import { Progress } from '@/components/ui/progress';
 import { ProposalRuleRow } from '@/components/polls/proposals/inline-proposal/proposal-rule-row';
 import { useAbility } from '@/hooks/use-ability';
 import { getProgressPercentage, getProposalRuleStatus } from '@/lib/poll.utils';
-import { type PollClosedReason, type PollConfigRes } from '@/types/poll.types';
+import {
+  type PollClosedReason,
+  type PollConfigRes,
+  type PollStage,
+} from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +25,7 @@ interface Props {
   votes: VoteRes[];
   config: PollConfigRes;
   memberCount: number;
+  stage?: PollStage;
   closedReason?: PollClosedReason;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +35,7 @@ export const VoteProgressDialog = ({
   votes,
   config,
   memberCount,
+  stage,
   closedReason,
   isOpen,
   onOpenChange,
@@ -45,6 +51,21 @@ export const VoteProgressDialog = ({
   );
   // Limits can only be satisfied by votes, so they stay pending until one lands.
   const limitsPending = status.totalVotes === 0;
+  // Rules that do not apply to this model already report as met, so only the
+  // conditions that actually failed are named here.
+  const failedRules =
+    stage === 'closed' && !closedReason
+      ? [
+          status.agreementMet ? null : t('proposals.labels.approval'),
+          status.quorumMet ? null : t('proposals.labels.quorum'),
+          status.disagreementsMet ? null : t('proposals.labels.disagreements'),
+          status.abstainsMet ? null : t('proposals.labels.abstentions'),
+          status.blocksMet ? null : t('proposals.labels.blocks'),
+          status.deadlineRequired && !config.closingAt
+            ? t('proposals.labels.deadline')
+            : null,
+        ].filter((rule): rule is string => !!rule)
+      : [];
   // Mirrors the vote buttons: the block option is hidden for this member, so
   // the rules have to explain why rather than leaving it looking broken.
   const blockingRoleRestricted =
@@ -106,6 +127,14 @@ export const VoteProgressDialog = ({
               <LuTrendingUp className="size-4 shrink-0" aria-hidden="true" />
               <p>{t('proposals.outcomes.eligibleNow')}</p>
             </div>
+          )}
+
+          {failedRules.length > 0 && (
+            <p className="text-destructive text-sm">
+              {t('proposals.outcomes.failedRules', {
+                rules: failedRules.join(', '),
+              })}
+            </p>
           )}
 
           {closedReason === 'event-start-elapsed' && (

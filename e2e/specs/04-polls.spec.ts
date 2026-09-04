@@ -1626,9 +1626,15 @@ test('consensus enforces quorum, limits, and blocks at its deadline', async ({
   await expect(
     blockedProposal.getByText('Closed', { exact: true }),
   ).toBeVisible();
-  await expect(blockedProposal.getByText(/Failed conditions/)).toContainText(
-    'block present',
-  );
+  await blockedProposal.getByRole('button', { name: /^\d+ votes?$/ }).click();
+  const closedProgressDialog = page.getByRole('dialog', {
+    name: 'Vote Progress',
+  });
+  await expect(
+    closedProgressDialog.getByText(/Failed conditions/),
+  ).toContainText('block present');
+  await page.keyboard.press('Escape');
+  await expect(closedProgressDialog).toBeHidden();
   await expect(
     ratifiedProposal.getByText('Ratified', { exact: true }),
   ).toBeVisible();
@@ -1854,9 +1860,12 @@ test('consent proposals are decided only at their deadline', async ({
   await expect(
     blockedProposal.getByText('Closed', { exact: true }),
   ).toBeVisible();
-  await expect(blockedProposal.getByText(/Failed conditions/)).toContainText(
+  await blockedProposal.getByRole('button', { name: /^\d+ votes?$/ }).click();
+  await expect(progressDialog.getByText(/Failed conditions/)).toContainText(
     'block present',
   );
+  await page.keyboard.press('Escape');
+  await expect(progressDialog).toBeHidden();
 
   await expect(
     ratifiedProposal.getByText('Ratified', { exact: true }),

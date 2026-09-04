@@ -16,46 +16,22 @@ export const ProposalOutcome = ({ poll }: Props) => {
     poll.config,
     poll.memberCount,
   );
-  const missingRequiredDeadline =
-    status.deadlineRequired && !poll.config.closingAt;
 
   if (poll.stage === 'ratified') {
     return null;
   }
 
   if (poll.stage === 'closed') {
-    if (poll.closedReason) {
+    if (poll.closedReason || status.ignoredBlocks === 0) {
       return null;
     }
 
-    // Rules that do not apply to this model already report as met, so only
-    // the conditions that actually failed are named here.
-    const failedRules = [
-      status.agreementMet ? null : t('proposals.labels.approval'),
-      status.quorumMet ? null : t('proposals.labels.quorum'),
-      status.disagreementsMet ? null : t('proposals.labels.disagreements'),
-      status.abstainsMet ? null : t('proposals.labels.abstentions'),
-      status.blocksMet ? null : t('proposals.labels.blocks'),
-      missingRequiredDeadline ? t('proposals.labels.deadline') : null,
-    ].filter((rule): rule is string => !!rule);
-
     return (
-      <>
-        {failedRules.length > 0 && (
-          <p className="text-destructive text-sm">
-            {t('proposals.outcomes.failedRules', {
-              rules: failedRules.join(', '),
-            })}
-          </p>
-        )}
-        {status.ignoredBlocks > 0 && (
-          <p className="text-muted-foreground text-sm">
-            {t('proposals.descriptions.ignoredBlocks', {
-              count: status.ignoredBlocks,
-            })}
-          </p>
-        )}
-      </>
+      <p className="text-muted-foreground text-sm">
+        {t('proposals.descriptions.ignoredBlocks', {
+          count: status.ignoredBlocks,
+        })}
+      </p>
     );
   }
 
