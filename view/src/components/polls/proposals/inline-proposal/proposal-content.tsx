@@ -95,6 +95,7 @@ export const ProposalContent = ({
           feedQueryKey={feedQueryKey}
           onOpenThread={onOpenThread}
           onCopyThreadLink={onCopyThreadLink}
+          onViewVoteProgress={() => setIsVoteProgressDialogOpen(true)}
           onViewSettings={() => setIsSettingsDialogOpen(true)}
         />
       )}
