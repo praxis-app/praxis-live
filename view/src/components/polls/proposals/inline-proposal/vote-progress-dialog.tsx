@@ -10,7 +10,11 @@ import { Progress } from '@/components/ui/progress';
 import { ProposalRuleRow } from '@/components/polls/proposals/inline-proposal/proposal-rule-row';
 import { useAbility } from '@/hooks/use-ability';
 import { getProgressPercentage, getProposalRuleStatus } from '@/lib/poll.utils';
-import { type PollClosedReason, type PollConfigRes } from '@/types/poll.types';
+import {
+  type PollClosedReason,
+  type PollConfigRes,
+  type PollStage,
+} from '@/types/poll.types';
 import { type VoteRes } from '@/types/vote.types';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +25,7 @@ interface Props {
   votes: VoteRes[];
   config: PollConfigRes;
   memberCount: number;
+  stage?: PollStage;
   closedReason?: PollClosedReason;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +35,7 @@ export const VoteProgressDialog = ({
   votes,
   config,
   memberCount,
+  stage,
   closedReason,
   isOpen,
   onOpenChange,
@@ -39,15 +45,27 @@ export const VoteProgressDialog = ({
   const status = getProposalRuleStatus(votes, config, memberCount);
   const showAgreement = status.agreementApplies;
   const showLimits = status.limitsApply;
-  const requiredAgreements = Math.max(1, status.requiredAgreements);
-  const agreementsPercentage = getProgressPercentage(
-    status.agreements,
-    requiredAgreements,
-  );
   const quorumPercentage = getProgressPercentage(
     status.totalVotes,
     status.requiredQuorum,
   );
+  // Limits can only be satisfied by votes, so they stay pending until one lands.
+  const limitsPending = status.totalVotes === 0;
+  // Rules that do not apply to this model already report as met, so only the
+  // conditions that actually failed are named here.
+  const failedRules =
+    stage === 'closed' && !closedReason
+      ? [
+          status.agreementMet ? null : t('proposals.labels.approval'),
+          status.quorumMet ? null : t('proposals.labels.quorum'),
+          status.disagreementsMet ? null : t('proposals.labels.disagreements'),
+          status.abstainsMet ? null : t('proposals.labels.abstentions'),
+          status.blocksMet ? null : t('proposals.labels.blocks'),
+          status.deadlineRequired && !config.closingAt
+            ? t('proposals.labels.deadline')
+            : null,
+        ].filter((rule): rule is string => !!rule)
+      : [];
   // Mirrors the vote buttons: the block option is hidden for this member, so
   // the rules have to explain why rather than leaving it looking broken.
   const blockingRoleRestricted =
@@ -104,17 +122,20 @@ export const VoteProgressDialog = ({
             </div>
           )}
 
-          {status.passes &&
-            !config.closingAt &&
-            !status.deadlineRequired && (
-              <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
-                <LuTrendingUp
-                  className="size-4 shrink-0"
-                  aria-hidden="true"
-                />
-                <p>{t('proposals.outcomes.eligibleNow')}</p>
-              </div>
-            )}
+          {status.passes && !config.closingAt && !status.deadlineRequired && (
+            <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+              <LuTrendingUp className="size-4 shrink-0" aria-hidden="true" />
+              <p>{t('proposals.outcomes.eligibleNow')}</p>
+            </div>
+          )}
+
+          {failedRules.length > 0 && (
+            <p className="text-destructive text-sm">
+              {t('proposals.outcomes.failedRules', {
+                rules: failedRules.join(', '),
+              })}
+            </p>
+          )}
 
           {closedReason === 'event-start-elapsed' && (
             <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
@@ -146,14 +167,23 @@ export const VoteProgressDialog = ({
                     : t('proposals.labels.thresholdNotMet')}
                 </span>
               </div>
-              <Progress value={agreementsPercentage} />
-              <p className="text-muted-foreground text-sm">
-                {t('proposals.descriptions.thresholdStatus', {
-                  current: status.agreements,
-                  required: requiredAgreements,
-                  threshold: config.agreementThreshold,
-                })}
-              </p>
+              <Progress value={status.approvalPercentage} />
+              <div className="space-y-0.5 text-sm">
+                <p className="text-muted-foreground">
+                  {status.approvalVoteCount === 0
+                    ? t('proposals.descriptions.approvalNoVotes', {
+                        threshold: config.agreementThreshold,
+                      })
+                    : t('proposals.descriptions.approvalStatus', {
+                        agreements: status.agreements,
+                        count: status.approvalVoteCount,
+                        threshold: config.agreementThreshold,
+                      })}
+                </p>
+                <p className="text-muted-foreground">
+                  {t('proposals.descriptions.approvalParticipantNote')}
+                </p>
+              </div>
             </div>
           )}
 
@@ -176,13 +206,20 @@ export const VoteProgressDialog = ({
                 </span>
               </div>
               <Progress value={quorumPercentage} />
-              <p className="text-muted-foreground text-sm">
-                {t('proposals.descriptions.quorumStatus', {
-                  current: status.totalVotes,
-                  required: status.requiredQuorum,
-                  threshold: config.quorumThreshold,
-                })}
-              </p>
+              <div className="space-y-0.5 text-sm">
+                <p className="text-muted-foreground">
+                  {t('proposals.descriptions.quorumStatus', {
+                    current: status.totalVotes,
+                    required: status.requiredQuorum,
+                  })}
+                </p>
+                <p className="text-muted-foreground">
+                  {t('proposals.descriptions.quorumRequirement', {
+                    threshold: config.quorumThreshold,
+                    memberCount,
+                  })}
+                </p>
+              </div>
             </div>
           )}
 
@@ -195,6 +232,7 @@ export const VoteProgressDialog = ({
                   limit: config.disagreementsLimit ?? 0,
                 })}
                 met={status.disagreementsMet}
+                pending={limitsPending}
               />
               <ProposalRuleRow
                 label={t('proposals.labels.abstentionLimit')}
@@ -203,6 +241,7 @@ export const VoteProgressDialog = ({
                   limit: config.abstainsLimit ?? 0,
                 })}
                 met={status.abstainsMet}
+                pending={limitsPending}
               />
               <ProposalRuleRow
                 label={t('proposals.labels.blockStatus')}
@@ -210,15 +249,17 @@ export const VoteProgressDialog = ({
                   count: status.blocks,
                 })}
                 met={status.blocksMet}
+                pending={limitsPending}
               />
-              {status.ignoredBlocks > 0 && (
-                <p className="text-muted-foreground text-sm">
-                  {t('proposals.descriptions.ignoredBlocks', {
-                    count: status.ignoredBlocks,
-                  })}
-                </p>
-              )}
             </div>
+          )}
+
+          {status.ignoredBlocks > 0 && (
+            <p className="text-muted-foreground text-sm">
+              {t('proposals.descriptions.ignoredBlocks', {
+                count: status.ignoredBlocks,
+              })}
+            </p>
           )}
         </div>
       </DialogContent>

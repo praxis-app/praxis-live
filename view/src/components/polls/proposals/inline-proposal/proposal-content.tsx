@@ -1,6 +1,5 @@
 import { ProposalMetadata } from '@/components/polls/proposals/inline-proposal/proposal-metadata';
 import { AttachedImageList } from '@/components/images/attached-image-list';
-import { ProposalOutcome } from '@/components/polls/proposals/inline-proposal/proposal-outcome';
 import { ProposalStatusBadge } from '@/components/polls/proposals/inline-proposal/proposal-status-badge';
 import { VoteProgressDialog } from '@/components/polls/proposals/inline-proposal/vote-progress-dialog';
 import { ProposalAction } from '@/components/polls/proposals/proposal-actions/proposal-action';
@@ -11,6 +10,7 @@ import { FormattedText } from '@/components/shared/formatted-text';
 import { CardAction } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
+import { useVotingDeadline } from '@/hooks/use-voting-deadline';
 import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline-label';
 import { cn } from '@/lib/shared.utils';
 import { type CallArtifactRes } from '@/types/call.types';
@@ -20,6 +20,7 @@ import { type CurrentUser } from '@/types/user.types';
 import { type QueryKey } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LuLoaderCircle } from 'react-icons/lu';
 
 export type SourceCallContext = 'in-call' | 'this-call' | 'another-call';
 
@@ -80,9 +81,15 @@ export const ProposalContent = ({
   }[sourceCallContext];
 
   const { id, body, myVote, config, action, stage, votes, memberCount } = poll;
+  const deadlineHasPassed = useVotingDeadline(config.closingAt);
 
   const { hasEnded: votingHasEnded, label: deadlineLabel } =
     useVotingDeadlineLabel(config.closingAt, stage === 'voting');
+
+  // The server closes the proposal on its own schedule, so the deadline can
+  // pass while the stage is still open.
+  const isFinalizing =
+    deadlineHasPassed && stage !== 'ratified' && stage !== 'closed';
 
   return (
     <>
@@ -95,6 +102,7 @@ export const ProposalContent = ({
           feedQueryKey={feedQueryKey}
           onOpenThread={onOpenThread}
           onCopyThreadLink={onCopyThreadLink}
+          onViewVoteProgress={() => setIsVoteProgressDialogOpen(true)}
           onViewSettings={() => setIsSettingsDialogOpen(true)}
         />
       )}
@@ -149,8 +157,6 @@ export const ProposalContent = ({
 
       <Separator className="mt-5 mb-2.5" />
 
-      <ProposalOutcome poll={poll} />
-
       <div
         className={cn(
           'flex min-w-0 flex-wrap items-center justify-between gap-2',
@@ -162,6 +168,7 @@ export const ProposalContent = ({
             votes={votes ?? []}
             config={config}
             memberCount={memberCount}
+            stage={stage}
             closedReason={poll.closedReason}
             isOpen={isVoteProgressDialogOpen}
             onOpenChange={setIsVoteProgressDialogOpen}
@@ -185,6 +192,18 @@ export const ProposalContent = ({
               )}
             </button>
           </div>
+          {isFinalizing && (
+            <div className="flex items-center">
+              <span className="px-1.5" aria-hidden="true">
+                {MIDDOT_WITH_SPACES.trim()}
+              </span>
+              <LuLoaderCircle
+                className="mr-1.5 size-3.5 shrink-0 animate-spin"
+                aria-hidden="true"
+              />
+              <span>{t('proposals.outcomes.finalizing')}</span>
+            </div>
+          )}
         </div>
         <ProposalStatusBadge
           poll={poll}

@@ -1,10 +1,5 @@
 import { spawnSync } from 'node:child_process';
 
-/**
- * TODO: Make signup specs order-independent by seeding or creating an invite
- * and exercising the invited signup path when a first user already exists.
- */
-
 const composeArgs = ['compose', '-f', 'e2e/docker-compose.e2e.yml'];
 const appUrl = 'http://127.0.0.1:3210/api/health';
 
