@@ -1389,145 +1389,249 @@ test('proposal votes require confirmation when ratifying or blocking', async ({
   ).toBeVisible();
 });
 
-test('user can create and ratify a majority vote proposal', async ({
+test('majority vote distinguishes a tie from a winning majority', async ({
   context,
   page,
   request,
 }) => {
+  const serverAdmin = await createServerAdmin(request, 'majority-admin');
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Majority decisions ${serverAdmin.user.suffix}`,
+    slug: `majority-decisions-${serverAdmin.user.suffix}`,
+  });
+  const invite = await createInvite(request, serverAdmin, createdServer.id);
   const proposer = await createAuthenticatedUser(
     request,
     context,
     createTestUser('majority-proposer'),
+    invite,
   );
-  const server = await getDefaultServer(request, proposer);
-  const instanceAdmin = await getOrCreateInstanceAdmin(request);
-  await updateServerConfig(request, instanceAdmin, server.id, {
+  const supporter = await signUpViaApi(
+    request,
+    createTestUser('majority-supporter'),
+    invite,
+  );
+  const dissenter = await signUpViaApi(
+    request,
+    createTestUser('majority-dissenter'),
+    invite,
+  );
+  const server = await getServerBySlug(request, proposer, createdServer.slug);
+  await updateServerConfig(request, serverAdmin, server.id, {
     decisionMakingModel: 'majority-vote',
     agreementThreshold: 51,
     quorumEnabled: false,
-    votingTimeLimit: 0,
+    votingTimeLimit: 30,
+    anonymousUsersEnabled: false,
   });
 
-  const proposalBody = `Majority proposal ${proposer.user.suffix}`;
   const chat = new ChatPage(page);
-  await chat.goto();
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
   await chat.expectChannel('general');
-  await openCreateProposalDialog(page);
-  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
-  await selectRadixOption(dialog, page, 'Select an action type', 'Test');
-  await dialog
-    .getByPlaceholder('Enter your proposal details...')
-    .fill(proposalBody);
-  await dialog.getByRole('button', { name: 'Next' }).click();
 
-  const createProposalResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
-      response.status() === 200,
+  const tiedBody = `Tied majority ${proposer.user.suffix}`;
+  const tiedPoll = await createTestProposal(
+    page,
+    server.generalChannelId,
+    tiedBody,
   );
-  await dialog.getByRole('button', { name: 'Create proposal' }).click();
-  await createProposalResponse;
-  await expect(dialog).toBeHidden();
+  const winningBody = `Winning majority ${proposer.user.suffix}`;
+  const winningPoll = await createTestProposal(
+    page,
+    server.generalChannelId,
+    winningBody,
+  );
 
-  const proposal = page.getByRole('article', {
-    name: `Majority Vote Proposal: ${proposalBody}`,
+  const tiedProposal = page.getByRole('article', {
+    name: `Majority Vote Proposal: ${tiedBody}`,
   });
-  await expect(proposal).toBeVisible();
+  const winningProposal = page.getByRole('article', {
+    name: `Majority Vote Proposal: ${winningBody}`,
+  });
+  await expect(tiedProposal).toBeVisible();
+  await expect(winningProposal).toBeVisible();
   await expect(
-    proposal.getByText('Majority vote', { exact: true }),
+    winningProposal.getByText('Majority vote', { exact: true }),
   ).toBeVisible();
-  await expect(proposal.getByText('Voting', { exact: true })).toBeVisible();
   await expect(
-    proposal.getByRole('button', { name: 'Block', exact: true }),
+    winningProposal.getByRole('button', { name: 'Block', exact: true }),
   ).toHaveCount(0);
-  await expect(
-    proposal.getByRole('button', { name: 'Agree', exact: true }),
-  ).toBeVisible();
-  await expect(
-    proposal.getByRole('button', { name: 'Disagree', exact: true }),
-  ).toBeVisible();
-  await expect(
-    proposal.getByRole('button', { name: 'Abstain', exact: true }),
-  ).toBeVisible();
 
-  const voteResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes('/votes') &&
-      response.status() === 200,
+  await voteViaApi(
+    request,
+    supporter,
+    server.id,
+    server.generalChannelId,
+    tiedPoll.id,
+    'agree',
   );
-  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
-  await confirmRatifyingVote(page);
-  await voteResponse;
+  await voteViaApi(
+    request,
+    dissenter,
+    server.id,
+    server.generalChannelId,
+    tiedPoll.id,
+    'disagree',
+  );
+  await voteViaApi(
+    request,
+    proposer,
+    server.id,
+    server.generalChannelId,
+    winningPoll.id,
+    'disagree',
+  );
+  await voteViaApi(
+    request,
+    supporter,
+    server.id,
+    server.generalChannelId,
+    winningPoll.id,
+    'agree',
+  );
+  await voteViaApi(
+    request,
+    dissenter,
+    server.id,
+    server.generalChannelId,
+    winningPoll.id,
+    'agree',
+  );
 
-  await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
+  await expect(tiedProposal.getByText('Voting', { exact: true })).toBeVisible();
+  await expect(
+    winningProposal.getByText('Voting', { exact: true }),
+  ).toBeVisible();
+
+  expirePollDeadline(tiedPoll.id);
+  expirePollDeadline(winningPoll.id);
+
+  await expect(tiedProposal.getByText('Closed', { exact: true })).toBeVisible();
+  await expect(
+    winningProposal.getByText('Ratified', { exact: true }),
+  ).toBeVisible();
 });
 
-test('server-controlled proposal deadline finalizes an eligible consensus proposal', async ({
+test('consensus enforces quorum, limits, and blocks at its deadline', async ({
   context,
   page,
   request,
 }) => {
+  const serverAdmin = await createServerAdmin(request, 'consensus-admin');
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Consensus decisions ${serverAdmin.user.suffix}`,
+    slug: `consensus-decisions-${serverAdmin.user.suffix}`,
+  });
+  const invite = await createInvite(request, serverAdmin, createdServer.id);
   const proposer = await createAuthenticatedUser(
     request,
     context,
-    createTestUser('proposal-deadline'),
+    createTestUser('consensus-proposer'),
+    invite,
   );
-  const server = await getDefaultServer(request, proposer);
-  const instanceAdmin = await getOrCreateInstanceAdmin(request);
-  await updateServerConfig(request, instanceAdmin, server.id, {
+  const supporter = await signUpViaApi(
+    request,
+    createTestUser('consensus-supporter'),
+    invite,
+  );
+  const thirdVoter = await signUpViaApi(
+    request,
+    createTestUser('consensus-third-voter'),
+    invite,
+  );
+  const server = await getServerBySlug(request, proposer, createdServer.slug);
+  await updateServerConfig(request, serverAdmin, server.id, {
     decisionMakingModel: 'consensus',
     agreementThreshold: 51,
-    quorumEnabled: false,
+    quorumEnabled: true,
+    quorumThreshold: 75,
+    disagreementsLimit: 1,
+    abstainsLimit: 1,
+    blocksOpenToAll: true,
     votingTimeLimit: 30,
+    anonymousUsersEnabled: false,
   });
 
-  const proposalBody = `Deadline proposal ${proposer.user.suffix}`;
   const chat = new ChatPage(page);
-  await chat.goto();
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
   await chat.expectChannel('general');
 
-  await openCreateProposalDialog(page);
-  const dialog = page.getByRole('dialog', { name: 'Create a New Proposal' });
-  await selectRadixOption(dialog, page, 'Select an action type', 'Test');
-  await dialog
-    .getByPlaceholder('Enter your proposal details...')
-    .fill(proposalBody);
-  await dialog.getByRole('button', { name: 'Next' }).click();
-
-  await shortenNextPollDuration(page, server.generalChannelId, 5);
-  const createProposalResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes(`/channels/${server.generalChannelId}/polls`) &&
-      response.status() === 200,
+  const blockedBody = `Blocked consensus ${proposer.user.suffix}`;
+  const blockedPoll = await createTestProposal(
+    page,
+    server.generalChannelId,
+    blockedBody,
   );
-  await dialog.getByRole('button', { name: 'Create proposal' }).click();
-  const createResponse = await createProposalResponse;
-  const { poll } = (await createResponse.json()) as PollResponse;
+  const ratifiedBody = `Ratified consensus ${proposer.user.suffix}`;
+  const ratifiedPoll = await createTestProposal(
+    page,
+    server.generalChannelId,
+    ratifiedBody,
+  );
 
-  expect(poll.config.closingAt).toBeTruthy();
-  expect(minutesUntil(poll.config.closingAt!)).toBeGreaterThanOrEqual(29);
-  expect(minutesUntil(poll.config.closingAt!)).toBeLessThanOrEqual(30);
-
-  const proposal = page.getByRole('article', {
-    name: `Consensus Proposal: ${proposalBody}`,
+  const blockedProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${blockedBody}`,
   });
-  await expect(proposal).toBeVisible();
+  const ratifiedProposal = page.getByRole('article', {
+    name: `Consensus Proposal: ${ratifiedBody}`,
+  });
+  await expect(blockedProposal).toBeVisible();
+  await expect(ratifiedProposal).toBeVisible();
 
-  const initialVoteResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'POST' &&
-      response.url().includes(`/polls/${poll.id}/votes`) &&
-      response.status() === 200,
+  for (const poll of [blockedPoll, ratifiedPoll]) {
+    await voteViaApi(
+      request,
+      supporter,
+      server.id,
+      server.generalChannelId,
+      poll.id,
+      'agree',
+    );
+    await voteViaApi(
+      request,
+      thirdVoter,
+      server.id,
+      server.generalChannelId,
+      poll.id,
+      'agree',
+    );
+  }
+  await voteViaApi(
+    request,
+    proposer,
+    server.id,
+    server.generalChannelId,
+    blockedPoll.id,
+    'block',
   );
-  await proposal.getByRole('button', { name: 'Agree', exact: true }).click();
-  await initialVoteResponse;
+  await voteViaApi(
+    request,
+    proposer,
+    server.id,
+    server.generalChannelId,
+    ratifiedPoll.id,
+    'abstain',
+  );
 
-  expirePollDeadline(poll.id);
+  await expect(
+    blockedProposal.getByText('Voting', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    ratifiedProposal.getByText('Voting', { exact: true }),
+  ).toBeVisible();
 
-  await expect(proposal.getByText('Ratified', { exact: true })).toBeVisible();
+  expirePollDeadline(blockedPoll.id);
+  expirePollDeadline(ratifiedPoll.id);
+
+  await expect(
+    blockedProposal.getByText('Closed', { exact: true }),
+  ).toBeVisible();
+  await expect(blockedProposal.getByText(/Failed conditions/)).toContainText(
+    'block present',
+  );
+  await expect(
+    ratifiedProposal.getByText('Ratified', { exact: true }),
+  ).toBeVisible();
 });
 
 test('consent settings disable quorum and agreement threshold and require a deadline', async ({
@@ -1724,10 +1828,12 @@ test('consent proposals are decided only at their deadline', async ({
   await ratifiedProposal.getByRole('button', { name: /^\d+ votes?$/ }).click();
   const progressDialog = page.getByRole('dialog', { name: 'Vote Progress' });
   await expect(progressDialog).toBeVisible();
-  await expect(progressDialog.getByText('Quorum (participation)')).toHaveCount(
-    0,
-  );
-  await expect(progressDialog.getByText('Threshold (approval)')).toHaveCount(0);
+  await expect(
+    progressDialog.getByText('Participation', { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    progressDialog.getByText('Approval', { exact: true }),
+  ).toHaveCount(0);
   await expect(progressDialog.getByText('Disagreement limit')).toBeVisible();
   await expect(progressDialog.getByText('Abstention limit')).toBeVisible();
   await expect(
@@ -1767,7 +1873,7 @@ test('consent proposals are decided only at their deadline', async ({
   expect(serverConfig.anonymousUsersEnabled).toBe(true);
 });
 
-test('vote progress dialog scales required agreements to server members', async ({
+test('vote progress separates participant approval from member-based quorum', async ({
   context,
   page,
   request,
@@ -1800,7 +1906,7 @@ test('vote progress dialog scales required agreements to server members', async 
   );
   const server = await getServerBySlug(request, proposer, createdServer.slug);
 
-  // Four members: 51% agreement needs three, 50% quorum needs two.
+  // Approval uses Agree + Disagree votes; quorum uses all four members.
   await updateServerConfig(request, serverAdmin, server.id, {
     decisionMakingModel: 'consensus',
     agreementThreshold: 51,
@@ -1832,10 +1938,19 @@ test('vote progress dialog scales required agreements to server members', async 
   await expect(progressDialog).toBeVisible();
 
   await expect(
-    progressDialog.getByText('0 of 3 agreements needed (51% threshold)'),
+    progressDialog.getByText('Approval', { exact: true }),
   ).toBeVisible();
   await expect(
-    progressDialog.getByText('0 of 2 participants needed (50% quorum)'),
+    progressDialog.getByText('No participants yet (51% required)'),
+  ).toBeVisible();
+  await expect(
+    progressDialog.getByText('Participation', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    progressDialog.getByText('0 of 2 responses required'),
+  ).toBeVisible();
+  await expect(
+    progressDialog.getByText('50% quorum across 4 eligible channel members'),
   ).toBeVisible();
 
   // Nothing has been voted on yet, so no rule can read as satisfied.
@@ -1855,14 +1970,12 @@ test('vote progress dialog scales required agreements to server members', async 
     poll.id,
     'agree',
   );
-  await expect(
-    proposal.getByRole('button', { name: '1 vote' }),
-  ).toBeVisible();
+  await expect(proposal.getByRole('button', { name: '1 vote' })).toBeVisible();
 
   await proposal.getByRole('button', { name: '1 vote' }).click();
   await expect(progressDialog).toBeVisible();
   await expect(
-    progressDialog.getByText('1 of 3 agreements needed (51% threshold)'),
+    progressDialog.getByText('100% approval from 1 participant (51% required)'),
   ).toBeVisible();
   await expect(progressDialog.getByLabel('pending')).toHaveCount(0);
   await expect(progressDialog.getByLabel('met', { exact: true })).toHaveCount(

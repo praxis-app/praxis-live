@@ -34,7 +34,8 @@ export interface ProposalRuleStatus {
   abstains: number;
   blocks: number;
   ignoredBlocks: number;
-  requiredAgreements: number;
+  approvalVoteCount: number;
+  approvalPercentage: number;
   requiredQuorum: number;
   agreementApplies: boolean;
   quorumApplies: boolean;
@@ -73,15 +74,13 @@ export const getProposalRuleStatus = (
   );
   const { agreements, disagreements, abstains, blocks } =
     sortConsensusVotesByType(typedVotes);
-  const participants = agreements.length + disagreements.length;
-  // The server measures the threshold against turnout, but the count shown to
-  // members is the share of the channel the proposal ultimately has to win.
+  const approvalVoteCount = agreements.length + disagreements.length;
+  const approvalPercentage =
+    approvalVoteCount > 0
+      ? Math.round((agreements.length / approvalVoteCount) * 1000) / 10
+      : 0;
   const requiredAgreements = getRequiredCount(
-    memberCount,
-    config.agreementThreshold ?? 0,
-  );
-  const requiredParticipantAgreements = getRequiredCount(
-    participants,
+    approvalVoteCount,
     config.agreementThreshold ?? 0,
   );
   const requiredQuorum = getRequiredCount(
@@ -97,7 +96,7 @@ export const getProposalRuleStatus = (
 
   const agreementMet =
     !agreementApplies ||
-    (participants > 0 && agreements.length >= requiredParticipantAgreements);
+    (approvalVoteCount > 0 && agreements.length >= requiredAgreements);
   const quorumMet = !quorumApplies || typedVotes.length >= requiredQuorum;
   const disagreementsMet =
     !limitsApply || disagreements.length <= (config.disagreementsLimit ?? 0);
@@ -121,7 +120,8 @@ export const getProposalRuleStatus = (
     abstains: abstains.length,
     blocks: blocks.length,
     ignoredBlocks: getIgnoredBlocks(votes).length,
-    requiredAgreements,
+    approvalVoteCount,
+    approvalPercentage,
     requiredQuorum,
     agreementApplies,
     quorumApplies,

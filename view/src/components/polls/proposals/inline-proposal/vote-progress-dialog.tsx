@@ -39,10 +39,6 @@ export const VoteProgressDialog = ({
   const status = getProposalRuleStatus(votes, config, memberCount);
   const showAgreement = status.agreementApplies;
   const showLimits = status.limitsApply;
-  const agreementsPercentage = getProgressPercentage(
-    status.agreements,
-    status.requiredAgreements,
-  );
   const quorumPercentage = getProgressPercentage(
     status.totalVotes,
     status.requiredQuorum,
@@ -105,17 +101,12 @@ export const VoteProgressDialog = ({
             </div>
           )}
 
-          {status.passes &&
-            !config.closingAt &&
-            !status.deadlineRequired && (
-              <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
-                <LuTrendingUp
-                  className="size-4 shrink-0"
-                  aria-hidden="true"
-                />
-                <p>{t('proposals.outcomes.eligibleNow')}</p>
-              </div>
-            )}
+          {status.passes && !config.closingAt && !status.deadlineRequired && (
+            <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+              <LuTrendingUp className="size-4 shrink-0" aria-hidden="true" />
+              <p>{t('proposals.outcomes.eligibleNow')}</p>
+            </div>
+          )}
 
           {closedReason === 'event-start-elapsed' && (
             <p className="border-border bg-muted/50 text-muted-foreground rounded-md border px-3 py-2 text-sm">
@@ -147,13 +138,17 @@ export const VoteProgressDialog = ({
                     : t('proposals.labels.thresholdNotMet')}
                 </span>
               </div>
-              <Progress value={agreementsPercentage} />
+              <Progress value={status.approvalPercentage} />
               <p className="text-muted-foreground text-sm">
-                {t('proposals.descriptions.thresholdStatus', {
-                  current: status.agreements,
-                  required: status.requiredAgreements,
-                  threshold: config.agreementThreshold,
-                })}
+                {status.approvalVoteCount === 0
+                  ? t('proposals.descriptions.approvalNoVotes', {
+                      threshold: config.agreementThreshold,
+                    })
+                  : t('proposals.descriptions.approvalStatus', {
+                      percentage: status.approvalPercentage,
+                      count: status.approvalVoteCount,
+                      threshold: config.agreementThreshold,
+                    })}
               </p>
             </div>
           )}
@@ -177,13 +172,20 @@ export const VoteProgressDialog = ({
                 </span>
               </div>
               <Progress value={quorumPercentage} />
-              <p className="text-muted-foreground text-sm">
-                {t('proposals.descriptions.quorumStatus', {
-                  current: status.totalVotes,
-                  required: status.requiredQuorum,
-                  threshold: config.quorumThreshold,
-                })}
-              </p>
+              <div className="space-y-0.5 text-sm">
+                <p className="text-muted-foreground">
+                  {t('proposals.descriptions.quorumStatus', {
+                    current: status.totalVotes,
+                    required: status.requiredQuorum,
+                  })}
+                </p>
+                <p className="text-muted-foreground">
+                  {t('proposals.descriptions.quorumRequirement', {
+                    threshold: config.quorumThreshold,
+                    memberCount,
+                  })}
+                </p>
+              </div>
             </div>
           )}
 
