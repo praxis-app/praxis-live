@@ -1975,7 +1975,10 @@ test('vote progress separates participant approval from member-based quorum', as
   await proposal.getByRole('button', { name: '1 vote' }).click();
   await expect(progressDialog).toBeVisible();
   await expect(
-    progressDialog.getByText('100% approval from 1 participant (51% required)'),
+    progressDialog.getByText('1 of 1 participant agrees so far (51% required)'),
+  ).toBeVisible();
+  await expect(
+    progressDialog.getByText('1 of 2 responses required'),
   ).toBeVisible();
   await expect(progressDialog.getByLabel('pending')).toHaveCount(0);
   await expect(progressDialog.getByLabel('met', { exact: true })).toHaveCount(

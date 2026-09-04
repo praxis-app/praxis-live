@@ -145,7 +145,7 @@ export const VoteProgressDialog = ({
                       threshold: config.agreementThreshold,
                     })
                   : t('proposals.descriptions.approvalStatus', {
-                      percentage: status.approvalPercentage,
+                      agreements: status.agreements,
                       count: status.approvalVoteCount,
                       threshold: config.agreementThreshold,
                     })}
