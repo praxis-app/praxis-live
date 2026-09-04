@@ -14,7 +14,13 @@ import { type QueryKey } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuReply } from 'react-icons/lu';
-import { MdForum, MdLink, MdMoreHoriz, MdSettings } from 'react-icons/md';
+import {
+  MdHowToVote,
+  MdForum,
+  MdLink,
+  MdMoreHoriz,
+  MdSettings,
+} from 'react-icons/md';
 
 interface Props {
   poll: PollRes;
@@ -24,6 +30,7 @@ interface Props {
   canMoveToForum?: boolean;
   onOpenThread?: () => void;
   onCopyThreadLink?: () => void;
+  onViewVoteProgress: () => void;
   onViewSettings: () => void;
 }
 
@@ -35,6 +42,7 @@ export const ProposalMenu = ({
   canMoveToForum = false,
   onOpenThread,
   onCopyThreadLink,
+  onViewVoteProgress,
   onViewSettings,
 }: Props) => {
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
@@ -76,6 +84,10 @@ export const ProposalMenu = ({
               {t('messages.actions.copyLink')}
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem onSelect={deferUntilClosed(onViewVoteProgress)}>
+            <MdHowToVote />
+            {t('proposals.headers.voteProgress')}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={deferUntilClosed(onViewSettings)}>
             <MdSettings />
             {t('proposals.actions.viewSettings')}

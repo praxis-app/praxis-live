@@ -28,6 +28,7 @@ import {
   createServer,
   createServerAdmin,
   getDefaultServer,
+  getServerBySlug,
 } from '../lib/servers';
 import { ChatPage } from '../pages/chat.page';
 import { NavigationPage } from '../pages/navigation.page';
@@ -574,18 +575,31 @@ test('authenticated user can create and vote on an in-call proposal', async ({
 }) => {
   test.setTimeout(60_000);
 
+  // A dedicated server keeps the call's decision panel empty at the start: the
+  // call decision falls back to any proposal still open in the channel.
+  const serverAdmin = await createServerAdmin(request, 'call-proposal-admin');
+  const createdServer = await createServer(request, serverAdmin, {
+    name: `Call proposal ${serverAdmin.user.suffix}`,
+    slug: `call-proposal-${serverAdmin.user.suffix}`,
+  });
+  const callInvite = await createInvite(request, serverAdmin, createdServer.id);
   const authenticatedUser = await createAuthenticatedUser(
     request,
     context,
     createTestUser('call-proposal-vote'),
+    callInvite,
   );
-  const server = await getDefaultServer(request, authenticatedUser);
+  const server = await getServerBySlug(
+    request,
+    authenticatedUser,
+    createdServer.slug,
+  );
   const proposalBody = `In-call proposal ${authenticatedUser.user.suffix}`;
   const chat = new ChatPage(page);
   const navigation = new NavigationPage(page);
 
   try {
-    await chat.goto();
+    await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
 
     await chat.expectChannel('general');
     await navigation.expectSignedInUser(authenticatedUser.user);

@@ -92,6 +92,15 @@ export async function logInViaApi(
   };
 }
 
+/** True until the instance has its first user, when signup needs no invite. */
+export async function isFirstUser(request: APIRequestContext) {
+  const response = await request.get('/api/users/is-first');
+
+  await expect(response).toBeOK();
+  const body = (await response.json()) as { isFirstUser: boolean };
+  return body.isFirstUser;
+}
+
 export async function getOrCreateInstanceAdmin(
   request: APIRequestContext,
 ): Promise<AuthenticatedUser> {

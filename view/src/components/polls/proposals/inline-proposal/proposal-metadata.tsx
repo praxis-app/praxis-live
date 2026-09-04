@@ -63,7 +63,7 @@ export const ProposalMetadata = ({
         'text-muted-foreground focus-visible:ring-ring flex max-w-full min-w-0 cursor-pointer items-start rounded-sm pr-8 text-left text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none',
         variant === 'forum'
           ? 'flex-row flex-wrap items-center gap-y-1'
-          : 'flex-col gap-1 @sm:flex-row @sm:flex-wrap @sm:items-center @sm:gap-y-1',
+          : 'flex-col gap-y-1 @sm:flex-row @sm:flex-wrap @sm:items-center',
       )}
       onClick={onClick}
     >

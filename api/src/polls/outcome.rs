@@ -462,3 +462,216 @@ fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("poll outcome processing failed: {error}");
     ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error.")
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::{Duration, FixedOffset, TimeZone};
+
+    use super::*;
+
+    fn timestamp() -> DateTime<FixedOffset> {
+        FixedOffset::east_opt(0)
+            .expect("UTC offset should be valid")
+            .with_ymd_and_hms(2026, 9, 3, 12, 0, 0)
+            .single()
+            .expect("timestamp should be valid")
+    }
+
+    fn config() -> poll_configs::Model {
+        let now = timestamp();
+        poll_configs::Model {
+            id: Uuid::new_v4(),
+            poll_id: Uuid::new_v4(),
+            decision_making_model: None,
+            disagreements_limit: Some(1),
+            abstains_limit: Some(1),
+            agreement_threshold: Some(51),
+            quorum_enabled: Some(false),
+            quorum_threshold: Some(50),
+            blocks_open_to_all: Some(true),
+            multiple_choice: None,
+            closing_at: None,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    fn vote(vote_type: VoteType) -> votes::Model {
+        let now = timestamp();
+        votes::Model {
+            id: Uuid::new_v4(),
+            poll_id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
+            vote_type: Some(vote_type),
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    fn votes(vote_types: &[VoteType]) -> Vec<votes::Model> {
+        vote_types.iter().copied().map(vote).collect()
+    }
+
+    #[test]
+    fn has_consensus_enforces_deadline_quorum_threshold_and_limits() {
+        let now = timestamp();
+        let mut config = config();
+        config.quorum_enabled = Some(true);
+
+        assert!(!has_consensus(&votes(&[VoteType::Agree]), &config, 4, now,)
+            .expect("consensus evaluation should succeed"));
+        assert!(!has_consensus(
+            &votes(&[VoteType::Agree, VoteType::Disagree]),
+            &config,
+            4,
+            now,
+        )
+        .expect("consensus evaluation should succeed"));
+        assert!(has_consensus(
+            &votes(&[VoteType::Agree, VoteType::Agree, VoteType::Disagree,]),
+            &config,
+            4,
+            now,
+        )
+        .expect("consensus evaluation should succeed"));
+        assert!(!has_consensus(
+            &votes(&[VoteType::Agree, VoteType::Agree, VoteType::Block,]),
+            &config,
+            4,
+            now,
+        )
+        .expect("consensus evaluation should succeed"));
+        assert!(!has_consensus(
+            &votes(&[
+                VoteType::Agree,
+                VoteType::Agree,
+                VoteType::Agree,
+                VoteType::Disagree,
+                VoteType::Disagree,
+            ]),
+            &config,
+            4,
+            now,
+        )
+        .expect("consensus evaluation should succeed"));
+        assert!(!has_consensus(
+            &votes(&[
+                VoteType::Agree,
+                VoteType::Agree,
+                VoteType::Abstain,
+                VoteType::Abstain,
+            ]),
+            &config,
+            4,
+            now,
+        )
+        .expect("consensus evaluation should succeed"));
+
+        config.closing_at = Some(now + Duration::minutes(1));
+        assert!(!has_consensus(
+            &votes(&[VoteType::Agree, VoteType::Agree]),
+            &config,
+            4,
+            now,
+        )
+        .expect("consensus evaluation should succeed"));
+        assert!(has_consensus(
+            &votes(&[VoteType::Agree, VoteType::Agree]),
+            &config,
+            4,
+            now + Duration::minutes(1),
+        )
+        .expect("consensus evaluation should succeed"));
+    }
+
+    #[test]
+    fn has_consent_requires_deadline_and_enforces_limits_at_boundary() {
+        let now = timestamp();
+        let mut config = config();
+
+        assert!(!has_consent(&[], &config, now)
+            .expect("consent evaluation should succeed"));
+
+        config.closing_at = Some(now + Duration::minutes(1));
+        assert!(!has_consent(&[], &config, now)
+            .expect("consent evaluation should succeed"));
+        assert!(has_consent(&[], &config, now + Duration::minutes(1))
+            .expect("consent evaluation should succeed"));
+        assert!(has_consent(
+            &votes(&[VoteType::Disagree, VoteType::Abstain]),
+            &config,
+            now + Duration::minutes(1),
+        )
+        .expect("consent evaluation should succeed"));
+        assert!(!has_consent(
+            &votes(&[VoteType::Disagree, VoteType::Disagree]),
+            &config,
+            now + Duration::minutes(1),
+        )
+        .expect("consent evaluation should succeed"));
+        assert!(!has_consent(
+            &votes(&[VoteType::Abstain, VoteType::Abstain]),
+            &config,
+            now + Duration::minutes(1),
+        )
+        .expect("consent evaluation should succeed"));
+        assert!(!has_consent(
+            &votes(&[VoteType::Block]),
+            &config,
+            now + Duration::minutes(1),
+        )
+        .expect("consent evaluation should succeed"));
+    }
+
+    #[test]
+    fn has_majority_vote_uses_non_abstaining_participants_and_quorum() {
+        let now = timestamp();
+        let mut config = config();
+        config.quorum_enabled = Some(true);
+
+        assert!(!has_majority_vote(
+            &votes(&[VoteType::Agree]),
+            &config,
+            4,
+            now,
+        )
+        .expect("majority evaluation should succeed"));
+        assert!(!has_majority_vote(
+            &votes(&[VoteType::Agree, VoteType::Disagree]),
+            &config,
+            4,
+            now,
+        )
+        .expect("majority evaluation should succeed"));
+        assert!(has_majority_vote(
+            &votes(&[VoteType::Agree, VoteType::Agree, VoteType::Disagree,]),
+            &config,
+            4,
+            now,
+        )
+        .expect("majority evaluation should succeed"));
+        assert!(has_majority_vote(
+            &votes(&[VoteType::Agree, VoteType::Abstain]),
+            &config,
+            4,
+            now,
+        )
+        .expect("abstentions should count for quorum but not the majority"));
+
+        config.closing_at = Some(now + Duration::minutes(1));
+        assert!(!has_majority_vote(
+            &votes(&[VoteType::Agree, VoteType::Agree]),
+            &config,
+            4,
+            now,
+        )
+        .expect("majority evaluation should succeed"));
+        assert!(has_majority_vote(
+            &votes(&[VoteType::Agree, VoteType::Agree]),
+            &config,
+            4,
+            now + Duration::minutes(1),
+        )
+        .expect("majority evaluation should succeed"));
+    }
+}

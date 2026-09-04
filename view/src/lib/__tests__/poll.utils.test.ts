@@ -20,6 +20,29 @@ const vote = (
 ): VoteRes => ({ id, voteType, ...(blockIgnored ? { blockIgnored } : {}) });
 
 describe('getProposalRuleStatus', () => {
+  it('should report approval among Agree and Disagree votes', () => {
+    const status = getProposalRuleStatus(
+      [vote('1', 'agree'), vote('2', 'disagree'), vote('3', 'abstain')],
+      consensusConfig,
+      7,
+    );
+
+    expect(status.approvalVoteCount).toBe(2);
+    expect(status.approvalPercentage).toBe(50);
+    expect(status.agreementMet).toBe(false);
+  });
+
+  it('should not round approval up to a passing whole percentage', () => {
+    const status = getProposalRuleStatus(
+      [vote('1', 'agree'), vote('2', 'agree'), vote('3', 'disagree')],
+      { ...consensusConfig, agreementThreshold: 67 },
+      3,
+    );
+
+    expect(status.approvalPercentage).toBe(66.7);
+    expect(status.agreementMet).toBe(false);
+  });
+
   it('should let an eligible block prevent the proposal from passing', () => {
     const status = getProposalRuleStatus(
       [vote('1', 'agree'), vote('2', 'block')],
