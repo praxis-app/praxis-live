@@ -1,4 +1,3 @@
-import { UserAvatar } from '@/components/users/user-avatar';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -6,6 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { UserAvatar } from '@/components/users/user-avatar';
 import { cn } from '@/lib/shared.utils';
 import { timeAgo } from '@/lib/time.utils';
 import { type NotificationRes } from '@/types/notification.types';
@@ -13,13 +13,13 @@ import { useTranslation } from 'react-i18next';
 import {
   LuBadgeCheck,
   LuCheck,
-  LuCircleDot,
-  LuMessageCircle,
   LuEllipsis,
+  LuMessageCircle,
   LuReply,
   LuTrash2,
   LuVote,
 } from 'react-icons/lu';
+import { MdOutlineAddModerator } from 'react-icons/md';
 
 interface Props {
   notification: NotificationRes;
@@ -43,7 +43,9 @@ const getIcon = (kind: NotificationRes['kind'], className: string) => {
     case 'proposal_closed':
       return <LuBadgeCheck className={className} />;
     case 'server_role_granted':
-      return <LuCircleDot className={className} />;
+      return (
+        <MdOutlineAddModerator className={cn(className, '-mb-px scale-90')} />
+      );
     default:
       return <LuMessageCircle className={className} />;
   }
@@ -58,16 +60,21 @@ export const NotificationItem = ({
   onDelete,
 }: Props) => {
   const { t } = useTranslation();
+
   const actorName =
-    notification.actor?.displayName || notification.actor?.name ||
+    notification.actor?.displayName ||
+    notification.actor?.name ||
     t('notifications.labels.system');
+
   const isUnread = !notification.readAt;
   const isAvailable = notification.target.available;
   const count = notification.unreadCount || 1;
+
   const itemKey =
     notification.kind === 'new_message' && notification.target.forumPostId
       ? 'new_message_forum'
       : notification.kind;
+
   const description = t(`notifications.items.${itemKey}`, {
     actor: actorName,
     channel: notification.target.channelName,
@@ -85,7 +92,8 @@ export const NotificationItem = ({
       className={cn(
         'group relative flex items-start gap-2 border-b px-3 py-3',
         isLast && 'border-b-0',
-        isUnread && 'bg-primary/5 before:bg-primary before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full',
+        isUnread &&
+          'bg-primary/5 before:bg-primary before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full',
       )}
     >
       <div className="relative mt-0.5 shrink-0">
@@ -140,9 +148,7 @@ export const NotificationItem = ({
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             onSelect={() =>
-              isUnread
-                ? onMarkRead(notification)
-                : onMarkUnread(notification)
+              isUnread ? onMarkRead(notification) : onMarkUnread(notification)
             }
           >
             <LuCheck />
