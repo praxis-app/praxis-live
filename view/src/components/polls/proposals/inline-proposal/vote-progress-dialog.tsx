@@ -251,14 +251,15 @@ export const VoteProgressDialog = ({
                 met={status.blocksMet}
                 pending={limitsPending}
               />
-              {status.ignoredBlocks > 0 && (
-                <p className="text-muted-foreground text-sm">
-                  {t('proposals.descriptions.ignoredBlocks', {
-                    count: status.ignoredBlocks,
-                  })}
-                </p>
-              )}
             </div>
+          )}
+
+          {status.ignoredBlocks > 0 && (
+            <p className="text-muted-foreground text-sm">
+              {t('proposals.descriptions.ignoredBlocks', {
+                count: status.ignoredBlocks,
+              })}
+            </p>
           )}
         </div>
       </DialogContent>
