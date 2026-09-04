@@ -7,6 +7,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { ProposalRuleRow } from '@/components/polls/proposals/inline-proposal/proposal-rule-row';
 import { useAbility } from '@/hooks/use-ability';
 import { getProgressPercentage, getProposalRuleStatus } from '@/lib/poll.utils';
@@ -42,15 +43,19 @@ export const VoteProgressDialog = ({
 }: Props) => {
   const { t } = useTranslation();
   const { serverAbility } = useAbility();
+
   const status = getProposalRuleStatus(votes, config, memberCount);
   const showAgreement = status.agreementApplies;
   const showLimits = status.limitsApply;
+
   const quorumPercentage = getProgressPercentage(
     status.totalVotes,
     status.requiredQuorum,
   );
+
   // Limits can only be satisfied by votes, so they stay pending until one lands.
   const limitsPending = status.totalVotes === 0;
+
   // Rules that do not apply to this model already report as met, so only the
   // conditions that actually failed are named here.
   const failedRules =
@@ -66,12 +71,22 @@ export const VoteProgressDialog = ({
             : null,
         ].filter((rule): rule is string => !!rule)
       : [];
+
   // Mirrors the vote buttons: the block option is hidden for this member, so
   // the rules have to explain why rather than leaving it looking broken.
   const blockingRoleRestricted =
     config.decisionMakingModel !== 'majority-vote' &&
-    config.blocksOpenToAll === false &&
-    !serverAbility.can('create', 'ProposalBlock');
+    !serverAbility.can('create', 'ProposalBlock') &&
+    config.blocksOpenToAll === false;
+
+  const showEligibleAtDeadline =
+    status.passes && !!config.closingAt && !status.deadlineReached;
+
+  const showEligibleNow =
+    status.passes && !config.closingAt && !status.deadlineRequired;
+
+  const showOutcome =
+    showEligibleAtDeadline || showEligibleNow || failedRules.length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -115,14 +130,14 @@ export const VoteProgressDialog = ({
             </p>
           )}
 
-          {status.passes && config.closingAt && !status.deadlineReached && (
+          {showEligibleAtDeadline && (
             <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
               <LuClock3 className="size-4 shrink-0" aria-hidden="true" />
               <p>{t('proposals.outcomes.eligibleAtDeadline')}</p>
             </div>
           )}
 
-          {status.passes && !config.closingAt && !status.deadlineRequired && (
+          {showEligibleNow && (
             <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
               <LuTrendingUp className="size-4 shrink-0" aria-hidden="true" />
               <p>{t('proposals.outcomes.eligibleNow')}</p>
@@ -148,6 +163,8 @@ export const VoteProgressDialog = ({
               {t('proposals.outcomes.eventHostIneligible')}
             </p>
           )}
+
+          {showOutcome && showAgreement && <Separator />}
 
           {showAgreement && (
             <div className="space-y-2">
@@ -222,6 +239,8 @@ export const VoteProgressDialog = ({
               </div>
             </div>
           )}
+
+          {showLimits && <Separator />}
 
           {showLimits && (
             <div className="grid gap-3 text-sm">
