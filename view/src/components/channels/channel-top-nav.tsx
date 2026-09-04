@@ -1,6 +1,6 @@
+import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { ChannelDetailsDialogDesktop } from '@/components/channels/channel-details-dialog-desktop';
 import { ChannelDetailsDrawer } from '@/components/channels/channel-details-drawer';
-import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { NavSheet } from '@/components/nav/nav-sheet';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,10 @@ import {
 } from '@/components/ui/tooltip';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
-import { cn } from '@/lib/shared.utils';
 import { truncate } from '@/lib/text.utils';
 import { useAppStore } from '@/store/app.store';
-import { type ChannelRes } from '@/types/channel.types';
 import { type CallJoinPreferences, type JoinCallRes } from '@/types/call.types';
+import { type ChannelRes } from '@/types/channel.types';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft, LuListTodo } from 'react-icons/lu';
 import { MdChevronRight, MdForum, MdSearch, MdTag } from 'react-icons/md';
@@ -152,9 +151,6 @@ export const ChannelTopNav = ({
                     onClick={onToggleDecisionsPanel}
                     variant="ghost"
                     size="icon"
-                    className={cn(
-                      isDecisionsPanelOpen && 'bg-accent text-foreground',
-                    )}
                   >
                     <LuListTodo className="size-5" />
                   </Button>
@@ -170,6 +166,7 @@ export const ChannelTopNav = ({
           />
 
           <div className="flex items-center gap-0.5">
+            <NotificationBell />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -183,7 +180,6 @@ export const ChannelTopNav = ({
               </TooltipTrigger>
               <TooltipContent>{searchLabel}</TooltipContent>
             </Tooltip>
-            <NotificationBell />
           </div>
         </div>
       </TooltipProvider>
