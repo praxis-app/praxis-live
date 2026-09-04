@@ -204,13 +204,25 @@ export const TextChannelView = ({
     typeof navigationState?.decisionId === 'string'
       ? navigationState.decisionId
       : undefined;
+  const notificationMessageId = new URLSearchParams(location.search).get(
+    'message',
+  );
 
   const clearFocusedDecisionRequest = useCallback(() => {
-    void navigate(location, { replace: true, state: null });
+    const nextSearchParams = new URLSearchParams(location.search);
+    nextSearchParams.delete('message');
+    void navigate(
+      { ...location, search: nextSearchParams.toString() },
+      { replace: true, state: null },
+    );
   }, [location, navigate]);
 
   const videoCallsEnabled = capabilities?.videoCallsEnabled === true;
   const focusedDecisionId = navigationDecisionId;
+
+  // The feed is swapped out for the thread panel on narrow layouts, so a focus
+  // request waits there rather than flashing behind a hidden feed.
+  const isFeedHidden = !isDesktop && !!thread;
 
   // Keep the thread panel root in sync with live feed updates such as votes.
   const threadPoll = useMemo(() => {
@@ -238,14 +250,18 @@ export const TextChannelView = ({
     );
   }, [feed, navigate, server?.slug, thread]);
 
-  // Load more of the feed until the selected decision is found.
+  // Load more of the feed until the selected notification target is found.
   useEffect(() => {
     const isDecisionLoaded = feed.some(
       (item) => item.type === 'poll' && item.id === focusedDecisionId,
     );
+    const isMessageLoaded = feed.some(
+      (item) => item.type === 'message' && item.id === notificationMessageId,
+    );
     if (
-      !focusedDecisionId ||
+      (!focusedDecisionId && !notificationMessageId) ||
       isDecisionLoaded ||
+      isMessageLoaded ||
       !hasNextPage ||
       isFetchNextPageError ||
       isFetchingNextPage
@@ -257,6 +273,7 @@ export const TextChannelView = ({
     feed,
     fetchNextPage,
     focusedDecisionId,
+    notificationMessageId,
     hasNextPage,
     isFetchNextPageError,
     isFetchingNextPage,
@@ -596,7 +613,10 @@ export const TextChannelView = ({
               isJoiningCall={isJoining}
               feedQueryKey={feedQueryKey}
               isLoadingMore={isFetchingNextPage}
-              focusedDecisionId={focusedDecisionId}
+              focusedDecisionId={isFeedHidden ? undefined : focusedDecisionId}
+              focusedMessageId={
+                isFeedHidden ? undefined : notificationMessageId || undefined
+              }
               focusedDecisionRequestKey={location.key}
               onFocusedDecisionHandled={clearFocusedDecisionRequest}
               onJoinCall={videoCallsEnabled ? joinCall : undefined}

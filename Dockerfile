@@ -12,10 +12,13 @@ COPY entity ./entity
 COPY migrations ./migrations
 COPY src ./src
 
+# Copied files keep old timestamps, so cargo can miss changes and reuse the
+# cached build. Touching them first makes sure changed code is rebuilt.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/app/target \
-    cargo build --release -p praxis-live \
+    find api cli entity migrations src -name '*.rs' -exec touch {} + \
+    && cargo build --release -p praxis-live \
     && cp /app/target/release/praxis-live /praxis-live
 
 # Frontend build stage

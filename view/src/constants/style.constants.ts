@@ -1,2 +1,2 @@
-export const DECISION_FOCUS_TARGET_CLASS_NAME =
-  "relative isolate before:pointer-events-none before:absolute before:-inset-2 before:-z-1 before:rounded-xl before:bg-[color-mix(in_oklab,var(--blurple-1)_16%,var(--background))] before:opacity-0 before:content-[''] data-[decision-highlight=true]:before:animate-decision-focus motion-reduce:data-[decision-highlight=true]:before:animate-none motion-reduce:data-[decision-highlight=true]:before:opacity-100";
+export const FOCUS_HIGHLIGHT_TARGET_CLASS_NAME =
+  "relative isolate before:pointer-events-none before:absolute before:-inset-2 before:-z-1 before:rounded-xl before:bg-[color-mix(in_oklab,var(--blurple-1)_16%,var(--background))] before:opacity-0 before:content-[''] data-[focus-highlight=true]:before:animate-focus-highlight motion-reduce:data-[focus-highlight=true]:before:animate-none motion-reduce:data-[focus-highlight=true]:before:opacity-100";

@@ -134,3 +134,17 @@ pub(crate) struct MoveProposalToForumResponse {
     #[serde(skip)]
     pub(crate) destination_channel_id: Uuid,
 }
+
+/// A created forum reply plus the notification rows it persisted, which the
+/// handler publishes once the reply transaction has committed.
+#[derive(Debug)]
+pub(super) struct CreatedForumPost {
+    pub(super) post: ForumPostResponse,
+    pub(super) notifications: Vec<entity::notifications::Model>,
+}
+
+pub(super) struct CreatedForumReply {
+    pub(super) reply: crate::messages::types::MessageResponse,
+    pub(super) summary: ForumPostSummaryResponse,
+    pub(super) notifications: Vec<entity::notifications::Model>,
+}

@@ -26,7 +26,7 @@ use super::{
 };
 use crate::{
     common::{ApiError, AppResult},
-    poll_actions,
+    notifications, poll_actions,
     pub_sub::PubSubService,
 };
 
@@ -165,7 +165,14 @@ async fn synchronize_proposals(
                 continue;
             };
 
-            match synchronize_proposal(database, &poll, &config).await {
+            match synchronize_proposal(
+                database,
+                pub_sub_service,
+                &poll,
+                &config,
+            )
+            .await
+            {
                 Ok(ProposalSyncAction::Ratify) => {
                     broadcast_stored_poll_update(
                         database,
@@ -392,6 +399,7 @@ async fn close_expired_polls(
 
 async fn synchronize_proposal(
     database: &DatabaseConnection,
+    pub_sub_service: &PubSubService,
     poll: &polls::Model,
     config: &poll_configs::Model,
 ) -> AppResult<ProposalSyncAction> {
@@ -428,11 +436,17 @@ async fn synchronize_proposal(
             transaction.commit().await.map_err(internal_error)?;
         }
         ProposalSyncAction::Ratify => {
-            let finalization =
+            let outcome =
                 finalize_ratifiable_proposal(&transaction, poll.id, now)
                     .await?;
             transaction.commit().await.map_err(internal_error)?;
-            return Ok(match finalization {
+            notifications::publish_notifications(
+                database,
+                pub_sub_service,
+                &outcome.notifications,
+            )
+            .await;
+            return Ok(match outcome.finalization {
                 ProposalFinalization::Ratified => ProposalSyncAction::Ratify,
                 ProposalFinalization::Closed(_) => ProposalSyncAction::Close,
             });

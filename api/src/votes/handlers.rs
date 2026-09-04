@@ -9,6 +9,7 @@ use super::{
 };
 use crate::{
     common::{response::EmptyResponse, AppResult},
+    notifications,
     polls::{service as polls_service, PollsState},
 };
 
@@ -35,7 +36,8 @@ pub(super) async fn create_vote(
     let channel_id = context.channel_id;
     let poll_id = context.poll_id;
     let user_id = context.user_id;
-    let vote = service::create_vote(
+
+    let created = service::create_vote(
         &state.database,
         server_id,
         context.poll,
@@ -57,7 +59,14 @@ pub(super) async fn create_vote(
         tracing::warn!("failed to broadcast vote update: {error}");
     }
 
-    Ok(Json(VotePayload { vote }))
+    notifications::publish_notifications(
+        &state.database,
+        &state.pub_sub_service,
+        &created.notifications,
+    )
+    .await;
+
+    Ok(Json(VotePayload { vote: created.vote }))
 }
 
 pub(super) async fn update_vote(
@@ -69,7 +78,7 @@ pub(super) async fn update_vote(
     let channel_id = context.route.channel_id;
     let poll_id = context.route.poll_id;
     let user_id = context.route.user_id;
-    let response = service::update_vote(
+    let updated = service::update_vote(
         &state.database,
         server_id,
         context.route.poll,
@@ -78,6 +87,12 @@ pub(super) async fn update_vote(
         payload,
     )
     .await?;
+    notifications::publish_notifications(
+        &state.database,
+        &state.pub_sub_service,
+        &updated.notifications,
+    )
+    .await;
 
     if let Err(error) = polls_service::broadcast_poll_update(
         &state.database,
@@ -92,7 +107,7 @@ pub(super) async fn update_vote(
         tracing::warn!("failed to broadcast vote update: {error}");
     }
 
-    Ok(Json(response))
+    Ok(Json(updated.vote))
 }
 
 pub(super) async fn delete_vote(

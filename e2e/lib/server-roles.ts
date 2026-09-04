@@ -73,3 +73,36 @@ export async function getServerRole(
   await expect(response).toBeOK();
   return ((await response.json()) as ServerRoleResponse).serverRole;
 }
+
+export async function createServerRole(
+  request: APIRequestContext,
+  granter: AuthenticatedUser,
+  serverId: string,
+  name: string,
+) {
+  const response = await request.post(`/api/servers/${serverId}/roles`, {
+    headers: authorizationHeaders(granter),
+    data: { name, color: '#2196f3' },
+  });
+
+  await expect(response).toBeOK();
+  return ((await response.json()) as ServerRoleResponse).serverRole;
+}
+
+export async function addServerRoleMembers(
+  request: APIRequestContext,
+  granter: AuthenticatedUser,
+  serverId: string,
+  serverRoleId: string,
+  userIds: string[],
+) {
+  const response = await request.post(
+    `/api/servers/${serverId}/roles/${serverRoleId}/members`,
+    {
+      headers: authorizationHeaders(granter),
+      data: { userIds },
+    },
+  );
+
+  await expect(response).toBeOK();
+}

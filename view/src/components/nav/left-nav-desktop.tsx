@@ -46,7 +46,6 @@ import {
 } from 'react-icons/md';
 import { TbSwitchHorizontal } from 'react-icons/tb';
 import { Link, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
 
 interface Props {
   me?: CurrentUserRes;
@@ -202,13 +201,17 @@ export const LeftNavDesktop = ({ me }: Props) => {
         <LeftNavUserMenu />
 
         {isLoggedIn ? (
-          <Button
-            onClick={() => toast(t('prompts.inDev'))}
-            variant="ghost"
-            size="icon"
-          >
-            <MdSettings className="text-muted-foreground size-6" />
-          </Button>
+          !me?.anonymous && (
+            <Link to={NavigationPaths.UserSettings}>
+              <Button
+                aria-label={t('settings.headers.userSettings')}
+                variant="ghost"
+                size="icon"
+              >
+                <MdSettings className="text-muted-foreground size-6" />
+              </Button>
+            </Link>
+          )
         ) : (
           <div
             className={cn(

@@ -26,6 +26,7 @@ use crate::{
         storage::upload_root, AppResult,
     },
     invites::InviteAccessToken,
+    notifications,
     pub_sub::PubSubService,
 };
 
@@ -70,9 +71,10 @@ pub(super) async fn create_message(
     multipart: JsonOrMultipartFiles<CreateMessageRequest>,
 ) -> AppResult<Json<MessagePayload>> {
     let (payload, images) = multipart.into_payload_and_files();
-    let message = service::create_message(
+    let created = service::create_message(
         &chat_state.database,
         &chat_state.upload_root,
+        context.server_id,
         context.channel_id,
         context.user_id,
         payload,
@@ -85,14 +87,22 @@ pub(super) async fn create_message(
         context.server_id,
         context.channel_id,
         context.user_id,
-        &message,
+        &created.message,
     )
     .await
     {
         tracing::warn!("failed to broadcast created message: {error}");
     }
+    notifications::publish_notifications(
+        &chat_state.database,
+        &chat_state.pub_sub_service,
+        &created.notifications,
+    )
+    .await;
 
-    Ok(Json(MessagePayload { message }))
+    Ok(Json(MessagePayload {
+        message: created.message,
+    }))
 }
 
 pub(super) async fn list_replies(
@@ -146,6 +156,12 @@ pub(super) async fn create_reply(
     {
         tracing::warn!("failed to broadcast created thread reply: {error}");
     }
+    notifications::publish_notifications(
+        &chat_state.database,
+        &chat_state.pub_sub_service,
+        &created.notifications,
+    )
+    .await;
 
     Ok(Json(MessagePayload {
         message: created.reply,

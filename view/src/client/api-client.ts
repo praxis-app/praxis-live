@@ -13,6 +13,7 @@ import {
   type ChannelRes,
   type CreateChannelReq,
   type FeedPageRes,
+  type UnreadChannelsRes,
   type UpdateChannelOrderReq,
   type UpdateChannelReq,
 } from '@/types/channel.types';
@@ -48,6 +49,11 @@ import {
 import { type CreatePollReq, type PollRes } from '@/types/poll.types';
 import { type ActiveDecisionsRes } from '@/types/decision.types';
 import {
+  type NotificationPayload,
+  type NotificationsPageRes,
+  type UnreadNotificationCountRes,
+} from '@/types/notification.types';
+import {
   type CreateRoleReq,
   type InstanceRoleRes,
   type ServerRoleRes,
@@ -65,6 +71,10 @@ import {
   type UserProfileRes,
   type UserRes,
 } from '@/types/user.types';
+import {
+  type UserConfigReq,
+  type UserConfigRes,
+} from '@/types/user-config.types';
 import {
   type CreateVoteReq,
   type CreateVoteRes,
@@ -136,6 +146,18 @@ class ApiClient {
     return this.executeRequest<{ servers: ServerRes[] }>('get', path);
   };
 
+  getUserConfig = async () => {
+    const path = '/users/me/configs';
+    return this.executeRequest<{ userConfig: UserConfigRes }>('get', path);
+  };
+
+  updateUserConfig = async (data: UserConfigReq) => {
+    const path = '/users/me/configs';
+    return this.executeRequest<{ userConfig: UserConfigRes }>('put', path, {
+      data,
+    });
+  };
+
   getUserProfile = async (userId: string) => {
     const path = `/users/${userId}/profile`;
     return this.executeRequest<{ user: UserProfileRes }>('get', path);
@@ -189,6 +211,16 @@ class ApiClient {
   getJoinedChannels = async (serverId: string) => {
     const path = `/servers/${serverId}/channels/joined`;
     return this.executeRequest<{ channels: ChannelRes[] }>('get', path);
+  };
+
+  getUnreadChannels = async (serverId: string) => {
+    const path = `/servers/${serverId}/channels/unread`;
+    return this.executeRequest<UnreadChannelsRes>('get', path);
+  };
+
+  markChannelRead = async (serverId: string, channelId: string) => {
+    const path = `/servers/${serverId}/channels/${channelId}/read`;
+    return this.executeRequest<void>('put', path);
   };
 
   getChannelFeed = async (
@@ -913,6 +945,54 @@ class ApiClient {
 
   deleteInvite = async (serverId: string, inviteId: string) => {
     const path = `/servers/${serverId}/invites/${inviteId}`;
+    return this.executeRequest<void>('delete', path);
+  };
+
+  // -------------------------------------------------------------------------
+  // Notifications
+  // -------------------------------------------------------------------------
+
+  getNotifications = async (
+    serverId: string,
+    before?: string,
+    limit?: number,
+  ) => {
+    const path = `/servers/${serverId}/notifications`;
+    return this.executeRequest<NotificationsPageRes>('get', path, {
+      params: { before, limit },
+    });
+  };
+
+  getUnreadNotificationCount = async (serverId: string) => {
+    const path = `/servers/${serverId}/notifications/unread-count`;
+    return this.executeRequest<UnreadNotificationCountRes>('get', path);
+  };
+
+  markNotificationRead = async (serverId: string, notificationId: string) => {
+    const path = `/servers/${serverId}/notifications/${notificationId}/read`;
+    return this.executeRequest<NotificationPayload>('put', path);
+  };
+
+  markNotificationUnread = async (
+    serverId: string,
+    notificationId: string,
+  ) => {
+    const path = `/servers/${serverId}/notifications/${notificationId}/unread`;
+    return this.executeRequest<NotificationPayload>('put', path);
+  };
+
+  markAllNotificationsRead = async (serverId: string) => {
+    const path = `/servers/${serverId}/notifications/read-all`;
+    return this.executeRequest<void>('put', path);
+  };
+
+  deleteNotification = async (serverId: string, notificationId: string) => {
+    const path = `/servers/${serverId}/notifications/${notificationId}`;
+    return this.executeRequest<void>('delete', path);
+  };
+
+  clearNotifications = async (serverId: string) => {
+    const path = `/servers/${serverId}/notifications`;
     return this.executeRequest<void>('delete', path);
   };
 

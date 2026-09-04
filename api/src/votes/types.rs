@@ -55,6 +55,20 @@ pub(super) struct CreateVoteResponse {
     pub(super) closed_reason: Option<String>,
 }
 
+/// A vote mutation plus the notification rows it persisted, which the handler
+/// publishes once the vote transaction has committed.
+#[derive(Debug)]
+pub(super) struct CreatedVote {
+    pub(super) vote: CreateVoteResponse,
+    pub(super) notifications: Vec<entity::notifications::Model>,
+}
+
+#[derive(Debug)]
+pub(super) struct UpdatedVote {
+    pub(super) vote: UpdateVoteResponse,
+    pub(super) notifications: Vec<entity::notifications::Model>,
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct VotePayload {
     pub(super) vote: CreateVoteResponse,

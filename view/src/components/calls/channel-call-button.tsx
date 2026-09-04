@@ -98,7 +98,7 @@ export const ChannelCallButton = ({
                 variant="ghost"
                 size="icon"
               >
-                <TbVideo className="size-6" />
+                <TbVideo className="size-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t('calls.actions.call')}</TooltipContent>

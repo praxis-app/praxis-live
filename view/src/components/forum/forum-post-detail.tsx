@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useFocusHighlight } from '@/hooks/use-focus-highlight';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import { useServerData } from '@/hooks/use-server-data';
 import { cn } from '@/lib/shared.utils';
@@ -18,7 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdClose, MdLockOutline } from 'react-icons/md';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 interface Props {
   channel: ChannelRes;
@@ -28,6 +29,7 @@ interface Props {
 
 export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const [isProposalSettingsOpen, setIsProposalSettingsOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { inviteToken, me } = useAuthData();
   const { serverId, serverPath } = useServerData();
@@ -65,6 +67,7 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
   const wasNearBottomRef = useRef(true);
   const previousReplyCountRef = useRef<number | undefined>(undefined);
   const replyCount = post?.replies.length;
+  const focusedReplyId = searchParams.get('reply');
 
   useEffect(() => {
     setIsProposalSettingsOpen(false);
@@ -91,6 +94,22 @@ export const ForumPostDetail = ({ channel, postId, isPane = false }: Props) => {
     wasNearBottomRef.current = true;
     scrollToBottom();
   }, [replyCount, scrollToBottom]);
+
+  const clearFocusedReply = useCallback(() => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('reply');
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useFocusHighlight({
+    containerRef: scrollContainerRef,
+    targetSelector: focusedReplyId
+      ? `[data-message-id="${CSS.escape(focusedReplyId)}"]`
+      : null,
+    revision: post,
+    block: 'center',
+    onHandled: clearFocusedReply,
+  });
 
   const setScrollContainer = useCallback(
     (element: HTMLElement | null) => {

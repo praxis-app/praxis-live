@@ -1,7 +1,8 @@
 use axum::http::StatusCode;
 use entity::{
-    enums::{ServerAbilitySubject, ServerRoleAbilityAction},
-    server_role_members, server_role_permissions, server_roles, users,
+    enums::{NotificationKind, ServerAbilitySubject, ServerRoleAbilityAction},
+    notifications, server_role_members, server_role_permissions, server_roles,
+    users,
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ColumnTrait, ConnectionTrait,
@@ -18,6 +19,7 @@ use crate::{
         DEFAULT_ROLE_COLOR,
     },
     common::{text::sanitize_text, ApiError, AppResult},
+    notifications as notifications_service,
     servers::{self, types::UserResponse},
     users as users_service,
 };
@@ -265,7 +267,8 @@ where
         ],
     )
     .await?;
-    add_member(database, role.id, user_id).await
+    add_member(database, role.id, user_id).await?;
+    Ok(())
 }
 
 pub(super) async fn update_server_role(
@@ -294,13 +297,18 @@ pub(super) async fn update_server_role_permissions(
     set_permissions(database, role_id, &permissions).await
 }
 
+/// Returns the notifications for every user newly added to the role, so the
+/// handler can publish them once the grant is durable. The proposal path
+/// notifies the same way from `poll_actions::roles`.
 pub(super) async fn add_server_role_members(
     database: &DatabaseConnection,
     server_id: Uuid,
     role_id: Uuid,
+    actor_user_id: Uuid,
     user_ids: &[Uuid],
-) -> AppResult<()> {
+) -> AppResult<Vec<notifications::Model>> {
     load_server_role(database, server_id, role_id).await?;
+    let mut granted_user_ids = Vec::new();
     for user_id in user_ids {
         if users::Entity::find_by_id(*user_id)
             .one(database)
@@ -321,9 +329,26 @@ pub(super) async fn add_server_role_members(
             ));
         }
 
-        add_member(database, role_id, *user_id).await?;
+        if add_member(database, role_id, *user_id).await? {
+            granted_user_ids.push(*user_id);
+        }
     }
-    Ok(())
+
+    notifications_service::create_notifications(
+        database,
+        notifications_service::NewNotification {
+            kind: NotificationKind::ServerRoleGranted,
+            server_id,
+            channel_id: None,
+            actor_user_id: Some(actor_user_id),
+            target: notifications_service::NotificationTarget::ServerRole(
+                role_id,
+            ),
+            vote_type: None,
+            recipient_ids: granted_user_ids,
+        },
+    )
+    .await
 }
 
 pub(super) async fn remove_server_role_member(
@@ -470,11 +495,13 @@ fn parse_server_action(value: &str) -> AppResult<ServerRoleAbilityAction> {
     })
 }
 
+/// Reports whether the membership was newly created, so callers can tell a
+/// fresh grant apart from a repeat of one the user already has.
 async fn add_member<C>(
     database: &C,
     role_id: Uuid,
     user_id: Uuid,
-) -> AppResult<()>
+) -> AppResult<bool>
 where
     C: ConnectionTrait,
 {
@@ -486,7 +513,7 @@ where
         .map_err(internal_error)?
         .is_some();
     if exists {
-        return Ok(());
+        return Ok(false);
     }
 
     server_role_members::ActiveModel {
@@ -498,7 +525,7 @@ where
     .insert(database)
     .await
     .map_err(internal_error)?;
-    Ok(())
+    Ok(true)
 }
 
 async fn load_server_role(

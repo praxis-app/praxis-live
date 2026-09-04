@@ -16,6 +16,8 @@ import { UserAvatar } from '@/components/users/user-avatar';
 import { NavigationPaths } from '@/constants/shared.constants';
 import { useAuthData } from '@/hooks/use-auth-data';
 import { useServerData } from '@/hooks/use-server-data';
+import { useUnreadChannels } from '@/hooks/use-unread-channels';
+import { cn } from '@/lib/shared.utils';
 import { useAuthStore } from '@/store/auth.store';
 import { useNavStore } from '@/store/nav.store';
 import { PRAXIS_NAME } from '@/constants/app.constants';
@@ -48,6 +50,7 @@ export const NavSheet = ({ trigger }: Props) => {
   const { me, isLoggedIn, signUpPath, showSignUp, isMeSuccess } = useAuthData();
 
   const { serverId, serverPath } = useServerData();
+  const { unreadChannelIds } = useUnreadChannels();
 
   const { data: joinedChannelsData } = useQuery({
     queryKey: ['servers', serverId, 'channels', 'joined'],
@@ -144,14 +147,26 @@ export const NavSheet = ({ trigger }: Props) => {
               key={channel.id}
               to={`${channelsPath}/${channel.id}`}
               onClick={() => setIsNavSheetOpen(false)}
-              className="flex items-center gap-1.5 text-lg tracking-[0.01em]"
+              className="relative flex items-center gap-1.5 text-lg tracking-[0.01em]"
             >
+              {unreadChannelIds.includes(channel.id) && (
+                <span
+                  className="bg-foreground absolute top-1/2 -left-4 h-2 w-1 -translate-y-1/2 rounded-r-full"
+                  aria-hidden
+                />
+              )}
               {channel.channelType === 'forum' ? (
                 <MdForum className="mr-1 size-6" />
               ) : (
                 <MdTag className="mr-1 size-6" />
               )}
-              <div>{channel.name}</div>
+              <div
+                className={cn(
+                  unreadChannelIds.includes(channel.id) && 'font-medium',
+                )}
+              >
+                {channel.name}
+              </div>
             </Link>
           ))}
 

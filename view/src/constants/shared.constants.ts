@@ -1,5 +1,6 @@
 export const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 export const MIDDOT_WITH_SPACES = ' · ';
+export const USER_SETTINGS_SECTION_PARAM = 'section';
 
 export enum Time {
   Minute = 60,
@@ -35,7 +36,12 @@ export enum NavigationPaths {
   Roles = '/settings/roles',
   Settings = '/settings',
   SignUp = '/auth/signup',
-  UsersEdit = '/users/edit',
+  UserSettings = '/users/settings',
+}
+
+export enum UserSettingsSections {
+  Profile = 'profile',
+  Notifications = 'notifications',
 }
 
 export enum TruncationSizes {

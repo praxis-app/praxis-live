@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { MdEdit } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import { api } from '../../client/api-client';
-import { NavigationPaths } from '../../constants/shared.constants';
+import { UserSettingsSections } from '../../constants/shared.constants';
+import { getUserSettingsPath } from '../../lib/user-settings.utils';
 import { cn } from '../../lib/shared.utils';
 import { LazyLoadImage } from '../images/lazy-load-image';
 import { Button } from '../ui/button';
@@ -100,7 +101,10 @@ export const UserProfile = ({ userId, me, className }: Props) => {
         )}
 
         {isMe && !me.anonymous && (
-          <Link to={NavigationPaths.UsersEdit} className="mt-2 px-2">
+          <Link
+            to={getUserSettingsPath(UserSettingsSections.Profile)}
+            className="mt-2 px-2"
+          >
             <Button variant="outline" className="w-full gap-1.5">
               <MdEdit className="size-4" /> {t('users.actions.editProfile')}
             </Button>

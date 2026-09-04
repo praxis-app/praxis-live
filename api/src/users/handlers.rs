@@ -10,8 +10,10 @@ use super::{
     service,
     types::{
         CurrentUserPayload, FirstUserResponse, UpdateUserProfileRequest,
-        UserImagePath, UserImagePayload, UserProfilePayload,
+        UserConfigPayload, UserConfigRequest, UserImagePath, UserImagePayload,
+        UserProfilePayload,
     },
+    user_configs,
 };
 use crate::{
     auth::{AuthenticatedUser, AuthenticatedUserOptional, HasJwtSecret},
@@ -76,6 +78,26 @@ pub(super) async fn get_current_user_servers(
         servers::service::get_servers_for_user(&state.database, user_id)
             .await?;
     Ok(Json(ServersPayload { servers }))
+}
+
+pub(super) async fn get_current_user_config(
+    State(state): State<UsersState>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+) -> AppResult<Json<UserConfigPayload>> {
+    let user_config =
+        user_configs::get_user_config(&state.database, user_id).await?;
+    Ok(Json(UserConfigPayload { user_config }))
+}
+
+pub(super) async fn update_current_user_config(
+    State(state): State<UsersState>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    Json(payload): Json<UserConfigRequest>,
+) -> AppResult<Json<UserConfigPayload>> {
+    let user_config =
+        user_configs::update_user_config(&state.database, user_id, payload)
+            .await?;
+    Ok(Json(UserConfigPayload { user_config }))
 }
 
 pub(super) async fn is_first_user(

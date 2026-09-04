@@ -50,3 +50,9 @@ pub(super) struct ChannelPayload {
 pub(super) struct ChannelsPayload {
     pub(super) channels: Vec<ChannelResponse>,
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct UnreadChannelsPayload {
+    pub(super) channel_ids: Vec<String>,
+}

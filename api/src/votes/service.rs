@@ -1,10 +1,14 @@
 use axum::http::StatusCode;
 use chrono::Utc;
 use entity::{
-    calls,
-    enums::{ForumPostStatus, PollDecisionMakingModel, PollStage, VoteType},
-    forum_posts, poll_actions as poll_action_entities, poll_configs,
-    poll_option_selections, poll_options, polls, users, votes as vote_entities,
+    calls, channels as channel_entities,
+    enums::{
+        ForumPostStatus, NotificationKind, PollDecisionMakingModel, PollStage,
+        PollType, VoteType,
+    },
+    forum_posts, notifications, poll_actions as poll_action_entities,
+    poll_configs, poll_option_selections, poll_options, polls, users,
+    votes as vote_entities,
 };
 use sea_orm::{
     prelude::Uuid, sea_query::LockType, ActiveModelTrait, ColumnTrait,
@@ -16,14 +20,14 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid as NativeUuid;
 
 use super::types::{
-    CreateVoteResponse, PollOptionVoterResponse, UpdateVoteResponse,
-    VoteRequest, VoteResponse,
+    CreateVoteResponse, CreatedVote, PollOptionVoterResponse,
+    UpdateVoteResponse, UpdatedVote, VoteRequest, VoteResponse,
 };
 use crate::{
     authz::{self, PermissionScope},
     channels,
     common::{request::parse_uuid, ApiError, AppResult},
-    forum, invites,
+    forum, invites, notifications as notifications_service,
     polls::{service as polls_service, PROPOSAL_BLOCK_SUBJECT},
     users as users_service,
 };
@@ -37,7 +41,7 @@ pub(super) async fn create_vote(
     poll: polls::Model,
     user_id: Uuid,
     request: VoteRequest,
-) -> AppResult<CreateVoteResponse> {
+) -> AppResult<CreatedVote> {
     let transaction = database.begin().await.map_err(internal_error)?;
     let (poll, config) =
         lock_poll_for_vote_mutation(&transaction, poll.id).await?;
@@ -80,6 +84,8 @@ pub(super) async fn create_vote(
 
     save_poll_option_selections(&transaction, vote.id, &poll_option_ids)
         .await?;
+    let mut notifications =
+        notify_proposal_vote(&transaction, &poll, &vote).await?;
     let finalization =
         synchronize_ratification_after_vote(&transaction, &poll).await?;
     forum::service::touch_forum_post_activity_for_poll(
@@ -91,26 +97,66 @@ pub(super) async fn create_vote(
 
     transaction.commit().await.map_err(internal_error)?;
     let is_ratifying_vote = matches!(
-        finalization,
+        finalization.as_ref().map(|outcome| outcome.finalization),
         Some(polls_service::ProposalFinalization::Ratified)
     );
-    let closed_reason = match finalization {
+    let closed_reason = match finalization.as_ref().map(|o| o.finalization) {
         Some(polls_service::ProposalFinalization::Closed(reason)) => {
             Some(reason.to_string())
         }
         _ => None,
     };
+    if let Some(outcome) = finalization {
+        notifications.extend(outcome.notifications);
+    }
 
-    Ok(CreateVoteResponse {
-        id: vote.id.to_string(),
-        poll_id: vote.poll_id.to_string(),
-        user_id: vote.user_id.to_string(),
-        vote_type: vote.vote_type.map(|value| value.to_string()),
-        poll_option_ids: (!poll_option_ids.is_empty())
-            .then(|| poll_option_ids.iter().map(ToString::to_string).collect()),
-        is_ratifying_vote,
-        closed_reason,
+    Ok(CreatedVote {
+        notifications,
+        vote: CreateVoteResponse {
+            id: vote.id.to_string(),
+            poll_id: vote.poll_id.to_string(),
+            user_id: vote.user_id.to_string(),
+            vote_type: vote.vote_type.map(|value| value.to_string()),
+            poll_option_ids: (!poll_option_ids.is_empty()).then(|| {
+                poll_option_ids.iter().map(ToString::to_string).collect()
+            }),
+            is_ratifying_vote,
+            closed_reason,
+        },
     })
+}
+
+/// Only proposals carry an author who is waiting on votes; plain polls do not
+/// notify.
+async fn notify_proposal_vote(
+    database: &DatabaseTransaction,
+    poll: &polls::Model,
+    vote: &vote_entities::Model,
+) -> AppResult<Vec<notifications::Model>> {
+    if poll.poll_type != PollType::Proposal {
+        return Ok(Vec::new());
+    }
+    let Some(channel) = channel_entities::Entity::find_by_id(poll.channel_id)
+        .one(database)
+        .await
+        .map_err(internal_error)?
+    else {
+        return Ok(Vec::new());
+    };
+
+    notifications_service::create_notifications(
+        database,
+        notifications_service::NewNotification {
+            kind: NotificationKind::ProposalVote,
+            server_id: channel.server_id,
+            channel_id: Some(poll.channel_id),
+            actor_user_id: Some(vote.user_id),
+            target: notifications_service::NotificationTarget::Poll(poll.id),
+            vote_type: vote.vote_type,
+            recipient_ids: vec![poll.user_id],
+        },
+    )
+    .await
 }
 
 pub(super) async fn update_vote(
@@ -120,7 +166,7 @@ pub(super) async fn update_vote(
     vote_id: Uuid,
     user_id: Uuid,
     request: VoteRequest,
-) -> AppResult<UpdateVoteResponse> {
+) -> AppResult<UpdatedVote> {
     let transaction = database.begin().await.map_err(internal_error)?;
 
     let (poll, config) =
@@ -174,19 +220,25 @@ pub(super) async fn update_vote(
     transaction.commit().await.map_err(internal_error)?;
 
     let is_ratifying_vote = matches!(
-        finalization,
+        finalization.as_ref().map(|outcome| outcome.finalization),
         Some(polls_service::ProposalFinalization::Ratified)
     );
-    let closed_reason = match finalization {
-        Some(polls_service::ProposalFinalization::Closed(reason)) => {
-            Some(reason.to_string())
-        }
-        _ => None,
-    };
+    let closed_reason =
+        match finalization.as_ref().map(|outcome| outcome.finalization) {
+            Some(polls_service::ProposalFinalization::Closed(reason)) => {
+                Some(reason.to_string())
+            }
+            _ => None,
+        };
 
-    Ok(UpdateVoteResponse {
-        is_ratifying_vote,
-        closed_reason,
+    Ok(UpdatedVote {
+        notifications: finalization
+            .map(|outcome| outcome.notifications)
+            .unwrap_or_default(),
+        vote: UpdateVoteResponse {
+            is_ratifying_vote,
+            closed_reason,
+        },
     })
 }
 
@@ -559,7 +611,7 @@ where
 async fn synchronize_ratification_after_vote(
     database: &DatabaseTransaction,
     poll: &polls::Model,
-) -> AppResult<Option<polls_service::ProposalFinalization>> {
+) -> AppResult<Option<polls_service::FinalizedProposal>> {
     let now = Utc::now().fixed_offset();
     if poll.poll_type != "proposal"
         || !polls_service::is_poll_ratifiable(database, poll.id, now).await?

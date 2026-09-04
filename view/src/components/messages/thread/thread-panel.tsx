@@ -1,13 +1,14 @@
 import { api } from '@/client/api-client';
 import { Message } from '@/components/messages/message';
 import { MessageForm } from '@/components/messages/message-form';
-import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { ThreadPanelSkeleton } from '@/components/messages/thread/thread-panel-skeleton';
+import { getThreadQueryKey } from '@/components/messages/thread/thread-query.utils';
 import { InlinePoll } from '@/components/polls/inline-poll';
 import { InlineProposal } from '@/components/polls/proposals/inline-proposal/inline-proposal';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuthData } from '@/hooks/use-auth-data';
+import { useFocusHighlight } from '@/hooks/use-focus-highlight';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import { useServerData } from '@/hooks/use-server-data';
@@ -27,10 +28,10 @@ import {
   type QueryKey,
 } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MdArrowBack, MdClose, MdErrorOutline } from 'react-icons/md';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const THREAD_PAGE_SIZE = 50;
 
@@ -73,6 +74,9 @@ export const ThreadPanel = ({
   const isDesktop = useIsDesktop();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusedReplyId = searchParams.get('reply');
 
   const queryKey = getThreadQueryKey(
     serverId,
@@ -206,6 +210,23 @@ export const ThreadPanel = ({
     shouldScrollAfterReplyRef.current = false;
     scrollToBottom();
   }, [replies.length, scrollToBottom]);
+
+  const clearFocusedReply = useCallback(() => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('reply');
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // An older reply would otherwise be missed, since the panel opens at its end.
+  useFocusHighlight({
+    containerRef: scrollContainerRef,
+    targetSelector: focusedReplyId
+      ? `[data-message-id="${CSS.escape(focusedReplyId)}"]`
+      : null,
+    revision: replies,
+    block: 'center',
+    onHandled: clearFocusedReply,
+  });
 
   return (
     <aside

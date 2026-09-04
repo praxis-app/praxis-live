@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
 import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
-import { DECISION_FOCUS_TARGET_CLASS_NAME } from '@/constants/style.constants';
+import { FOCUS_HIGHLIGHT_TARGET_CLASS_NAME } from '@/constants/style.constants';
 import { useServerData } from '@/hooks/use-server-data';
 import { useVotingDeadlineLabel } from '@/hooks/use-voting-deadline-label';
 import { handleError } from '@/lib/error.utils';
@@ -266,7 +266,7 @@ export const InlinePoll = ({
       data-decision-id={id}
       tabIndex={-1}
       className={cn(
-        DECISION_FOCUS_TARGET_CLASS_NAME,
+        FOCUS_HIGHLIGHT_TARGET_CLASS_NAME,
         'flex max-w-full min-w-0 scroll-m-3 gap-4 rounded-lg pt-1 focus:outline-none',
       )}
     >

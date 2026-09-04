@@ -43,6 +43,51 @@
     "fieldRequired": "This field is required."
   },
 
+  "notifications": {
+    "title": "Notifications",
+    "actions": {
+      "open": "Open notifications, {{count}} unread",
+      "openMenu": "Open notification actions",
+      "markRead": "Mark as read",
+      "markUnread": "Mark as unread",
+      "markAllRead": "Mark all read",
+      "delete": "Delete notification",
+      "clearAll": "Clear all notifications",
+      "settings": "Notification settings"
+    },
+    "labels": {
+      "system": "Praxis",
+      "unavailable": "This item is no longer available",
+      "unreadCount_one": "{{count}} unread",
+      "unreadCount_other": "{{count}} unread"
+    },
+    "items": {
+      "new_message_one": "{{actor}} sent a new message in #{{channel}}",
+      "new_message_other": "{{actor}} sent {{count}} new messages in #{{channel}}",
+      "new_message_forum_one": "{{actor}} created a new post in #{{channel}}",
+      "new_message_forum_other": "{{actor}} created {{count}} new posts in #{{channel}}",
+      "message_reply": "{{actor}} replied to a conversation in #{{channel}}",
+      "forum_reply": "{{actor}} replied to your forum post in #{{channel}}",
+      "proposal_vote": "{{actor}} voted {{vote}} on your proposal in #{{channel}}",
+      "proposal_ratified": "Your proposal in #{{channel}} was ratified",
+      "proposal_closed": "Your proposal in #{{channel}} closed",
+      "server_role_granted": "You were granted the {{role}} role"
+    },
+    "votes": {
+      "agree": "agree",
+      "disagree": "disagree",
+      "abstain": "abstain",
+      "block": "block"
+    },
+    "empty": {
+      "title": "You're all caught up",
+      "description": "Mentions, replies, proposal updates, and role changes will appear here."
+    },
+    "errors": {
+      "load": "Notifications could not be loaded."
+    }
+  },
+
   "auth": {
     "labels": {
       "email": "Email address",
@@ -835,7 +880,8 @@
 
   "settings": {
     "headers": {
-      "manageServers": "Manage Servers"
+      "manageServers": "Manage Servers",
+      "userSettings": "User Settings"
     },
     "names": {
       "decisionMakingModel": "Decision making model",
@@ -846,9 +892,15 @@
       "abstainsLimit": "Abstains limit",
       "votingTimeLimit": "Voting time limit",
       "blocksOpenToAll": "Anyone can block",
-      "anonymousUsersEnabled": "Anonymous users"
+      "anonymousUsersEnabled": "Anonymous users",
+      "messageNotificationsEnabled": "New messages",
+      "replyNotificationsEnabled": "Replies",
+      "proposalNotificationsEnabled": "Proposals",
+      "roleNotificationsEnabled": "Roles"
     },
     "descriptions": {
+      "profileSection": "Update how you appear to others, including your name, photos, and bio.",
+      "notificationSection": "Choose which notifications you receive across every server.",
       "serverSection": "Manage settings for the current server, including proposals, invites, and roles.",
       "instanceSection": "Manage settings across the entire instance, including instance roles and servers.",
       "decisionMakingModel": "Choose from consensus, consent, or majority vote to determine how decisions are made in the server.",
@@ -861,7 +913,14 @@
       "consentThresholdsDisabled": "Quorum and agreement threshold do not apply to consent, which passes at the voting deadline when disagreements and abstentions stay within their limits and nobody blocks.",
       "votingTimeLimit": "Set a time limit for how long proposals can be voted on before they're closed or ratified.",
       "blocksOpenToAll": "When off, blocking needs a role that grants it. Everyone else can still disagree, which counts against the disagreement limit.",
-      "anonymousUsersEnabled": "Allow users to participate without creating an account or providing personal information."
+      "anonymousUsersEnabled": "Allow users to participate without creating an account or providing personal information.",
+      "messageNotificationsEnabled": "Get notified when someone posts in a channel you've joined.",
+      "replyNotificationsEnabled": "Get notified when someone replies to your messages or forum posts.",
+      "proposalNotificationsEnabled": "Get notified about votes on your proposals and their outcomes.",
+      "roleNotificationsEnabled": "Get notified when you're granted a server role."
+    },
+    "prompts": {
+      "sectionLinkCopied": "Link copied to clipboard"
     },
     "explanations": {
       "decisionMakingModel": "The process used to make decisions in the server, which can be based on consensus, consent, or majority vote.",
@@ -1117,7 +1176,10 @@
       "proposals": "Proposals",
       "invites": "Invite Links",
       "roles": "Roles",
-      "events": "Events"
+      "events": "Events",
+      "notifications": "Notifications",
+      "profile": "Profile",
+      "userSettings": "Settings"
     },
     "descriptions": {
       "navDrawer": "View server details and available server actions.",

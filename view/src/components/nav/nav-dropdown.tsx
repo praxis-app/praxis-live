@@ -8,7 +8,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { UserAvatar } from '@/components/users/user-avatar';
 import { UserProfileDrawer } from '@/components/users/user-profile-drawer';
-import { NavigationPaths } from '@/constants/shared.constants';
+import {
+  NavigationPaths,
+  UserSettingsSections,
+} from '@/constants/shared.constants';
+import { getUserSettingsPath } from '@/lib/user-settings.utils';
 import { useLogOut } from '@/hooks/use-log-out';
 import { useMeQuery } from '@/hooks/use-me-query';
 import { truncate } from '@/lib/text.utils';
@@ -16,7 +20,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useNavStore } from '@/store/nav.store';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MdExitToApp, MdPerson } from 'react-icons/md';
+import { MdExitToApp, MdPerson, MdSettings } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -77,13 +81,26 @@ export const NavDropdown = ({ trigger }: Props) => {
         {!me.anonymous && (
           <DropdownMenuItem
             onClick={() => {
-              navigate(NavigationPaths.UsersEdit);
+              navigate(getUserSettingsPath(UserSettingsSections.Profile));
               setIsNavSheetOpen(false);
             }}
             className="text-md"
           >
             <MdPerson className="text-foreground size-5" />
             {t('users.actions.editProfile')}
+          </DropdownMenuItem>
+        )}
+
+        {!me.anonymous && (
+          <DropdownMenuItem
+            onClick={() => {
+              navigate(NavigationPaths.UserSettings);
+              setIsNavSheetOpen(false);
+            }}
+            className="text-md"
+          >
+            <MdSettings className="text-foreground size-5" />
+            {t('navigation.labels.userSettings')}
           </DropdownMenuItem>
         )}
 

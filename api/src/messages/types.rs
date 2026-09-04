@@ -120,3 +120,11 @@ pub(super) struct StoredImage {
 pub(crate) fn serialize_timestamp(value: DateTimeWithTimeZone) -> String {
     value.to_rfc3339()
 }
+
+/// A created message plus the notification rows it persisted, which the
+/// handler publishes once the message transaction has committed.
+#[derive(Debug)]
+pub(crate) struct CreatedMessage {
+    pub(crate) message: MessageResponse,
+    pub(crate) notifications: Vec<entity::notifications::Model>,
+}

@@ -1,8 +1,10 @@
+import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { ChannelDetailsDialogDesktop } from '@/components/channels/channel-details-dialog-desktop';
 import { ChannelDetailsDrawer } from '@/components/channels/channel-details-drawer';
-import { ChannelCallButton } from '@/components/calls/channel-call-button';
 import { NavSheet } from '@/components/nav/nav-sheet';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import {
   Tooltip,
   TooltipContent,
@@ -13,8 +15,8 @@ import { MIDDOT_WITH_SPACES } from '@/constants/shared.constants';
 import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { truncate } from '@/lib/text.utils';
 import { useAppStore } from '@/store/app.store';
-import { type ChannelRes } from '@/types/channel.types';
 import { type CallJoinPreferences, type JoinCallRes } from '@/types/call.types';
+import { type ChannelRes } from '@/types/channel.types';
 import { useTranslation } from 'react-i18next';
 import { LuArrowLeft, LuListTodo } from 'react-icons/lu';
 import { MdChevronRight, MdForum, MdSearch, MdTag } from 'react-icons/md';
@@ -121,54 +123,64 @@ export const ChannelTopNav = ({
       </div>
 
       <TooltipProvider>
-        <div className="flex items-center gap-1">
-          {channel && videoCallsEnabled && (
-            <ChannelCallButton
-              callConfig={callConfig}
-              callPreferences={callPreferences}
-              channel={channel}
-              serverName={serverName}
-              isJoining={isJoiningCall}
-              isPreJoinOpen={isPreJoinOpen}
-              onCancelPreJoin={onCancelPreJoin}
-              onConfirmJoin={onConfirmJoinCall}
-              onJoin={onJoinCall}
-              onLeave={onLeaveCall}
-            />
-          )}
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-0.5 empty:hidden">
+            {channel && videoCallsEnabled && (
+              <ChannelCallButton
+                callConfig={callConfig}
+                callPreferences={callPreferences}
+                channel={channel}
+                serverName={serverName}
+                isJoining={isJoiningCall}
+                isPreJoinOpen={isPreJoinOpen}
+                onCancelPreJoin={onCancelPreJoin}
+                onConfirmJoin={onConfirmJoinCall}
+                onJoin={onJoinCall}
+                onLeave={onLeaveCall}
+              />
+            )}
 
-          {isDesktop && (
+            {isDesktop && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    aria-label={t('decisions.actions.togglePanel')}
+                    aria-controls="active-decisions-panel"
+                    aria-expanded={isDecisionsPanelOpen}
+                    onClick={onToggleDecisionsPanel}
+                    variant="ghost"
+                    size="icon"
+                  >
+                    <LuListTodo className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('decisions.actions.panel')}</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+
+          <Separator
+            orientation="vertical"
+            className="bg-muted-foreground/30 h-5"
+          />
+
+          <div className="flex items-center gap-0.5">
+            <NotificationBell />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  type="button"
-                  aria-label={t('decisions.actions.togglePanel')}
-                  aria-controls="active-decisions-panel"
-                  aria-expanded={isDecisionsPanelOpen}
-                  onClick={onToggleDecisionsPanel}
+                  aria-label={searchLabel}
+                  onClick={() => toast(t('prompts.inDev'))}
                   variant="ghost"
                   size="icon"
                 >
-                  <LuListTodo className="size-5.5" />
+                  <MdSearch className="size-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{t('decisions.actions.panel')}</TooltipContent>
+              <TooltipContent>{searchLabel}</TooltipContent>
             </Tooltip>
-          )}
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={searchLabel}
-                onClick={() => toast(t('prompts.inDev'))}
-                variant="ghost"
-                size="icon"
-              >
-                <MdSearch className="size-6" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{searchLabel}</TooltipContent>
-          </Tooltip>
+          </div>
         </div>
       </TooltipProvider>
     </header>

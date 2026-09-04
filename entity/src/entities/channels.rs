@@ -32,6 +32,8 @@ pub enum Relation {
     Members,
     #[sea_orm(has_many = "super::forum_posts::Entity")]
     ForumPosts,
+    #[sea_orm(has_many = "super::notifications::Entity")]
+    Notifications,
 }
 
 impl Related<super::servers::Entity> for Entity {
@@ -55,6 +57,12 @@ impl Related<super::channel_members::Entity> for Entity {
 impl Related<super::forum_posts::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ForumPosts.def()
+    }
+}
+
+impl Related<super::notifications::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Notifications.def()
     }
 }
 

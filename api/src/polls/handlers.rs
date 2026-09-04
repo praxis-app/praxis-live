@@ -167,6 +167,12 @@ pub(super) async fn create_reply(
             "failed to broadcast created poll thread reply: {error}"
         );
     }
+    crate::notifications::publish_notifications(
+        &state.database,
+        &state.pub_sub_service,
+        &created.notifications,
+    )
+    .await;
     Ok(Json(MessagePayload {
         message: created.reply,
     }))

@@ -13,8 +13,8 @@ use super::{
     },
     service,
     types::{
-        ChannelOrderRequest, ChannelPayload, ChannelRequest, ChannelsPayload,
-        ServerPath,
+        ChannelOrderRequest, ChannelPath, ChannelPayload, ChannelRequest,
+        ChannelsPayload, ServerPath, UnreadChannelsPayload,
     },
 };
 use crate::{
@@ -119,6 +119,35 @@ pub(super) async fn get_joined_channels(
         service::get_joined_channels(&state.database, path.server_id, user_id)
             .await?;
     Ok(Json(ChannelsPayload { channels }))
+}
+
+pub(super) async fn get_unread_channels(
+    State(state): State<ChannelsState>,
+    Path(path): Path<ServerPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+) -> AppResult<Json<UnreadChannelsPayload>> {
+    let channel_ids = service::get_unread_channel_ids(
+        &state.database,
+        path.server_id,
+        user_id,
+    )
+    .await?;
+    Ok(Json(UnreadChannelsPayload {
+        channel_ids: channel_ids
+            .into_iter()
+            .map(|channel_id| channel_id.to_string())
+            .collect(),
+    }))
+}
+
+pub(super) async fn mark_channel_read(
+    State(state): State<ChannelsState>,
+    Path(path): Path<ChannelPath>,
+    AuthenticatedUser(user_id): AuthenticatedUser,
+) -> AppResult<Json<EmptyResponse>> {
+    service::mark_channel_read(&state.database, path.channel_id, user_id)
+        .await?;
+    Ok(Json(EmptyResponse {}))
 }
 
 pub(super) async fn get_channel(
