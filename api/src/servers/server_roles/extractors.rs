@@ -30,6 +30,7 @@ pub(super) struct CanManageServerRolesContext {
 pub(super) struct CanManageServerRoleContext {
     pub(super) server_id: Uuid,
     pub(super) server_role_id: Uuid,
+    pub(super) user_id: Uuid,
 }
 
 pub(super) struct CanManageServerRoleMemberContext {
@@ -48,7 +49,10 @@ impl FromRequestParts<ServerRolesState> for CanManageServerRolesContext {
         let Path(path) = Path::<ServerPath>::from_request_parts(parts, state)
             .await
             .map_err(|_| invalid_route_path())?;
-        can_manage_server_roles(parts, state, path.server_id).await?;
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        can_manage_server_roles(state, user_id, path.server_id).await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -67,11 +71,15 @@ impl FromRequestParts<ServerRolesState> for CanManageServerRoleContext {
             Path::<ServerRolePath>::from_request_parts(parts, state)
                 .await
                 .map_err(|_| invalid_route_path())?;
-        can_manage_server_roles(parts, state, path.server_id).await?;
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        can_manage_server_roles(state, user_id, path.server_id).await?;
 
         Ok(Self {
             server_id: path.server_id,
             server_role_id: path.server_role_id,
+            user_id,
         })
     }
 }
@@ -87,7 +95,10 @@ impl FromRequestParts<ServerRolesState> for CanManageServerRoleMemberContext {
             Path::<ServerRoleMemberPath>::from_request_parts(parts, state)
                 .await
                 .map_err(|_| invalid_route_path())?;
-        can_manage_server_roles(parts, state, path.server_id).await?;
+        let AuthenticatedUser(user_id) =
+            AuthenticatedUser::from_request_parts(parts, state).await?;
+
+        can_manage_server_roles(state, user_id, path.server_id).await?;
 
         Ok(Self {
             server_id: path.server_id,
@@ -98,13 +109,10 @@ impl FromRequestParts<ServerRolesState> for CanManageServerRoleMemberContext {
 }
 
 async fn can_manage_server_roles(
-    parts: &mut Parts,
     state: &ServerRolesState,
+    user_id: Uuid,
     server_id: Uuid,
 ) -> Result<(), ApiError> {
-    let AuthenticatedUser(user_id) =
-        AuthenticatedUser::from_request_parts(parts, state).await?;
-
     authz::can(
         &state.database,
         user_id,

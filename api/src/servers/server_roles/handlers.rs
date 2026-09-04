@@ -17,12 +17,15 @@ use super::{
 use crate::{
     auth::HasJwtSecret,
     common::{response::EmptyResponse, ApiError, AppResult},
+    notifications,
+    pub_sub::PubSubService,
     servers::types::UsersPayload,
 };
 
 #[derive(Clone, Debug)]
 pub(super) struct ServerRolesState {
     pub(super) database: DatabaseConnection,
+    pub(super) pub_sub_service: PubSubService,
     jwt_secret: Arc<str>,
 }
 
@@ -30,9 +33,11 @@ impl ServerRolesState {
     pub(super) fn new(
         database: DatabaseConnection,
         jwt_secret: String,
+        pub_sub_service: PubSubService,
     ) -> Self {
         Self {
             database,
+            pub_sub_service,
             jwt_secret: Arc::<str>::from(jwt_secret),
         }
     }
@@ -129,13 +134,22 @@ pub(super) async fn add_server_role_members(
     Json(payload): Json<RoleMembersRequest>,
 ) -> AppResult<Json<EmptyResponse>> {
     let user_ids = parse_user_ids(&payload.user_ids)?;
-    service::add_server_role_members(
+    let created = service::add_server_role_members(
         &state.database,
         context.server_id,
         context.server_role_id,
+        context.user_id,
         &user_ids,
     )
     .await?;
+
+    notifications::publish_notifications(
+        &state.database,
+        &state.pub_sub_service,
+        &created,
+    )
+    .await;
+
     Ok(Json(EmptyResponse {}))
 }
 

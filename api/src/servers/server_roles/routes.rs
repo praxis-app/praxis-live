@@ -4,6 +4,8 @@ use axum::{
 };
 use sea_orm::DatabaseConnection;
 
+use crate::pub_sub::PubSubService;
+
 use super::handlers::{
     add_server_role_members, create_server_role, delete_server_role,
     get_server_role, get_server_roles, get_users_eligible_for_server_role,
@@ -14,6 +16,7 @@ use super::handlers::{
 pub(crate) fn router(
     database: DatabaseConnection,
     jwt_secret: String,
+    pub_sub_service: PubSubService,
 ) -> Router {
     Router::new()
         .route("/", get(get_server_roles))
@@ -34,5 +37,9 @@ pub(crate) fn router(
             "/{serverRoleId}/members/{userId}",
             delete(remove_server_role_member),
         )
-        .with_state(ServerRolesState::new(database, jwt_secret))
+        .with_state(ServerRolesState::new(
+            database,
+            jwt_secret,
+            pub_sub_service,
+        ))
 }

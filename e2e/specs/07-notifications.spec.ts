@@ -19,6 +19,10 @@ import {
   makeProposalsRatifyWithOneAgreeVote,
   voteViaApi,
 } from '../lib/polls';
+import {
+  addServerRoleMembers,
+  createServerRole,
+} from '../lib/server-roles';
 import { getDefaultServer } from '../lib/servers';
 
 /** Matches MESSAGES_PAGE_SIZE, so the feed has to page back to old targets. */
@@ -499,4 +503,108 @@ test('selecting a notification from another page closes the inbox before routing
     (frame) => !frame.startsWith('/users/settings') && frame.endsWith('inbox:1'),
   );
   expect(overlapping).toEqual([]);
+});
+
+test('server role grants notify the member and open the server', async ({
+  context,
+  page,
+  request,
+}) => {
+  const recipient = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('role-grant-recipient'),
+  );
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const server = await getDefaultServer(request, recipient);
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await expect(page.getByTestId('notification-bell')).toBeVisible();
+
+  const roleName = `e2e-granted-${recipient.user.suffix}`;
+  const role = await createServerRole(
+    request,
+    instanceAdmin,
+    server.id,
+    roleName,
+  );
+  await addServerRoleMembers(request, instanceAdmin, server.id, role.id, [
+    recipient.userId,
+  ]);
+
+  await expectUnreadNotifications(page, 1);
+  const inbox = await openNotifications(page);
+  const grant = notificationItem(inbox, `You were granted the ${roleName} role`);
+  await expect(grant).toBeVisible();
+
+  await grant.getByRole('button').first().click();
+  await expect(page).toHaveURL(new RegExp(`/s/${server.slug}$`));
+  await expectUnreadNotifications(page, 0);
+
+  // Re-granting a role the member already holds is not a second grant.
+  await addServerRoleMembers(request, instanceAdmin, server.id, role.id, [
+    recipient.userId,
+  ]);
+  await page.reload();
+  await expectUnreadNotifications(page, 0);
+});
+
+test('ratified role proposals notify the member they add', async ({
+  context,
+  page,
+  request,
+}) => {
+  const recipient = await createAuthenticatedUser(
+    request,
+    context,
+    createTestUser('role-proposal-recipient'),
+  );
+  const voter = await signUpViaApi(
+    request,
+    createTestUser('role-proposal-voter'),
+  );
+  const instanceAdmin = await getOrCreateInstanceAdmin(request);
+  const server = await getDefaultServer(request, recipient);
+  await makeProposalsRatifyWithOneAgreeVote(request, instanceAdmin, server.id);
+
+  const roleName = `e2e-proposed-${recipient.user.suffix}`;
+  const proposalResponse = await request.post(
+    `/api/servers/${server.id}/channels/${server.generalChannelId}/polls`,
+    {
+      headers: authorizationHeaders(instanceAdmin),
+      data: {
+        body: `Create the ${roleName} role`,
+        pollType: 'proposal',
+        action: {
+          actionType: 'create-role',
+          serverRole: {
+            name: roleName,
+            color: '#2196f3',
+            members: [{ userId: recipient.userId, changeType: 'add' }],
+            permissions: [],
+          },
+        },
+      },
+    },
+  );
+  await expect(proposalResponse).toBeOK();
+  const proposal = ((await proposalResponse.json()) as PollResponse).poll;
+
+  await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+  await expect(page.getByTestId('notification-bell')).toBeVisible();
+  await voteViaApi(
+    request,
+    voter,
+    server.id,
+    server.generalChannelId,
+    proposal.id,
+    'agree',
+  );
+
+  // The recipient neither proposed nor voted, so the grant is their only
+  // notification from the ratification.
+  await expectUnreadNotifications(page, 1);
+  const inbox = await openNotifications(page);
+  await expect(
+    notificationItem(inbox, `You were granted the ${roleName} role`),
+  ).toBeVisible();
 });

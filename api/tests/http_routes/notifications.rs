@@ -512,6 +512,97 @@ async fn ratified_role_proposals_notify_the_added_member() {
 }
 
 #[tokio::test]
+async fn directly_granting_a_server_role_notifies_the_member() {
+    let app = TestApp::new().await;
+    let context = Context::new(&app).await;
+    let carol_id = context.user_id("Carol").await;
+    let role_id = context.create_server_role("Moderator").await;
+
+    context.add_role_members(&role_id, &[carol_id]).await;
+
+    let granted = context.of_kind(&context.carol, "server_role_granted").await;
+    assert_eq!(granted.len(), 1);
+    assert_eq!(granted[0]["target"]["kind"], "serverRole");
+    assert_eq!(granted[0]["target"]["available"], true);
+    assert_eq!(granted[0]["target"]["serverRoleId"], role_id);
+    assert_eq!(granted[0]["target"]["serverRoleName"], "Moderator");
+
+    // A hand-granted role names the admin who granted it, unlike the
+    // proposal path where the grant comes from the ratified decision.
+    assert_eq!(granted[0]["actor"]["name"], "Alice");
+    assert!(granted[0]["channelId"].is_null());
+    assert_eq!(context.unread_count(&context.carol).await, 1);
+
+    for token in [&context.alice, &context.bob] {
+        assert!(context
+            .of_kind(token, "server_role_granted")
+            .await
+            .is_empty());
+    }
+}
+
+#[tokio::test]
+async fn repeating_a_direct_role_grant_does_not_notify_again() {
+    let app = TestApp::new().await;
+    let context = Context::new(&app).await;
+    let alice_id = context.user_id("Alice").await;
+    let bob_id = context.user_id("Bob").await;
+    let carol_id = context.user_id("Carol").await;
+    let role_id = context.create_server_role("Moderator").await;
+
+    context.add_role_members(&role_id, &[carol_id]).await;
+    context
+        .add_role_members(&role_id, &[carol_id, bob_id])
+        .await;
+
+    // Carol already held the role, so only Bob's fresh grant notifies.
+    assert_eq!(
+        context
+            .of_kind(&context.carol, "server_role_granted")
+            .await
+            .len(),
+        1
+    );
+    assert_eq!(
+        context
+            .of_kind(&context.bob, "server_role_granted")
+            .await
+            .len(),
+        1
+    );
+
+    // An admin granting themselves a role is never their own recipient.
+    context.add_role_members(&role_id, &[alice_id]).await;
+    assert!(context
+        .of_kind(&context.alice, "server_role_granted")
+        .await
+        .is_empty());
+}
+
+#[tokio::test]
+async fn role_grants_respect_the_recipient_notification_setting() {
+    let app = TestApp::new().await;
+    let context = Context::new(&app).await;
+    let carol_id = context.user_id("Carol").await;
+    let response = app
+        .put_json_with_bearer(
+            "/api/users/me/configs",
+            &json!({ "roleNotificationsEnabled": false }),
+            &context.carol,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let role_id = context.create_server_role("Moderator").await;
+    context.add_role_members(&role_id, &[carol_id]).await;
+
+    assert!(context
+        .of_kind(&context.carol, "server_role_granted")
+        .await
+        .is_empty());
+}
+
+#[tokio::test]
 async fn role_grants_travel_with_the_ratification_that_created_them() {
     let app = TestApp::new().await;
     let context = Context::new(&app).await;
@@ -694,6 +785,40 @@ impl<'a> Context<'a> {
             .as_str()
             .unwrap()
             .to_owned()
+    }
+
+    async fn create_server_role(&self, name: &str) -> String {
+        let response = self
+            .app
+            .post_json_with_bearer(
+                &format!("/api/servers/{}/roles", self.server_id),
+                &json!({ "name": name, "color": "#336699" }),
+                &self.alice,
+            )
+            .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        json_body(response).await["serverRole"]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    async fn add_role_members(&self, role_id: &str, user_ids: &[Uuid]) {
+        let user_ids: Vec<String> =
+            user_ids.iter().map(|id| id.to_string()).collect();
+        let response = self
+            .app
+            .post_json_with_bearer(
+                &format!(
+                    "/api/servers/{}/roles/{role_id}/members",
+                    self.server_id
+                ),
+                &json!({ "userIds": user_ids }),
+                &self.alice,
+            )
+            .await;
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     async fn set_consensus_config(&self) {

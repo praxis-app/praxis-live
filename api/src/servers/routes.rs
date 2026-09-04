@@ -67,7 +67,11 @@ pub(crate) fn router(
     servers_router
         .nest(
             "/servers/{serverId}/roles",
-            server_roles::router(database.clone(), jwt_secret.clone()),
+            server_roles::router(
+                database.clone(),
+                jwt_secret.clone(),
+                pub_sub_service.clone(),
+            ),
         )
         .nest(
             "/servers/{serverId}/invites",
