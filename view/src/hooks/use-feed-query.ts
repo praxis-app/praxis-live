@@ -112,14 +112,15 @@ export const useFeedQuery = ({
     void syncNewerItems();
   }, [enabled, hadCachedData, queryHash]);
 
-  // WebSocket reconnects do not replay missed events, and this query never
-  // becomes stale, so catch up from the API when the browser becomes active.
+  const refetchFeed = query.refetch;
+
+  // Replies update existing items, so refresh loaded pages on browser resume.
   useEffect(() => {
     if (!enabled) {
       return;
     }
-    return subscribeToBrowserResume(() => void syncNewerItems());
-  }, [enabled]);
+    return subscribeToBrowserResume(() => void refetchFeed());
+  }, [enabled, refetchFeed]);
 
   return query;
 };

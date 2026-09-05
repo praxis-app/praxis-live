@@ -381,11 +381,13 @@ async fn handle_socket(state: PubSubState, mut socket: WebSocket) {
     state.service.disconnect(socket_id).await;
 }
 
+// Validate and authorize each socket request before dispatching it
 async fn handle_inbound_message(
     state: &PubSubState,
     socket_id: Uuid,
     message: Message,
 ) -> bool {
+    // Decode text frames into pub-sub requests
     let Message::Text(text) = message else {
         return false;
     };
@@ -400,6 +402,7 @@ async fn handle_inbound_message(
         return false;
     };
 
+    // Authenticate the token on every request
     let user_id = match authenticate_token(&request.token, state.jwt_secret()) {
         Ok(user_id) => user_id,
         Err(_) => {
@@ -414,6 +417,7 @@ async fn handle_inbound_message(
         }
     };
 
+    // Require a valid topic scoped to this user
     let access = channel_access(&request.channel, user_id);
     let Some(access) = access else {
         send_socket_error(
@@ -426,6 +430,7 @@ async fn handle_inbound_message(
         return false;
     };
 
+    // Verify the channel belongs to the server and the user is a member
     if channels::get_channel(
         &state.database,
         access.server_id,
@@ -451,6 +456,7 @@ async fn handle_inbound_message(
         return false;
     }
 
+    // Apply the authorized subscription or publish operation
     match request.request {
         PubSubRequestKind::Subscribe => {
             if let Err(error) =
@@ -464,6 +470,20 @@ async fn handle_inbound_message(
                     "INTERNAL_SERVER_ERROR",
                     "Internal server error.",
                 );
+            } else if let Some(sender) =
+                state.service.registry.subscribers.get(&socket_id)
+            {
+                // Confirm readiness so clients can fetch replies missed before subscribing
+                let response = PubSubResponse {
+                    kind: "RESPONSE",
+                    channel: &request.channel,
+                    request: Some("SUBSCRIBE"),
+                    error: None,
+                    body: None,
+                };
+                if let Ok(message) = serde_json::to_string(&response) {
+                    let _ = sender.send(Message::Text(message.into()));
+                }
             }
         }
         PubSubRequestKind::Unsubscribe => {
@@ -513,6 +533,7 @@ fn response_message(
     serde_json::to_string(&PubSubResponse {
         kind: "RESPONSE",
         channel,
+        request: None,
         error,
         body,
     })
@@ -560,6 +581,8 @@ struct PubSubResponse<'a> {
     #[serde(rename = "type")]
     kind: &'static str,
     channel: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<PubSubError>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -227,7 +227,8 @@ export const TextChannelView = ({
       return;
     }
     const movedReference = feed.find(
-      (item) => item.type === 'proposalMoved' && item.proposalId === thread.rootId,
+      (item) =>
+        item.type === 'proposalMoved' && item.proposalId === thread.rootId,
     );
     if (!movedReference || movedReference.type !== 'proposalMoved') {
       return;
@@ -266,6 +267,22 @@ export const TextChannelView = ({
   useSubscription(
     channelPubSubTopic('new-message', serverId, channel?.id, me?.id),
     {
+      onSubscribed: () => {
+        if (!thread) {
+          return;
+        }
+        // Resume fetches can finish before the live subscription is restored
+        void queryClient.invalidateQueries({
+          queryKey: getThreadQueryKey(
+            serverId,
+            channel?.id,
+            thread.rootKind,
+            thread.rootId,
+            inviteToken,
+          ),
+          exact: true,
+        });
+      },
       onMessage: (event) => {
         const { body }: PubSubMessage<NewMessagePayload | ThreadReplyPayload> =
           JSON.parse(event.data);

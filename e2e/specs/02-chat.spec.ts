@@ -6,12 +6,14 @@ import {
   type Locator,
   type Page,
   type Request,
+  type WebSocketRoute,
 } from '@playwright/test';
 import {
   authorizationHeaders,
   createAuthenticatedUser,
   getOrCreateInstanceAdmin,
   setupAnonymousInvite,
+  signUpViaApi,
 } from '../lib/auth';
 import { startCallFromTopNav } from '../lib/calls';
 import { createTestMessage, createTestUser } from '../lib/data';
@@ -834,4 +836,226 @@ test('long pressing a message on mobile opens its menu without selecting text', 
   } finally {
     await mobileContext.close();
   }
+});
+
+test.describe('mobile thread recovery', () => {
+  const device = devices['Pixel 5'];
+  test.use({
+    viewport: device.viewport,
+    userAgent: device.userAgent,
+    deviceScaleFactor: device.deviceScaleFactor,
+    isMobile: device.isMobile,
+    hasTouch: device.hasTouch,
+  });
+
+  for (const existingReplies of [0, 1]) {
+    test(`mobile feed recovers ${existingReplies ? 'updated replies on an older message' : 'the first reply on a message'} after returning`, async ({
+      context,
+      page,
+      request,
+    }) => {
+      test.setTimeout(60_000);
+      const userA = await createAuthenticatedUser(
+        request,
+        context,
+        createTestUser('reply-reader'),
+      );
+      const userB = await signUpViaApi(request, createTestUser('reply-sender'));
+      const server = await getDefaultServer(request, userA);
+      const messagesPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/messages`;
+      const rootBody = `Message from A ${userA.user.suffix}`;
+      const rootResponse = await request.post(messagesPath, {
+        headers: authorizationHeaders(userA),
+        data: { body: rootBody },
+      });
+      await expect(rootResponse).toBeOK();
+      const { message: root } = (await rootResponse.json()) as {
+        message: { id: string };
+      };
+      const postReply = async (body: string) => {
+        const response = await request.post(
+          `${messagesPath}/${root.id}/replies`,
+          { headers: authorizationHeaders(userB), data: { body } },
+        );
+        await expect(response).toBeOK();
+      };
+      if (existingReplies) {
+        await postReply(`Earlier reply ${userB.user.suffix}`);
+        await createMessages({
+          request,
+          user: userA,
+          serverId: server.id,
+          channelId: server.generalChannelId,
+          bodies: Array.from(
+            { length: 21 },
+            (_, index) => `Newer message ${index} ${userA.user.suffix}`,
+          ),
+        });
+      }
+
+      let away = false;
+      let missedReplies = 0;
+      await page.routeWebSocket('**/ws', (socket) => {
+        const upstream = socket.connectToServer();
+        upstream.onMessage((message) => {
+          if (away) {
+            if (JSON.parse(message.toString()).body?.type === 'threadReply')
+              missedReplies++;
+          } else socket.send(message);
+        });
+      });
+      await page.goto(`/s/${server.slug}/c/${server.generalChannelId}`);
+      const feed = page.getByTestId('feed');
+      const rootMessage = feed.locator(`[data-message-id="${root.id}"]`);
+      if (existingReplies) {
+        await expect(
+          feed.getByText(`Newer message 20 ${userA.user.suffix}`),
+        ).toBeVisible();
+        const olderPage = page.waitForResponse(
+          (response) =>
+            response.url().includes('/feed?') &&
+            new URL(response.url()).searchParams.has('before'),
+        );
+        await feed.evaluate((element) => {
+          element.scrollTop = -element.scrollHeight;
+        });
+        await olderPage;
+      }
+      await rootMessage.scrollIntoViewIfNeeded();
+      await expect(rootMessage.getByText(rootBody)).toBeVisible();
+      await expect(page.getByTestId('thread-panel')).toHaveCount(0);
+      if (existingReplies)
+        await expect(
+          rootMessage.getByRole('button', { name: /1 reply/ }),
+        ).toBeVisible();
+      else
+        await expect(
+          rootMessage.getByRole('button', { name: /repl/ }),
+        ).toHaveCount(0);
+
+      const cdp = await context.newCDPSession(page);
+      away = true;
+      await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
+      const replyBody = `Reply from B while A is away ${userB.user.suffix}`;
+      await postReply(replyBody);
+      const regularBody = `Regular message while A is away ${userB.user.suffix}`;
+      await createMessages({
+        request,
+        user: userB,
+        serverId: server.id,
+        channelId: server.generalChannelId,
+        bodies: [regularBody],
+      });
+      await expect.poll(() => missedReplies).toBeGreaterThan(0);
+      await page.waitForTimeout(15_000);
+      away = false;
+      await cdp.send('Page.setWebLifecycleState', { state: 'active' });
+      await page.bringToFront();
+      // Supply the foreground event that CDP unfreezing does not emit.
+      await page.evaluate(() =>
+        document.dispatchEvent(new Event('visibilitychange')),
+      );
+
+      await expect(feed.getByText(regularBody)).toBeAttached();
+      await rootMessage.scrollIntoViewIfNeeded();
+      const summary = rootMessage.getByRole('button', {
+        name: existingReplies ? /2 replies/ : /1 reply/,
+      });
+      await expect(summary).toBeVisible();
+      await summary.click();
+      await expect(
+        page.getByTestId('thread-panel').getByText(replyBody),
+      ).toBeVisible();
+    });
+  }
+
+  test('open mobile thread recovers replies missed before resubscription', async ({
+    context,
+    page,
+    request,
+  }) => {
+    const user = await createAuthenticatedUser(
+      request,
+      context,
+      createTestUser('resume'),
+    );
+    const server = await getDefaultServer(request, user);
+    const messagesPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/messages`;
+    const rootResponse = await request.post(messagesPath, {
+      headers: authorizationHeaders(user),
+      data: { body: `Resume root ${user.user.suffix}` },
+    });
+    await expect(rootResponse).toBeOK();
+    const { message: root } = (await rootResponse.json()) as {
+      message: { id: string; body: string };
+    };
+    const repliesPath = `${messagesPath}/${root.id}/replies`;
+    const postReply = async (body: string) => {
+      const response = await request.post(repliesPath, {
+        headers: authorizationHeaders(user),
+        data: { body },
+      });
+      await expect(response).toBeOK();
+    };
+
+    let socket: WebSocketRoute;
+    let upstream: WebSocketRoute;
+    let holdSubscriptions = false;
+    const pending: (() => void)[] = [];
+    await page.routeWebSocket('**/ws', (route) => {
+      socket = route;
+      upstream = route.connectToServer();
+      const connection = upstream;
+      route.onMessage((message) => {
+        if (holdSubscriptions) pending.push(() => connection.send(message));
+        else connection.send(message);
+      });
+    });
+
+    await page.goto(
+      `/s/${server.slug}/c/${server.generalChannelId}?thread=${root.id}`,
+    );
+    const panel = page.getByTestId('thread-panel');
+    await expect(panel.getByText(root.body)).toBeVisible();
+    const baseline = `Live before leaving ${user.user.suffix}`;
+    await postReply(baseline);
+    await expect(panel.getByText(baseline)).toBeVisible();
+
+    // Delay resubscription independently of HTTP, as on a recovering connection.
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
+    holdSubscriptions = true;
+    await socket!.close({
+      code: 1012,
+      reason: 'Connection interrupted while away',
+    });
+    await upstream!.close();
+    const awayReply = `Reply while away ${user.user.suffix}`;
+    await postReply(awayReply);
+    const resumeFetch = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === repliesPath &&
+        response.request().method() === 'GET',
+    );
+    await cdp.send('Page.setWebLifecycleState', { state: 'active' });
+    await page.bringToFront();
+    // CDP unfreezing does not itself switch OS apps or emit a window focus event.
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await resumeFetch;
+    await expect(panel.getByText(awayReply)).toBeVisible();
+    await expect.poll(() => pending.length).toBeGreaterThan(0);
+
+    const gapReply = `Reply during reconnect ${user.user.suffix}`;
+    await postReply(gapReply);
+    holdSubscriptions = false;
+    pending.splice(0).forEach((send) => send());
+
+    // A later live reply proves the subscription recovered, but cannot replay the gap.
+    await expect(async () => {
+      const probe = `Live after reconnect ${Date.now()}`;
+      await postReply(probe);
+      await expect(panel.getByText(probe)).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 5_000 });
+    await expect(panel.getByText(gapReply)).toBeVisible();
+  });
 });

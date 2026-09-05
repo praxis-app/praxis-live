@@ -30,9 +30,7 @@ const useSubscriptionInternal = (
 
     const webSocketOptions = { ...options };
     delete webSocketOptions.enabled;
-    if (!webSocketOptions.onMessage) {
-      return webSocketOptions;
-    }
+    delete webSocketOptions.onSubscribed;
 
     const handleMessage = webSocketOptions.onMessage;
     const onMessage = (event: MessageEvent) => {
@@ -44,7 +42,11 @@ const useSubscriptionInternal = (
         console.error(message.error);
         return;
       }
-      handleMessage(event);
+      if (message.type === 'RESPONSE' && message.request === 'SUBSCRIBE') {
+        if (isEnabled) options.onSubscribed?.();
+        return;
+      }
+      handleMessage?.(event);
     };
     return { ...webSocketOptions, onMessage };
   };
