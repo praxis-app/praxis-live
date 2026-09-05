@@ -6,6 +6,7 @@ import {
   type Locator,
   type Page,
   type Request,
+  type WebSocketRoute,
 } from '@playwright/test';
 import {
   authorizationHeaders,
@@ -834,4 +835,105 @@ test('long pressing a message on mobile opens its menu without selecting text', 
   } finally {
     await mobileContext.close();
   }
+});
+
+test.describe('mobile thread recovery', () => {
+  const device = devices['Pixel 5'];
+  test.use({
+    viewport: device.viewport,
+    userAgent: device.userAgent,
+    deviceScaleFactor: device.deviceScaleFactor,
+    isMobile: device.isMobile,
+    hasTouch: device.hasTouch,
+  });
+
+  test('open mobile thread recovers replies missed before resubscription', async ({
+    context,
+    page,
+    request,
+  }) => {
+    const user = await createAuthenticatedUser(
+      request,
+      context,
+      createTestUser('resume'),
+    );
+    const server = await getDefaultServer(request, user);
+    const messagesPath = `/api/servers/${server.id}/channels/${server.generalChannelId}/messages`;
+    const rootResponse = await request.post(messagesPath, {
+      headers: authorizationHeaders(user),
+      data: { body: `Resume root ${user.user.suffix}` },
+    });
+    await expect(rootResponse).toBeOK();
+    const { message: root } = (await rootResponse.json()) as {
+      message: { id: string; body: string };
+    };
+    const repliesPath = `${messagesPath}/${root.id}/replies`;
+    const postReply = async (body: string) => {
+      const response = await request.post(repliesPath, {
+        headers: authorizationHeaders(user),
+        data: { body },
+      });
+      await expect(response).toBeOK();
+    };
+
+    let socket: WebSocketRoute;
+    let upstream: WebSocketRoute;
+    let holdSubscriptions = false;
+    const pending: (() => void)[] = [];
+    await page.routeWebSocket('**/ws', (route) => {
+      socket = route;
+      upstream = route.connectToServer();
+      const connection = upstream;
+      route.onMessage((message) => {
+        if (holdSubscriptions) pending.push(() => connection.send(message));
+        else connection.send(message);
+      });
+    });
+
+    await page.goto(
+      `/s/${server.slug}/c/${server.generalChannelId}?thread=${root.id}`,
+    );
+    const panel = page.getByTestId('thread-panel');
+    await expect(panel.getByText(root.body)).toBeVisible();
+    const baseline = `Live before leaving ${user.user.suffix}`;
+    await postReply(baseline);
+    await expect(panel.getByText(baseline)).toBeVisible();
+
+    // Delay resubscription independently of HTTP, as on a recovering connection.
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
+    holdSubscriptions = true;
+    await socket!.close({
+      code: 1012,
+      reason: 'Connection interrupted while away',
+    });
+    await upstream!.close();
+    const awayReply = `Reply while away ${user.user.suffix}`;
+    await postReply(awayReply);
+    const resumeFetch = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === repliesPath &&
+        response.request().method() === 'GET',
+    );
+    await cdp.send('Page.setWebLifecycleState', { state: 'active' });
+    await page.bringToFront();
+    // CDP unfreezing does not itself switch OS apps or emit a window focus event.
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await resumeFetch;
+    await expect(panel.getByText(awayReply)).toBeVisible();
+    await expect.poll(() => pending.length).toBeGreaterThan(0);
+
+    const gapReply = `Reply during reconnect ${user.user.suffix}`;
+    await postReply(gapReply);
+    holdSubscriptions = false;
+    pending.splice(0).forEach((send) => send());
+
+    // A later live reply proves the subscription recovered, but cannot replay the gap.
+    await expect(async () => {
+      const probe = `Live after reconnect ${Date.now()}`;
+      await postReply(probe);
+      await expect(panel.getByText(probe)).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 5_000 });
+    await expect(panel.getByText(gapReply)).toBeVisible();
+  });
 });

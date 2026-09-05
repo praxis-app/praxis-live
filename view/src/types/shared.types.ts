@@ -11,6 +11,7 @@ export interface PubSubRequest<T = unknown> {
 export interface PubSubResponse<T = unknown> {
   type: 'RESPONSE';
   channel: string;
+  request?: 'SUBSCRIBE';
   error?: {
     code: string;
     message: string;
@@ -22,4 +23,5 @@ export type PubSubMessage<T = unknown> = PubSubRequest<T> | PubSubResponse<T>;
 
 export interface SubscriptionOptions extends Options {
   enabled?: boolean;
+  onSubscribed?: () => void;
 }
